@@ -1,0 +1,101 @@
+# Sabz System Platform
+# Entity Relationship Model
+
+Version: 1.0
+
+---
+
+# Overview
+
+This document describes the core entities and their relationships within the Sabz System Platform. For the full database design including column definitions, indexes, and constraints, see [Database Design Specification](database-design-specification.md).
+
+---
+
+# Core Entities
+
+## User Hierarchy
+
+```
+User (base entity)
++-- Customer
++-- Partner
+    +-- PartnerTier
+```
+
+- **User**: Base authentication entity with phone, password hash, and status.
+- **Customer**: Inherits from User. Represents B2C end-users.
+- **Partner**: Inherits from User. Represents B2B business accounts with verification status.
+- **PartnerTier**: Defines pricing tiers (Tier 1, Tier 2, Tier 3) with discount rules.
+
+---
+
+## Product Hierarchy
+
+```
+Product
++-- Category (tree structure)
++-- Brand
++-- ProductMedia (images, videos)
++-- ProductSpecification (key-value attributes)
++-- Inventory
+    +-- Warehouse
+    +-- StockLevel
+```
+
+- **Product**: Core product entity with title, slug, description, and status.
+- **Category**: Hierarchical categories supporting parent-child relationships.
+- **Brand**: Product manufacturer/brand classification.
+- **ProductMedia**: Associated images and videos with watermarking support.
+- **ProductSpecification**: Dynamic key-value attribute pairs for product specs.
+- **Inventory**: Stock tracking per product per warehouse.
+- **Warehouse**: Physical storage location reference.
+
+---
+
+## Order Hierarchy
+
+```
+Order
++-- OrderItem
++-- Payment
+    +-- Transaction
++-- Shipping
+    +-- TrackingEvent
+```
+
+- **Order**: Customer order with status lifecycle (pending, confirmed, shipped, delivered).
+- **OrderItem**: Individual line items with product reference, quantity, and pricing.
+- **Payment**: Payment record linked to gateway transactions.
+- **Transaction**: Individual payment gateway transaction with status.
+- **Shipping**: Shipping method and carrier information.
+- **TrackingEvent**: Delivery tracking checkpoints.
+
+---
+
+## Supporting Entities
+
+- **Address**: User addresses for shipping and billing.
+- **Role**: System roles (admin, operator, customer, partner).
+- **Permission**: Granular permissions mapped to roles.
+- **BlogPost**: Content management for SEO articles.
+- **AuditLog**: Administrative action tracking.
+- **MediaFile**: Shared file storage references.
+
+---
+
+# Key Relationships
+
+| Relationship | Type | Description |
+|--------------|------|-------------|
+| User -> Customer | One-to-One | A user may be a customer |
+| User -> Partner | One-to-One | A user may be a partner |
+| Partner -> PartnerTier | Many-to-One | Partners belong to a pricing tier |
+| Product -> Category | Many-to-One | Products belong to one category |
+| Product -> Brand | Many-to-One | Products belong to one brand |
+| Product -> ProductMedia | One-to-Many | Products have multiple media files |
+| Product -> Inventory | One-to-One | Products have inventory records |
+| Order -> User | Many-to-One | Orders belong to customers |
+| Order -> OrderItem | One-to-Many | Orders contain multiple items |
+| Order -> Payment | One-to-Many | Orders may have multiple payment attempts |
+| OrderItem -> Product | Many-to-One | Items reference products |
+| Role -> Permission | Many-to-Many | Roles have multiple permissions |
