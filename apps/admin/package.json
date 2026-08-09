@@ -1,0 +1,16 @@
+{
+  "name": "@sabz/admin",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "tsc --watch",
+    "build": "tsc",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "echo \"No tests yet\""
+  },
+  "devDependencies": {
+    "eslint": "^9.18.0",
+    "typescript": "^5.7.2"
+  }
+}
