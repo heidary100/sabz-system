@@ -15,6 +15,41 @@ This document describes the database migration strategy for the Sabz System Plat
 
 The platform uses **Prisma Migrate** as the primary migration tool.
 
+The Prisma CLI is scoped to the `@sabz/api` workspace package. Run it through the package scripts:
+
+```bash
+# Generate the Prisma Client from schema.prisma
+pnpm --filter @sabz/api prisma:generate
+
+# Create and apply a new migration (development workflow)
+pnpm --filter @sabz/api prisma:migrate -- --name descriptive-migration-name
+
+# Open Prisma Studio to inspect the database
+pnpm --filter @sabz/api prisma:studio
+```
+
+---
+
+# Local Database Setup
+
+1. Start PostgreSQL with Docker:
+
+```bash
+docker compose up -d postgres
+```
+
+2. Copy the environment template and edit if needed:
+
+```bash
+cp apps/api/.env.example apps/api/.env
+```
+
+3. Apply migrations:
+
+```bash
+pnpm --filter @sabz/api prisma:migrate
+```
+
 ---
 
 # Migration Workflow
@@ -25,11 +60,15 @@ The platform uses **Prisma Migrate** as the primary migration tool.
 2. Run the migration generation command:
 
 ```bash
-npx prisma migrate dev --name descriptive-migration-name
+pnpm --filter @sabz/api prisma:migrate -- --name descriptive-migration-name
 ```
 
 3. Review the generated SQL in the `migrations/` directory.
 4. Test the migration against a fresh database.
+
+## Initial Migration
+
+The repository contains an initial, empty migration (`20260810000000_init`) that establishes the migration baseline. Business models are intentionally absent and will be added through dedicated migrations in future issues.
 
 ## Migration Rules
 
@@ -43,7 +82,7 @@ npx prisma migrate dev --name descriptive-migration-name
 For production deployments:
 
 ```bash
-npx prisma migrate deploy
+pnpm --filter @sabz/api exec prisma migrate deploy
 ```
 
 This applies all pending migrations without prompting for changes.

@@ -44,11 +44,14 @@ Enterprise e-commerce platform for electronics retail and wholesale.
 # Install dependencies
 pnpm install
 
+# Copy environment template
+cp apps/api/.env.example apps/api/.env
+
 # Start infrastructure
-docker compose up -d
+docker compose up -d postgres
 
 # Run migrations
-cd apps/api && npx prisma migrate dev
+pnpm --filter @sabz/api prisma:migrate
 
 # Start development servers
 pnpm dev
