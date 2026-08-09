@@ -1,0 +1,4 @@
+-- Initial migration for the Sabz System platform.
+-- The database schema is intentionally empty: no business models are defined yet.
+-- Business models (users, partners, products, inventory, etc.) will be added
+-- in future issues through dedicated Prisma migrations.

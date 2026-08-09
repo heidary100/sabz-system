@@ -17,7 +17,6 @@ This guide covers the local development environment setup and day-to-day develop
 - pnpm 8+
 - Docker and Docker Compose
 - PostgreSQL 15+
-- Redis 7+
 - Git
 
 ---
@@ -40,22 +39,21 @@ pnpm install
 ## 3. Setup Environment
 
 ```bash
-cp .env.example .env
+cp apps/api/.env.example apps/api/.env
 # Edit .env with your local configuration
 ```
 
 ## 4. Start Infrastructure Services
 
 ```bash
-docker compose up -d postgres redis
+docker compose up -d postgres
 ```
 
 ## 5. Run Database Migrations
 
 ```bash
-cd apps/api
-npx prisma migrate dev
-npx prisma generate
+pnpm --filter @sabz/api prisma:migrate
+pnpm --filter @sabz/api prisma:generate
 ```
 
 ## 6. Seed Development Data
