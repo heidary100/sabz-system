@@ -2,6 +2,7 @@ services:
   postgres:
     image: postgres:16
     container_name: sabz-postgres
+    restart: unless-stopped
     environment:
       POSTGRES_USER: sabz
       POSTGRES_PASSWORD: sabz
@@ -15,12 +16,75 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+
   redis:
     image: redis:7-alpine
+    container_name: sabz-redis
+    restart: unless-stopped
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: sabz-api
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      DATABASE_URL: postgresql://sabz:sabz@postgres:5432/sabz?schema=public
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    volumes:
+      - ./apps/api:/app/apps/api
+      - api_node_modules:/app/apps/api/node_modules
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  admin:
+    build:
+      context: .
+      dockerfile: apps/admin/Dockerfile
+    container_name: sabz-admin
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_BASE_URL: http://localhost:3000/api
+    command: ["pnpm", "--filter", "@sabz/admin", "dev", "--host", "0.0.0.0"]
+    volumes:
+      - ./apps/admin:/app/apps/admin
+      - admin_node_modules:/app/apps/admin/node_modules
+
+  storefront:
+    build:
+      context: .
+      dockerfile: apps/storefront/Dockerfile
+    container_name: sabz-storefront
+    restart: unless-stopped
+    ports:
+      - "3002:3001"
+    command: ["pnpm", "--filter", "@sabz/storefront", "dev", "--hostname", "0.0.0.0"]
+    volumes:
+      - ./apps/storefront:/app/apps/storefront
+      - storefront_node_modules:/app/apps/storefront/node_modules
+
 volumes:
   postgres_data:
   redis_data:
+  api_node_modules:
+  admin_node_modules:
+  storefront_node_modules:

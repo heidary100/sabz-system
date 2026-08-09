@@ -1,0 +1,34 @@
+.git
+.gitignore
+.turbo
+node_modules
+**/node_modules
+dist
+**/dist
+.next
+**/.next
+out
+**/out
+coverage
+**/coverage
+*.tsbuildinfo
+**/*.tsbuildinfo
+*.log
+**/*.log
+
+# Local environment files
+.env
+**/.env
+!**/.env.example
+
+# Documentation and tooling not required inside the image
+docs
+scripts
+README.md
+AGENTS.md
+eslint.config.js
+prettier.config.js
+.prettierignore
+
+.dockerignore
+docker-compose.yml
