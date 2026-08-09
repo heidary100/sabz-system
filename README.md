@@ -30,6 +30,7 @@ Enterprise e-commerce platform for electronics retail and wholesale.
 | [Authentication API](docs/05-api/authentication-api.md) | Auth API reference |
 | [UML Diagrams](docs/06-uml/) | Use cases, domain model, flows |
 | [Development Guide](docs/07-development/development-guide.md) | Local setup and project structure |
+| [Docker Development Environment](docs/07-development/development-environment.md) | Containerized local development with hot reload |
 | [Coding Standards](docs/07-development/coding-standards.md) | Code style and conventions |
 | [AI Development Workflow](docs/07-development/ai-development-workflow.md) | AI-assisted development process |
 | [GitHub Workflow](docs/07-development/github-workflow.md) | Branch strategy and PR process |
@@ -40,6 +41,20 @@ Enterprise e-commerce platform for electronics retail and wholesale.
 
 ## Quick Start
 
+The quickest way to run the full stack is the Docker development environment:
+
+```bash
+# Build images and start all services (PostgreSQL, Redis, API, Admin, Storefront)
+docker compose up -d --build
+
+# Check status
+docker compose ps
+```
+
+This starts the API (http://localhost:3000), admin (http://localhost:5173), and storefront (http://localhost:3002) with hot reload, and applies database migrations automatically. See [Docker Development Environment](docs/07-development/development-environment.md) for details and troubleshooting.
+
+To run without Docker:
+
 ```bash
 # Install dependencies
 pnpm install
@@ -47,8 +62,8 @@ pnpm install
 # Copy environment template
 cp apps/api/.env.example apps/api/.env
 
-# Start infrastructure
-docker compose up -d postgres
+# Start infrastructure (PostgreSQL and Redis)
+docker compose up -d postgres redis
 
 # Run migrations
 pnpm --filter @sabz/api prisma:migrate
