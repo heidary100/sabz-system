@@ -58,8 +58,11 @@ The platform is organized into the following domains:
 Identity
 
 - User
+- UserProfile
 - Role
 - Permission
+- User Role (junction)
+- Role Permission (junction)
 - User Session
 
 Partners
@@ -144,31 +147,189 @@ Administration
 
 Purpose
 
-Represents every authenticated person in the platform.
+Represents every authenticated person in the platform. **User is the identity root entity.** Profile fields are stored in UserProfile; type-specific data (customer, partner, admin, operator) is expressed through profile extensions and roles.
 
 Fields
 
 - id
-- first_name
-- last_name
 - mobile
 - email
 - password_hash
 - status
 - last_login_at
+- deleted_at
+- created_by
+- updated_by
 
 Relationships
 
-- One User → Many Addresses
+- One User → One UserProfile
+- One User → Many Addresses (via UserProfile)
 - One User → Many Orders
-- One User → One Partner Profile (optional)
-- Many Users → Many Roles
+- One User → Many Roles (via UserRole junction)
+- One User → Many UserSessions
 
 Business Rules
 
 - Mobile number must be unique.
 - Email is optional but unique if provided.
-- A user may become a business partner after approval.
+- Password hash is nullable to allow future authentication methods (OTP, OAuth).
+- A user may hold multiple roles simultaneously (AUTH-005).
+- Soft delete via `deleted_at`; records are retained but hidden.
+
+---
+
+## UserProfile
+
+Purpose
+
+One-to-one profile extension of User. Holds identity profile data and distinguishes the user type.
+
+Fields
+
+- id
+- user_id
+- user_type (CUSTOMER, PARTNER, ADMIN, OPERATOR)
+- first_name
+- last_name
+- avatar_url
+- created_at
+- updated_at
+- deleted_at
+
+Relationships
+
+- One UserProfile → One User
+- One UserProfile → Many Addresses
+- One UserProfile → One Partner (optional)
+
+Business Rules
+
+- Every user has exactly one profile.
+- The `user_type` discriminator identifies B2C customer, B2B partner, admin, or operator profiles.
+- Customers require no dedicated table; partner data extends via the Partner entity.
+
+---
+
+## Role
+
+Purpose
+
+Groups permissions for Role-Based Access Control (RBAC).
+
+Fields
+
+- id
+- name
+- description
+- created_at
+- updated_at
+
+Relationships
+
+- Many Roles → Many Users (via UserRole junction)
+- Many Roles → Many Permissions (via RolePermission junction)
+
+Business Rules
+
+- Role names must be unique.
+- A user may hold multiple roles simultaneously (AUTH-005).
+- Administrative roles are assigned only by Super Administrators (AUTH-006).
+
+---
+
+## Permission
+
+Purpose
+
+Granular capability grants mapped to roles.
+
+Fields
+
+- id
+- name
+- resource
+- action
+- created_at
+- updated_at
+
+Relationships
+
+- Many Permissions → Many Roles (via RolePermission junction)
+
+Business Rules
+
+- Permission names must be unique.
+- Users receive permissions only through their roles.
+
+---
+
+## User Role
+
+Purpose
+
+Junction table enabling the many-to-many relationship between users and roles.
+
+Fields
+
+- user_id
+- role_id
+- assigned_at
+- assigned_by
+
+Constraints
+
+- Composite primary key (user_id, role_id).
+- Foreign keys cascade on user or role deletion.
+
+---
+
+## Role Permission
+
+Purpose
+
+Junction table enabling the many-to-many relationship between roles and permissions.
+
+Fields
+
+- role_id
+- permission_id
+- assigned_at
+
+Constraints
+
+- Composite primary key (role_id, permission_id).
+- Foreign keys cascade on role or permission deletion.
+
+---
+
+## User Session
+
+Purpose
+
+Tracks authenticated device sessions for session management.
+
+Fields
+
+- id
+- user_id
+- refresh_token
+- device_id
+- ip_address
+- expires_at
+- revoked_at
+- created_at
+- updated_at
+
+Relationships
+
+- Many UserSessions → One User
+
+Business Rules
+
+- A user may have multiple concurrent sessions (multiple devices).
+- Sessions can be revoked individually or in bulk.
+- Expired or revoked sessions cannot refresh tokens.
 
 ---
 
@@ -176,12 +337,12 @@ Business Rules
 
 Purpose
 
-Represents an approved B2B business.
+Represents an approved B2B business. Partner is a profile extension of UserProfile for users whose profile type is PARTNER.
 
 Fields
 
 - id
-- user_id
+- profile_id
 - business_name
 - business_license_number
 - website
@@ -191,15 +352,20 @@ Fields
 - tier
 - approval_status
 - approved_at
+- created_at
+- updated_at
+- deleted_at
 
 Relationships
 
+- One Partner → One UserProfile
 - One Partner → Many Orders
 - One Partner → Many Documents
 
 Business Rules
 
-- Cannot access partner pricing until approved.
+- A user becomes a partner only after partner application approval (AUTH-003).
+- Cannot access partner pricing until approved (AUTH-004).
 - Tier determines pricing visibility.
 - Approval requires at least one verified document.
 
@@ -495,6 +661,14 @@ User
 
 ↓
 
+UserProfile
+
+↓
+
+Partner (optional, when approved)
+
+↓
+
 Orders
 
 ↓
@@ -512,6 +686,22 @@ Product
 ↓
 
 Category
+
+User
+
+↓
+
+Roles (via UserRole)
+
+↓
+
+Permissions (via RolePermission)
+
+User
+
+↓
+
+Sessions
 
 Product
 
@@ -549,6 +739,11 @@ Indexes should exist for:
 - Order number
 - Payment reference
 - Tracking number
+- User status
+- Role name
+- Permission name
+- Session refresh token
+- Partner approval status
 
 Composite indexes should be used where appropriate for filtering and reporting.
 

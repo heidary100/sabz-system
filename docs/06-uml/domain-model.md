@@ -15,26 +15,56 @@ This document describes the core domain model for the Sabz System Platform. The 
 
 ## User Aggregate
 
+The **User** is the identity root entity. All people in the platform — B2C customers, B2B partners, admin users, and operators — are represented as a User with a profile extension. **Customer** and **Partner** are profile extensions, not inheritance.
+
 ```
-User
+User (identity root)
 +-- id: UUID
-+-- phone: string
-+-- passwordHash: string
-+-- status: UserStatus (ACTIVE, INACTIVE, SUSPENDED)
++-- mobile: string (unique)
++-- email: string? (unique if provided)
++-- passwordHash: string? (nullable for future auth methods)
++-- status: UserStatus
++-- lastLoginAt: DateTime?
 +-- createdAt: DateTime
++-- updatedAt: DateTime
++-- deletedAt: DateTime?
 |
-+-- Customer (extends User)
++-- UserProfile (one-to-one)
+|   +-- id: UUID
+|   +-- userType: UserType (CUSTOMER, PARTNER, ADMIN, OPERATOR)
 |   +-- firstName: string
 |   +-- lastName: string
+|   +-- avatarUrl: string?
 |   +-- addresses: Address[]
+|   |
+|   +-- Customer (userType = CUSTOMER, no dedicated table)
+|   |
+|   +-- Partner (userType = PARTNER, one-to-one optional)
+|       +-- companyName: string
+|       +-- businessType: BusinessType
+|       +-- verificationStatus: VerificationStatus
+|       +-- nationalId: string
+|       +-- tier: PartnerTier
+|       +-- businessDocuments: BusinessDocument[]
 |
-+-- Partner (extends User)
-    +-- companyName: string
-    +-- businessType: BusinessType
-    +-- verificationStatus: VerificationStatus
-    +-- nationalId: string
-    +-- tier: PartnerTier
-    +-- businessDocuments: BusinessDocument[]
++-- Role (many-to-many via UserRole)
+|   +-- id: UUID
+|   +-- name: string (CUSTOMER, PARTNER, OPERATOR, SUPER_ADMIN)
+|   +-- permissions: Permission[] (via RolePermission)
+|
++-- Permission (many-to-many via RolePermission)
+|   +-- id: UUID
+|   +-- name: string
+|   +-- resource: string
+|   +-- action: string
+|
++-- UserSession
+    +-- id: UUID
+    +-- refreshToken: string
+    +-- deviceId: string?
+    +-- ipAddress: string?
+    +-- expiresAt: DateTime
+    +-- revokedAt: DateTime?
 
 PartnerTier
 +-- id: UUID
@@ -172,7 +202,8 @@ BlogPost
 
 | Enum | Values |
 |------|--------|
-| UserStatus | ACTIVE, INACTIVE, SUSPENDED |
+| UserStatus | PENDING_OTP, ACTIVE, SUSPENDED, LOCKED |
+| UserType | CUSTOMER, PARTNER, ADMIN, OPERATOR |
 | VerificationStatus | PENDING, VERIFIED, REJECTED |
 | BusinessType | DISTRIBUTOR, WHOLESALER, RETAIL_SHOP, SYSTEM_INTEGRATOR, CORPORATE |
 | ProductStatus | DRAFT, PUBLISHED, ARCHIVED |

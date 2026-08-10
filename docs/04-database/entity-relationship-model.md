@@ -13,19 +13,30 @@ This document describes the core entities and their relationships within the Sab
 
 # Core Entities
 
-## User Hierarchy
+## Identity Domain
+
+The identity domain models every authenticated person in the platform. **User** is the identity root entity; **Customer**, **Partner**, and administrative staff are represented as profile extensions of the identity rather than separate inheritance hierarchies.
 
 ```
-User (base entity)
-+-- Customer
-+-- Partner
-    +-- PartnerTier
+Identity Domain
+User (identity root)
++-- UserProfile (one-to-one)
+|   +-- Customer (profile type, no dedicated table)
+|   +-- Partner (profile extension)
+|       +-- PartnerTier
++-- Role (many-to-many via UserRole)
++-- Permission (many-to-many via RolePermission)
++-- UserSession
 ```
 
-- **User**: Base authentication entity with phone, password hash, and status.
-- **Customer**: Inherits from User. Represents B2C end-users.
-- **Partner**: Inherits from User. Represents B2B business accounts with verification status.
+- **User**: Identity root entity. Holds authentication identity (unique mobile number, optional unique email, password hash), account status, and last login. Contains no profile fields.
+- **UserProfile**: One-to-one profile extension of User. Holds names, avatar, and a `user_type` discriminator (CUSTOMER, PARTNER, ADMIN, OPERATOR). Every user has exactly one profile.
+- **Customer**: A profile type of UserProfile representing B2C end-users. No dedicated table is required; customer-specific data is covered by UserProfile and Address.
+- **Partner**: Optional profile extension representing B2B business accounts with business identity and verification status.
 - **PartnerTier**: Defines pricing tiers (Tier 1, Tier 2, Tier 3) with discount rules.
+- **Role**: System roles (admin, operator, customer, partner) assigned to users through a many-to-many junction.
+- **Permission**: Granular permissions mapped to roles through a many-to-many junction.
+- **UserSession**: Device session records supporting concurrent devices, refresh tokens, and revocation.
 
 ---
 
@@ -75,8 +86,10 @@ Order
 ## Supporting Entities
 
 - **Address**: User addresses for shipping and billing.
-- **Role**: System roles (admin, operator, customer, partner).
-- **Permission**: Granular permissions mapped to roles.
+- **Role**: System roles (admin, operator, customer, partner). Assigned to users through the `UserRole` junction.
+- **Permission**: Granular permissions mapped to roles through the `RolePermission` junction.
+- **UserRole**: Junction table linking users to roles, enabling multiple roles per user (AUTH-005).
+- **RolePermission**: Junction table linking roles to permissions.
 - **BlogPost**: Content management for SEO articles.
 - **AuditLog**: Administrative action tracking.
 - **MediaFile**: Shared file storage references.
@@ -87,9 +100,12 @@ Order
 
 | Relationship | Type | Description |
 |--------------|------|-------------|
-| User -> Customer | One-to-One | A user may be a customer |
-| User -> Partner | One-to-One | A user may be a partner |
+| User -> UserProfile | One-to-One | Every user has exactly one profile |
+| UserProfile -> Partner | One-to-One | A profile may extend to a partner (optional) |
 | Partner -> PartnerTier | Many-to-One | Partners belong to a pricing tier |
+| User -> Role | Many-to-Many | Users hold multiple roles (via UserRole) |
+| Role -> Permission | Many-to-Many | Roles have multiple permissions (via RolePermission) |
+| User -> UserSession | One-to-Many | Users have multiple device sessions |
 | Product -> Category | Many-to-One | Products belong to one category |
 | Product -> Brand | Many-to-One | Products belong to one brand |
 | Product -> ProductMedia | One-to-Many | Products have multiple media files |
@@ -98,4 +114,3 @@ Order
 | Order -> OrderItem | One-to-Many | Orders contain multiple items |
 | Order -> Payment | One-to-Many | Orders may have multiple payment attempts |
 | OrderItem -> Product | Many-to-One | Items reference products |
-| Role -> Permission | Many-to-Many | Roles have multiple permissions |
