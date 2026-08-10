@@ -1,213 +1,442 @@
 # Sabz System Platform - AI Development Instructions
 
-## Project Overview
+## 1. Project Overview
 
-Sabz System Platform is an enterprise e-commerce platform for electronics retail and wholesale.
+Sabz System is an enterprise electronics commerce platform supporting:
 
-The platform supports:
+- B2C customer storefront
+- B2B partner wholesale portal
+- Admin CMS
+- Tier-based pricing
+- Product catalog
+- Inventory management
+- Future order/payment ecosystem
 
-- B2C storefront
-- B2B wholesale portal
-- Admin platform
-- Tier-based partner pricing
-- Product catalog management
-- Inventory system
-- Pricing engine
+**Current development phase: Milestone 1 - Platform Foundation**
 
-The current development phase is:
+Focus:
 
-Milestone 1 - Platform Foundation
-
-Focus only on:
-
-- Project architecture
-- Authentication
-- Users
-- Partners
-- Admin panel foundation
+- Repository architecture
+- Backend foundation
+- Authentication foundation
+- User management
+- Partner management foundation
+- Admin CMS foundation
 - Product management foundation
 - Inventory foundation
 
+Do not implement future milestone features unless explicitly requested.
 
-## Technology Stack
+---
 
-Backend:
+## 2. Repository Architecture
+
+This is a pnpm monorepo.
+
+Structure:
+
+```
+apps/
+├── api
+│   NestJS backend
+│
+├── admin
+│   React CMS application
+│
+└── storefront
+    Next.js customer application
+
+docs/
+Project documentation
+
+.github/
+GitHub automation
+```
+
+Application ownership:
+
+| Application | Responsibility |
+| --- | --- |
+| api | Business logic, database, authentication, APIs |
+| admin | Internal CMS and operations |
+| storefront | Customer shopping experience |
+
+Never mix responsibilities between applications.
+
+---
+
+## 3. Technology Stack
+
+### Backend
 
 - NestJS
 - TypeScript
-- PostgreSQL
 - Prisma ORM
+- PostgreSQL
 - Redis
 
-Frontend:
+### Admin
 
-Storefront:
-- Next.js
-- TypeScript
-- Tailwind CSS
-
-Admin:
 - React
 - TypeScript
 - Tailwind CSS
 - Catalyst UI Kit
+- Headless UI
 
+### Storefront
 
-## Architecture Rules
+- Next.js App Router
+- TypeScript
+- Tailwind CSS
+- Tailwind Plus Ecommerce UI
 
-Use a modular monolith architecture.
+---
 
-Do NOT create microservices.
+## 4. Architecture Principles
 
-Backend structure:
+### Backend Architecture
 
+Use **Modular Monolith**.
+
+Do NOT create:
+
+- microservices
+- distributed services
+- separate backend applications
+
+Backend modules:
+
+```
 apps/api/src/modules/
-
-Example:
-
-modules/
-├── auth
-├── users
-├── partners
-├── products
-├── inventory
-├── roles
-└── media
-
+auth
+users
+partners
+products
+inventory
+roles
+media
+```
 
 Each module should contain:
 
-- controller
-- service
-- module
-- dto
-- entities/models
-- tests
+```
+module.ts
+controller.ts
+service.ts
+dto/
+entities/
+tests/
+```
 
+Rules:
 
-## Development Rules
+- Controllers handle HTTP only
+- Services contain business logic
+- DTOs validate input
+- Database access belongs in services/repositories
+- Avoid business logic inside controllers
 
-Before implementing any feature:
+---
 
-1. Read related documentation in /docs
-2. Understand the GitHub issue requirements
-3. Make the smallest required change
-4. Do not refactor unrelated code
+## 5. Development Workflow
 
+Before implementing any issue:
 
-## Documentation Index
+1. Read the GitHub issue completely
+2. Read related documentation:
+   ```
+   docs/
+   ```
+3. Understand existing architecture
+4. Explain:
+   - files to change
+   - architectural decisions
+   - dependencies added
+5. Implement the smallest possible change
 
-| Working on... | Read this doc |
-|--------------|----------------|
-| Any feature | `docs/03-architecture/software-architecture-document.md` |
-| Architecture decisions | `docs/03-architecture/architecture-decisions/` |
-| Authentication | `docs/02-requirements/feature-specifications/authentication.md` |
-| Partner Management | `docs/02-requirements/feature-specifications/partner-management.md` |
-| Products | `docs/02-requirements/feature-specifications/product-catalog.md` |
-| Pricing | `docs/02-requirements/feature-specifications/pricing-engine.md` |
-| Inventory | `docs/02-requirements/feature-specifications/inventory-management.md` |
-| Cart/Checkout | `docs/02-requirements/feature-specifications/shopping-cart.md` |
-| Orders | `docs/02-requirements/feature-specifications/order-management.md` |
-| Payments | `docs/02-requirements/feature-specifications/payment-management.md` |
-| Database | `docs/04-database/database-design-specification.md` |
-| API | `docs/05-api/api-specification.md` |
-| AI Workflow | `docs/07-development/ai-development-workflow.md` |
-| Coding Standards | `docs/07-development/coding-standards.md` |
+Never:
 
+- refactor unrelated code
+- redesign architecture
+- rename large sections without approval
 
-## Coding Standards
+---
 
-General:
+## 6. GitHub Issue Rules
 
-- TypeScript strict mode
-- Prefer clean readable code
-- Avoid unnecessary abstractions
-- Use meaningful names
-- Add validation for external inputs
+Every code change must belong to a GitHub issue.
 
+Branch format:
 
-Backend:
+```
+feat/ss-xxx-description
+fix/ss-xxx-description
+docs/ss-xxx-description
+```
 
-- Follow NestJS conventions
-- Use DTO validation
-- Use dependency injection
-- Keep controllers thin
-- Keep business logic in services
+Commit format:
 
-
-Database:
-
-- Database changes require migrations
-- Never modify production data directly
-- Avoid premature optimization
-
-
-Frontend:
-
-- Components should be reusable
-- Avoid large component files
-- Keep business logic separated from UI
-
-
-## Git Workflow
-
-Every implementation must be related to a GitHub issue.
-
-Commit messages:
-
-feat:
-fix:
-refactor:
-docs:
-chore:
-
+```
+feat(scope): description
+fix(scope): description
+docs(scope): description
+chore(scope): description
+```
 
 Example:
 
-feat(auth): add OTP verification
+```
+feat(auth): add OTP verification service
+```
 
+---
 
-## Testing Requirements
+## 7. Monorepo Rules
 
-Before completing an issue:
+Package manager:
 
-Run:
+Use `pnpm`.
 
-- lint
-- typecheck
-- tests
-- build
+Never use:
 
+```
+npm install
+yarn
+```
 
-## Current Restrictions
+Install dependencies:
 
-Do NOT implement:
+```
+pnpm add package-name
+```
 
-- payments
-- checkout
-- order management
-- marketplace
-- mobile applications
-- Holo integration
-- Torob integration
+Run applications through workspace commands.
 
-unless explicitly requested in a future milestone.
+Before changing dependencies:
 
+- Explain why the dependency is required.
+- Avoid adding packages unless necessary.
 
-## AI Agent Behavior
+---
 
-When working on an issue:
+## 8. Database Rules
 
-First explain:
+Database: PostgreSQL
 
-1. What files will change
-2. Why they need to change
-3. Any architectural decisions
+ORM: Prisma
 
-Then implement.
+Rules:
+
+- Every schema change requires migration
+- Never edit generated Prisma files
+- Never manually modify production data
+- Keep migrations committed
+
+Workflow:
+
+```
+schema.prisma
+↓
+prisma migrate
+↓
+generated client
+```
+
+---
+
+## 9. Frontend Rules
+
+### General
+
+- Prefer reusable components
+- Keep components small
+- Avoid huge page components
+- Keep business logic separated from UI
+
+### Admin
+
+Use Catalyst UI Kit components.
+
+Do not introduce another UI framework.
 
 Avoid:
 
-- creating unnecessary files
-- adding unnecessary dependencies
-- changing architecture without discussion
+- Material UI
+- Ant Design
+- Chakra UI
+
+### Storefront
+
+Use Tailwind Plus Ecommerce components.
+
+Avoid:
+
+- unnecessary component libraries
+- custom UI when existing components exist
+
+---
+
+## 10. API Rules
+
+REST API is the default.
+
+Rules:
+
+- Validate all external input
+- Use DTOs
+- Return predictable responses
+- Document API changes
+
+Do not create GraphQL unless specifically requested.
+
+---
+
+## 11. Environment Variables
+
+Never hardcode:
+
+- passwords
+- tokens
+- secrets
+- URLs containing credentials
+
+Use:
+
+```
+.env
+.env.example
+```
+
+When adding environment variables, update:
+
+```
+.env.example
+```
+
+---
+
+## 12. Testing Requirements
+
+Before completing an issue, run:
+
+```
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
+```
+
+A completed issue must:
+
+- compile successfully
+- pass tests
+- follow architecture rules
+
+---
+
+## 13. Current Restrictions
+
+Do NOT implement:
+
+- payment gateway
+- checkout flow
+- order management
+- mobile applications
+- marketplace sellers
+- Holo accounting integration
+- Torob integration
+- SnappPay
+
+...unless explicitly requested.
+
+---
+
+## 14. AI Agent Rules
+
+AI agents must:
+
+**Before coding**, explain:
+
+1. Files changed
+2. Reason for changes
+3. Dependencies added
+4. Architectural decisions
+
+**During coding**, prefer:
+
+- simple solutions
+- existing patterns
+- minimal changes
+
+Avoid:
+
+- unnecessary abstractions
+- unnecessary dependencies
+- speculative features
+- changing unrelated files
+
+If requirements are unclear, ask before implementing.
+
+---
+
+## 15. Definition of Done
+
+An issue is complete when:
+
+**Code:**
+
+- implementation finished
+- no TypeScript errors
+- lint passes
+
+**Documentation:**
+
+- updated if needed
+
+**Git:**
+
+- commit follows convention
+- pull request description explains changes
+
+**Validation:**
+
+```
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
+```
+
+---
+
+## 16. Important Documents
+
+Architecture:
+
+```
+docs/03-architecture/
+```
+
+Database:
+
+```
+docs/04-database/
+```
+
+API:
+
+```
+docs/05-api/
+```
+
+Development:
+
+```
+docs/07-development/
+```
+
+Feature specifications:
+
+```
+docs/02-requirements/feature-specifications/
+```
