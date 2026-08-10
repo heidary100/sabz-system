@@ -18,10 +18,12 @@ $children=@(
 
 foreach($child in $children){
 
+    $subIssueId=$(gh api repos/$repo/issues/$child --jq .id)
+
     gh api `
     --method POST `
     repos/$repo/issues/$parentIssue/sub_issues `
-    -f issue_id=$child
+    -F sub_issue_id=$subIssueId
 
     Write-Host "Linked issue #$child to EPIC-001"
 
