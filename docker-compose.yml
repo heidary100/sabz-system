@@ -50,6 +50,7 @@ services:
       JWT_ACCESS_EXPIRES_IN: 15m
       JWT_REFRESH_EXPIRES_IN: 30d
       CORS_ORIGINS: http://localhost:5173
+      DEV_ADMIN_MOBILE: +989170000001
     volumes:
       - ./apps/api:/app/apps/api
       - api_node_modules:/app/apps/api/node_modules

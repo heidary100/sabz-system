@@ -127,3 +127,42 @@ cd apps/api && npx prisma migrate dev
 cd apps/api
 npx prisma generate
 ```
+
+---
+
+# Development Seed Data
+
+Seed the four application roles (CUSTOMER, PARTNER, OPERATOR, ADMIN) and one
+development admin user:
+
+```bash
+pnpm --filter @sabz/api prisma:seed
+```
+
+Or from the repository root:
+
+```bash
+pnpm seed
+```
+
+The seed is idempotent and safe to run repeatedly. It requires
+`DEV_ADMIN_MOBILE` (a valid Iranian mobile number) and refuses to run when
+`NODE_ENV=production`. Note that `prisma migrate dev` also runs the seed
+automatically after applying migrations, so `DEV_ADMIN_MOBILE` must be set
+in any environment where migrations are applied.
+
+Example:
+
+```env
+DEV_ADMIN_MOBILE=+989170000001
+```
+
+The development admin is created ACTIVE with the ADMIN role and profile data,
+so the admin authentication flow can be tested end-to-end.
+
+## Development OTP
+
+In development only (`NODE_ENV=development`), the OTP code is always
+`123456`. The code is still stored and verified through the normal OTP path;
+the deterministic code is hard-coded and cannot be enabled in production via
+any environment variable.
