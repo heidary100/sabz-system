@@ -155,7 +155,7 @@ UserAuthMethod
 
 `UserSession` records each device session:
 
-- refresh token (unique)
+- refresh token hash (unique)
 - device identifier
 - IP address
 - expiry
@@ -164,6 +164,8 @@ UserAuthMethod
 ## Rationale
 
 - The Authentication Specification requires concurrent devices, individual revocation, and revoke-all sessions.
+- Only a SHA-256 hash of the refresh token is stored in the `refresh_token` column. The raw token is never persisted, so a database leak does not expose usable refresh tokens.
+- Refresh-token rotation updates the hash on the existing session row; the previously issued token no longer matches and becomes invalid.
 
 ---
 

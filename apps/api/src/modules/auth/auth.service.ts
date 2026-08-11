@@ -17,6 +17,12 @@ export class AuthService {
     });
   }
 
+  async findUserById(id: string): Promise<User | null> {
+    return this.prisma.user.findUnique({
+      where: { id },
+    });
+  }
+
   async getOrCreateUserByMobile(mobile: string): Promise<User> {
     const existing = await this.findUserByMobile(mobile);
     if (existing) {
