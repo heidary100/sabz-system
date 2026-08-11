@@ -74,9 +74,10 @@ REDIS_HOST=localhost
 REDIS_PORT=6379
 
 # JWT
-JWT_SECRET=your-jwt-secret-key
-JWT_EXPIRES_IN=15m
-REFRESH_TOKEN_EXPIRES_IN=7d
+JWT_ACCESS_SECRET=your-jwt-access-secret
+JWT_REFRESH_SECRET=your-jwt-refresh-secret
+JWT_ACCESS_EXPIRES_IN=15m
+JWT_REFRESH_EXPIRES_IN=30d
 
 # SMS Provider
 SMS_PROVIDER_API_KEY=your-sms-api-key

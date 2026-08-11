@@ -45,6 +45,10 @@ services:
       DATABASE_URL: postgresql://sabz:sabz@postgres:5432/sabz?schema=public
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      JWT_ACCESS_SECRET: dev_access_secret_change_me
+      JWT_REFRESH_SECRET: dev_refresh_secret_change_me
+      JWT_ACCESS_EXPIRES_IN: 15m
+      JWT_REFRESH_EXPIRES_IN: 30d
     volumes:
       - ./apps/api:/app/apps/api
       - api_node_modules:/app/apps/api/node_modules
