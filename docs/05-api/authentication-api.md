@@ -43,7 +43,7 @@ Request Body:
 }
 ```
 
-Response (successful verification activates the account and issues a token pair):
+Response (successful verification activates the account and issues a token pair, and sets the `sabz_refresh_token` HttpOnly cookie for web clients):
 ```json
 {
   "verified": true,
@@ -92,14 +92,16 @@ Response:
 POST /api/v1/auth/refresh
 ```
 
-Request Body:
+Request Body (optional):
 ```json
 {
   "refreshToken": "eyJhbGciOiJIUzI1NiIs..."
 }
 ```
 
-Response (a new token pair; the presented refresh token is rotated and the old one invalidated):
+The `refreshToken` field may be omitted when the refresh token is sent as an HttpOnly cookie (`sabz_refresh_token`). Web clients are expected to use the cookie.
+
+Response (a new token pair; the presented refresh token is rotated and the old one invalidated, and the `sabz_refresh_token` cookie is rotated):
 ```json
 {
   "accessToken": "eyJhbGciOiJIUzI1NiIs...",
@@ -108,6 +110,29 @@ Response (a new token pair; the presented refresh token is rotated and the old o
 ```
 
 Errors: `401` when the refresh token is invalid, expired, revoked, or already rotated.
+
+## Current User
+
+```
+GET /api/v1/auth/me
+```
+
+Headers:
+```
+Authorization: Bearer <accessToken>
+```
+
+Response:
+```json
+{
+  "id": "uuid",
+  "mobile": "+989123456789",
+  "status": "ACTIVE",
+  "roles": ["OPERATOR", "ADMIN"]
+}
+```
+
+Returns the authenticated user's identity and role names. Used by the admin application to gate navigation; authorization on backend endpoints is enforced independently via RBAC.
 
 ## Partner Registration
 
@@ -144,7 +169,7 @@ Response:
 }
 ```
 
-Revokes the current session; its refresh token can no longer be used. The access token remains valid until it expires (15 minutes).
+Revokes the current session; its refresh token can no longer be used and the `sabz_refresh_token` cookie is cleared. The access token remains valid until it expires (15 minutes).
 
 ---
 
@@ -163,3 +188,5 @@ Revokes the current session; its refresh token can no longer be used. The access
 - Each refresh request rotates the refresh token; the previously issued refresh token becomes invalid.
 - Refresh tokens are stored only as SHA-256 hashes in the `UserSession` table. Raw refresh tokens are never persisted.
 - Logout revokes the session, disabling its refresh token.
+- Web clients store the access token in memory and use the `sabz_refresh_token` HttpOnly cookie (`SameSite=Lax`, `Secure` in production, scoped to `/api/v1/auth`) for refresh and logout. The refresh token is additionally returned in response bodies for non-browser clients (e.g. mobile applications).
+- The API must be called with credentials (`credentials: include`); the allowed browser origins are configured via the `CORS_ORIGINS` environment variable.

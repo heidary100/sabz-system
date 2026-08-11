@@ -1,6 +1,10 @@
 import { Link, Outlet } from 'react-router-dom'
+import { useAuth } from '../auth/auth-provider'
+import { Button } from '../components/catalyst/button'
 
 export function AdminLayout() {
+  const { user, logout } = useAuth()
+
   return (
     <div className="flex min-h-svh bg-zinc-100">
       <aside className="flex w-64 shrink-0 flex-col bg-white ring-1 ring-zinc-950/5">
@@ -17,8 +21,17 @@ export function AdminLayout() {
         </nav>
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-16 items-center border-b border-zinc-950/5 bg-white px-6">
+        <header className="flex h-16 items-center justify-between border-b border-zinc-950/5 bg-white px-6">
           <span className="text-sm font-medium text-zinc-500">Header placeholder</span>
+          <div className="flex items-center gap-4">
+            <span className="text-sm font-medium text-zinc-700">{user?.mobile}</span>
+            <Button
+              outline
+              onClick={() => void logout()}
+            >
+              Sign out
+            </Button>
+          </div>
         </header>
         <main className="flex-1 p-6">
           <Outlet />

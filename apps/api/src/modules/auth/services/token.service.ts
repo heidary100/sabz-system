@@ -47,6 +47,10 @@ export class TokenService {
     );
   }
 
+  get refreshLifetimeMs(): number {
+    return this.lifetimeToMs(this.refreshLifetime);
+  }
+
   async createSession(
     userId: string,
     options: CreateSessionOptions = {},
