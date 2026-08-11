@@ -7,6 +7,7 @@ import { AuthUser } from './interfaces/auth-user.interface';
 import { REFRESH_TOKEN_COOKIE } from './refresh-token-cookie';
 import { RolesService } from './roles/roles.service';
 import { OtpService } from './services/otp.service';
+import { ProfileService } from './services/profile.service';
 import { TokenService } from './services/token.service';
 
 describe('AuthController', () => {
@@ -24,6 +25,7 @@ describe('AuthController', () => {
     refreshLifetimeMs: number;
   };
   let rolesService: { findRoleNamesByUserId: jest.Mock };
+  let profileService: { getProfile: jest.Mock; updateProfile: jest.Mock };
   let configService: { get: jest.Mock };
   let res: {
     cookie: jest.Mock;
@@ -44,6 +46,7 @@ describe('AuthController', () => {
       refreshLifetimeMs: 30 * 24 * 60 * 60 * 1000,
     };
     rolesService = { findRoleNamesByUserId: jest.fn() };
+    profileService = { getProfile: jest.fn(), updateProfile: jest.fn() };
     configService = { get: jest.fn().mockReturnValue('development') };
     res = { cookie: jest.fn(), clearCookie: jest.fn() };
 
@@ -52,6 +55,7 @@ describe('AuthController', () => {
       otpService as unknown as OtpService,
       tokenService as unknown as TokenService,
       rolesService as unknown as RolesService,
+      profileService as unknown as ProfileService,
       configService as unknown as ConfigService,
     );
   });
@@ -245,6 +249,106 @@ describe('AuthController', () => {
         status: 'ACTIVE',
         roles: ['OPERATOR', 'ADMIN'],
       });
+    });
+  });
+
+  describe('getProfile', () => {
+    it('returns the authenticated user\'s own profile', async () => {
+      const user: AuthUser = {
+        userId: 'user-1',
+        sessionId: 'session-1',
+        mobile: '+989123456789',
+      };
+      profileService.getProfile.mockResolvedValue({
+        id: 'user-1',
+        mobile: '+989123456789',
+        email: null,
+        status: 'ACTIVE',
+        firstName: 'Ali',
+        lastName: 'Ahmadi',
+        address: null,
+        avatarUrl: null,
+        userType: 'CUSTOMER',
+      });
+
+      const result = await controller.getProfile(user);
+
+      expect(profileService.getProfile).toHaveBeenCalledWith('user-1');
+      expect(result).toEqual(
+        expect.objectContaining({
+          id: 'user-1',
+          mobile: '+989123456789',
+          firstName: 'Ali',
+        }),
+      );
+    });
+
+    it('resolves the target user only from the request identity', async () => {
+      const user: AuthUser = {
+        userId: 'user-1',
+        sessionId: 'session-1',
+        mobile: '+989123456789',
+      };
+
+      await controller.getProfile(user);
+
+      expect(profileService.getProfile).toHaveBeenCalledTimes(1);
+      expect(profileService.getProfile).toHaveBeenCalledWith('user-1');
+    });
+  });
+
+  describe('updateProfile', () => {
+    it('updates the authenticated user\'s own profile', async () => {
+      const user: AuthUser = {
+        userId: 'user-1',
+        sessionId: 'session-1',
+        mobile: '+989123456789',
+      };
+      profileService.updateProfile.mockResolvedValue({
+        id: 'user-1',
+        mobile: '+989123456789',
+        email: null,
+        status: 'ACTIVE',
+        firstName: 'Ali',
+        lastName: 'Ahmadi',
+        address: 'Tehran',
+        avatarUrl: null,
+        userType: 'CUSTOMER',
+      });
+
+      const result = await controller.updateProfile(
+        user,
+        { firstName: 'Ali', address: 'Tehran' },
+        '1.2.3.4',
+      );
+
+      expect(profileService.updateProfile).toHaveBeenCalledWith(
+        'user-1',
+        { firstName: 'Ali', address: 'Tehran' },
+        '1.2.3.4',
+      );
+      expect(result.address).toBe('Tehran');
+    });
+
+    it('never passes a client-supplied userId to the service', async () => {
+      const user: AuthUser = {
+        userId: 'user-1',
+        sessionId: 'session-1',
+        mobile: '+989123456789',
+      };
+
+      await controller.updateProfile(user, {
+        firstName: 'Ali',
+        // A client-sent userId would be stripped by the whitelist pipe; even
+        // if it reached the controller, the service only receives the JWT id.
+      });
+
+      expect(profileService.updateProfile).toHaveBeenCalledWith(
+        'user-1',
+        expect.anything(),
+        undefined,
+      );
+      expect(profileService.updateProfile.mock.calls[0][0]).toBe('user-1');
     });
   });
 });

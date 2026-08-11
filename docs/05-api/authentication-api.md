@@ -134,6 +134,62 @@ Response:
 
 Returns the authenticated user's identity and role names. Used by the admin application to gate navigation; authorization on backend endpoints is enforced independently via RBAC.
 
+## Get Profile
+
+```
+GET /api/v1/auth/profile
+```
+
+Headers:
+```
+Authorization: Bearer <accessToken>
+```
+
+Response:
+```json
+{
+  "id": "uuid",
+  "mobile": "+989123456789",
+  "email": null,
+  "status": "ACTIVE",
+  "firstName": "Ali",
+  "lastName": "Ahmadi",
+  "address": null,
+  "avatarUrl": null,
+  "userType": "CUSTOMER"
+}
+```
+
+Returns the authenticated user's identity and profile. The target user is always resolved from the JWT identity; no user identifier is accepted from the client. Authentication data (password hash, refresh tokens, OTP data) is never returned.
+
+## Update Profile
+
+```
+PATCH /api/v1/auth/profile
+```
+
+Headers:
+```
+Authorization: Bearer <accessToken>
+```
+
+Request Body (all fields optional; an empty payload is a no-op returning the profile unchanged):
+```json
+{
+  "firstName": "Ali",
+  "lastName": "Ahmadi",
+  "address": "Tehran, Iran"
+}
+```
+
+Response: the updated profile in the same shape as `GET /api/v1/auth/profile`.
+
+Only the editable profile fields (`firstName`, `lastName`, `address`) are accepted. All other fields — including user id, mobile, status, roles, and verification state — are ignored/stripped; the target user is always resolved from the JWT identity, so a user can never modify another user's profile. Phone identity changes are not supported through this endpoint (they require a dedicated verification flow). Every profile update is recorded in the audit log.
+
+Validation: `firstName` and `lastName` must be non-null strings of at most 100 characters; `address` must be a string of at most 500 characters and may be set to `null` to clear it.
+
+Errors: `401` when unauthenticated; `400` when the payload is invalid (e.g. a field exceeds its maximum length).
+
 ## Partner Registration
 
 ```
