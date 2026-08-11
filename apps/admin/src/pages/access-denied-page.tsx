@@ -7,18 +7,12 @@ export function AccessDeniedPage() {
   const { logout } = useAuth()
 
   return (
-    <div className="flex min-h-svh items-center justify-center bg-zinc-100">
-      <div className="w-full max-w-sm space-y-6 rounded-lg bg-white p-6 text-center shadow-xs ring-1 ring-zinc-950/5">
-        <Heading level={1}>Access denied</Heading>
-        <Text>
-          Your account does not have permission to access the admin dashboard.
-        </Text>
-        <Button
-          outline
-          className="w-full"
-          onClick={() => void logout()}
-        >
-          Sign out
+    <div className="flex min-h-svh items-center justify-center bg-background px-4">
+      <div className="w-full max-w-sm space-y-6 rounded-xl border border-border bg-white p-8 text-center shadow-xs">
+        <Heading level={1}>دسترسی غیرمجاز</Heading>
+        <Text>حساب کاربری شما مجوز دسترسی به پنل مدیریت را ندارد.</Text>
+        <Button outline className="w-full" onClick={() => void logout()}>
+          خروج از حساب
         </Button>
       </div>
     </div>

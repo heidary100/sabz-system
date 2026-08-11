@@ -265,6 +265,50 @@ Avoid:
 - Ant Design
 - Chakra UI
 
+## Admin UI Standards
+
+The Sabz System Admin application is Persian-first.
+
+Language:
+
+- Default locale: fa-IR
+- All user-facing admin text must be Persian
+- Validation and error messages should be Persian
+
+Direction:
+
+- Admin application must use RTL
+- Components must be designed for RTL rather than visually mirrored with CSS hacks
+- Directional icons must account for RTL
+
+Typography:
+
+- Use Vazirmatn as the primary admin font
+
+Admin UI:
+
+- Use Catalyst UI Kit
+- Do not create a competing component library
+- Prefer reusable Catalyst-based components
+
+Brand palette:
+
+- Primary: #3a5a40
+- Primary dark: #344e41
+- Secondary: #588157
+- Accent: #a3b18a
+- Background: #f8f7f5
+- Text: #312e24
+- Border: #dad7cd
+
+Avoid:
+
+- Generic blue/indigo/purple dashboard styling
+- Excessive gradients
+- Excessive shadows
+- Excessive rounded cards
+- Unnecessary animation
+
 ### Storefront
 
 Use Tailwind Plus Ecommerce components.

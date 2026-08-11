@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
+import { Loading } from '../components/ui/loading'
 import { useAuth } from './auth-provider'
 
 export function RequireAuth({ children }: { children: ReactNode }) {
@@ -7,13 +8,7 @@ export function RequireAuth({ children }: { children: ReactNode }) {
   const location = useLocation()
 
   if (status === 'loading') {
-    return (
-      <div className="flex min-h-svh items-center justify-center bg-zinc-100">
-        <span className="text-sm font-medium text-zinc-500">
-          Checking session…
-        </span>
-      </div>
-    )
+    return <Loading label="در حال بررسی نشست…" />
   }
 
   if (status === 'anonymous') {
