@@ -6,6 +6,7 @@ import {
   HttpCode,
   HttpStatus,
   Ip,
+  Patch,
   Post,
   Req,
   Res,
@@ -22,7 +23,7 @@ import {
 import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { CurrentUser } from './decorators/current-user.decorator';
-import { RefreshTokenDto, RequestOtpDto, VerifyOtpDto } from './dto';
+import { RefreshTokenDto, RequestOtpDto, UpdateProfileDto, VerifyOtpDto } from './dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { AuthUser } from './interfaces/auth-user.interface';
 import {
@@ -33,6 +34,7 @@ import {
 } from './refresh-token-cookie';
 import { RolesService } from './roles/roles.service';
 import { OtpService } from './services/otp.service';
+import { ProfileService } from './services/profile.service';
 import { TokenService } from './services/token.service';
 
 @ApiTags('auth')
@@ -45,6 +47,7 @@ export class AuthController {
     private readonly otpService: OtpService,
     private readonly tokenService: TokenService,
     private readonly rolesService: RolesService,
+    private readonly profileService: ProfileService,
     configService: ConfigService,
   ) {
     this.configService = configService;
@@ -170,5 +173,30 @@ export class AuthController {
       status: profile?.status,
       roles,
     };
+  }
+
+  @Get('profile')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Return the authenticated user\'s profile' })
+  @ApiResponse({ status: 200, description: 'Profile returned.' })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
+  async getProfile(@CurrentUser() user: AuthUser) {
+    return this.profileService.getProfile(user.userId);
+  }
+
+  @Patch('profile')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update the authenticated user\'s profile' })
+  @ApiResponse({ status: 200, description: 'Profile updated.' })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
+  @ApiResponse({ status: 400, description: 'Invalid update data.' })
+  async updateProfile(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: UpdateProfileDto,
+    @Ip() ipAddress?: string,
+  ) {
+    return this.profileService.updateProfile(user.userId, dto, ipAddress);
   }
 }

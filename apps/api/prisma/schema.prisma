@@ -55,6 +55,7 @@ model UserProfile {
   userType  UserType @default(CUSTOMER)
   firstName String
   lastName  String
+  address   String?
   avatarUrl String?
 
   partner Partner?
@@ -175,4 +176,21 @@ model UserSession {
   updatedBy String?
 
   @@index([userId])
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  action    String
+  entity    String
+  entityId  String?
+  before    Json?
+  after     Json?
+  ipAddress String?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([entity])
+  @@index([entityId])
 }
