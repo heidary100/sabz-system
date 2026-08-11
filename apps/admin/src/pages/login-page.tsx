@@ -6,7 +6,7 @@ import { Field, Label } from '../components/catalyst/fieldset'
 import { Heading } from '../components/catalyst/heading'
 import { Input } from '../components/catalyst/input'
 import { Text } from '../components/catalyst/text'
-import { ApiError } from '../services/api'
+import { translateApiError } from '../lib/error-messages'
 import * as authService from '../services/auth'
 
 const MOBILE_REGEX = /^(\+98|0)9\d{9}$/
@@ -16,13 +16,6 @@ type Step = 'phone' | 'otp'
 
 interface LoginLocationState {
   from?: string
-}
-
-function errorMessage(error: unknown): string {
-  if (error instanceof ApiError) {
-    return error.message
-  }
-  return 'Something went wrong. Please try again.'
 }
 
 export function LoginPage() {
@@ -56,7 +49,7 @@ export function LoginPage() {
     setError(null)
 
     if (!MOBILE_REGEX.test(mobile)) {
-      setError('Enter a valid Iranian mobile number (e.g. +989123456789).')
+      setError('شماره موبایل معتبر وارد کنید (مثال: +989123456789).')
       return
     }
 
@@ -68,7 +61,7 @@ export function LoginPage() {
       setStep('otp')
       setResendIn(result.expiresIn)
     } catch (error) {
-      setError(errorMessage(error))
+      setError(translateApiError(error))
     } finally {
       setSubmitting(false)
     }
@@ -79,7 +72,7 @@ export function LoginPage() {
     setError(null)
 
     if (!OTP_REGEX.test(code)) {
-      setError('Enter the 6-digit code.')
+      setError('کد تأیید ۶ رقمی را وارد کنید.')
       return
     }
 
@@ -88,7 +81,7 @@ export function LoginPage() {
       await login(mobile, code)
       navigate(from, { replace: true })
     } catch (error) {
-      setError(errorMessage(error))
+      setError(translateApiError(error))
     } finally {
       setSubmitting(false)
     }
@@ -103,21 +96,29 @@ export function LoginPage() {
       setCode('')
       setResendIn(result.expiresIn)
     } catch (error) {
-      setError(errorMessage(error))
+      setError(translateApiError(error))
     } finally {
       setSubmitting(false)
     }
   }
 
   return (
-    <div className="flex min-h-svh items-center justify-center bg-zinc-100">
-      <div className="w-full max-w-sm space-y-6 rounded-lg bg-white p-6 shadow-xs ring-1 ring-zinc-950/5">
-        <Heading level={1}>Sabz Admin</Heading>
+    <div className="flex min-h-svh items-center justify-center bg-background px-4">
+      <div className="rule-double-top w-full max-w-sm space-y-8 rounded-xl border border-border bg-white p-8 pt-7 shadow-xs">
+        <div className="space-y-2">
+          <span className="text-xs font-semibold text-dust-200">پنل مدیریت</span>
+          <Heading level={1}>سبز</Heading>
+          <Text>
+            {step === 'phone'
+              ? 'برای ورود، شماره موبایل خود را وارد کنید.'
+              : `کد ۶ رقمی ارسال‌شده به ${mobile} را وارد کنید.`}
+          </Text>
+        </div>
 
         {step === 'phone' ? (
           <form className="space-y-6" onSubmit={handleSendCode}>
             <Field>
-              <Label>Mobile number</Label>
+              <Label>شماره موبایل</Label>
               <Input
                 type="tel"
                 name="mobile"
@@ -130,19 +131,19 @@ export function LoginPage() {
             </Field>
 
             {error && (
-              <Text className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 ring-1 ring-red-600/20">
+              <Text className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
                 {error}
               </Text>
             )}
 
-            <Button type="submit" className="w-full" disabled={submitting}>
-              {submitting ? 'Sending…' : 'Send code'}
+            <Button type="submit" color="primary" className="w-full" disabled={submitting}>
+              {submitting ? 'در حال ارسال…' : 'ارسال کد'}
             </Button>
           </form>
         ) : (
           <form className="space-y-6" onSubmit={handleVerify}>
             <Field>
-              <Label>Verification code</Label>
+              <Label>کد تأیید</Label>
               <Input
                 type="text"
                 name="code"
@@ -157,19 +158,22 @@ export function LoginPage() {
             </Field>
 
             {devCode && (
-              <Text className="rounded-md bg-zinc-50 px-3 py-2 text-sm ring-1 ring-zinc-950/5">
-                Development code: {devCode}
+              <Text className="rounded-lg border border-hunter-200 bg-hunter-900 px-3 py-2 text-sm text-hunter-600">
+                کد آزمایشی:{' '}
+                <span dir="ltr" className="font-semibold tabular-nums">
+                  {devCode}
+                </span>
               </Text>
             )}
 
             {error && (
-              <Text className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 ring-1 ring-red-600/20">
+              <Text className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
                 {error}
               </Text>
             )}
 
-            <Button type="submit" className="w-full" disabled={submitting}>
-              {submitting ? 'Verifying…' : 'Verify & sign in'}
+            <Button type="submit" color="primary" className="w-full" disabled={submitting}>
+              {submitting ? 'در حال ورود…' : 'ورود'}
             </Button>
 
             <div className="flex items-center justify-between text-sm">
@@ -182,7 +186,7 @@ export function LoginPage() {
                 }}
                 disabled={submitting}
               >
-                Change number
+                تغییر شماره
               </Button>
               <Button
                 type="button"
@@ -190,7 +194,7 @@ export function LoginPage() {
                 onClick={() => void handleResend()}
                 disabled={submitting || resendIn > 0}
               >
-                {resendIn > 0 ? `Resend in ${resendIn}s` : 'Resend code'}
+                {resendIn > 0 ? `ارسال مجدد کد تا ${resendIn} ثانیه دیگر` : 'ارسال مجدد کد'}
               </Button>
             </div>
           </form>

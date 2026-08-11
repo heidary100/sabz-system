@@ -59,7 +59,7 @@ export function AlertTitle({
       {...props}
       className={clsx(
         className,
-        'text-center text-base/6 font-semibold text-balance text-zinc-950 sm:text-left sm:text-sm/6 sm:text-wrap dark:text-white'
+        'text-center text-base/6 font-semibold text-balance text-zinc-950 sm:text-start sm:text-sm/6 sm:text-wrap dark:text-white'
       )}
     />
   )
@@ -73,7 +73,7 @@ export function AlertDescription({
     <Headless.Description
       as={Text}
       {...props}
-      className={clsx(className, 'mt-2 text-center text-pretty sm:text-left')}
+      className={clsx(className, 'mt-2 text-center text-pretty sm:text-start')}
     />
   )
 }
