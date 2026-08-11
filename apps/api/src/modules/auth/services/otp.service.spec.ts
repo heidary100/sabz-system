@@ -59,6 +59,20 @@ describe('OtpService', () => {
       expect(result.code).toMatch(/^\d{6}$/);
     });
 
+    it('uses the deterministic development code when NODE_ENV is development', async () => {
+      redis.incr.mockResolvedValue(1);
+      const config = {
+        get: jest.fn((key: string) =>
+          key === 'NODE_ENV' ? 'development' : undefined,
+        ),
+      } as unknown as ConfigService;
+      service = new OtpService(redis as unknown as RedisService, config);
+
+      const result = await service.requestOtp(mobile);
+
+      expect(result.code).toBe('123456');
+    });
+
     it('returns the code in development but not in production', async () => {
       redis.incr.mockResolvedValue(1);
       const config = {

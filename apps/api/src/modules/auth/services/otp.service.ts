@@ -16,6 +16,15 @@ const MAX_VERIFICATION_ATTEMPTS = 5;
 const RATE_LIMIT_WINDOW_SECONDS = 60;
 const RATE_LIMIT_MAX_REQUESTS = 5;
 
+/**
+ * Development-only deterministic OTP.
+ *
+ * Deliberately not configurable: it activates exclusively when
+ * NODE_ENV === 'development' (a hard-coded gate), so it cannot be switched
+ * on in production through any environment variable.
+ */
+const DEV_OTP_CODE = '123456';
+
 function otpKey(mobile: string): string {
   return `auth:otp:${mobile}`;
 }
@@ -38,12 +47,15 @@ export interface RequestOtpResult {
 export class OtpService {
   private readonly logger = new Logger(OtpService.name);
   private readonly exposeCode: boolean;
+  private readonly isDevelopment: boolean;
 
   constructor(
     private readonly redis: RedisService,
     configService: ConfigService,
   ) {
-    this.exposeCode = configService.get<string>('NODE_ENV') !== 'production';
+    const nodeEnv = configService.get<string>('NODE_ENV');
+    this.exposeCode = nodeEnv !== 'production';
+    this.isDevelopment = nodeEnv === 'development';
   }
 
   async requestOtp(mobile: string): Promise<RequestOtpResult> {
@@ -59,7 +71,7 @@ export class OtpService {
       );
     }
 
-    const code = this.generateCode();
+    const code = this.isDevelopment ? DEV_OTP_CODE : this.generateCode();
     const pipeline = this.redis.multi();
     pipeline.set(otpKey(mobile), code, 'EX', OTP_TTL_SECONDS);
     pipeline.del(attemptsKey(mobile));
