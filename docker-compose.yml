@@ -49,6 +49,7 @@ services:
       JWT_REFRESH_SECRET: dev_refresh_secret_change_me
       JWT_ACCESS_EXPIRES_IN: 15m
       JWT_REFRESH_EXPIRES_IN: 30d
+      CORS_ORIGINS: http://localhost:5173
     volumes:
       - ./apps/api:/app/apps/api
       - api_node_modules:/app/apps/api/node_modules
@@ -67,7 +68,7 @@ services:
     ports:
       - "5173:5173"
     environment:
-      VITE_API_BASE_URL: http://localhost:3000/api
+      VITE_API_BASE_URL: http://localhost:3000/api/v1
     command: ["pnpm", "--filter", "@sabz/admin", "dev", "--host", "0.0.0.0"]
     volumes:
       - ./apps/admin:/app/apps/admin

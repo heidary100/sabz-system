@@ -1,35 +1,62 @@
 import {
   Body,
   Controller,
+  Get,
   Headers,
   HttpCode,
   HttpStatus,
   Ip,
   Post,
+  Req,
+  Res,
+  UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import {
   ApiBearerAuth,
   ApiOperation,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { RefreshTokenDto, RequestOtpDto, VerifyOtpDto } from './dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { AuthUser } from './interfaces/auth-user.interface';
+import {
+  clearRefreshTokenCookie,
+  getRefreshTokenFromRequest,
+  setRefreshTokenCookie,
+  type RefreshTokenCookieOptions,
+} from './refresh-token-cookie';
+import { RolesService } from './roles/roles.service';
 import { OtpService } from './services/otp.service';
 import { TokenService } from './services/token.service';
 
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
+  private readonly configService: ConfigService;
+
   constructor(
     private readonly authService: AuthService,
     private readonly otpService: OtpService,
     private readonly tokenService: TokenService,
-  ) {}
+    private readonly rolesService: RolesService,
+    configService: ConfigService,
+  ) {
+    this.configService = configService;
+  }
+
+  private get cookieOptions(): RefreshTokenCookieOptions {
+    return {
+      secure:
+        this.configService.get<string>('NODE_ENV', 'development') ===
+        'production',
+    };
+  }
 
   @Post('request-otp')
   @HttpCode(HttpStatus.OK)
@@ -51,6 +78,7 @@ export class AuthController {
     @Body() dto: VerifyOtpDto,
     @Ip() ipAddress: string,
     @Headers('x-device-id') deviceId?: string,
+    @Res({ passthrough: true }) res?: Response,
   ) {
     await this.otpService.verifyOtp(dto.mobile, dto.code);
     const user = await this.authService.getOrCreateUserByMobile(dto.mobile);
@@ -59,6 +87,15 @@ export class AuthController {
       deviceId,
       ipAddress,
     });
+
+    if (res) {
+      setRefreshTokenCookie(
+        res,
+        tokens.refreshToken,
+        this.tokenService.refreshLifetimeMs,
+        this.cookieOptions,
+      );
+    }
 
     return {
       verified: true,
@@ -76,8 +113,27 @@ export class AuthController {
   @ApiOperation({ summary: 'Exchange a refresh token for a new token pair' })
   @ApiResponse({ status: 200, description: 'New token pair issued.' })
   @ApiResponse({ status: 401, description: 'Invalid or expired refresh token.' })
-  async refresh(@Body() dto: RefreshTokenDto) {
-    return this.tokenService.refreshSession(dto.refreshToken);
+  async refresh(
+    @Body() dto: RefreshTokenDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res?: Response,
+  ) {
+    const refreshToken = dto.refreshToken ?? getRefreshTokenFromRequest(req);
+    if (!refreshToken) {
+      throw new UnauthorizedException('Invalid or expired refresh token.');
+    }
+
+    const tokens = await this.tokenService.refreshSession(refreshToken);
+    if (res) {
+      setRefreshTokenCookie(
+        res,
+        tokens.refreshToken,
+        this.tokenService.refreshLifetimeMs,
+        this.cookieOptions,
+      );
+    }
+
+    return tokens;
   }
 
   @Post('logout')
@@ -87,8 +143,32 @@ export class AuthController {
   @ApiOperation({ summary: 'Revoke the current session' })
   @ApiResponse({ status: 200, description: 'Session revoked.' })
   @ApiResponse({ status: 401, description: 'Unauthorized.' })
-  async logout(@CurrentUser() user: AuthUser) {
+  async logout(
+    @CurrentUser() user: AuthUser,
+    @Res({ passthrough: true }) res?: Response,
+  ) {
     await this.tokenService.revokeSession(user.sessionId);
+    if (res) {
+      clearRefreshTokenCookie(res, this.cookieOptions);
+    }
     return { loggedOut: true };
+  }
+
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Return the authenticated user with their roles' })
+  @ApiResponse({ status: 200, description: 'Current user returned.' })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
+  async me(@CurrentUser() user: AuthUser) {
+    const profile = await this.authService.findUserById(user.userId);
+    const roles = await this.rolesService.findRoleNamesByUserId(user.userId);
+
+    return {
+      id: profile?.id,
+      mobile: profile?.mobile,
+      status: profile?.status,
+      roles,
+    };
   }
 }
