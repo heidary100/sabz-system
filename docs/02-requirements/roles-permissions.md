@@ -408,7 +408,30 @@ Only Super Administrators may:
 
 ---
 
-# 10. Future Roles
+# 10. Authorization Implementation Notes (SS-016)
+
+## Application Roles
+
+The authorization foundation (SS-016) defines the following application-level roles:
+
+- `CUSTOMER`
+- `PARTNER`
+- `OPERATOR`
+- `ADMIN`
+
+Role checks use the `@Roles(...)` decorator with the `RolesGuard`. `@Roles(A, B)` grants access to a user holding **either** role. Routes without `@Roles()` require authentication only, when protected by `JwtAuthGuard`.
+
+Roles are resolved server-side from the `UserRole` → `Role` tables at request time. They are **not** embedded in JWT payloads, so the database remains the single source of truth for authorization. A user may hold multiple roles simultaneously (AUTH-005).
+
+## Known Gap: AUTH-006
+
+AUTH-006 ("Administrative roles are assigned only by Super Administrators") cannot be enforced with the current role model, which defines only `CUSTOMER`, `PARTNER`, `OPERATOR`, and `ADMIN`. There is no `SUPER_ADMIN` role.
+
+The authorization foundation does not invent a super-admin role and does not implement role assignment. Enforcement of AUTH-006 — including a super-administrator elevation path — is deferred to the admin/role-management issues.
+
+---
+
+# 11. Future Roles
 
 The authorization model is designed to support additional roles without major architectural changes, including:
 
