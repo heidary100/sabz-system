@@ -40,13 +40,11 @@ function rateLimitKey(mobile: string): string {
 export interface RequestOtpResult {
   sent: boolean;
   expiresIn: number;
-  code?: string;
 }
 
 @Injectable()
 export class OtpService {
   private readonly logger = new Logger(OtpService.name);
-  private readonly exposeCode: boolean;
   private readonly isDevelopment: boolean;
 
   constructor(
@@ -54,7 +52,6 @@ export class OtpService {
     configService: ConfigService,
   ) {
     const nodeEnv = configService.get<string>('NODE_ENV');
-    this.exposeCode = nodeEnv !== 'production';
     this.isDevelopment = nodeEnv === 'development';
   }
 
@@ -82,7 +79,6 @@ export class OtpService {
     return {
       sent: true,
       expiresIn: OTP_TTL_SECONDS,
-      ...(this.exposeCode ? { code } : {}),
     };
   }
 

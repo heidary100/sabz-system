@@ -27,7 +27,6 @@ export function LoginPage() {
   const [step, setStep] = useState<Step>('phone')
   const [mobile, setMobile] = useState('')
   const [code, setCode] = useState('')
-  const [devCode, setDevCode] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [resendIn, setResendIn] = useState(0)
@@ -56,7 +55,6 @@ export function LoginPage() {
     setSubmitting(true)
     try {
       const result = await authService.requestOtp(mobile)
-      setDevCode(result.code ?? null)
       setCode('')
       setStep('otp')
       setResendIn(result.expiresIn)
@@ -92,7 +90,6 @@ export function LoginPage() {
     setSubmitting(true)
     try {
       const result = await authService.requestOtp(mobile)
-      setDevCode(result.code ?? null)
       setCode('')
       setResendIn(result.expiresIn)
     } catch (error) {
@@ -156,15 +153,6 @@ export function LoginPage() {
                 disabled={submitting}
               />
             </Field>
-
-            {devCode && (
-              <Text className="rounded-lg border border-hunter-200 bg-hunter-900 px-3 py-2 text-sm text-hunter-600">
-                کد آزمایشی:{' '}
-                <span dir="ltr" className="font-semibold tabular-nums">
-                  {devCode}
-                </span>
-              </Text>
-            )}
 
             {error && (
               <Text className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
