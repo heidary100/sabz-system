@@ -56,10 +56,11 @@ describe('OtpService', () => {
       expect(exec).toHaveBeenCalled();
       expect(result.sent).toBe(true);
       expect(result.expiresIn).toBe(120);
-      expect(result.code).toMatch(/^\d{6}$/);
+      expect(result).not.toHaveProperty('code');
+      expect(result).not.toHaveProperty('devCode');
     });
 
-    it('uses the deterministic development code when NODE_ENV is development', async () => {
+    it('stores the deterministic development code when NODE_ENV is development', async () => {
       redis.incr.mockResolvedValue(1);
       const config = {
         get: jest.fn((key: string) =>
@@ -68,24 +69,36 @@ describe('OtpService', () => {
       } as unknown as ConfigService;
       service = new OtpService(redis as unknown as RedisService, config);
 
-      const result = await service.requestOtp(mobile);
+      await service.requestOtp(mobile);
 
-      expect(result.code).toBe('123456');
+      const pipeline = redis.multi.mock.results[0]?.value as {
+        set: jest.Mock;
+      };
+      expect(pipeline.set).toHaveBeenCalledWith(
+        `auth:otp:${mobile}`,
+        '123456',
+        'EX',
+        120,
+      );
     });
 
-    it('returns the code in development but not in production', async () => {
-      redis.incr.mockResolvedValue(1);
-      const config = {
-        get: jest.fn((key: string) =>
-          key === 'NODE_ENV' ? 'production' : undefined,
-        ),
-      } as unknown as ConfigService;
-      service = new OtpService(redis as unknown as RedisService, config);
+    it.each(['development', 'test', 'production'])(
+      'never returns the OTP code when NODE_ENV is %s',
+      async (nodeEnv) => {
+        redis.incr.mockResolvedValue(1);
+        const config = {
+          get: jest.fn((key: string) =>
+            key === 'NODE_ENV' ? nodeEnv : undefined,
+          ),
+        } as unknown as ConfigService;
+        service = new OtpService(redis as unknown as RedisService, config);
 
-      const result = await service.requestOtp(mobile);
+        const result = await service.requestOtp(mobile);
 
-      expect(result.code).toBeUndefined();
-    });
+        expect(result).not.toHaveProperty('code');
+        expect(result).not.toHaveProperty('devCode');
+      },
+    );
 
     it('throws a 429 response when the rate limit is exceeded', async () => {
       redis.incr.mockResolvedValue(6);

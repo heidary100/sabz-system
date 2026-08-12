@@ -17,7 +17,7 @@ describe('AuthController', () => {
     markMobileVerified: jest.Mock;
     findUserById: jest.Mock;
   };
-  let otpService: { verifyOtp: jest.Mock };
+  let otpService: { requestOtp: jest.Mock; verifyOtp: jest.Mock };
   let tokenService: {
     createSession: jest.Mock;
     refreshSession: jest.Mock;
@@ -38,7 +38,7 @@ describe('AuthController', () => {
       markMobileVerified: jest.fn(),
       findUserById: jest.fn(),
     };
-    otpService = { verifyOtp: jest.fn() };
+    otpService = { requestOtp: jest.fn(), verifyOtp: jest.fn() };
     tokenService = {
       createSession: jest.fn(),
       refreshSession: jest.fn(),
@@ -58,6 +58,24 @@ describe('AuthController', () => {
       profileService as unknown as ProfileService,
       configService as unknown as ConfigService,
     );
+  });
+
+  describe('requestOtp', () => {
+    it('returns the generic OTP request result from the service', async () => {
+      otpService.requestOtp.mockResolvedValue({
+        sent: true,
+        expiresIn: 120,
+      });
+
+      const result = await controller.requestOtp({
+        mobile: '+989123456789',
+      });
+
+      expect(otpService.requestOtp).toHaveBeenCalledWith('+989123456789');
+      expect(result).toEqual({ sent: true, expiresIn: 120 });
+      expect(result).not.toHaveProperty('code');
+      expect(result).not.toHaveProperty('devCode');
+    });
   });
 
   describe('verifyOtp', () => {

@@ -18,7 +18,6 @@ export interface AuthUser {
 export interface OtpRequestResult {
   sent: boolean
   expiresIn: number
-  code?: string
 }
 
 export interface VerifyOtpResult {
