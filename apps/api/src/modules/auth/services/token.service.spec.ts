@@ -1,12 +1,14 @@
 import { UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+import { UserStatus } from '@prisma/client';
 import { PrismaService } from '../../../common/database/prisma.service';
 import { TokenService } from './token.service';
 
 describe('TokenService', () => {
   let service: TokenService;
   let prisma: {
+    user: { findUnique: jest.Mock };
     userSession: {
       create: jest.Mock;
       findUnique: jest.Mock;
@@ -33,6 +35,7 @@ describe('TokenService', () => {
 
   beforeEach(() => {
     prisma = {
+      user: { findUnique: jest.fn() },
       userSession: {
         create: jest.fn(),
         findUnique: jest.fn(),
@@ -49,6 +52,10 @@ describe('TokenService', () => {
       jwtService as unknown as JwtService,
       configService,
     );
+    prisma.user.findUnique.mockResolvedValue({
+      status: UserStatus.ACTIVE,
+      deletedAt: null,
+    });
   });
 
   describe('createSession', () => {
@@ -210,6 +217,53 @@ describe('TokenService', () => {
       await expect(service.refreshSession('raw.refresh')).rejects.toThrow(
         UnauthorizedException,
       );
+    });
+
+    it.each([
+      ['suspended', UserStatus.SUSPENDED],
+      ['locked', UserStatus.LOCKED],
+    ])('throws and does not rotate when the user is %s', async (_label, status) => {
+      jwtService.verify.mockReturnValue({
+        sub: 'user-1',
+        sessionId: 'session-1',
+        type: 'refresh',
+      });
+      prisma.userSession.findUnique.mockResolvedValue(session);
+      prisma.user.findUnique.mockResolvedValue({
+        status,
+        deletedAt: null,
+      });
+
+      await expect(service.refreshSession('raw.refresh')).rejects.toThrow(
+        UnauthorizedException,
+      );
+      expect(prisma.user.findUnique).toHaveBeenCalledWith({
+        where: { id: 'user-1' },
+        select: { status: true, deletedAt: true },
+      });
+      expect(prisma.userSession.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('throws and does not rotate when the user is soft-deleted', async () => {
+      jwtService.verify.mockReturnValue({
+        sub: 'user-1',
+        sessionId: 'session-1',
+        type: 'refresh',
+      });
+      prisma.userSession.findUnique.mockResolvedValue(session);
+      prisma.user.findUnique.mockResolvedValue({
+        status: UserStatus.ACTIVE,
+        deletedAt: new Date(),
+      });
+
+      await expect(service.refreshSession('raw.refresh')).rejects.toThrow(
+        UnauthorizedException,
+      );
+      expect(prisma.user.findUnique).toHaveBeenCalledWith({
+        where: { id: 'user-1' },
+        select: { status: true, deletedAt: true },
+      });
+      expect(prisma.userSession.updateMany).not.toHaveBeenCalled();
     });
   });
 

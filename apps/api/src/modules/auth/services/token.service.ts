@@ -2,6 +2,7 @@ import { createHash, randomUUID } from 'crypto';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService, JwtSignOptions } from '@nestjs/jwt';
+import { UserStatus } from '@prisma/client';
 import { PrismaService } from '../../../common/database/prisma.service';
 
 const ACCESS_TOKEN_TYPE = 'access';
@@ -88,6 +89,15 @@ export class TokenService {
       session.expiresAt.getTime() <= Date.now() ||
       session.userId !== payload.sub
     ) {
+      throw new UnauthorizedException('Invalid or expired refresh token.');
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: payload.sub },
+      select: { status: true, deletedAt: true },
+    });
+
+    if (!user || user.deletedAt !== null || user.status !== UserStatus.ACTIVE) {
       throw new UnauthorizedException('Invalid or expired refresh token.');
     }
 
