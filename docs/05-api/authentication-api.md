@@ -9,25 +9,37 @@ Version: 1.0
 
 This document specifies the authentication and identity management API endpoints. For the complete API specification, see [API Specification](api-specification.md).
 
+The current authentication flow is OTP-first: there is no password-based registration or login. A user authenticates by requesting an OTP for their mobile number and verifying it. The account is created and activated on first successful verification.
+
 ---
 
 # Endpoints
 
-## Customer Registration
+## Request OTP
 
 ```
-POST /api/v1/auth/register
+POST /api/v1/auth/request-otp
 ```
 
 Request Body:
 ```json
 {
-  "phone": "+989123456789",
-  "password": "securePassword123",
-  "firstName": "Ali",
-  "lastName": "Ahmadi"
+  "mobile": "+989123456789"
 }
 ```
+
+Response:
+```json
+{
+  "sent": true,
+  "expiresIn": 120
+}
+```
+
+- `expiresIn` is the OTP lifetime in seconds (2 minutes). The OTP is stored server-side only and is **never** returned in the API response — in any environment, including development.
+- In development only (`NODE_ENV=development`), the OTP code is always `123456`; see [Local Environment](../07-development/local-environment.md). It is never returned by the API.
+
+Errors: `400` when `mobile` is not a valid Iranian mobile number; `429` when more than 5 OTP requests are made for the same mobile number within a 60-second window.
 
 ## OTP Verification
 
@@ -38,18 +50,20 @@ POST /api/v1/auth/verify-otp
 Request Body:
 ```json
 {
-  "phone": "+989123456789",
-  "code": "1234"
+  "mobile": "+989123456789",
+  "code": "123456"
 }
 ```
 
-Response (successful verification activates the account and issues a token pair, and sets the `sabz_refresh_token` HttpOnly cookie for web clients):
+- `code` must be exactly 6 digits.
+
+Response (successful verification creates the account on first use, activates it, issues a token pair, and sets the `sabz_refresh_token` HttpOnly cookie for web clients):
 ```json
 {
   "verified": true,
   "user": {
     "id": "uuid",
-    "phone": "+989123456789",
+    "mobile": "+989123456789",
     "status": "ACTIVE"
   },
   "accessToken": "eyJhbGciOiJIUzI1NiIs...",
@@ -57,34 +71,11 @@ Response (successful verification activates the account and issues a token pair,
 }
 ```
 
+- The user record is created on first successful verification; subsequent verifications reuse the existing record. The account is marked `ACTIVE` unless it is `SUSPENDED` or `LOCKED`.
+
 Optional request header `x-device-id` records a client device identifier on the session.
 
-## Login
-
-```
-POST /api/v1/auth/login
-```
-
-Request Body:
-```json
-{
-  "phone": "+989123456789",
-  "password": "securePassword123"
-}
-```
-
-Response:
-```json
-{
-  "accessToken": "eyJhbGciOiJIUzI1NiIs...",
-  "refreshToken": "eyJhbGciOiJIUzI1NiIs...",
-  "user": {
-    "id": "uuid",
-    "phone": "+989123456789",
-    "role": "CUSTOMER"
-  }
-}
-```
+Errors: `400` when the payload is invalid or the OTP code is incorrect; `410` when the OTP has expired; `429` when more than 5 verification attempts have been made for the current OTP (the OTP is then invalidated and a new one must be requested); `403` when the account is `SUSPENDED` or `LOCKED`.
 
 ## Refresh Token
 
@@ -109,7 +100,7 @@ Response (a new token pair; the presented refresh token is rotated and the old o
 }
 ```
 
-Errors: `401` when the refresh token is invalid, expired, revoked, or already rotated.
+Errors: `401` when the refresh token is missing, invalid, expired, revoked, or already rotated, or when the user is no longer `ACTIVE`.
 
 ## Current User
 
@@ -190,23 +181,6 @@ Validation: `firstName` and `lastName` must be non-null strings of at most 100 c
 
 Errors: `401` when unauthenticated; `400` when the payload is invalid (e.g. a field exceeds its maximum length).
 
-## Partner Registration
-
-```
-POST /api/v1/auth/partner/register
-```
-
-Request Body:
-```json
-{
-  "phone": "+989123456789",
-  "password": "securePassword123",
-  "companyName": "Example Co.",
-  "businessType": "WHOLESALER",
-  "nationalId": "1234567890"
-}
-```
-
 ## Logout
 
 ```
@@ -229,13 +203,27 @@ Revokes the current session; its refresh token can no longer be used and the `sa
 
 ---
 
+# Future Endpoints (Not Yet Implemented)
+
+The following endpoints are documented in earlier requirements and remain **planned only**. They are not implemented and must not be relied upon:
+
+- `POST /api/v1/auth/register` — password-based customer registration.
+- `POST /api/v1/auth/login` — password-based login.
+- `POST /api/v1/auth/partner/register` — partner registration.
+- `POST /api/v1/auth/forgot-password` / `POST /api/v1/auth/reset-password` — password recovery.
+- `POST /api/v1/auth/logout-all` — revoke all sessions.
+
+The current flow is OTP-first and password-based functionality has no defined timeline.
+
+---
+
 # Authentication Flow
 
-1. User registers with phone number and password.
-2. System sends OTP via SMS.
-3. User verifies OTP to activate account and receives a JWT access token and refresh token.
-4. Client includes access token in `Authorization: Bearer` header.
-5. When access token expires, client uses refresh token to get new tokens.
+1. Client requests an OTP for the mobile number (`POST /api/v1/auth/request-otp`). The OTP is generated and stored server-side with a 2-minute lifetime; it is never returned in the response.
+2. Client submits the OTP (`POST /api/v1/auth/verify-otp`). On success, the user account is created on first verification (or its existing record reused) and set to `ACTIVE`, and a JWT access token plus refresh token pair is issued. Web clients also receive the refresh token as the `sabz_refresh_token` HttpOnly cookie.
+3. Client includes the access token in `Authorization: Bearer` header for protected endpoints.
+4. When the access token expires, client uses the refresh token (`POST /api/v1/auth/refresh`) to get a new token pair.
+5. Client logs out (`POST /api/v1/auth/logout`) to revoke the session.
 
 # Session & Token Rules
 

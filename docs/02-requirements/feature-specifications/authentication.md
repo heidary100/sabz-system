@@ -211,27 +211,33 @@ Acceptance Criteria
 
 # 7. API Endpoints
 
-Public
+The current authentication flow is OTP-first: users authenticate by requesting and verifying an OTP, and the account is created and activated on first verification. Password-based registration and login are not yet implemented.
 
-POST /auth/register
+Current
 
-POST /auth/login
-
-POST /auth/send-otp
+POST /auth/request-otp
 
 POST /auth/verify-otp
 
-POST /auth/forgot-password
+POST /auth/refresh
 
-POST /auth/reset-password
-
-Authenticated
+GET /auth/me
 
 GET /auth/profile
 
 PATCH /auth/profile
 
 POST /auth/logout
+
+Future / Not Yet Implemented
+
+POST /auth/register
+
+POST /auth/login
+
+POST /auth/forgot-password
+
+POST /auth/reset-password
 
 POST /auth/logout-all
 

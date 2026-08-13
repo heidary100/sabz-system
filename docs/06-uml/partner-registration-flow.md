@@ -9,6 +9,8 @@ Version: 1.0
 
 The partner registration flow handles B2B business account creation, verification, and tier assignment.
 
+> **Status: PLANNED — not yet implemented.** Password-based registration does not exist in the current API. The current authentication flow is OTP-first (see [Authentication API](../05-api/authentication-api.md)); the steps below describe the intended future design. OTP responses in the current API return `{ sent, expiresIn }`, never the code.
+
 ---
 
 # Registration States
