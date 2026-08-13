@@ -35,7 +35,8 @@ User (identity root)
 |   +-- firstName: string
 |   +-- lastName: string
 |   +-- avatarUrl: string?
-|   +-- addresses: Address[]
+|   +-- address: string? (personal/contact address of the user; SS-028)
+|   +-- addresses: Address[] (shipping/billing addresses, future)
 |   |
 |   +-- Customer (role CUSTOMER, no dedicated table)
 |   |
@@ -46,6 +47,9 @@ User (identity root)
 |       +-- verificationStatus: VerificationStatus
 |       +-- nationalId: string
 |       +-- tier: PartnerTier
+|       +-- businessAddress (province, city, fullAddress) — business/legal
+|       |      operating address, distinct from the profile's personal
+|       |      address (SS-028)
 |       +-- businessDocuments: BusinessDocument[]
 |
 +-- Role (many-to-many via UserRole, sole authorization source)
@@ -195,7 +199,7 @@ BlogPost
 - **PhoneNumber**: Validated Iranian phone number
 - **NationalId**: Validated Iranian national identification number
 - **Slug**: URL-friendly identifier generated from titles
-- **Address**: Structured address with province, city, and postal code
+- **Address**: Structured address with province, city, and postal code. Represents user shipping/billing addresses (future) — distinct from the UserProfile personal address and the Partner business address (SS-028).
 
 ---
 

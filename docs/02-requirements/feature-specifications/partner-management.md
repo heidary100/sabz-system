@@ -168,6 +168,8 @@ Applicants shall provide:
 - City
 - Full business address
 
+> **Address semantics (SS-028):** Province, City, and Full business address are the partner entity's business/legal operating address. They are stored on the Partner entity and are distinct from the user's personal/contact address on UserProfile. The two address concepts are never interchangeable.
+
 ---
 
 ## Required Documents

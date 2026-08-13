@@ -160,7 +160,7 @@ Response:
 }
 ```
 
-Returns the authenticated user's identity, profile, and role names. Roles are resolved from the `UserRole` → `Role` tables and are the authorization source of truth. The target user is always resolved from the JWT identity; no user identifier is accepted from the client. Authentication data (password hash, refresh tokens, OTP data) is never returned.
+Returns the authenticated user's identity, profile, and role names. `address` is the user's personal/contact address (SS-028) — it is not the partner business address, which is managed through the partner application flow. Roles are resolved from the `UserRole` → `Role` tables and are the authorization source of truth. The target user is always resolved from the JWT identity; no user identifier is accepted from the client. Authentication data (password hash, refresh tokens, OTP data) is never returned.
 
 ## Update Profile
 
@@ -184,7 +184,7 @@ Request Body (all fields optional; an empty payload is a no-op returning the pro
 
 Response: the updated profile in the same shape as `GET /api/v1/auth/profile`.
 
-Only the editable profile fields (`firstName`, `lastName`, `address`) are accepted. All other fields — including user id, mobile, status, roles, and verification state — are ignored/stripped; the target user is always resolved from the JWT identity, so a user can never modify another user's profile. Phone identity changes are not supported through this endpoint (they require a dedicated verification flow). Every profile update is recorded in the audit log.
+Only the editable profile fields (`firstName`, `lastName`, `address`) are accepted. `address` is the user's personal/contact address (SS-028), not a business address; partner business address fields are managed through the partner application. All other fields — including user id, mobile, status, roles, and verification state — are ignored/stripped; the target user is always resolved from the JWT identity, so a user can never modify another user's profile. Phone identity changes are not supported through this endpoint (they require a dedicated verification flow). Every profile update is recorded in the audit log.
 
 Validation: `firstName` and `lastName` must be non-null strings of at most 100 characters; `address` must be a string of at most 500 characters and may be set to `null` to clear it.
 

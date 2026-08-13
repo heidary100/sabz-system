@@ -43,9 +43,9 @@ Profile data is not stored on User. It belongs to the one-to-one `UserProfile` e
 
 # 2. Decision: Customer and Partner Are Classifications Expressed Through Roles
 
-- **UserProfile** (one-to-one with User) holds common profile fields (`first_name`, `last_name`, `avatar_url`) only.
+- **UserProfile** (one-to-one with User) holds common profile fields (`first_name`, `last_name`, `avatar_url`) plus an optional personal/contact `address` belonging to the individual user (SS-028). This address is distinct from the partner business address and is never interchangeable with it.
 - **Customer**, **Partner**, **Admin**, and **Operator** are system roles stored in the `Role` table and assigned to users through the `UserRole` junction. Roles are the sole source of authorization (see Roles & Permissions Matrix §10).
-- **Partner** is an optional one-to-one business extension of UserProfile for B2B business data (`business_name`, `business_license_number`, `national_id`, `tier`, `approval_status`, `approved_at`). Access to partner functionality is granted through the PARTNER role, assigned when the application is approved.
+- **Partner** is an optional one-to-one business extension of UserProfile for B2B business data (`business_name`, `business_license_number`, `national_id`, `tier`, `approval_status`, `approved_at`) including the business/legal operating address (`address`, `city`, `province`), which is collected during the partner application and is distinct from the user's personal profile address (SS-028). Access to partner functionality is granted through the PARTNER role, assigned when the application is approved.
 - A `user_type` discriminator on UserProfile was removed in SS-027 because it duplicated the role model: it could not represent the multiple simultaneous roles required by AUTH-005 and was never used for authorization.
 
 ## Rationale
