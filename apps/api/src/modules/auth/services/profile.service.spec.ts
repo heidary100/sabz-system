@@ -1,7 +1,9 @@
 import { NotFoundException } from '@nestjs/common';
-import { UserStatus, UserType } from '@prisma/client';
+import { UserStatus } from '@prisma/client';
 import { PrismaService } from '../../../common/database/prisma.service';
 import { AuditService } from '../../audit/audit.service';
+import { AppRole } from '../enums/app-role.enum';
+import { RolesService } from '../roles/roles.service';
 import { UpdateProfileDto } from '../dto/update-profile.dto';
 import { ProfileService } from './profile.service';
 
@@ -12,6 +14,7 @@ describe('ProfileService', () => {
     userProfile: { findUnique: jest.Mock; upsert: jest.Mock };
   };
   let auditService: { log: jest.Mock };
+  let rolesService: { findRoleNamesByUserId: jest.Mock };
 
   beforeEach(() => {
     prisma = {
@@ -19,9 +22,12 @@ describe('ProfileService', () => {
       userProfile: { findUnique: jest.fn(), upsert: jest.fn() },
     };
     auditService = { log: jest.fn() };
+    rolesService = { findRoleNamesByUserId: jest.fn() };
+    rolesService.findRoleNamesByUserId.mockResolvedValue([AppRole.CUSTOMER]);
     service = new ProfileService(
       prisma as unknown as PrismaService,
       auditService as unknown as AuditService,
+      rolesService as unknown as RolesService,
     );
   });
 
@@ -37,7 +43,6 @@ describe('ProfileService', () => {
           lastName: 'Ahmadi',
           address: 'Tehran',
           avatarUrl: null,
-          userType: UserType.CUSTOMER,
         },
       });
 
@@ -47,6 +52,7 @@ describe('ProfileService', () => {
         where: { id: 'user-1' },
         select: expect.objectContaining({ id: true, mobile: true }),
       });
+      expect(rolesService.findRoleNamesByUserId).toHaveBeenCalledWith('user-1');
       expect(result).toEqual({
         id: 'user-1',
         mobile: '+989123456789',
@@ -56,11 +62,12 @@ describe('ProfileService', () => {
         lastName: 'Ahmadi',
         address: 'Tehran',
         avatarUrl: null,
-        userType: UserType.CUSTOMER,
+        roles: [AppRole.CUSTOMER],
       });
     });
 
-    it('returns null profile fields when the user has no profile', async () => {
+    it('returns null profile fields and roles when the user has no profile', async () => {
+      rolesService.findRoleNamesByUserId.mockResolvedValue([]);
       prisma.user.findUnique.mockResolvedValue({
         id: 'user-1',
         mobile: '+989123456789',
@@ -80,7 +87,7 @@ describe('ProfileService', () => {
         lastName: null,
         address: null,
         avatarUrl: null,
-        userType: null,
+        roles: [],
       });
     });
 
@@ -90,6 +97,7 @@ describe('ProfileService', () => {
       await expect(service.getProfile('missing')).rejects.toThrow(
         NotFoundException,
       );
+      expect(rolesService.findRoleNamesByUserId).not.toHaveBeenCalled();
     });
 
     it('never exposes authentication data', async () => {
@@ -135,7 +143,6 @@ describe('ProfileService', () => {
           lastName: 'Ahmadi',
           address: 'Tehran',
           avatarUrl: null,
-          userType: UserType.CUSTOMER,
         },
       });
 
@@ -212,7 +219,6 @@ describe('ProfileService', () => {
           lastName: 'Ahmadi',
           address: null,
           avatarUrl: null,
-          userType: UserType.CUSTOMER,
         },
       });
 
@@ -248,7 +254,6 @@ describe('ProfileService', () => {
           lastName: 'Name',
           address: 'Tehran',
           avatarUrl: null,
-          userType: UserType.CUSTOMER,
         },
       });
 
@@ -288,7 +293,6 @@ describe('ProfileService', () => {
           lastName: 'Ahmadi',
           address: null,
           avatarUrl: null,
-          userType: UserType.CUSTOMER,
         },
       });
 

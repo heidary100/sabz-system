@@ -1,7 +1,9 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { UserStatus, UserType } from '@prisma/client';
+import { UserStatus } from '@prisma/client';
 import { PrismaService } from '../../../common/database/prisma.service';
 import { AuditService } from '../../audit/audit.service';
+import { AppRole } from '../enums/app-role.enum';
+import { RolesService } from '../roles/roles.service';
 import { UpdateProfileDto } from '../dto/update-profile.dto';
 
 export interface ProfileResponse {
@@ -13,7 +15,7 @@ export interface ProfileResponse {
   lastName: string | null;
   address: string | null;
   avatarUrl: string | null;
-  userType: UserType | null;
+  roles: AppRole[];
 }
 
 @Injectable()
@@ -21,6 +23,7 @@ export class ProfileService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
+    private readonly rolesService: RolesService,
   ) {}
 
   async getProfile(userId: string): Promise<ProfileResponse> {
@@ -37,7 +40,6 @@ export class ProfileService {
             lastName: true,
             address: true,
             avatarUrl: true,
-            userType: true,
           },
         },
       },
@@ -46,6 +48,8 @@ export class ProfileService {
     if (!user) {
       throw new NotFoundException('User not found.');
     }
+
+    const roles = await this.rolesService.findRoleNamesByUserId(userId);
 
     return {
       id: user.id,
@@ -56,7 +60,7 @@ export class ProfileService {
       lastName: user.profile?.lastName ?? null,
       address: user.profile?.address ?? null,
       avatarUrl: user.profile?.avatarUrl ?? null,
-      userType: user.profile?.userType ?? null,
+      roles,
     };
   }
 

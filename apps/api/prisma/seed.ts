@@ -1,4 +1,4 @@
-import { PrismaClient, UserStatus, UserType } from '@prisma/client';
+import { PrismaClient, UserStatus } from '@prisma/client';
 import { IRANIAN_MOBILE_REGEX } from '../src/modules/auth/dto/request-otp.dto';
 
 const prisma = new PrismaClient();
@@ -60,16 +60,11 @@ async function main(): Promise<void> {
 
   await prisma.userProfile.upsert({
     where: { userId: adminUser.id },
-    update: {
-      firstName: DEV_ADMIN_FIRST_NAME,
-      lastName: DEV_ADMIN_LAST_NAME,
-      userType: UserType.ADMIN,
-    },
+    update: { firstName: DEV_ADMIN_FIRST_NAME, lastName: DEV_ADMIN_LAST_NAME },
     create: {
       userId: adminUser.id,
       firstName: DEV_ADMIN_FIRST_NAME,
       lastName: DEV_ADMIN_LAST_NAME,
-      userType: UserType.ADMIN,
     },
   });
 
