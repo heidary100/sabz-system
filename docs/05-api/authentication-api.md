@@ -156,11 +156,11 @@ Response:
   "lastName": "Ahmadi",
   "address": null,
   "avatarUrl": null,
-  "userType": "CUSTOMER"
+  "roles": ["CUSTOMER"]
 }
 ```
 
-Returns the authenticated user's identity and profile. The target user is always resolved from the JWT identity; no user identifier is accepted from the client. Authentication data (password hash, refresh tokens, OTP data) is never returned.
+Returns the authenticated user's identity, profile, and role names. Roles are resolved from the `UserRole` → `Role` tables and are the authorization source of truth. The target user is always resolved from the JWT identity; no user identifier is accepted from the client. Authentication data (password hash, refresh tokens, OTP data) is never returned.
 
 ## Update Profile
 

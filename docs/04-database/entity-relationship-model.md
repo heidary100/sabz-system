@@ -29,10 +29,10 @@ User (identity root)
 +-- UserSession
 ```
 
-- **User**: Identity root entity. Holds authentication identity (unique mobile number, optional unique email, password hash), account status, and last login. Contains no profile fields.
-- **UserProfile**: One-to-one profile extension of User. Holds names, avatar, and a `user_type` discriminator (CUSTOMER, PARTNER, ADMIN, OPERATOR). Every user has exactly one profile.
-- **Customer**: A profile type of UserProfile representing B2C end-users. No dedicated table is required; customer-specific data is covered by UserProfile and Address.
-- **Partner**: Optional profile extension representing B2B business accounts with business identity and verification status.
+- **User**: Identity root entity. Holds authentication identity (unique mobile number, optional unique email, password hash), account status, and last login. Contains no profile fields. Authorization is derived exclusively from roles (UserRole → Role); no separate user classification is used (SS-027).
+- **UserProfile**: One-to-one profile extension of User. Holds names, avatar, and optional address. Every user has exactly one profile. User classification (customer, partner, admin, operator) is expressed through roles, not stored on the profile.
+- **Customer**: A role/classification of users representing B2C end-users. No dedicated table is required; customer-specific data is covered by UserProfile and Address.
+- **Partner**: Optional business extension of a user's profile representing B2B business accounts with business identity and verification status.
 - **PartnerTier**: Defines pricing tiers (Tier 1, Tier 2, Tier 3) with discount rules.
 - **Role**: System roles (admin, operator, customer, partner) assigned to users through a many-to-many junction.
 - **Permission**: Granular permissions mapped to roles through a many-to-many junction.
