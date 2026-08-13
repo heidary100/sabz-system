@@ -74,7 +74,7 @@ User (identity root)
 PartnerTier
 +-- id: UUID
 +-- name: string (Tier 1, Tier 2, Tier 3)
-+-- discountPercentage: decimal
++-- discountPercentage: decimal(5,2)
 +-- minOrderQuantity: int
 
 Address

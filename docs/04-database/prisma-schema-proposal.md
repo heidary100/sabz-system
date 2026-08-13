@@ -236,7 +236,7 @@ model UserSession {
 model PartnerTier {
   id               String    @id @default(uuid())
   name             String    @unique
-  discountPercent  Decimal
+  discountPercent  Decimal @db.Decimal(5, 2)
   minOrderQuantity Int
 
   partners Partner[]
