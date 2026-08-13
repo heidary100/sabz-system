@@ -1,16 +1,9 @@
-import type { ApiErrorPayload, TokenPair } from '@sabz/types'
+import { ApiError, createApiClient } from '@sabz/api-client'
+import type { TokenPair } from '@sabz/types'
+
+export { ApiError }
 
 export const API_BASE_URL: string = import.meta.env.VITE_API_BASE_URL ?? '/api/v1'
-
-export class ApiError extends Error {
-  constructor(
-    readonly status: number,
-    readonly payload?: ApiErrorPayload,
-  ) {
-    super(payload?.message ?? `Request failed with status ${status}`)
-    this.name = 'ApiError'
-  }
-}
 
 interface RequestOptions {
   auth?: boolean
@@ -64,6 +57,11 @@ export async function refreshSession(): Promise<boolean> {
   return refreshPromise
 }
 
+const client = createApiClient({
+  baseUrl: API_BASE_URL,
+  credentials: 'include',
+})
+
 export async function request<T>(
   path: string,
   init: RequestInit = {},
@@ -71,39 +69,25 @@ export async function request<T>(
 ): Promise<T> {
   const { auth = true, allowRefresh = true } = options
 
-  const performRequest = (): Promise<Response> => {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      ...(init.headers as Record<string, string> | undefined),
-    }
-    if (auth && accessToken) {
-      headers.Authorization = `Bearer ${accessToken}`
-    }
-
-    return fetch(`${API_BASE_URL}${path}`, {
+  const performRequest = (): Promise<T> =>
+    client.request<T>(path, {
       ...init,
-      headers,
-      credentials: 'include',
+      headers: {
+        ...(init.headers as Record<string, string> | undefined),
+        ...(auth && accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      },
     })
-  }
 
-  let response = await performRequest()
-
-  if (response.status === 401 && auth && allowRefresh) {
-    const refreshed = await refreshSession()
-    if (refreshed) {
-      response = await performRequest()
-    } else {
+  try {
+    return await performRequest()
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401 && auth && allowRefresh) {
+      const refreshed = await refreshSession()
+      if (refreshed) {
+        return performRequest()
+      }
       clearSession()
     }
+    throw error
   }
-
-  if (!response.ok) {
-    const payload = (await response.json().catch(() => undefined)) as
-      | ApiErrorPayload
-      | undefined
-    throw new ApiError(response.status, payload)
-  }
-
-  return (await response.json()) as T
 }
