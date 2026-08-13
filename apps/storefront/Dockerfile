@@ -15,6 +15,10 @@ COPY packages ./packages
 
 RUN pnpm install --frozen-lockfile
 
+# Shared workspace packages are consumed through their built `dist` output;
+# build them so Next.js can resolve @sabz/api-client at dev runtime.
+RUN pnpm --filter @sabz/types build && pnpm --filter @sabz/api-client build
+
 COPY apps/storefront ./apps/storefront
 
 EXPOSE 3001
