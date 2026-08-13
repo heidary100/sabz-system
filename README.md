@@ -59,7 +59,8 @@ To run without Docker:
 # Install dependencies
 pnpm install
 
-# Copy environment template
+# Copy environment templates (root .env is optional — it only overrides Docker Compose values)
+cp .env.example .env
 cp apps/api/.env.example apps/api/.env
 
 # Start infrastructure (PostgreSQL and Redis)

@@ -1,13 +1,15 @@
 # Sabz System Platform
 # Local Environment Setup
 
-Version: 1.0
+Version: 1.1
 
 ---
 
 # Overview
 
-This document provides detailed instructions for setting up the local development environment.
+This document provides detailed instructions for setting up the local development environment on the host, including how environment variables are owned and loaded.
+
+If you prefer a fully containerized setup, use the [Docker Development Environment](development-environment.md) instead — it starts the whole stack with a single command and needs no local Node.js, PostgreSQL, or Redis.
 
 ---
 
@@ -16,82 +18,99 @@ This document provides detailed instructions for setting up the local developmen
 | Tool | Version | Purpose |
 |------|---------|--------|
 | Node.js | 20+ | Runtime |
-| pnpm | 8+ | Package manager |
+| pnpm | 11+ (see root `package.json` `packageManager`) | Package manager |
 | Docker | 24+ | Container runtime |
 | Docker Compose | 2.20+ | Multi-container orchestration |
 | Git | 2.40+ | Version control |
-| VS Code | Latest | Recommended IDE |
 
 ---
 
 # Docker Services
 
-The project uses Docker Compose for local infrastructure:
+The project uses Docker Compose for the local infrastructure (PostgreSQL and Redis). The complete stack — including the API, Admin, and Storefront application containers — is defined in `docker-compose.yml` at the repository root:
 
 ```yaml
-# docker-compose.yml
+# docker-compose.yml (infrastructure services)
 services:
   postgres:
-    image: postgres:15-alpine
+    image: postgres:16
+    environment:
+      POSTGRES_DB: sabz
+      POSTGRES_USER: sabz
+      POSTGRES_PASSWORD: sabz
     ports:
       - "5432:5432"
-    environment:
-      POSTGRES_DB: sabz_system
-      POSTGRES_USER: sabz
-      POSTGRES_PASSWORD: sabz_dev
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
 
   redis:
     image: redis:7-alpine
     ports:
       - "6379:6379"
-    volumes:
-      - redis_data:/data
-
-volumes:
-  postgres_data:
-  redis_data:
 ```
+
+All values are safe local-development defaults and can be overridden via a root `.env` file (see below).
 
 ---
 
 # Environment Variables
 
-Create a `.env` file in the project root:
+## The environment contract
 
-```env
-# Application
-NODE_ENV=development
-PORT=3000
-API_URL=http://localhost:3000
+The repository's single development environment contract is the root [`.env.example`](../../.env.example). It documents **every** variable the monorepo consumes, which application owns each variable, and which values are safe defaults versus must-supplied.
 
-# Database
-DATABASE_URL=postgresql://sabz:sabz_dev@localhost:5432/sabz_system
+Ownership summary:
 
-# Redis
-REDIS_HOST=localhost
-REDIS_PORT=6379
+| Variable | Owner | Loaded from (host dev) | Loaded from (Docker Compose) |
+|----------|-------|------------------------|------------------------------|
+| `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | Infrastructure (Compose) | root `.env` interpolation | root `.env` interpolation |
+| `DATABASE_URL` | API | `apps/api/.env` | derived in Compose from the `POSTGRES_*` variables |
+| `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD` | API | `apps/api/.env` | Compose `environment:` block |
+| `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `JWT_ACCESS_EXPIRES_IN`, `JWT_REFRESH_EXPIRES_IN` | API | `apps/api/.env` | Compose `environment:` block |
+| `CORS_ORIGINS` | API | `apps/api/.env` | Compose `environment:` block |
+| `THROTTLE_TTL_MS`, `THROTTLE_LIMIT` | API | `apps/api/.env` (or code defaults) | Compose `environment:` block |
+| `DEV_ADMIN_MOBILE` | API (seed) | `apps/api/.env` | Compose `environment:` block |
+| `PORT`, `NODE_ENV` | API | `apps/api/.env` | Pinned by Compose |
+| `VITE_API_BASE_URL` | Admin | `apps/admin/.env` | Compose `environment:` block |
+| `NEXT_PUBLIC_API_BASE_URL` | Storefront | `apps/storefront/.env.local` | Not set; code fallback applies |
 
-# JWT
-JWT_ACCESS_SECRET=your-jwt-access-secret
-JWT_REFRESH_SECRET=your-jwt-refresh-secret
-JWT_ACCESS_EXPIRES_IN=15m
-JWT_REFRESH_EXPIRES_IN=30d
+## How environment variables are loaded
 
-# SMS Provider
-SMS_PROVIDER_API_KEY=your-sms-api-key
+A root `.env` file is read **only by Docker Compose** for `${VAR}` interpolation inside `docker-compose.yml`. The application frameworks do not read it when running on the host:
 
-# Storage
-S3_ENDPOINT=http://localhost:9000
-S3_BUCKET=sabz-system
-S3_ACCESS_KEY=your-access-key
-S3_SECRET_KEY=your-secret-key
+| Runtime | Reads | Example file |
+|---------|-------|--------------|
+| NestJS (`@nestjs/config`) | `apps/api/.env` | `apps/api/.env.example` |
+| Vite (inlines `VITE_*` at build time) | `apps/admin/.env` | `apps/admin/.env.example` |
+| Next.js (inlines `NEXT_PUBLIC_*` at build time) | `apps/storefront/.env.local` etc. | `apps/storefront/.env.example` |
+| Prisma CLI (`prisma migrate`, `db seed`) | `DATABASE_URL` from the package environment | `apps/api/.env.example` |
 
-# Payment Gateway
-PAYMENT_GATEWAY_API_KEY=your-payment-api-key
-PAYMENT_GATEWAY_MERCHANT_ID=your-merchant-id
+Framework build-time variables (`VITE_*`, `NEXT_PUBLIC_*`) must remain application-specific: Vite and Next.js inline them at build time and never read a repository-root `.env`.
+
+## Setting up environment files
+
+```bash
+# Optional: root .env for Docker Compose overrides (defaults work without it)
+cp .env.example .env
+
+# API (required for host-native development)
+cp apps/api/.env.example apps/api/.env
+
+# Admin (only if you need to override the dev-server proxy)
+cp apps/admin/.env.example apps/admin/.env
+
+# Storefront (only if you need to override the API base URL)
+cp apps/storefront/.env.example apps/storefront/.env.local
 ```
+
+## Safe defaults vs must-supplied values
+
+All values in `.env.example` files are safe local-development defaults. The following **must** be overridden outside local development:
+
+- `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` — long random strings; the committed placeholders are development-only.
+- `POSTGRES_PASSWORD` / `DATABASE_URL` — local-only credentials.
+- `CORS_ORIGINS` — list the real browser origins.
+- `DEV_ADMIN_MOBILE` — development-only; the seed refuses to run unless `NODE_ENV=development`.
+
+Never commit `.env` files (they are git-ignored) and never use the development placeholders in production.
 
 ---
 
@@ -116,7 +135,7 @@ docker compose restart postgres
 
 # Reset database (WARNING: deletes all data)
 docker compose down -v
-docker compose up -d
+docker compose up -d postgres
 cd apps/api && npx prisma migrate dev
 ```
 

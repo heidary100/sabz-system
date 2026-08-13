@@ -1,18 +1,29 @@
+# Sabz System local development environment.
+#
+# All values below are safe local-development defaults. Every `${VAR:-default}`
+# can be overridden from a root `.env` file (see .env.example):
+#   cp .env.example .env
+# Values not marked overridable are pinned for this environment.
+#
+# NOTE: a root `.env` is only read for ${VAR} interpolation here — it is not
+# injected into containers by itself; each variable is passed explicitly
+# through the `environment:` blocks below.
+
 services:
   postgres:
     image: postgres:16
     container_name: sabz-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: sabz
-      POSTGRES_PASSWORD: sabz
-      POSTGRES_DB: sabz
+      POSTGRES_USER: ${POSTGRES_USER:-sabz}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sabz}
+      POSTGRES_DB: ${POSTGRES_DB:-sabz}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U sabz -d sabz"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sabz} -d ${POSTGRES_DB:-sabz}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -40,17 +51,32 @@ services:
     ports:
       - "3000:3000"
     environment:
+      # Pinned for the local development environment. NODE_ENV also gates the
+      # Swagger UI (non-production only) and the `prisma:seed` script.
       NODE_ENV: development
       PORT: 3000
-      DATABASE_URL: postgresql://sabz:sabz@postgres:5432/sabz?schema=public
+      # Inside the Compose network the API must reach Postgres and Redis by
+      # their Compose service names; these hosts are not host-configurable.
+      # DATABASE_URL is derived from the POSTGRES_* variables so credentials
+      # are defined in one place. If you override POSTGRES_PASSWORD, keep it
+      # URL-safe (no @ : / characters) or encode it.
+      DATABASE_URL: postgresql://${POSTGRES_USER:-sabz}:${POSTGRES_PASSWORD:-sabz}@postgres:5432/${POSTGRES_DB:-sabz}?schema=public
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      JWT_ACCESS_SECRET: dev_access_secret_change_me
-      JWT_REFRESH_SECRET: dev_refresh_secret_change_me
-      JWT_ACCESS_EXPIRES_IN: 15m
-      JWT_REFRESH_EXPIRES_IN: 30d
-      CORS_ORIGINS: http://localhost:5173
-      DEV_ADMIN_MOBILE: +989170000001
+      # The local Compose Redis has no password configured. If you set
+      # REDIS_PASSWORD here, the redis service must be configured to require
+      # it as well or the API will fail to authenticate.
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      # JWT secrets: development placeholders only; override from the root
+      # `.env` with long random strings outside local development.
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-dev_access_secret_change_me}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-dev_refresh_secret_change_me}
+      JWT_ACCESS_EXPIRES_IN: ${JWT_ACCESS_EXPIRES_IN:-15m}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-30d}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
+      THROTTLE_TTL_MS: ${THROTTLE_TTL_MS:-60000}
+      THROTTLE_LIMIT: ${THROTTLE_LIMIT:-100}
+      DEV_ADMIN_MOBILE: ${DEV_ADMIN_MOBILE:-+989170000001}
     volumes:
       - ./apps/api:/app/apps/api
       - api_node_modules:/app/apps/api/node_modules
@@ -69,7 +95,7 @@ services:
     ports:
       - "5173:5173"
     environment:
-      VITE_API_BASE_URL: http://localhost:3000/api/v1
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:3000/api/v1}
     command: ["pnpm", "--filter", "@sabz/admin", "dev", "--host", "0.0.0.0"]
     volumes:
       - ./apps/admin:/app/apps/admin
