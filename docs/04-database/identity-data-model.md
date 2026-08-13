@@ -129,7 +129,7 @@ See [User Lifecycle](user-lifecycle.md) for the full state model and transitions
 # 8. Decision: Future Authentication Methods Are Supported
 
 - `password_hash` is nullable on User.
-- The current authentication method is password-based; OTP is a verification step, not a stored credential.
+- The current authentication method is OTP-first: users authenticate by requesting and verifying an OTP, and the OTP is a verification step, not a stored credential. `password_hash` remains nullable; password-based authentication is future functionality (see the Authentication Specification).
 - Future methods (passwordless OTP login, Google/Apple OAuth) will be added through a `UserAuthMethod` child table:
 
 ```

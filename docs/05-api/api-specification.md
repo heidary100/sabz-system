@@ -47,42 +47,69 @@ ISO 8601 (UTC)
 
 # 3. Standard Response Format
 
-Successful Response
+Successful responses return the endpoint's JSON body directly; there is no response envelope.
+
+Errors use the standard error payload:
 
 ```json
 {
-  "success": true,
-  "data": {},
-  "message": "Operation completed successfully."
+  "statusCode": 400,
+  "message": "Invalid OTP code.",
+  "error": "Bad Request"
 }
 ```
+
+- `statusCode` — the HTTP status code.
+- `message` — a human-readable description, or an array of messages for validation errors.
+- `error` — the HTTP error name; may be omitted for some framework-level errors (e.g. a bare `401 Unauthorized`).
 
 Validation Error
 
 ```json
 {
-  "success": false,
-  "message": "Validation failed.",
-  "errors": {
-    "mobile": [
-      "Mobile number is required."
-    ]
-  }
-}
-```
-
-Server Error
-
-```json
-{
-  "success": false,
-  "message": "Internal server error."
+  "statusCode": 400,
+  "message": [
+    "mobile must be a valid Iranian mobile number"
+  ],
+  "error": "Bad Request"
 }
 ```
 
 ---
 
 # 4. Authentication API
+
+The authentication flow is OTP-first; see [Authentication API](authentication-api.md) for full request/response details.
+
+POST /auth/request-otp
+
+Generates an OTP for a mobile number.
+
+POST /auth/verify-otp
+
+Verifies the OTP, activates the number, and issues a token pair.
+
+POST /auth/refresh
+
+Issues a new token pair.
+
+POST /auth/logout
+
+Terminates the current session.
+
+GET /auth/me
+
+Returns the authenticated user with their roles.
+
+GET /auth/profile
+
+Returns the authenticated user's profile.
+
+PATCH /auth/profile
+
+Updates the authenticated user's profile.
+
+The following endpoints are planned but not yet implemented:
 
 POST /auth/register
 
@@ -92,14 +119,6 @@ POST /auth/login
 
 Authenticates a user.
 
-POST /auth/logout
-
-Terminates the current session.
-
-POST /auth/refresh
-
-Issues a new access token.
-
 POST /auth/forgot-password
 
 Initiates password reset.
@@ -107,22 +126,6 @@ Initiates password reset.
 POST /auth/reset-password
 
 Completes password reset.
-
-POST /auth/send-otp
-
-Sends OTP to a mobile number.
-
-POST /auth/verify-otp
-
-Verifies the OTP.
-
-GET /auth/profile
-
-Returns the authenticated user's profile.
-
-PATCH /auth/profile
-
-Updates the authenticated user's profile.
 
 ---
 
