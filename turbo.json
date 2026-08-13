@@ -10,7 +10,9 @@
       "dependsOn": ["^build", "prisma:generate"],
       "outputs": ["dist/**", ".next/**"]
     },
-    "lint": {},
+    "lint": {
+      "dependsOn": ["prisma:generate"]
+    },
     "typecheck": {
       "dependsOn": ["^build", "prisma:generate"]
     },
