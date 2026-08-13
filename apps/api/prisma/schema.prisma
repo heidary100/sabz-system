@@ -14,13 +14,6 @@ enum UserStatus {
   LOCKED
 }
 
-enum UserType {
-  CUSTOMER
-  PARTNER
-  ADMIN
-  OPERATOR
-}
-
 enum PartnerApprovalStatus {
   PENDING
   APPROVED
@@ -52,7 +45,6 @@ model UserProfile {
   id        String   @id @default(uuid())
   userId    String   @unique
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userType  UserType @default(CUSTOMER)
   firstName String
   lastName  String
   address   String?
@@ -65,8 +57,6 @@ model UserProfile {
   deletedAt DateTime?
   createdBy String?
   updatedBy String?
-
-  @@index([userType])
 }
 
 model Partner {

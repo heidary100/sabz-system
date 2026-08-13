@@ -286,7 +286,7 @@ describe('AuthController', () => {
         lastName: 'Ahmadi',
         address: null,
         avatarUrl: null,
-        userType: 'CUSTOMER',
+        roles: ['CUSTOMER'],
       });
 
       const result = await controller.getProfile(user);
@@ -331,7 +331,7 @@ describe('AuthController', () => {
         lastName: 'Ahmadi',
         address: 'Tehran',
         avatarUrl: null,
-        userType: 'CUSTOMER',
+        roles: ['CUSTOMER'],
       });
 
       const result = await controller.updateProfile(

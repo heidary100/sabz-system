@@ -423,6 +423,8 @@ Role checks use the `@Roles(...)` decorator with the `RolesGuard`. `@Roles(A, B)
 
 Roles are resolved server-side from the `UserRole` → `Role` tables at request time. They are **not** embedded in JWT payloads, so the database remains the single source of truth for authorization. A user may hold multiple roles simultaneously (AUTH-005).
 
+SS-027 removed the `UserProfile.userType` column; it previously duplicated the role names and could not represent multiple simultaneous roles. User classification now lives exclusively in the role tables, and `GET /api/v1/auth/profile` returns the user's role names instead of a `userType` value.
+
 ## Known Gap: AUTH-006
 
 AUTH-006 ("Administrative roles are assigned only by Super Administrators") cannot be enforced with the current role model, which defines only `CUSTOMER`, `PARTNER`, `OPERATOR`, and `ADMIN`. There is no `SUPER_ADMIN` role.

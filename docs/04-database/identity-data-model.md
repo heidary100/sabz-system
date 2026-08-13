@@ -35,23 +35,25 @@ Profile data is not stored on User. It belongs to the one-to-one `UserProfile` e
 
 ## Rationale
 
-- One identity, many profile types. A user can transition between profile types (customer → partner) and hold multiple roles without changing identity records.
+- One identity, many classifications. A user can transition between classifications (customer → partner) and hold multiple roles without changing identity records.
 - Authentication logic depends only on the identity table and is independent of profile concerns.
 - Simpler authorization: every actor is a User with roles.
 
 ---
 
-# 2. Decision: Customer and Partner Are Profile Extensions
+# 2. Decision: Customer and Partner Are Classifications Expressed Through Roles
 
-- **UserProfile** (one-to-one with User) holds common profile fields (`first_name`, `last_name`, `avatar_url`) and a `user_type` discriminator: `CUSTOMER`, `PARTNER`, `ADMIN`, `OPERATOR`.
-- **Customer** is a profile type only; no dedicated table is required in Milestone 1.
-- **Partner** is an optional one-to-one extension of UserProfile for B2B business data (`business_name`, `business_license_number`, `national_id`, `tier`, `approval_status`, `approved_at`).
+- **UserProfile** (one-to-one with User) holds common profile fields (`first_name`, `last_name`, `avatar_url`) only.
+- **Customer**, **Partner**, **Admin**, and **Operator** are system roles stored in the `Role` table and assigned to users through the `UserRole` junction. Roles are the sole source of authorization (see Roles & Permissions Matrix §10).
+- **Partner** is an optional one-to-one business extension of UserProfile for B2B business data (`business_name`, `business_license_number`, `national_id`, `tier`, `approval_status`, `approved_at`). Access to partner functionality is granted through the PARTNER role, assigned when the application is approved.
+- A `user_type` discriminator on UserProfile was removed in SS-027 because it duplicated the role model: it could not represent the multiple simultaneous roles required by AUTH-005 and was never used for authorization.
 
 ## Rationale
 
 - Avoids table-per-type inheritance, which complicates joins and authorization.
-- A partner account starts as a standard customer profile and gains the Partner extension after approval (AUTH-003).
-- Admins and operators are Users with the ADMIN/OPERATOR profile type and administrative roles.
+- A partner account starts as a standard customer (CUSTOMER role) and gains the Partner business extension and PARTNER role after approval (AUTH-003).
+- Admins and operators are Users with the ADMIN/OPERATOR roles.
+- A single value in a profile column cannot represent the documented multi-role state (e.g. Customer + Partner, AUTH-005); role-based classification can.
 
 ---
 

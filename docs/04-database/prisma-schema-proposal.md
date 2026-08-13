@@ -9,6 +9,8 @@ Version: 1.0
 
 This document proposes the Prisma models for the identity domain. It is **documentation only** and is intended to guide the schema implementation in SS-012 (Implement User Database Schema). It must not be treated as the applied schema.
 
+> **Note (SS-027):** the applied schema no longer contains `UserType`/`userType`. User classification (customer, partner, admin, operator) is expressed exclusively through the `Role`/`UserRole` tables, which are the sole authorization source. The snippets below marked "superseded" are retained for historical reference only.
+
 Target environment:
 
 - Prisma ORM 6.x
@@ -30,12 +32,13 @@ enum UserStatus {
   LOCKED
 }
 
-enum UserType {
-  CUSTOMER
-  PARTNER
-  ADMIN
-  OPERATOR
-}
+// Superseded by SS-027: user classification is expressed through Role/UserRole.
+// enum UserType {
+//   CUSTOMER
+//   PARTNER
+//   ADMIN
+//   OPERATOR
+// }
 
 enum PartnerApprovalStatus {
   PENDING
@@ -77,14 +80,13 @@ model User {
 
 ## UserProfile
 
-One-to-one profile extension. Holds common profile fields and the user type discriminator.
+One-to-one profile extension. Holds common profile fields. User classification is expressed through roles, not the profile (SS-027).
 
 ```prisma
 model UserProfile {
   id        String   @id @default(uuid())
   userId    String   @unique
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userType  UserType @default(CUSTOMER)
   firstName String
   lastName  String
   avatarUrl String?
@@ -96,20 +98,18 @@ model UserProfile {
   deletedAt DateTime?
   createdBy String?
   updatedBy String?
-
-  @@index([userType])
 }
 ```
 
 ## Partner
 
-Optional profile extension for B2B business accounts. A user becomes a partner after approval.
+Optional business extension of a user's profile for B2B business accounts. A user becomes a partner after approval, which grants the PARTNER role (SS-027).
 
 ```prisma
 model Partner {
-  id                   String               @id @default(uuid())
-  profileId            String               @unique
-  profile              UserProfile          @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  id                   String                @id @default(uuid())
+  profileId            String                @unique
+  profile              UserProfile           @relation(fields: [profileId], references: [id], onDelete: Cascade)
   businessName         String
   businessLicenseNo    String?
   nationalId           String?
@@ -118,7 +118,7 @@ model Partner {
   city                 String?
   province             String?
   tierId               String?
-  tier                 PartnerTier?         @relation(fields: [tierId], references: [id])
+  tier                 PartnerTier?          @relation(fields: [tierId], references: [id])
   approvalStatus       PartnerApprovalStatus @default(PENDING)
   approvedAt           DateTime?
 
@@ -310,3 +310,4 @@ model UserAuthMethod {
 - Unique constraints: `User.mobile`, `User.email`, `Role.name`, `Permission.name`, `UserSession.refreshToken`, `Partner.profileId`.
 - Indexes cover the status, role, permission, session, and partner filtering paths defined in the Database Design Specification §6.
 - Referential actions: cascade for junction and child records; no cascade on business-critical relations.
+- The `UserType` enum and `UserProfile.userType` column were removed in SS-027; the Role/UserRole tables are the only authorization source.

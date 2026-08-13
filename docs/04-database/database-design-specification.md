@@ -147,7 +147,7 @@ Administration
 
 Purpose
 
-Represents every authenticated person in the platform. **User is the identity root entity.** Profile fields are stored in UserProfile; type-specific data (customer, partner, admin, operator) is expressed through profile extensions and roles.
+Represents every authenticated person in the platform. **User is the identity root entity.** Profile fields are stored in UserProfile; type-specific data (customer, partner, admin, operator) is expressed through roles and profile extensions.
 
 Fields
 
@@ -175,6 +175,7 @@ Business Rules
 - Email is optional but unique if provided.
 - Password hash is nullable to allow future authentication methods (OTP, OAuth).
 - A user may hold multiple roles simultaneously (AUTH-005).
+- Authorization is derived exclusively from the user's roles (UserRole → Role); no other user classification is used for authorization (SS-027).
 - Soft delete via `deleted_at`; records are retained but hidden.
 
 ---
@@ -183,13 +184,12 @@ Business Rules
 
 Purpose
 
-One-to-one profile extension of User. Holds identity profile data and distinguishes the user type.
+One-to-one profile extension of User. Holds identity profile data (names, avatar, address).
 
 Fields
 
 - id
 - user_id
-- user_type (CUSTOMER, PARTNER, ADMIN, OPERATOR)
 - first_name
 - last_name
 - avatar_url
@@ -206,7 +206,7 @@ Relationships
 Business Rules
 
 - Every user has exactly one profile.
-- The `user_type` discriminator identifies B2C customer, B2B partner, admin, or operator profiles.
+- User classification (customer, partner, admin, operator) is not stored on the profile; it is expressed through roles (SS-027).
 - Customers require no dedicated table; partner data extends via the Partner entity.
 
 ---
@@ -337,7 +337,7 @@ Business Rules
 
 Purpose
 
-Represents an approved B2B business. Partner is a profile extension of UserProfile for users whose profile type is PARTNER.
+Represents an approved B2B business. Partner is the optional business extension of a user's profile; access to partner functionality is granted through the PARTNER role, which is assigned upon approval (SS-027).
 
 Fields
 

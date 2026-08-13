@@ -15,7 +15,7 @@ This document describes the core domain model for the Sabz System Platform. The 
 
 ## User Aggregate
 
-The **User** is the identity root entity. All people in the platform — B2C customers, B2B partners, admin users, and operators — are represented as a User with a profile extension. **Customer** and **Partner** are profile extensions, not inheritance.
+The **User** is the identity root entity. All people in the platform — B2C customers, B2B partners, admin users, and operators — are represented as a User with a profile extension and roles. **Customer** and **Partner** are classifications expressed through roles, not inheritance hierarchies.
 
 ```
 User (identity root)
@@ -31,15 +31,16 @@ User (identity root)
 |
 +-- UserProfile (one-to-one)
 |   +-- id: UUID
-|   +-- userType: UserType (CUSTOMER, PARTNER, ADMIN, OPERATOR)
+|   +-- firstName: string
 |   +-- firstName: string
 |   +-- lastName: string
 |   +-- avatarUrl: string?
 |   +-- addresses: Address[]
 |   |
-|   +-- Customer (userType = CUSTOMER, no dedicated table)
+|   +-- Customer (role CUSTOMER, no dedicated table)
 |   |
-|   +-- Partner (userType = PARTNER, one-to-one optional)
+|   +-- Partner (business extension of the profile, one-to-one optional,
+|   |            access granted through the PARTNER role)
 |       +-- companyName: string
 |       +-- businessType: BusinessType
 |       +-- verificationStatus: VerificationStatus
@@ -47,7 +48,7 @@ User (identity root)
 |       +-- tier: PartnerTier
 |       +-- businessDocuments: BusinessDocument[]
 |
-+-- Role (many-to-many via UserRole)
++-- Role (many-to-many via UserRole, sole authorization source)
 |   +-- id: UUID
 |   +-- name: string (CUSTOMER, PARTNER, OPERATOR, SUPER_ADMIN)
 |   +-- permissions: Permission[] (via RolePermission)
@@ -203,7 +204,7 @@ BlogPost
 | Enum | Values |
 |------|--------|
 | UserStatus | PENDING_OTP, ACTIVE, SUSPENDED, LOCKED |
-| UserType | CUSTOMER, PARTNER, ADMIN, OPERATOR |
+| Role | CUSTOMER, PARTNER, OPERATOR, ADMIN (role names stored in the Role table; sole authorization source) |
 | VerificationStatus | PENDING, VERIFIED, REJECTED |
 | BusinessType | DISTRIBUTOR, WHOLESALER, RETAIL_SHOP, SYSTEM_INTEGRATOR, CORPORATE |
 | ProductStatus | DRAFT, PUBLISHED, ARCHIVED |
