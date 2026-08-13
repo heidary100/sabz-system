@@ -170,8 +170,12 @@ File watching relies on the host bind mounts, so changes saved on the host are p
 
 # Environment Variables
 
-- `apps/api/.env` — used only when the API runs directly on the host. Inside Docker, the values in the compose `environment` block take precedence.
-- `apps/admin/.env` — optional; `VITE_API_BASE_URL` defaults to `http://localhost:3000/api` in the compose environment. Copy the example with `cp apps/admin/.env.example apps/admin/.env` if you run the admin outside Docker.
+- Root `.env.example` — the single development environment contract; it documents every variable, its owning application, and how it is loaded. Copy it with `cp .env.example .env` if you want to override Compose defaults (the defaults work without it).
+- A root `.env` is read only by Compose for `${VAR}` interpolation in `docker-compose.yml`; it is never injected into containers or read by the application frameworks on the host.
+- `docker-compose.yml` passes each value to the relevant service through its `environment:` block, with `${VAR:-default}` fallbacks so the stack starts with zero configuration. `DATABASE_URL` is derived from the `POSTGRES_*` variables; `REDIS_HOST` is fixed at the Compose service name `redis`.
+- `apps/api/.env` — used only when the API runs directly on the host. Inside Docker the Compose `environment:` block takes precedence (process environment wins over `.env` files in `@nestjs/config`).
+- `apps/admin/.env` — optional; inside Compose, `VITE_API_BASE_URL` is set by the `environment:` block (default `http://localhost:3000/api/v1`). Copy `apps/admin/.env.example` to `apps/admin/.env` only if you run the admin outside Docker.
+- `apps/storefront/.env.local` — optional; the storefront falls back to `http://localhost:3000/api/v1` in code, so no file is required.
 
 ---
 

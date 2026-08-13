@@ -43,6 +43,11 @@ cp apps/api/.env.example apps/api/.env
 # Edit .env with your local configuration
 ```
 
+> The repository's full environment contract (every variable, its owning
+> application, and safe defaults) is documented in the root `.env.example`.
+> Copy it to `.env` only if you need to override Docker Compose defaults —
+> the Compose defaults work without it.
+
 ## 4. Start Infrastructure Services
 
 ```bash
