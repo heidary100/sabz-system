@@ -4,18 +4,23 @@
     "dev": {
       "cache": false,
       "persistent": true,
-      "dependsOn": ["^build"]
+      "dependsOn": ["^build", "prisma:generate"]
     },
     "build": {
-      "dependsOn": ["^build"],
+      "dependsOn": ["^build", "prisma:generate"],
       "outputs": ["dist/**", ".next/**"]
     },
-    "lint": {},
+    "lint": {
+      "dependsOn": ["prisma:generate"]
+    },
     "typecheck": {
-      "dependsOn": ["^build"]
+      "dependsOn": ["^build", "prisma:generate"]
     },
     "test": {
-      "dependsOn": ["^build"]
+      "dependsOn": ["^build", "prisma:generate"]
+    },
+    "prisma:generate": {
+      "cache": false
     }
   }
 }

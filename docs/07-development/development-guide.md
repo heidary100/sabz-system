@@ -56,6 +56,8 @@ pnpm --filter @sabz/api prisma:migrate
 pnpm --filter @sabz/api prisma:generate
 ```
 
+> Note: `prisma generate` also runs automatically as part of Turbo's build, typecheck, test, and dev pipelines.
+
 ## 6. Seed Development Data
 
 ```bash
