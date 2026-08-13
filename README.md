@@ -59,7 +59,7 @@ To run without Docker:
 # Install dependencies
 pnpm install
 
-# Copy environment templates (root .env is optional — Compose defaults work without it)
+# Copy environment templates (root .env is optional — it only overrides Docker Compose values)
 cp .env.example .env
 cp apps/api/.env.example apps/api/.env
 

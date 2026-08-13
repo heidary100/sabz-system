@@ -58,10 +58,14 @@ services:
       # Inside the Compose network the API must reach Postgres and Redis by
       # their Compose service names; these hosts are not host-configurable.
       # DATABASE_URL is derived from the POSTGRES_* variables so credentials
-      # are defined in one place.
+      # are defined in one place. If you override POSTGRES_PASSWORD, keep it
+      # URL-safe (no @ : / characters) or encode it.
       DATABASE_URL: postgresql://${POSTGRES_USER:-sabz}:${POSTGRES_PASSWORD:-sabz}@postgres:5432/${POSTGRES_DB:-sabz}?schema=public
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      # The local Compose Redis has no password configured. If you set
+      # REDIS_PASSWORD here, the redis service must be configured to require
+      # it as well or the API will fail to authenticate.
       REDIS_PASSWORD: ${REDIS_PASSWORD:-}
       # JWT secrets: development placeholders only; override from the root
       # `.env` with long random strings outside local development.
