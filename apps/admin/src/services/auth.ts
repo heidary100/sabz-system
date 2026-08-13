@@ -2,9 +2,10 @@ import { refreshSession } from './api'
 import { request } from './api'
 import type {
   AuthUser,
+  LogoutResponse,
   OtpRequestResult,
   VerifyOtpResult,
-} from '../types'
+} from '@sabz/types'
 
 export async function requestOtp(mobile: string): Promise<OtpRequestResult> {
   return request<OtpRequestResult>(
@@ -31,7 +32,7 @@ export async function getMe(): Promise<AuthUser> {
 
 export async function logout(): Promise<void> {
   try {
-    await request<{ loggedOut: boolean }>('/auth/logout', {
+    await request<LogoutResponse>('/auth/logout', {
       method: 'POST',
     })
   } catch {
