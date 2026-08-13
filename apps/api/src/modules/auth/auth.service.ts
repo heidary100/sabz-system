@@ -2,11 +2,6 @@ import { ForbiddenException, Injectable } from '@nestjs/common';
 import { User, UserStatus } from '@prisma/client';
 import { PrismaService } from '../../common/database/prisma.service';
 
-export interface AuthStrategy {
-  readonly name: string;
-  validate(...args: unknown[]): Promise<unknown>;
-}
-
 @Injectable()
 export class AuthService {
   constructor(private readonly prisma: PrismaService) {}
