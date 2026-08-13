@@ -126,6 +126,8 @@ Rules:
 
 ---
 
+# Available Scripts
+
 ```bash
 pnpm lint          # Lint all packages
 pnpm typecheck     # Type check all packages
