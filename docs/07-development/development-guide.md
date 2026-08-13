@@ -102,9 +102,29 @@ sabz-system/
 └── README.md
 ```
 
----
+# Shared Packages
 
-# Available Scripts
+Code shared between applications lives under `packages/` and is consumed as
+`workspace:*` dependencies.
+
+- `packages/types` (`@sabz/types`) — shared wire contracts for the API
+  (request/response payloads, enums, error payloads). Types only; no runtime
+  behavior.
+- `packages/api-client` (`@sabz/api-client`) — framework-agnostic HTTP client
+  foundation consumed by Admin and Storefront: `ApiError`, `createApiClient`
+  (base URL, credentials, default headers), and a generic `request<T>`.
+  Transport-level concerns only.
+
+Rules:
+
+- Applications configure the client with their own base URL
+  (`VITE_API_BASE_URL` in Admin, `NEXT_PUBLIC_API_BASE_URL` in Storefront).
+- Authentication-specific behavior (token storage, refresh coordination,
+  logout, auth state) stays in the consuming application — it is never added
+  to `@sabz/api-client`.
+- Business/domain logic is not placed in shared packages.
+
+---
 
 ```bash
 pnpm lint          # Lint all packages
