@@ -13,7 +13,7 @@ import {
   setAccessToken,
 } from '../services/api'
 import * as authService from '../services/auth'
-import type { AppRole, AuthUser } from '../types'
+import type { AppRole, AuthUser } from '@sabz/types'
 
 export const ADMIN_ROLES: readonly AppRole[] = ['OPERATOR', 'ADMIN']
 

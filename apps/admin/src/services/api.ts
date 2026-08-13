@@ -1,4 +1,4 @@
-import type { ApiErrorPayload } from '../types'
+import type { ApiErrorPayload, TokenPair } from '@sabz/types'
 
 export const API_BASE_URL: string = import.meta.env.VITE_API_BASE_URL ?? '/api/v1'
 
@@ -10,11 +10,6 @@ export class ApiError extends Error {
     super(payload?.message ?? `Request failed with status ${status}`)
     this.name = 'ApiError'
   }
-}
-
-interface TokenPair {
-  accessToken: string
-  refreshToken: string
 }
 
 interface RequestOptions {
