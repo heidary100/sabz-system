@@ -53,6 +53,22 @@ describe('createApiClient', () => {
     expect(init.headers).toEqual({ 'Content-Type': 'text/plain', 'X-Custom': '1' })
   })
 
+  it('merges configured default headers over the built-in JSON content type', async () => {
+    mockFetch.mockResolvedValue(new Response(JSON.stringify({ ok: true }), { status: 200 }))
+
+    const client = createApiClient({
+      baseUrl: '/api/v1',
+      defaultHeaders: { Accept: 'application/json' },
+    })
+    await client.request('/auth/me')
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit]
+    expect(init.headers).toEqual({
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    })
+  })
+
   it('applies credentials when configured', async () => {
     mockFetch.mockResolvedValue(new Response(JSON.stringify({ ok: true }), { status: 200 }))
 

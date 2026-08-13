@@ -23,7 +23,7 @@ export interface ApiClient {
 
 export function createApiClient(config: ApiClientConfig): ApiClient {
   const baseUrl = config.baseUrl.replace(/\/+$/, '')
-  const defaultHeaders = config.defaultHeaders ?? { 'Content-Type': 'application/json' }
+  const defaultHeaders = { 'Content-Type': 'application/json', ...config.defaultHeaders }
 
   async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     const response = await fetch(`${baseUrl}${path}`, {
