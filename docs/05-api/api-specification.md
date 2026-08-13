@@ -581,7 +581,44 @@ Future versions will be introduced without breaking existing clients.
 
 ---
 
-# 27. Error Codes
+# 27. API Security
+
+The API applies baseline security middleware to every request.
+
+## Security Headers
+
+The API uses [Helmet](https://helmetjs.github.io/) to set standard HTTP security headers, including:
+
+- `Content-Security-Policy` — restricts resource loading to the API origin (`script-src 'self'`); inline styles are allowed so the Swagger UI keeps working in development
+- `X-Content-Type-Options: nosniff`
+- `X-Frame-Options: SAMEORIGIN`
+- `Strict-Transport-Security` (HSTS)
+- `Referrer-Policy`
+- `Permissions-Policy`
+
+## Rate Limiting
+
+Every route is rate limited per IP address using a global NestJS throttler guard. Limits are applied per IP and per route, so bursts across different endpoints do not count against each other.
+
+Default configuration:
+
+| Setting | Default | Description |
+| --- | --- | --- |
+| `THROTTLE_LIMIT` | `100` | Maximum requests per window per IP per route |
+| `THROTTLE_TTL_MS` | `60000` | Rate limit window length in milliseconds |
+
+When the limit is exceeded the API responds with `429 Too Many Requests` and the `Retry-After` header. Responses include RFC-compatible `X-RateLimit-Limit`, `X-RateLimit-Remaining`, and `X-RateLimit-Reset` headers.
+
+Deployment notes:
+
+- The client identity is the request's socket address (`req.ip`). When the API is placed behind a reverse proxy or load balancer, the proxy must be configured to forward the real client address (for example Express `trust proxy`), otherwise every client shares one bucket.
+- Limit counters are stored in memory per API process. Multiple replicas each enforce the limit independently; counters reset on restart.
+
+Endpoint-specific protection (for example the Redis-based OTP request and verification limits) is enforced independently and remains in place.
+
+---
+
+# 28. Error Codes
 
 400 Bad Request
 
