@@ -30,9 +30,9 @@ User (identity root)
 ```
 
 - **User**: Identity root entity. Holds authentication identity (unique mobile number, optional unique email, password hash), account status, and last login. Contains no profile fields. Authorization is derived exclusively from roles (UserRole → Role); no separate user classification is used (SS-027).
-- **UserProfile**: One-to-one profile extension of User. Holds names, avatar, and optional address. Every user has exactly one profile. User classification (customer, partner, admin, operator) is expressed through roles, not stored on the profile.
+- **UserProfile**: One-to-one profile extension of User. Holds names, avatar, and an optional personal/contact address. Every user has exactly one profile. User classification (customer, partner, admin, operator) is expressed through roles, not stored on the profile.
 - **Customer**: A role/classification of users representing B2C end-users. No dedicated table is required; customer-specific data is covered by UserProfile and Address.
-- **Partner**: Optional business extension of a user's profile representing B2B business accounts with business identity and verification status.
+- **Partner**: Optional business extension of a user's profile representing B2B business accounts with business identity and verification status. Stores the business/legal operating address (address, city, province) collected during the partner application — distinct from the user's personal address on UserProfile (SS-028).
 - **PartnerTier**: Defines pricing tiers (Tier 1, Tier 2, Tier 3) with discount rules.
 - **Role**: System roles (admin, operator, customer, partner) assigned to users through a many-to-many junction.
 - **Permission**: Granular permissions mapped to roles through a many-to-many junction.
@@ -85,7 +85,7 @@ Order
 
 ## Supporting Entities
 
-- **Address**: User addresses for shipping and billing.
+- **Address**: User addresses for shipping and billing (a future entity). Not to be confused with UserProfile.address (personal/contact address) or the Partner business address fields — the three are distinct concepts (SS-028).
 - **Role**: System roles (admin, operator, customer, partner). Assigned to users through the `UserRole` junction.
 - **Permission**: Granular permissions mapped to roles through the `RolePermission` junction.
 - **UserRole**: Junction table linking users to roles, enabling multiple roles per user (AUTH-005).

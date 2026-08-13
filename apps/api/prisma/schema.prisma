@@ -47,6 +47,9 @@ model UserProfile {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   firstName String
   lastName  String
+
+  /// Personal/contact address of the individual user (e.g. for the profile
+  /// endpoint). Distinct from Partner's business address; do not merge.
   address   String?
   avatarUrl String?
 
@@ -67,8 +70,15 @@ model Partner {
   businessLicenseNo String?
   nationalId        String?
   website           String?
+
+  /// Business/legal operating address of the B2B partner entity, collected
+  /// during the partner application. Distinct from UserProfile.address
+  /// (the user's personal address); do not merge.
   address           String?
+
+  /// Business city; part of the partner business address. See Partner.address semantics.
   city              String?
+  /// Business province; part of the partner business address. See Partner.address semantics.
   province          String?
   tierId            String?
   tier              PartnerTier?          @relation(fields: [tierId], references: [id])

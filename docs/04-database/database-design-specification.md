@@ -184,7 +184,7 @@ Business Rules
 
 Purpose
 
-One-to-one profile extension of User. Holds identity profile data (names, avatar, address).
+One-to-one profile extension of User. Holds identity profile data (names, avatar, personal address).
 
 Fields
 
@@ -193,6 +193,7 @@ Fields
 - first_name
 - last_name
 - avatar_url
+- address — personal/contact address of the individual user (e.g. for the profile endpoint). Distinct from the Partner business address (SS-028); the two address concepts are never interchangeable.
 - created_at
 - updated_at
 - deleted_at
@@ -346,9 +347,9 @@ Fields
 - business_name
 - business_license_number
 - website
-- address
-- city
-- province
+- address — business/legal operating address of the B2B partner entity, collected during the partner application. Distinct from UserProfile.address, the user's personal address (SS-028); do not merge the two concepts.
+- city — business city; part of the partner business address (see address).
+- province — business province; part of the partner business address (see address).
 - tier
 - approval_status
 - approved_at
