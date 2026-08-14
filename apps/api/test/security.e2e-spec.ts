@@ -144,3 +144,23 @@ describe('Security middleware rate limiting from environment (e2e)', () => {
     await request(app.getHttpServer()).get('/api/v1/health').expect(200);
   });
 });
+
+describe('Security middleware trust proxy (e2e)', () => {
+  it('applies the TRUST_PROXY setting to the underlying express app', async () => {
+    process.env.TRUST_PROXY = 'true';
+
+    const moduleFixture: TestingModule = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile();
+
+    const app = moduleFixture.createNestApplication();
+    configureApp(app);
+    await app.init();
+
+    const expressApp = app.getHttpAdapter().getInstance();
+    expect(expressApp.get('trust proxy')).toBe(true);
+
+    await app.close();
+    delete process.env.TRUST_PROXY;
+  });
+});

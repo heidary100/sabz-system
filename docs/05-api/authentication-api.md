@@ -39,7 +39,7 @@ Response:
 - `expiresIn` is the OTP lifetime in seconds (2 minutes). The OTP is stored server-side only and is **never** returned in the API response — in any environment, including development.
 - In development only (`NODE_ENV=development`), the OTP code is always `123456`; see [Local Environment](../07-development/local-environment.md). It is never returned by the API.
 
-Errors: `400` when `mobile` is not a valid Iranian mobile number; `429` when more than 5 OTP requests are made for the same mobile number within a 60-second window.
+Errors: `400` when `mobile` is not a valid Iranian mobile number; `429` when more than 3 OTP requests are made for the same mobile number within a 60-second window, or more than 15 OTP requests are made from the same IP within a 60-second window.
 
 ## OTP Verification
 
@@ -75,7 +75,26 @@ Response (successful verification creates the account on first use, activates it
 
 Optional request header `x-device-id` records a client device identifier on the session.
 
-Errors: `400` when the payload is invalid or the OTP code is incorrect; `410` when the OTP has expired; `429` when more than 5 verification attempts have been made for the current OTP (the OTP is then invalidated and a new one must be requested); `403` when the account is `SUSPENDED`, `LOCKED`, or soft-deleted.
+Errors: `400` when the payload is invalid or the OTP code is incorrect; `410` when the OTP has expired; `429` when more than 3 failed verification attempts have been made for the current OTP, or more than 5 failed verifications have been made for the mobile within a rolling 10-minute window (across all OTP requests), or more than 10 failed verifications have been made from the same IP within a rolling 10-minute window (the OTP is then invalidated and a new one must be requested); `403` when the account is `SUSPENDED`, `LOCKED`, or soft-deleted.
+
+Expired-OTP attempts (`410`) do not count toward any failed-verification limit.
+
+## OTP Abuse Prevention
+
+All OTP state and abuse-prevention counters live in Redis and therefore survive application restarts. Mobile numbers are canonicalized to the `+98` form by DTO transformation at the API boundary before any key is derived, so `09123456789` and `+989123456789` are treated as the same number. All sliding-window counters are refreshed by every attempt, including blocked ones, so an actively retrying client keeps extending its own block.
+
+| State/control | Redis key (conceptual) | TTL | Semantics |
+|---|---|---|---|
+| Issued OTP code | `auth:otp:{mobile}` | 120 s | The current code, stored server-side only; never returned by the API. A new request overwrites it. |
+| Per-code failed attempts | `auth:otp:attempts:{mobile}` | 120 s (sliding) | Failed guesses against the currently issued code; reset when a new code is requested. Exceeding 3 invalidates the code and a new OTP must be requested. |
+| Cross-code failure window | `auth:otp:fail:{mobile}` | 600 s (sliding) | Failed verifications per mobile across all OTP requests; **never reset by requesting a new OTP**; cleared by a successful verification. Exceeding 5 invalidates the current code. |
+| Request limit, per mobile | `auth:otp:rate:{mobile}` | 60 s (sliding) | 3 OTP requests per minute per mobile. |
+| Request limit, per IP | `auth:otp:rate:ip:{ip}` | 60 s (sliding) | 15 OTP requests per minute per IP, across all mobile numbers. |
+| Failure window, per IP | `auth:otp:fail:ip:{ip}` | 600 s (sliding) | 10 failed verifications per 10 minutes per IP, across all mobile numbers; cleared by a successful verification from that IP. |
+
+All counters are incremented atomically in Redis; expired-OTP attempts do not consume them. Per-IP limits depend on the client IP the application observes: set the `TRUST_PROXY` environment variable (`true`, a hop count, or a proxy address) when the API runs behind a reverse proxy or load balancer; leave it unset when the API is reached directly. The response for every `429` is intentionally generic and does not reveal which limit was exceeded.
+
+Mobile canonicalization applies to newly created records only; mobile numbers already stored in a non-canonical form (e.g. `09123456789`) are not rewritten. Pre-release, no production data exists in a non-canonical form, so no backfill is performed; future deployments must store mobiles in the canonical `+98` form.
 
 ## Refresh Token
 

@@ -332,13 +332,19 @@ OTP
 
 - Six digits.
 - Expires after 2 minutes.
-- Maximum 5 verification attempts.
+- Maximum 3 failed verification attempts per issued code. Exceeding the per-code limit invalidates the code and requires a new OTP request.
+- Maximum 5 failed verification attempts per mobile number per sliding 10-minute window, across all OTP requests. The window is refreshed by each failed attempt, so an active attacker stays blocked. Requesting a new OTP never resets this counter; only a successful verification does.
+- Requesting a new OTP resets only the per-code attempt counter; the cross-code failure window is preserved.
 
 Rate Limiting
 
-- Login endpoint
-- OTP endpoint
-- Password reset endpoint
+- OTP request endpoint: maximum 3 OTP requests per mobile number per sliding 60-second window; maximum 15 OTP requests per client IP per sliding 60-second window (across all mobile numbers). Each attempt refreshes its own window.
+- OTP verification endpoint: maximum 10 failed verification attempts per client IP per sliding 10-minute window (across all mobile numbers).
+- Global per-IP, per-route throttling (100 requests / 60 seconds, configurable) applies to all endpoints, including OTP endpoints.
+- All OTP abuse counters are stored in Redis and survive application restarts.
+- Mobile numbers are canonicalized to the `+98` form at the API boundary (DTO transformation in the authentication flow) before any rate-limit key, database record, or audit entry is produced, so different input formats of the same number cannot bypass limits. Any future endpoint accepting a mobile number must apply the same normalization.
+- Login endpoint (password-based login, not yet implemented)
+- Password reset endpoint (not yet implemented)
 
 Additional Controls
 

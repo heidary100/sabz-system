@@ -76,6 +76,7 @@ services:
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
       THROTTLE_TTL_MS: ${THROTTLE_TTL_MS:-60000}
       THROTTLE_LIMIT: ${THROTTLE_LIMIT:-100}
+      TRUST_PROXY: ${TRUST_PROXY:-}
       DEV_ADMIN_MOBILE: ${DEV_ADMIN_MOBILE:-+989170000001}
     volumes:
       - ./apps/api:/app/apps/api
