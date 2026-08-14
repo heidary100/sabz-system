@@ -3,10 +3,19 @@ import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
+import { parseTrustProxy } from './trust-proxy.util';
 
 export function configureApp(app: INestApplication): void {
   app.setGlobalPrefix('api');
   app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
+
+  const configService = app.get(ConfigService);
+
+  const trustProxy = configService.get<string>('TRUST_PROXY');
+  const parsedTrustProxy = trustProxy ? parseTrustProxy(trustProxy) : null;
+  if (parsedTrustProxy !== null) {
+    app.getHttpAdapter().getInstance().set('trust proxy', parsedTrustProxy);
+  }
 
   app.use(
     helmet({
@@ -24,7 +33,6 @@ export function configureApp(app: INestApplication): void {
     }),
   );
 
-  const configService = app.get(ConfigService);
   const corsOrigins = configService
     .get<string>('CORS_ORIGINS', 'http://localhost:5173')
     .split(',')

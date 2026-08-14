@@ -92,7 +92,9 @@ All OTP state and abuse-prevention counters live in Redis and therefore survive 
 | Request limit, per IP | `auth:otp:rate:ip:{ip}` | 60 s (sliding) | 15 OTP requests per minute per IP, across all mobile numbers. |
 | Failure window, per IP | `auth:otp:fail:ip:{ip}` | 600 s (sliding) | 10 failed verifications per 10 minutes per IP, across all mobile numbers; cleared by a successful verification from that IP. |
 
-All counters are incremented atomically in Redis; expired-OTP attempts do not consume them. Per-IP limits depend on the client IP the application observes and therefore assume the API is deployed with correct proxy trust configuration when behind a reverse proxy or load balancer. The response for every `429` is intentionally generic and does not reveal which limit was exceeded.
+All counters are incremented atomically in Redis; expired-OTP attempts do not consume them. Per-IP limits depend on the client IP the application observes: set the `TRUST_PROXY` environment variable (`true`, a hop count, or a proxy address) when the API runs behind a reverse proxy or load balancer; leave it unset when the API is reached directly. The response for every `429` is intentionally generic and does not reveal which limit was exceeded.
+
+Mobile canonicalization applies to newly created records only; mobile numbers already stored in a non-canonical form (e.g. `09123456789`) are not rewritten. Pre-release, no production data exists in a non-canonical form, so no backfill is performed; future deployments must store mobiles in the canonical `+98` form.
 
 ## Refresh Token
 
