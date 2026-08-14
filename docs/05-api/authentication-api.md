@@ -71,11 +71,11 @@ Response (successful verification creates the account on first use, activates it
 }
 ```
 
-- The user record is created on first successful verification; subsequent verifications reuse the existing record. The account is marked `ACTIVE` unless it is `SUSPENDED` or `LOCKED`.
+- The user record is created on first successful verification; subsequent verifications reuse the existing record. The account is marked `ACTIVE` unless it is `SUSPENDED` or `LOCKED`. Soft-deleted accounts are hidden from authentication lookups and cannot be reactivated through OTP verification; re-registering a soft-deleted mobile requires an explicit restoration or permanent cleanup step (see [Identity Data Model](../04-database/identity-data-model.md) §4).
 
 Optional request header `x-device-id` records a client device identifier on the session.
 
-Errors: `400` when the payload is invalid or the OTP code is incorrect; `410` when the OTP has expired; `429` when more than 5 verification attempts have been made for the current OTP (the OTP is then invalidated and a new one must be requested); `403` when the account is `SUSPENDED` or `LOCKED`.
+Errors: `400` when the payload is invalid or the OTP code is incorrect; `410` when the OTP has expired; `429` when more than 5 verification attempts have been made for the current OTP (the OTP is then invalidated and a new one must be requested); `403` when the account is `SUSPENDED`, `LOCKED`, or soft-deleted.
 
 ## Refresh Token
 

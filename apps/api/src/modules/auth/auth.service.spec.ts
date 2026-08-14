@@ -1,5 +1,5 @@
 import { ForbiddenException } from '@nestjs/common';
-import { User, UserStatus } from '@prisma/client';
+import { Prisma, User, UserStatus } from '@prisma/client';
 import { PrismaService } from '../../common/database/prisma.service';
 import { AuthService } from './auth.service';
 
@@ -35,7 +35,7 @@ describe('AuthService', () => {
     const result = await service.findUserByMobile('+989123456789');
 
     expect(prisma.user.findUnique).toHaveBeenCalledWith({
-      where: { mobile: '+989123456789' },
+      where: { mobile: '+989123456789', deletedAt: null },
     });
     expect(result).toEqual(user);
   });
@@ -71,6 +71,35 @@ describe('AuthService', () => {
       });
       expect(result).toEqual(user);
     });
+
+    it('returns the racing user when a concurrent verification wins the race', async () => {
+      const p2002 = new Prisma.PrismaClientKnownRequestError(
+        'Unique constraint failed on the fields: (`mobile`)',
+        { code: 'P2002', clientVersion: '6.19.3' },
+      );
+      const user = { id: 'uuid', mobile: '+989123456789' };
+      prisma.user.findUnique
+        .mockResolvedValueOnce(null)
+        .mockResolvedValue(user);
+      prisma.user.create.mockRejectedValue(p2002);
+
+      const result = await service.getOrCreateUserByMobile('+989123456789');
+
+      expect(result).toEqual(user);
+    });
+
+    it('throws ForbiddenException when a soft-deleted user owns the mobile', async () => {
+      const p2002 = new Prisma.PrismaClientKnownRequestError(
+        'Unique constraint failed on the fields: (`mobile`)',
+        { code: 'P2002', clientVersion: '6.19.3' },
+      );
+      prisma.user.findUnique.mockResolvedValue(null);
+      prisma.user.create.mockRejectedValue(p2002);
+
+      await expect(
+        service.getOrCreateUserByMobile('+989123456789'),
+      ).rejects.toThrow(ForbiddenException);
+    });
   });
 
   describe('markMobileVerified', () => {
@@ -104,7 +133,7 @@ describe('AuthService', () => {
       const result = await service.markMobileVerified(baseUser);
 
       expect(prisma.user.update).toHaveBeenCalledWith({
-        where: { id: 'uuid' },
+        where: { id: 'uuid', deletedAt: null },
         data: { status: UserStatus.ACTIVE },
       });
       expect(result).toEqual(verified);
@@ -118,6 +147,27 @@ describe('AuthService', () => {
         ForbiddenException,
       );
       await expect(service.markMobileVerified(locked)).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+
+    it('rejects soft-deleted accounts', async () => {
+      const deleted = { ...baseUser, deletedAt: new Date() };
+
+      await expect(service.markMobileVerified(deleted)).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects a pending user deleted after the initial lookup', async () => {
+      const p2025 = new Prisma.PrismaClientKnownRequestError(
+        'An operation failed because it depends on one or more records that were required but not found.',
+        { code: 'P2025', clientVersion: '6.19.3' },
+      );
+      prisma.user.update.mockRejectedValue(p2025);
+
+      await expect(service.markMobileVerified(baseUser)).rejects.toThrow(
         ForbiddenException,
       );
     });
