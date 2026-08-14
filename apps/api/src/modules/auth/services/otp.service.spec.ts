@@ -4,6 +4,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { RedisService } from '../../../common/redis/redis.service';
+import { AuditService } from '../../audit/audit.service';
 import { OtpService } from './otp.service';
 
 describe('OtpService', () => {
@@ -15,6 +16,7 @@ describe('OtpService', () => {
     del: jest.Mock;
     multi: jest.Mock;
   };
+  let auditService: { log: jest.Mock };
 
   const configService = {
     get: jest.fn((key: string) =>
@@ -41,7 +43,12 @@ describe('OtpService', () => {
         exec,
       })),
     };
-    service = new OtpService(redis as unknown as RedisService, configService);
+    auditService = { log: jest.fn() };
+    service = new OtpService(
+      redis as unknown as RedisService,
+      configService,
+      auditService as unknown as AuditService,
+    );
   });
 
   describe('requestOtp', () => {
@@ -67,7 +74,11 @@ describe('OtpService', () => {
           key === 'NODE_ENV' ? 'development' : undefined,
         ),
       } as unknown as ConfigService;
-      service = new OtpService(redis as unknown as RedisService, config);
+      service = new OtpService(
+        redis as unknown as RedisService,
+        config,
+        auditService as unknown as AuditService,
+      );
 
       await service.requestOtp(mobile);
 
@@ -91,7 +102,11 @@ describe('OtpService', () => {
             key === 'NODE_ENV' ? nodeEnv : undefined,
           ),
         } as unknown as ConfigService;
-        service = new OtpService(redis as unknown as RedisService, config);
+        service = new OtpService(
+          redis as unknown as RedisService,
+          config,
+          auditService as unknown as AuditService,
+        );
 
         const result = await service.requestOtp(mobile);
 
@@ -105,6 +120,38 @@ describe('OtpService', () => {
 
       await expect(service.requestOtp(mobile)).rejects.toMatchObject({
         status: 429,
+      });
+    });
+
+    it('audit logs OTP_REQUESTED with the mobile and IP only', async () => {
+      redis.incr.mockResolvedValue(1);
+
+      await service.requestOtp(mobile, '1.2.3.4');
+
+      expect(auditService.log).toHaveBeenCalledWith({
+        action: 'OTP_REQUESTED',
+        entity: 'User',
+        after: { mobile },
+        ipAddress: '1.2.3.4',
+      });
+      expect(auditService.log.mock.calls[0][0].after).toEqual({ mobile });
+    });
+
+    it('does not audit a rate-limited OTP request', async () => {
+      redis.incr.mockResolvedValue(6);
+
+      await expect(service.requestOtp(mobile)).rejects.toMatchObject({
+        status: 429,
+      });
+      expect(auditService.log).not.toHaveBeenCalled();
+    });
+
+    it('never fails the OTP request when the audit write fails', async () => {
+      redis.incr.mockResolvedValue(1);
+      auditService.log.mockRejectedValue(new Error('audit db down'));
+
+      await expect(service.requestOtp(mobile)).resolves.toMatchObject({
+        sent: true,
       });
     });
   });
@@ -124,6 +171,25 @@ describe('OtpService', () => {
       expect(exec).toHaveBeenCalled();
     });
 
+    it('audit logs OTP_VERIFIED with the mobile and IP only', async () => {
+      redis.get.mockImplementation((key: string) => {
+        if (key === `auth:otp:attempts:${mobile}`) {
+          return null;
+        }
+        return '123456';
+      });
+
+      await service.verifyOtp(mobile, '123456', '1.2.3.4');
+
+      expect(auditService.log).toHaveBeenCalledWith({
+        action: 'OTP_VERIFIED',
+        entity: 'User',
+        after: { mobile },
+        ipAddress: '1.2.3.4',
+      });
+      expect(auditService.log.mock.calls[0][0].after).toEqual({ mobile });
+    });
+
     it('throws BadRequestException and increments attempts on a mismatch', async () => {
       redis.get.mockImplementation((key: string) => {
         if (key === `auth:otp:attempts:${mobile}`) {
@@ -139,12 +205,50 @@ describe('OtpService', () => {
       expect(exec).toHaveBeenCalled();
     });
 
+    it('audit logs OTP_FAILED with an INVALID_CODE reason and never the submitted code', async () => {
+      redis.get.mockImplementation((key: string) => {
+        if (key === `auth:otp:attempts:${mobile}`) {
+          return null;
+        }
+        return '123456';
+      });
+
+      await expect(service.verifyOtp(mobile, '654321')).rejects.toThrow(
+        BadRequestException,
+      );
+
+      expect(auditService.log).toHaveBeenCalledWith({
+        action: 'OTP_FAILED',
+        entity: 'User',
+        after: { mobile, reason: 'INVALID_CODE' },
+        ipAddress: undefined,
+      });
+      const serialized = JSON.stringify(auditService.log.mock.calls[0][0]);
+      expect(serialized).not.toContain('654321');
+      expect(serialized).not.toContain('code');
+    });
+
     it('throws GoneException when no code is stored', async () => {
       redis.get.mockResolvedValue(null);
 
       await expect(service.verifyOtp(mobile, '123456')).rejects.toThrow(
         GoneException,
       );
+    });
+
+    it('audit logs OTP_FAILED with an EXPIRED reason when no code is stored', async () => {
+      redis.get.mockResolvedValue(null);
+
+      await expect(service.verifyOtp(mobile, '123456')).rejects.toThrow(
+        GoneException,
+      );
+
+      expect(auditService.log).toHaveBeenCalledWith({
+        action: 'OTP_FAILED',
+        entity: 'User',
+        after: { mobile, reason: 'EXPIRED' },
+        ipAddress: undefined,
+      });
     });
 
     it('throws a 429 response after five failed attempts', async () => {
@@ -159,6 +263,38 @@ describe('OtpService', () => {
         status: 429,
       });
       expect(redis.del).toHaveBeenCalledWith(`auth:otp:${mobile}`);
+    });
+
+    it('audit logs OTP_FAILED with a MAX_ATTEMPTS reason on attempt exhaustion', async () => {
+      redis.get.mockImplementation((key: string) => {
+        if (key === `auth:otp:attempts:${mobile}`) {
+          return '5';
+        }
+        return '123456';
+      });
+
+      await expect(service.verifyOtp(mobile, '123456')).rejects.toMatchObject({
+        status: 429,
+      });
+
+      expect(auditService.log).toHaveBeenCalledWith({
+        action: 'OTP_FAILED',
+        entity: 'User',
+        after: { mobile, reason: 'MAX_ATTEMPTS' },
+        ipAddress: undefined,
+      });
+    });
+
+    it('never changes the OTP outcome when the audit write fails', async () => {
+      auditService.log.mockRejectedValue(new Error('audit db down'));
+      redis.get.mockImplementation((key: string) => {
+        if (key === `auth:otp:attempts:${mobile}`) {
+          return null;
+        }
+        return '123456';
+      });
+
+      await expect(service.verifyOtp(mobile, '123456')).resolves.toBeUndefined();
     });
   });
 });

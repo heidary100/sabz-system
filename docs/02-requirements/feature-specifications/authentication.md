@@ -350,18 +350,19 @@ Additional Controls
 
 # 12. Audit Events
 
-The system shall record:
+The system shall record (implemented event names):
 
-- Registration
-- Login
-- Logout
-- Failed login
-- Password change
-- Password reset
-- Profile update
-- Role assignment
-- Account suspension
-- Session revocation
+- Registration → `ACCOUNT_ACTIVATED` (first OTP verification activating a `PENDING_OTP` account)
+- Login → `OTP_VERIFIED` + `SESSION_CREATED`
+- OTP request → `OTP_REQUESTED`
+- Failed OTP verification → `OTP_FAILED` (with a fixed reason)
+- Failed refresh attempts → `AUTHENTICATION_FAILED` (identifiable invalid sessions only)
+- Logout / session revocation → `SESSION_REVOKED`
+- Profile update → `PROFILE_UPDATE`
+- Role assignment → reserved for the future role-management flow
+- Account suspension / lockout / unlock → reserved for when those workflows exist
+
+Audit entries never contain OTP codes, tokens (raw or hashed), passwords, or secret material.
 
 ---
 

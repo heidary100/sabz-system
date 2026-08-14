@@ -1,12 +1,19 @@
 import { createHash, randomUUID } from 'crypto';
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService, JwtSignOptions } from '@nestjs/jwt';
 import { UserStatus } from '@prisma/client';
 import { PrismaService } from '../../../common/database/prisma.service';
+import { AuditService } from '../../audit/audit.service';
 
 const ACCESS_TOKEN_TYPE = 'access';
 const REFRESH_TOKEN_TYPE = 'refresh';
+
+const AUTH_FAILED_REASON_SESSION_NOT_FOUND = 'SESSION_NOT_FOUND';
+const AUTH_FAILED_REASON_SESSION_REVOKED = 'SESSION_REVOKED';
+const AUTH_FAILED_REASON_USER_MISMATCH = 'USER_MISMATCH';
+const AUTH_FAILED_REASON_ACCOUNT_NOT_ACTIVE = 'ACCOUNT_NOT_ACTIVE';
+const AUTH_FAILED_REASON_TOKEN_REUSE = 'TOKEN_REUSE';
 
 export interface JwtPayload {
   sub: string;
@@ -24,8 +31,18 @@ export interface CreateSessionOptions {
   ipAddress?: string;
 }
 
+export interface RefreshSessionOptions {
+  ipAddress?: string;
+}
+
+export interface RevokeSessionOptions {
+  userId?: string;
+  ipAddress?: string;
+}
+
 @Injectable()
 export class TokenService {
+  private readonly logger = new Logger(TokenService.name);
   private readonly accessSecret: string;
   private readonly refreshSecret: string;
   private readonly accessLifetime: string;
@@ -35,6 +52,7 @@ export class TokenService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     configService: ConfigService,
+    private readonly auditService: AuditService,
   ) {
     this.accessSecret = configService.getOrThrow<string>('JWT_ACCESS_SECRET');
     this.refreshSecret = configService.getOrThrow<string>('JWT_REFRESH_SECRET');
@@ -62,33 +80,74 @@ export class TokenService {
       Date.now() + this.lifetimeToMs(this.refreshLifetime),
     );
 
-    await this.prisma.userSession.create({
-      data: {
-        id: sessionId,
-        userId,
-        refreshToken: this.hashToken(tokens.refreshToken),
-        deviceId: options.deviceId,
-        ipAddress: options.ipAddress,
-        expiresAt,
-      },
+    await this.prisma.$transaction(async (tx) => {
+      await tx.userSession.create({
+        data: {
+          id: sessionId,
+          userId,
+          refreshToken: this.hashToken(tokens.refreshToken),
+          deviceId: options.deviceId,
+          ipAddress: options.ipAddress,
+          expiresAt,
+        },
+      });
+
+      await this.auditService.log(
+        {
+          userId,
+          action: 'SESSION_CREATED',
+          entity: 'UserSession',
+          entityId: sessionId,
+          ipAddress: options.ipAddress,
+        },
+        tx,
+      );
     });
 
     return tokens;
   }
 
-  async refreshSession(refreshToken: string): Promise<TokenPair> {
+  async refreshSession(
+    refreshToken: string,
+    options: RefreshSessionOptions = {},
+  ): Promise<TokenPair> {
     const payload = this.verifyRefreshToken(refreshToken);
 
     const session = await this.prisma.userSession.findUnique({
       where: { refreshToken: this.hashToken(refreshToken) },
     });
 
-    if (
-      !session ||
-      session.revokedAt !== null ||
-      session.expiresAt.getTime() <= Date.now() ||
-      session.userId !== payload.sub
-    ) {
+    if (!session) {
+      await this.auditFailedAttempt(
+        payload.sub,
+        payload.sessionId,
+        AUTH_FAILED_REASON_SESSION_NOT_FOUND,
+        options.ipAddress,
+      );
+      throw new UnauthorizedException('Invalid or expired refresh token.');
+    }
+
+    if (session.revokedAt !== null) {
+      await this.auditFailedAttempt(
+        payload.sub,
+        session.id,
+        AUTH_FAILED_REASON_SESSION_REVOKED,
+        options.ipAddress,
+      );
+      throw new UnauthorizedException('Invalid or expired refresh token.');
+    }
+
+    if (session.expiresAt.getTime() <= Date.now()) {
+      throw new UnauthorizedException('Invalid or expired refresh token.');
+    }
+
+    if (session.userId !== payload.sub) {
+      await this.auditFailedAttempt(
+        payload.sub,
+        session.id,
+        AUTH_FAILED_REASON_USER_MISMATCH,
+        options.ipAddress,
+      );
       throw new UnauthorizedException('Invalid or expired refresh token.');
     }
 
@@ -98,6 +157,12 @@ export class TokenService {
     });
 
     if (!user || user.deletedAt !== null || user.status !== UserStatus.ACTIVE) {
+      await this.auditFailedAttempt(
+        payload.sub,
+        session.id,
+        AUTH_FAILED_REASON_ACCOUNT_NOT_ACTIVE,
+        options.ipAddress,
+      );
       throw new UnauthorizedException('Invalid or expired refresh token.');
     }
 
@@ -106,31 +171,100 @@ export class TokenService {
       Date.now() + this.lifetimeToMs(this.refreshLifetime),
     );
 
-    const rotated = await this.prisma.userSession.updateMany({
-      where: {
-        id: session.id,
-        refreshToken: this.hashToken(refreshToken),
-        revokedAt: null,
-      },
-      data: {
-        refreshToken: this.hashToken(tokens.refreshToken),
-        expiresAt,
-        updatedBy: payload.sub,
-      },
+    const rotatedCount = await this.prisma.$transaction(async (tx) => {
+      const rotated = await tx.userSession.updateMany({
+        where: {
+          id: session.id,
+          refreshToken: this.hashToken(refreshToken),
+          revokedAt: null,
+        },
+        data: {
+          refreshToken: this.hashToken(tokens.refreshToken),
+          expiresAt,
+          updatedBy: payload.sub,
+        },
+      });
+
+      if (rotated.count > 0) {
+        await this.auditService.log(
+          {
+            userId: payload.sub,
+            action: 'SESSION_REFRESHED',
+            entity: 'UserSession',
+            entityId: session.id,
+            ipAddress: options.ipAddress,
+          },
+          tx,
+        );
+      }
+
+      return rotated.count;
     });
 
-    if (rotated.count === 0) {
+    if (rotatedCount === 0) {
+      await this.auditFailedAttempt(
+        payload.sub,
+        session.id,
+        AUTH_FAILED_REASON_TOKEN_REUSE,
+        options.ipAddress,
+      );
       throw new UnauthorizedException('Invalid or expired refresh token.');
     }
 
     return tokens;
   }
 
-  async revokeSession(sessionId: string): Promise<void> {
-    await this.prisma.userSession.updateMany({
-      where: { id: sessionId, revokedAt: null },
-      data: { revokedAt: new Date() },
+  async revokeSession(
+    sessionId: string,
+    options: RevokeSessionOptions = {},
+  ): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      const revoked = await tx.userSession.updateMany({
+        where: { id: sessionId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+
+      if (revoked.count > 0) {
+        await this.auditService.log(
+          {
+            userId: options.userId,
+            action: 'SESSION_REVOKED',
+            entity: 'UserSession',
+            entityId: sessionId,
+            ipAddress: options.ipAddress,
+          },
+          tx,
+        );
+      }
     });
+  }
+
+  /**
+   * Best-effort audit of identifiable invalid refresh attempts. No session
+   * state is changed here, so an audit failure must not alter the response.
+   */
+  private async auditFailedAttempt(
+    userId: string,
+    sessionId: string,
+    reason: string,
+    ipAddress?: string,
+  ): Promise<void> {
+    try {
+      await this.auditService.log({
+        userId,
+        action: 'AUTHENTICATION_FAILED',
+        entity: 'UserSession',
+        entityId: sessionId,
+        after: { reason },
+        ipAddress,
+      });
+    } catch (error) {
+      this.logger.error(
+        `Failed to audit AUTHENTICATION_FAILED for session ${sessionId}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
   }
 
   private generateTokenPair(userId: string, sessionId: string): TokenPair {

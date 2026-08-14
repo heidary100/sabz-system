@@ -67,11 +67,15 @@ describe('AuthController', () => {
         expiresIn: 120,
       });
 
-      const result = await controller.requestOtp({
-        mobile: '+989123456789',
-      });
+      const result = await controller.requestOtp(
+        { mobile: '+989123456789' },
+        '1.2.3.4',
+      );
 
-      expect(otpService.requestOtp).toHaveBeenCalledWith('+989123456789');
+      expect(otpService.requestOtp).toHaveBeenCalledWith(
+        '+989123456789',
+        '1.2.3.4',
+      );
       expect(result).toEqual({ sent: true, expiresIn: 120 });
       expect(result).not.toHaveProperty('code');
       expect(result).not.toHaveProperty('devCode');
@@ -106,6 +110,11 @@ describe('AuthController', () => {
       expect(otpService.verifyOtp).toHaveBeenCalledWith(
         '+989123456789',
         '123456',
+        '1.2.3.4',
+      );
+      expect(authService.markMobileVerified).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 'PENDING_OTP' }),
+        '1.2.3.4',
       );
       expect(tokenService.createSession).toHaveBeenCalledWith('user-1', {
         ipAddress: '1.2.3.4',
@@ -171,10 +180,13 @@ describe('AuthController', () => {
       const result = await controller.refresh(
         { refreshToken: 'raw-refresh' },
         {} as Request,
+        '1.2.3.4',
         res as unknown as Response,
       );
 
-      expect(tokenService.refreshSession).toHaveBeenCalledWith('raw-refresh');
+      expect(tokenService.refreshSession).toHaveBeenCalledWith('raw-refresh', {
+        ipAddress: '1.2.3.4',
+      });
       expect(res.cookie).toHaveBeenCalledWith(
         REFRESH_TOKEN_COOKIE,
         'new-refresh-token',
@@ -199,10 +211,13 @@ describe('AuthController', () => {
       const result = await controller.refresh(
         {},
         req,
+        undefined,
         res as unknown as Response,
       );
 
-      expect(tokenService.refreshSession).toHaveBeenCalledWith('cookie-refresh');
+      expect(tokenService.refreshSession).toHaveBeenCalledWith('cookie-refresh', {
+        ipAddress: undefined,
+      });
       expect(result.accessToken).toBe('new-access-token');
     });
 
@@ -210,7 +225,7 @@ describe('AuthController', () => {
       const req = { cookies: {} } as unknown as Request;
 
       await expect(
-        controller.refresh({}, req, res as unknown as Response),
+        controller.refresh({}, req, undefined, res as unknown as Response),
       ).rejects.toThrow(UnauthorizedException);
       expect(tokenService.refreshSession).not.toHaveBeenCalled();
     });
@@ -227,10 +242,14 @@ describe('AuthController', () => {
 
       const result = await controller.logout(
         user,
+        '1.2.3.4',
         res as unknown as Response,
       );
 
-      expect(tokenService.revokeSession).toHaveBeenCalledWith('session-1');
+      expect(tokenService.revokeSession).toHaveBeenCalledWith('session-1', {
+        userId: 'user-1',
+        ipAddress: '1.2.3.4',
+      });
       expect(res.clearCookie).toHaveBeenCalledWith(
         REFRESH_TOKEN_COOKIE,
         expect.objectContaining({ httpOnly: true, secure: false }),
