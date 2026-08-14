@@ -17,9 +17,35 @@ const OTP_FAILED_REASON_MAX_ATTEMPTS = 'MAX_ATTEMPTS';
 
 const OTP_LENGTH = 6;
 const OTP_TTL_SECONDS = 120;
-const MAX_VERIFICATION_ATTEMPTS = 5;
+/**
+ * Failed verification attempts allowed for a single issued OTP code.
+ * Deliberately below the cross-code window (MAX_FAILURES) so a code is
+ * invalidated early enough that "request a new OTP" is an accurate and
+ * usable recovery path, while the window remains the hard brute-force bound.
+ */
+const MAX_VERIFICATION_ATTEMPTS = 3;
 const RATE_LIMIT_WINDOW_SECONDS = 60;
-const RATE_LIMIT_MAX_REQUESTS = 5;
+/**
+ * OTP requests allowed per mobile number per rolling 60-second window.
+ */
+const RATE_LIMIT_MAX_REQUESTS = 3;
+/**
+ * OTP requests allowed per client IP per rolling 60-second window,
+ * across all mobile numbers.
+ */
+const IP_RATE_LIMIT_MAX_REQUESTS = 15;
+const FAILURE_WINDOW_SECONDS = 600;
+/**
+ * Failed verification attempts allowed per mobile number per rolling
+ * 10-minute window, across all OTP requests. Requesting a new OTP never
+ * resets this counter.
+ */
+const MAX_FAILURES = 5;
+/**
+ * Failed verification attempts allowed per client IP per rolling
+ * 10-minute window, across all mobile numbers.
+ */
+const IP_MAX_FAILURES = 10;
 
 /**
  * Development-only deterministic OTP.
@@ -34,12 +60,32 @@ function otpKey(mobile: string): string {
   return `auth:otp:${mobile}`;
 }
 
+/**
+ * Attempt counter scoped to the currently issued OTP. Reset whenever a new
+ * OTP is requested: a fresh code gets a fresh budget of failed attempts.
+ */
 function attemptsKey(mobile: string): string {
   return `auth:otp:attempts:${mobile}`;
 }
 
+/**
+ * Cross-code failure window for a mobile. Never reset by requestOtp; cleared
+ * only on successful verification or when the rolling window expires.
+ */
+function failureKey(mobile: string): string {
+  return `auth:otp:fail:${mobile}`;
+}
+
 function rateLimitKey(mobile: string): string {
   return `auth:otp:rate:${mobile}`;
+}
+
+function ipRateLimitKey(ip: string): string {
+  return `auth:otp:rate:ip:${ip}`;
+}
+
+function ipFailureKey(ip: string): string {
+  return `auth:otp:fail:ip:${ip}`;
 }
 
 export interface RequestOtpResult {
@@ -62,23 +108,37 @@ export class OtpService {
   }
 
   async requestOtp(mobile: string, ipAddress?: string): Promise<RequestOtpResult> {
-    const rateKey = rateLimitKey(mobile);
-    const requestCount = await this.redis.incr(rateKey);
-    if (requestCount === 1) {
-      await this.redis.expire(rateKey, RATE_LIMIT_WINDOW_SECONDS);
-    }
-    if (requestCount > RATE_LIMIT_MAX_REQUESTS) {
+    const mobilePipeline = this.redis.multi();
+    mobilePipeline.incr(rateLimitKey(mobile));
+    mobilePipeline.expire(rateLimitKey(mobile), RATE_LIMIT_WINDOW_SECONDS);
+    const mobileResults = (await mobilePipeline.exec()) ?? [];
+
+    if (this.resultCount(mobileResults[0]) > RATE_LIMIT_MAX_REQUESTS) {
       throw new HttpException(
         'Too many OTP requests. Please try again later.',
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }
 
+    if (ipAddress) {
+      const ipPipeline = this.redis.multi();
+      ipPipeline.incr(ipRateLimitKey(ipAddress));
+      ipPipeline.expire(ipRateLimitKey(ipAddress), RATE_LIMIT_WINDOW_SECONDS);
+      const ipResults = (await ipPipeline.exec()) ?? [];
+
+      if (this.resultCount(ipResults[0]) > IP_RATE_LIMIT_MAX_REQUESTS) {
+        throw new HttpException(
+          'Too many OTP requests. Please try again later.',
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
+    }
+
     const code = this.isDevelopment ? DEV_OTP_CODE : this.generateCode();
-    const pipeline = this.redis.multi();
-    pipeline.set(otpKey(mobile), code, 'EX', OTP_TTL_SECONDS);
-    pipeline.del(attemptsKey(mobile));
-    await pipeline.exec();
+    const codePipeline = this.redis.multi();
+    codePipeline.set(otpKey(mobile), code, 'EX', OTP_TTL_SECONDS);
+    codePipeline.del(attemptsKey(mobile));
+    await codePipeline.exec();
 
     this.logger.log(`OTP requested for mobile ${mobile}`);
     await this.audit('OTP_REQUESTED', mobile, ipAddress);
@@ -90,23 +150,6 @@ export class OtpService {
   }
 
   async verifyOtp(mobile: string, code: string, ipAddress?: string): Promise<void> {
-    const attemptKey = attemptsKey(mobile);
-    const attemptCount = Number((await this.redis.get(attemptKey)) ?? 0);
-
-    if (attemptCount >= MAX_VERIFICATION_ATTEMPTS) {
-      await this.redis.del(otpKey(mobile));
-      await this.audit(
-        'OTP_FAILED',
-        mobile,
-        ipAddress,
-        OTP_FAILED_REASON_MAX_ATTEMPTS,
-      );
-      throw new HttpException(
-        'Too many verification attempts. Request a new OTP.',
-        HttpStatus.TOO_MANY_REQUESTS,
-      );
-    }
-
     const storedCode = await this.redis.get(otpKey(mobile));
     if (!storedCode) {
       await this.audit(
@@ -120,9 +163,38 @@ export class OtpService {
 
     if (!this.safeEqual(storedCode, code)) {
       const pipeline = this.redis.multi();
-      pipeline.incr(attemptKey);
-      pipeline.expire(attemptKey, OTP_TTL_SECONDS);
-      await pipeline.exec();
+      pipeline.incr(attemptsKey(mobile));
+      pipeline.expire(attemptsKey(mobile), OTP_TTL_SECONDS);
+      pipeline.incr(failureKey(mobile));
+      pipeline.expire(failureKey(mobile), FAILURE_WINDOW_SECONDS);
+      if (ipAddress) {
+        pipeline.incr(ipFailureKey(ipAddress));
+        pipeline.expire(ipFailureKey(ipAddress), FAILURE_WINDOW_SECONDS);
+      }
+      const results = (await pipeline.exec()) ?? [];
+
+      const attemptCount = this.resultCount(results[0]);
+      const failureCount = this.resultCount(results[2]);
+      const ipFailureCount = ipAddress ? this.resultCount(results[4]) : 0;
+
+      if (
+        attemptCount > MAX_VERIFICATION_ATTEMPTS ||
+        failureCount > MAX_FAILURES ||
+        ipFailureCount > IP_MAX_FAILURES
+      ) {
+        await this.redis.del(otpKey(mobile));
+        await this.audit(
+          'OTP_FAILED',
+          mobile,
+          ipAddress,
+          OTP_FAILED_REASON_MAX_ATTEMPTS,
+        );
+        throw new HttpException(
+          'Too many verification attempts. Request a new OTP.',
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
+
       await this.audit(
         'OTP_FAILED',
         mobile,
@@ -132,10 +204,14 @@ export class OtpService {
       throw new BadRequestException('Invalid OTP code.');
     }
 
-    const pipeline = this.redis.multi();
-    pipeline.del(otpKey(mobile));
-    pipeline.del(attemptKey);
-    await pipeline.exec();
+    const cleanup = this.redis.multi();
+    cleanup.del(otpKey(mobile));
+    cleanup.del(attemptsKey(mobile));
+    cleanup.del(failureKey(mobile));
+    if (ipAddress) {
+      cleanup.del(ipFailureKey(ipAddress));
+    }
+    await cleanup.exec();
 
     this.logger.log(`OTP verified for mobile ${mobile}`);
     await this.audit('OTP_VERIFIED', mobile, ipAddress);
@@ -166,6 +242,18 @@ export class OtpService {
         }`,
       );
     }
+  }
+
+  /**
+   * Extracts an integer counter from an ioredis pipeline result pair.
+   * A failed command yields 0 so a Redis hiccup never falsely blocks a
+   * caller; the counter itself still lives in Redis.
+   */
+  private resultCount(
+    result: [Error | null, unknown] | null | undefined,
+  ): number {
+    const value = result?.[1];
+    return typeof value === 'number' ? value : Number(value ?? 0);
   }
 
   private generateCode(): string {

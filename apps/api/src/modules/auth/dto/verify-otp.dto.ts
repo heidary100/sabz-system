@@ -1,9 +1,12 @@
+import { Transform } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 import { IsString, Length, Matches } from 'class-validator';
+import { normalizeMobile } from '../utils/mobile.util';
 import { IRANIAN_MOBILE_REGEX } from './request-otp.dto';
 
 export class VerifyOtpDto {
   @ApiProperty({ example: '+989123456789', description: 'Iranian mobile number' })
+  @Transform(({ value }) => normalizeMobile(value))
   @Matches(IRANIAN_MOBILE_REGEX, {
     message: 'mobile must be a valid Iranian mobile number',
   })
