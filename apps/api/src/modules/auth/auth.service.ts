@@ -1,10 +1,14 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { Prisma, User, UserStatus } from '@prisma/client';
 import { PrismaService } from '../../common/database/prisma.service';
+import { AuditService } from '../audit/audit.service';
 
 @Injectable()
 export class AuthService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditService: AuditService,
+  ) {}
 
   async findUserByMobile(mobile: string): Promise<User | null> {
     return this.prisma.user.findUnique({
@@ -45,7 +49,7 @@ export class AuthService {
     }
   }
 
-  async markMobileVerified(user: User): Promise<User> {
+  async markMobileVerified(user: User, ipAddress?: string): Promise<User> {
     if (
       user.deletedAt !== null ||
       user.status === UserStatus.SUSPENDED ||
@@ -61,9 +65,26 @@ export class AuthService {
     }
 
     try {
-      return await this.prisma.user.update({
-        where: { id: user.id, deletedAt: null },
-        data: { status: UserStatus.ACTIVE },
+      return await this.prisma.$transaction(async (tx) => {
+        const updated = await tx.user.update({
+          where: { id: user.id, deletedAt: null },
+          data: { status: UserStatus.ACTIVE },
+        });
+
+        await this.auditService.log(
+          {
+            userId: updated.id,
+            action: 'ACCOUNT_ACTIVATED',
+            entity: 'User',
+            entityId: updated.id,
+            before: { status: user.status },
+            after: { status: updated.status },
+            ipAddress,
+          },
+          tx,
+        );
+
+        return updated;
       });
     } catch (error) {
       if (

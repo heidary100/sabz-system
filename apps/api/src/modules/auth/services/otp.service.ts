@@ -9,6 +9,11 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { RedisService } from '../../../common/redis/redis.service';
+import { AuditService } from '../../audit/audit.service';
+
+const OTP_FAILED_REASON_INVALID_CODE = 'INVALID_CODE';
+const OTP_FAILED_REASON_EXPIRED = 'EXPIRED';
+const OTP_FAILED_REASON_MAX_ATTEMPTS = 'MAX_ATTEMPTS';
 
 const OTP_LENGTH = 6;
 const OTP_TTL_SECONDS = 120;
@@ -50,12 +55,13 @@ export class OtpService {
   constructor(
     private readonly redis: RedisService,
     configService: ConfigService,
+    private readonly auditService: AuditService,
   ) {
     const nodeEnv = configService.get<string>('NODE_ENV');
     this.isDevelopment = nodeEnv === 'development';
   }
 
-  async requestOtp(mobile: string): Promise<RequestOtpResult> {
+  async requestOtp(mobile: string, ipAddress?: string): Promise<RequestOtpResult> {
     const rateKey = rateLimitKey(mobile);
     const requestCount = await this.redis.incr(rateKey);
     if (requestCount === 1) {
@@ -75,6 +81,7 @@ export class OtpService {
     await pipeline.exec();
 
     this.logger.log(`OTP requested for mobile ${mobile}`);
+    await this.audit('OTP_REQUESTED', mobile, ipAddress);
 
     return {
       sent: true,
@@ -82,12 +89,18 @@ export class OtpService {
     };
   }
 
-  async verifyOtp(mobile: string, code: string): Promise<void> {
+  async verifyOtp(mobile: string, code: string, ipAddress?: string): Promise<void> {
     const attemptKey = attemptsKey(mobile);
     const attemptCount = Number((await this.redis.get(attemptKey)) ?? 0);
 
     if (attemptCount >= MAX_VERIFICATION_ATTEMPTS) {
       await this.redis.del(otpKey(mobile));
+      await this.audit(
+        'OTP_FAILED',
+        mobile,
+        ipAddress,
+        OTP_FAILED_REASON_MAX_ATTEMPTS,
+      );
       throw new HttpException(
         'Too many verification attempts. Request a new OTP.',
         HttpStatus.TOO_MANY_REQUESTS,
@@ -96,6 +109,12 @@ export class OtpService {
 
     const storedCode = await this.redis.get(otpKey(mobile));
     if (!storedCode) {
+      await this.audit(
+        'OTP_FAILED',
+        mobile,
+        ipAddress,
+        OTP_FAILED_REASON_EXPIRED,
+      );
       throw new GoneException('OTP has expired. Request a new OTP.');
     }
 
@@ -104,6 +123,12 @@ export class OtpService {
       pipeline.incr(attemptKey);
       pipeline.expire(attemptKey, OTP_TTL_SECONDS);
       await pipeline.exec();
+      await this.audit(
+        'OTP_FAILED',
+        mobile,
+        ipAddress,
+        OTP_FAILED_REASON_INVALID_CODE,
+      );
       throw new BadRequestException('Invalid OTP code.');
     }
 
@@ -113,6 +138,34 @@ export class OtpService {
     await pipeline.exec();
 
     this.logger.log(`OTP verified for mobile ${mobile}`);
+    await this.audit('OTP_VERIFIED', mobile, ipAddress);
+  }
+
+  /**
+   * Best-effort audit: OTP state lives in Redis, so a Postgres audit failure
+   * must never block the OTP flow or strand a consumed code. Failures are
+   * logged as application errors, never propagated (SS-022).
+   */
+  private async audit(
+    action: string,
+    mobile: string,
+    ipAddress?: string,
+    reason?: string,
+  ): Promise<void> {
+    try {
+      await this.auditService.log({
+        action,
+        entity: 'User',
+        after: reason ? { mobile, reason } : { mobile },
+        ipAddress,
+      });
+    } catch (error) {
+      this.logger.error(
+        `Failed to audit ${action} for mobile ${mobile}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
   }
 
   private generateCode(): string {

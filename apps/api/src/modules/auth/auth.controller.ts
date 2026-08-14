@@ -66,8 +66,11 @@ export class AuthController {
   @ApiOperation({ summary: 'Request an OTP for the given mobile number' })
   @ApiResponse({ status: 200, description: 'OTP sent.' })
   @ApiResponse({ status: 429, description: 'Too many requests.' })
-  async requestOtp(@Body() dto: RequestOtpDto) {
-    return this.otpService.requestOtp(dto.mobile);
+  async requestOtp(
+    @Body() dto: RequestOtpDto,
+    @Ip() ipAddress?: string,
+  ) {
+    return this.otpService.requestOtp(dto.mobile, ipAddress);
   }
 
   @Post('verify-otp')
@@ -83,9 +86,9 @@ export class AuthController {
     @Headers('x-device-id') deviceId?: string,
     @Res({ passthrough: true }) res?: Response,
   ) {
-    await this.otpService.verifyOtp(dto.mobile, dto.code);
+    await this.otpService.verifyOtp(dto.mobile, dto.code, ipAddress);
     const user = await this.authService.getOrCreateUserByMobile(dto.mobile);
-    const verified = await this.authService.markMobileVerified(user);
+    const verified = await this.authService.markMobileVerified(user, ipAddress);
     const tokens = await this.tokenService.createSession(verified.id, {
       deviceId,
       ipAddress,
@@ -119,6 +122,7 @@ export class AuthController {
   async refresh(
     @Body() dto: RefreshTokenDto,
     @Req() req: Request,
+    @Ip() ipAddress?: string,
     @Res({ passthrough: true }) res?: Response,
   ) {
     const refreshToken = dto.refreshToken ?? getRefreshTokenFromRequest(req);
@@ -126,7 +130,9 @@ export class AuthController {
       throw new UnauthorizedException('Invalid or expired refresh token.');
     }
 
-    const tokens = await this.tokenService.refreshSession(refreshToken);
+    const tokens = await this.tokenService.refreshSession(refreshToken, {
+      ipAddress,
+    });
     if (res) {
       setRefreshTokenCookie(
         res,
@@ -148,9 +154,13 @@ export class AuthController {
   @ApiResponse({ status: 401, description: 'Unauthorized.' })
   async logout(
     @CurrentUser() user: AuthUser,
+    @Ip() ipAddress?: string,
     @Res({ passthrough: true }) res?: Response,
   ) {
-    await this.tokenService.revokeSession(user.sessionId);
+    await this.tokenService.revokeSession(user.sessionId, {
+      userId: user.userId,
+      ipAddress,
+    });
     if (res) {
       clearRefreshTokenCookie(res, this.cookieOptions);
     }

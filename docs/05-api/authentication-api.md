@@ -203,6 +203,27 @@ Revokes the current session; its refresh token can no longer be used and the `sa
 
 ---
 
+# Audit Events
+
+Authentication and authorization security events are recorded in the `AuditLog` table (see [Database Design Specification](../04-database/database-design-specification.md) §8). Session and account events are written atomically in the same database transaction as the state change; OTP events are best-effort (a failure to persist an audit entry never blocks or changes the OTP flow).
+
+Recorded events:
+
+| Event | Entity | Context |
+|---|---|---|
+| `OTP_REQUESTED` | `User` | mobile, request IP |
+| `OTP_VERIFIED` | `User` | mobile, request IP |
+| `OTP_FAILED` | `User` | mobile, fixed reason (`INVALID_CODE`, `EXPIRED`, `MAX_ATTEMPTS`), request IP |
+| `ACCOUNT_ACTIVATED` | `User` | userId, status before/after, request IP |
+| `SESSION_CREATED` | `UserSession` | userId, session id, request IP |
+| `SESSION_REFRESHED` | `UserSession` | userId, session id, request IP |
+| `SESSION_REVOKED` | `UserSession` | userId, session id, request IP |
+| `AUTHENTICATION_FAILED` | `UserSession` | userId, session id, fixed reason (`SESSION_NOT_FOUND`, `SESSION_REVOKED`, `USER_MISMATCH`, `ACCOUNT_NOT_ACTIVE`, `TOKEN_REUSE`), request IP |
+
+Audit entries never contain OTP codes, tokens (raw or hashed), JWT payloads, passwords, or any secret material. `LOGOUT` maps to a single `SESSION_REVOKED` entry. Role assignment/removal events are reserved for the future role-management flow. Account suspension/lockout audit events are reserved for when those workflows exist.
+
+---
+
 # Future Endpoints (Not Yet Implemented)
 
 The following endpoints are documented in earlier requirements and remain **planned only**. They are not implemented and must not be relied upon:
