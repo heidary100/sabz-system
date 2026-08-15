@@ -114,6 +114,59 @@ Never commit `.env` files (they are git-ignored) and never use the development p
 
 ---
 
+# Testing
+
+## Unit tests
+
+```bash
+pnpm test
+```
+
+Runs the API unit specs (Jest) across the monorepo. No infrastructure required.
+
+## E2E tests
+
+The E2E suite (`apps/api/test/*.e2e-spec.ts`) boots the Nest application, which
+connects to PostgreSQL and Redis, and covers the security middleware (security
+headers, CSP, rate limiting, trust proxy) and app bootstrap:
+
+```bash
+docker compose up -d postgres redis
+DATABASE_URL="postgresql://sabz:sabz@localhost:5432/sabz?schema=public" \
+REDIS_HOST=localhost REDIS_PORT=6379 NODE_ENV=test \
+JWT_ACCESS_SECRET="dev_access_secret_change_me" \
+JWT_REFRESH_SECRET="dev_refresh_secret_change_me" \
+pnpm --filter @sabz/api test:e2e
+```
+
+The JWT variables are required because the app bootstraps the full Nest
+application (which calls `getOrThrow` on both secrets). If `apps/api/.env`
+already contains them, the inline values are redundant but harmless.
+
+## Integration tests (database-backed)
+
+Real-database specs run against the migrated PostgreSQL database using the
+dedicated `test/jest-integration.json` config (files matching
+`.integration-spec.ts`). The same services and environment as the E2E suite are
+required:
+
+```bash
+docker compose up -d postgres redis
+DATABASE_URL="postgresql://sabz:sabz@localhost:5432/sabz?schema=public" \
+REDIS_HOST=localhost REDIS_PORT=6379 NODE_ENV=test \
+JWT_ACCESS_SECRET="dev_access_secret_change_me" \
+JWT_REFRESH_SECRET="dev_refresh_secret_change_me" \
+pnpm --filter @sabz/api test:integration
+```
+
+Integration specs must clean up any rows they create.
+
+`NODE_ENV=test` keeps Swagger enabled so the E2E suite can assert on
+`/api/docs`; the deterministic development OTP (`123456`) is only active under
+`NODE_ENV=development`.
+
+---
+
 # Common Issues
 
 ## Port Already in Use
