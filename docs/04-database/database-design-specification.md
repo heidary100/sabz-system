@@ -1,7 +1,7 @@
 # Sabz System Platform
 # Database Design Specification (DDS)
 
-Version: 1.0
+Version: 1.1
 
 ---
 
@@ -69,7 +69,7 @@ Partners
 
 - Partner
 - Partner Tier
-- Partner Document
+- Business Document
 
 Catalog
 
@@ -338,7 +338,7 @@ Business Rules
 
 Purpose
 
-Represents an approved B2B business. Partner is the optional business extension of a user's profile; access to partner functionality is granted through the PARTNER role, which is assigned upon approval (SS-027).
+Represents a B2B business account. **Partner is the application aggregate (SS-038).** A user becomes a partner after approval, which grants the PARTNER role (SS-027). The Partner entity owns the onboarding lifecycle; there is exactly one persistent Partner row per UserProfile (enforced by the unique `profile_id`), so an application is the Partner row itself — not a separate table.
 
 Fields
 
@@ -346,13 +346,18 @@ Fields
 - profile_id
 - business_name
 - business_license_number
+- national_id
 - website
 - address — business/legal operating address of the B2B partner entity, collected during the partner application. Distinct from UserProfile.address, the user's personal address (SS-028); do not merge the two concepts.
 - city — business city; part of the partner business address (see address).
 - province — business province; part of the partner business address (see address).
 - tier
-- approval_status
+- approval_status (default `DRAFT`)
 - approved_at
+- submitted_at
+- rejected_at
+- rejection_reason
+- review_notes
 - created_at
 - updated_at
 - deleted_at
@@ -361,14 +366,72 @@ Relationships
 
 - One Partner → One UserProfile
 - One Partner → Many Orders
-- One Partner → Many Documents
+- One Partner → Many BusinessDocuments
+
+Lifecycle
+
+```
+DRAFT
+  ↓
+PENDING
+  ↓
+APPROVED
+  or
+REJECTED
+  ↓
+PENDING (corrected and resubmitted)
+```
+
+> **Enum ordering note (SS-038):** PostgreSQL appends new enum values at the
+> end, so the physical `PartnerApprovalStatus` type orders
+> `PENDING, APPROVED, REJECTED, DRAFT` even though `schema.prisma` declares
+> `DRAFT` first. Do not rely on `ORDER BY "approvalStatus"` for lifecycle
+> ordering; the `submitted_at` timestamp is the lifecycle ordering key.
 
 Business Rules
 
 - A user becomes a partner only after partner application approval (AUTH-003).
+- One persistent Partner aggregate exists per profile (unique `profile_id`) — the v1 invariant.
 - Cannot access partner pricing until approved (AUTH-004).
 - Tier determines pricing visibility.
-- Approval requires at least one verified document.
+- A business license document is required before the application can be submitted and before it can be approved.
+- Document verification (per-document review and a `verified` marker) is deferred to SS-040; the applied `BusinessDocument` schema does not yet carry a `verified` flag.
+
+---
+
+## BusinessDocument
+
+Purpose
+
+Metadata record for a document uploaded as part of the partner lifecycle. **Metadata lives in PostgreSQL; the binary file contents are stored outside the database** through the Partner-domain `DocumentStorage` abstraction (SS-038).
+
+Fields
+
+- id
+- partner_id
+- type — `BUSINESS_LICENSE`, `NATIONAL_ID`, `TAX_REGISTRATION`, or `SUPPORTING`
+- original_name — display-only metadata; never used to derive the storage key
+- mime_type
+- size_bytes
+- storage_key — server-generated (`partners/<partner_id>/<document_id>.<safe-extension>`), unique
+- created_at
+- updated_at
+- deleted_at
+
+Relationships
+
+- Many BusinessDocuments → One Partner
+
+Business Rules
+
+- Storage keys are server-generated and never derived from user filenames.
+- The `storage_key` must be unique at the database level.
+- Storage paths are never exposed as public URLs.
+- The `partner_id` foreign key cascades on Partner deletion, but the database
+  cascade cannot delete the binary files behind those rows. Physical file
+  cleanup must happen at the application layer (the SS-040 document-removal
+  flow, which calls `DocumentStorage.delete`); the cascade alone would
+  otherwise orphan files under `partners/<partner_id>/`.
 
 ---
 
@@ -745,6 +808,8 @@ Indexes should exist for:
 - Permission name
 - Session refresh token
 - Partner approval status
+- Partner approval status + submitted_at (composite; covers the status-only access pattern)
+- Business document partner + deleted_at (composite)
 
 Composite indexes should be used where appropriate for filtering and reporting.
 
@@ -784,6 +849,11 @@ Audit logs must include:
 - Previous value
 - New value
 - IP address (if available)
+
+Partner audit events (implemented from SS-039/SS-040 onward) must never place
+sensitive data in `before`/`after` payloads: national ID, business license
+number, file contents, raw storage paths that reveal sensitive information,
+tokens, and secrets are excluded.
 
 ---
 

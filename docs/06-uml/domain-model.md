@@ -40,11 +40,13 @@ User (identity root)
 |   |
 |   +-- Customer (role CUSTOMER, no dedicated table)
 |   |
-|   +-- Partner (business extension of the profile, one-to-one optional,
-|   |            access granted through the PARTNER role)
-|       +-- companyName: string
-|       +-- businessType: BusinessType
-|       +-- verificationStatus: VerificationStatus
+|   +-- Partner (the partner application aggregate — one persistent row per
+|   |            profile, enforced by unique profileId; access granted through
+|   |            the PARTNER role upon approval)
+|       +-- approvalStatus: PartnerApprovalStatus (DRAFT | PENDING | APPROVED
+|       |      |       | REJECTED), default DRAFT
+|       +-- approvedAt / submittedAt / rejectedAt: DateTime?
+|       +-- rejectionReason / reviewNotes: string?
 |       +-- nationalId: string
 |       +-- tier: PartnerTier
 |       +-- businessAddress (province, city, fullAddress) — business/legal
@@ -85,6 +87,44 @@ Address
 +-- postalCode: string
 +-- isDefault: boolean
 ```
+
+### Partner lifecycle (SS-038)
+
+The Partner aggregate owns the onboarding lifecycle:
+
+```
+DRAFT
+  ↓
+PENDING
+  ↓
+APPROVED
+  or
+REJECTED
+  ↓
+PENDING  (corrected and resubmitted)
+```
+
+There is exactly one persistent Partner row per UserProfile (v1 invariant,
+enforced by the unique `profileId`).
+
+### BusinessDocument (SS-038)
+
+```
+BusinessDocument
++-- id: UUID
++-- partnerId: UUID (-> Partner)
++-- type: PartnerDocumentType
+|       (BUSINESS_LICENSE | NATIONAL_ID | TAX_REGISTRATION | SUPPORTING)
++-- originalName: string        (display-only)
++-- mimeType: string            (application/pdf | image/png | image/jpeg)
++-- sizeBytes: int              (max 10 MB)
++-- storageKey: string (unique) (server-generated, never derived from filename)
++-- createdAt / updatedAt / deletedAt
+```
+
+Metadata is stored in PostgreSQL; **binary file contents are stored outside the
+database** through the Partner-domain `DocumentStorage` abstraction. Storage
+paths are never exposed as public URLs.
 
 ---
 
@@ -208,6 +248,8 @@ BlogPost
 | Enum | Values |
 |------|--------|
 | UserStatus | PENDING_OTP, ACTIVE, SUSPENDED, LOCKED |
+| PartnerApprovalStatus | DRAFT, PENDING, APPROVED, REJECTED |
+| PartnerDocumentType | BUSINESS_LICENSE, NATIONAL_ID, TAX_REGISTRATION, SUPPORTING |
 | Role | CUSTOMER, PARTNER, OPERATOR, ADMIN (role names stored in the Role table; sole authorization source) |
 | VerificationStatus | PENDING, VERIFIED, REJECTED |
 | BusinessType | DISTRIBUTOR, WHOLESALER, RETAIL_SHOP, SYSTEM_INTEGRATOR, CORPORATE |

@@ -55,6 +55,8 @@ Only authenticated users may apply to become business partners.
 
 A user may have only one active partner application.
 
+> **SS-038 clarification:** the v1 invariant is one persistent **Partner aggregate per profile**. The `Partner` row itself is the application; there is no separate `PartnerApplication` table. The unique `Partner.profileId` constraint enforces exactly one Partner row per UserProfile.
+
 ---
 
 ### PARTNER-003
@@ -137,6 +139,11 @@ Partner Dashboard Activated
 
 Tier-Based Pricing Enabled
 
+> **Lifecycle mapping (SS-038):** these workflow states map to the
+> `Partner.approvalStatus` enum on the single persistent Partner aggregate:
+> saved draft → `DRAFT`; submitted for review → `PENDING`; operator decision →
+> `APPROVED` or `REJECTED`; a corrected resubmission returns to `PENDING`.
+
 ---
 
 # 6. Functional Requirements
@@ -176,7 +183,7 @@ Applicants shall provide:
 
 The system shall support uploading:
 
-- Business license (required)
+- Business license (required) — required before submission and before approval
 - National ID (optional)
 - Tax registration (optional)
 - Additional supporting documents
@@ -190,6 +197,15 @@ Accepted formats:
 Maximum file size:
 
 10 MB per file
+
+> **Storage contract (SS-038 foundation, enforced from SS-039):**
+>
+> - Allowed MIME types: `application/pdf`, `image/png`, `image/jpeg`.
+> - Maximum size: 10 MB.
+> - Magic-byte validation is required (MIME type alone is not trusted).
+> - `originalName` is display-only metadata; the storage key is server-generated (`partners/<partnerId>/<documentId>.<safe-extension>`) and never derived from the filename.
+> - Metadata lives in PostgreSQL (`BusinessDocument`); binary contents live outside the database through the Partner-domain `DocumentStorage` abstraction.
+> - Storage paths are never exposed as public URLs.
 
 ---
 
@@ -451,6 +467,25 @@ The system shall record:
 - Tier changes
 - Manual overrides
 - Dashboard access (optional)
+
+Expected future event names (implemented from SS-039/SS-040 onward, following the SS-038 audit contract):
+
+- `PARTNER_APPLICATION_CREATED`
+- `PARTNER_APPLICATION_UPDATED`
+- `PARTNER_APPLICATION_SUBMITTED`
+- `PARTNER_DOCUMENT_UPLOADED`
+- `PARTNER_DOCUMENT_REMOVED`
+- `PARTNER_APPROVED`
+- `PARTNER_REJECTED`
+- `PARTNER_TIER_CHANGED`
+
+Sensitive information must never appear in audit `before`/`after` payloads:
+
+- `nationalId`
+- `businessLicenseNo`
+- file contents
+- raw storage paths that reveal sensitive information
+- tokens and secrets
 
 ---
 

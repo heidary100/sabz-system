@@ -15,9 +15,17 @@ enum UserStatus {
 }
 
 enum PartnerApprovalStatus {
+  DRAFT
   PENDING
   APPROVED
   REJECTED
+}
+
+enum PartnerDocumentType {
+  BUSINESS_LICENSE
+  NATIONAL_ID
+  TAX_REGISTRATION
+  SUPPORTING
 }
 
 model User {
@@ -82,8 +90,14 @@ model Partner {
   province          String?
   tierId            String?
   tier              PartnerTier?          @relation(fields: [tierId], references: [id])
-  approvalStatus    PartnerApprovalStatus @default(PENDING)
+  approvalStatus    PartnerApprovalStatus @default(DRAFT)
   approvedAt        DateTime?
+  submittedAt       DateTime?
+  rejectedAt        DateTime?
+  rejectionReason   String?
+  reviewNotes       String?
+
+  documents BusinessDocument[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -91,7 +105,7 @@ model Partner {
   createdBy String?
   updatedBy String?
 
-  @@index([approvalStatus])
+  @@index([approvalStatus, submittedAt])
   @@index([tierId])
 }
 
@@ -107,6 +121,28 @@ model PartnerTier {
   updatedAt DateTime @updatedAt
   createdBy String?
   updatedBy String?
+}
+
+model BusinessDocument {
+  id           String              @id @default(uuid())
+  partnerId    String
+  partner      Partner             @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  type         PartnerDocumentType
+
+  /// Display-only metadata. The binary file lives outside PostgreSQL; the
+  /// server-generated storageKey must never be derived from this name.
+  originalName String
+  mimeType     String
+  sizeBytes    Int
+  storageKey   String              @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+  createdBy String?
+  updatedBy String?
+
+  @@index([partnerId, deletedAt])
 }
 
 model Role {

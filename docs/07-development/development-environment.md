@@ -111,7 +111,7 @@ docker compose down
 docker compose down -v
 ```
 
-`-v` deletes the PostgreSQL, Redis, and `node_modules` volumes. Use this to reset the environment (the app images are not rebuilt, so next start is fast).
+`-v` deletes the PostgreSQL, Redis, `node_modules`, and document-storage volumes. Use this to reset the environment (the app images are not rebuilt, so next start is fast).
 
 ## Rebuild After Dependency Changes
 
@@ -165,6 +165,7 @@ File watching relies on the host bind mounts, so changes saved on the host are p
 
 - `postgres_data`, `redis_data` — persistent data across restarts.
 - `api_node_modules`, `admin_node_modules`, `storefront_node_modules` — keep the Linux-installed dependencies inside the containers, isolated from host `node_modules`.
+- `api_documents` — persistent business document storage, mounted at `/app/.data/documents` in the API container (matches `DOCUMENT_STORAGE_DIR`, SS-038).
 
 ---
 
