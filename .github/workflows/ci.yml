@@ -45,3 +45,70 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+  e2e:
+    name: E2E & Integration (Postgres/Redis)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: sabz
+          POSTGRES_PASSWORD: sabz
+          POSTGRES_DB: sabz
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U sabz -d sabz"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://sabz:sabz@localhost:5432/sabz?schema=public
+      REDIS_HOST: localhost
+      REDIS_PORT: 6379
+      NODE_ENV: test
+      JWT_ACCESS_SECRET: dev_access_secret_change_me
+      JWT_REFRESH_SECRET: dev_refresh_secret_change_me
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.3.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter @sabz/api prisma:generate
+
+      - name: Apply migrations
+        run: pnpm --filter @sabz/api exec prisma migrate deploy
+
+      - name: E2E tests
+        run: pnpm --filter @sabz/api test:e2e
+
+      - name: Integration tests
+        run: pnpm --filter @sabz/api test:integration
