@@ -21,6 +21,11 @@ coverage
 **/.env
 !**/.env.example
 
+# Local runtime data (document binaries written outside the image and mounted
+# via the api_documents volume at /app/.data/documents)
+.data
+**/.data
+
 # Documentation and tooling not required inside the image
 docs
 scripts

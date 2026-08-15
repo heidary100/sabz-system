@@ -11,4 +11,7 @@ coverage/
 .env.*.local
 !.env.example
 
+# Local runtime data (e.g. apps/api/.data/documents from DOCUMENT_STORAGE_DIR)
+.data/
+
 .DS_Store

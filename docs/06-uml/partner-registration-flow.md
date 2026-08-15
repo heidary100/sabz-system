@@ -10,15 +10,17 @@ Version: 1.0
 The partner registration flow handles B2B business account creation, verification, and tier assignment.
 
 > **Status: PLANNED — not yet implemented.** Password-based registration does not exist in the current API. The current authentication flow is OTP-first (see [Authentication API](../05-api/authentication-api.md)); the steps below describe the intended future design. OTP responses in the current API return `{ sent, expiresIn }`, never the code.
+>
+> **SS-038 alignment:** the flow below reflects the approved Partner lifecycle. The `Partner` row is the application aggregate (one persistent row per profile), state is tracked in `Partner.approvalStatus` (DRAFT → PENDING → APPROVED/REJECTED, REJECTED → PENDING), and documents are stored through the Partner-domain `DocumentStorage` abstraction — **not S3**. BusinessDocument metadata lives in PostgreSQL; binary contents live outside the database.
 
 ---
 
 # Registration States
 
 ```
-PENDING_PHONE -> PHONE_VERIFIED -> PENDING_REVIEW -> APPROVED -> ACTIVE
-                                                        |
-                                                    REJECTED
+DRAFT -> PENDING -> APPROVED -> ACTIVE
+                    |
+                 REJECTED -> (corrected) -> PENDING
 ```
 
 # Detailed Flow
@@ -35,7 +37,7 @@ PENDING_PHONE -> PHONE_VERIFIED -> PENDING_REVIEW -> APPROVED -> ACTIVE
 
     -> [System] validates input
     -> [System] creates User (role: PARTNER, status: UNVERIFIED)
-    -> [System] creates Partner (verificationStatus: PENDING_PHONE)
+    -> [System] creates Partner (approvalStatus: DRAFT)
     -> [System] sends OTP via SMS
     -> Response: { message: "OTP sent" }
 ```
@@ -45,21 +47,26 @@ PENDING_PHONE -> PHONE_VERIFIED -> PENDING_REVIEW -> APPROVED -> ACTIVE
 ```
 [Partner] -> POST /auth/verify-otp (phone, code)
     -> [System] validates OTP
-    -> [System] updates Partner.verificationStatus -> PENDING_REVIEW
-    -> [System] sends welcome notification
-    -> Response: { message: "Phone verified. Your application is under review." }
+    -> [System] keeps Partner.approvalStatus in DRAFT until the application
+       is submitted for review (SS-038)
+    -> Response: { message: "Phone verified." }
 ```
 
 ## Step 3: Document Upload
 
 ```
 [Partner] -> POST /partners/me/documents (multipart/form-data)
-    - businessLicense (file)
+    - businessLicense (file, required before submission/approval)
     - nationalCard (file)
     - otherDocuments (files)
 
-    -> [System] uploads files to S3 storage
-    -> [System] creates BusinessDocument records
+    -> [System] validates MIME type (PDF/JPEG/PNG), size (max 10 MB) and
+       magic bytes
+    -> [System] stores binary contents through the Partner-domain
+       DocumentStorage abstraction (local disk in development; S3 is NOT used)
+       under a server-generated key: partners/<partnerId>/<documentId>.<ext>
+    -> [System] creates BusinessDocument metadata rows (type, originalName,
+       mimeType, sizeBytes, storageKey) in PostgreSQL
     -> [System] sends notification to operators
 ```
 
@@ -67,7 +74,7 @@ PENDING_PHONE -> PHONE_VERIFIED -> PENDING_REVIEW -> APPROVED -> ACTIVE
 
 ```
 [Operator] -> GET /admin/partners/pending
-    -> [System] returns list of pending partner applications
+    -> [System] returns list of partner applications in PENDING
 
 [Operator] -> GET /admin/partners/:id
     -> [System] returns partner details with documents
@@ -77,7 +84,7 @@ PENDING_PHONE -> PHONE_VERIFIED -> PENDING_REVIEW -> APPROVED -> ACTIVE
     - tierId (UUID)
     - notes (string, optional)
 
-    -> [System] updates Partner.verificationStatus -> APPROVED
+    -> [System] updates Partner.approvalStatus -> APPROVED, sets approvedAt
     -> [System] assigns PartnerTier
     -> [System] sends SMS notification to partner
 ```
@@ -89,9 +96,11 @@ PENDING_PHONE -> PHONE_VERIFIED -> PENDING_REVIEW -> APPROVED -> ACTIVE
     Request:
     - reason (string)
 
-    -> [System] updates Partner.verificationStatus -> REJECTED
+    -> [System] updates Partner.approvalStatus -> REJECTED, sets rejectedAt
+       and rejectionReason; reviewNotes may be set by the operator
     -> [System] sends SMS notification with reason
-    -> [Partner] can reapply after addressing the reason
+    -> [Partner] can correct the application and resubmit
+       (approvalStatus -> PENDING, PARTNER-006)
 ```
 
 ---

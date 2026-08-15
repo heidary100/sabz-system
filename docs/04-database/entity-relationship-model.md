@@ -22,7 +22,8 @@ Identity Domain
 User (identity root)
 +-- UserProfile (one-to-one)
 |   +-- Customer (profile type, no dedicated table)
-|   +-- Partner (profile extension)
+|   +-- Partner (profile extension — the partner application aggregate)
+|       +-- BusinessDocument[]
 |       +-- PartnerTier
 +-- Role (many-to-many via UserRole)
 +-- Permission (many-to-many via RolePermission)
@@ -32,7 +33,8 @@ User (identity root)
 - **User**: Identity root entity. Holds authentication identity (unique mobile number, optional unique email, password hash), account status, and last login. Contains no profile fields. Authorization is derived exclusively from roles (UserRole → Role); no separate user classification is used (SS-027).
 - **UserProfile**: One-to-one profile extension of User. Holds names, avatar, and an optional personal/contact address. Every user has exactly one profile. User classification (customer, partner, admin, operator) is expressed through roles, not stored on the profile.
 - **Customer**: A role/classification of users representing B2C end-users. No dedicated table is required; customer-specific data is covered by UserProfile and Address.
-- **Partner**: Optional business extension of a user's profile representing B2B business accounts with business identity and verification status. Stores the business/legal operating address (address, city, province) collected during the partner application — distinct from the user's personal address on UserProfile (SS-028).
+- **Partner**: The partner application aggregate (SS-038). One persistent Partner row exists per UserProfile (unique `profile_id`); it owns the onboarding lifecycle (DRAFT → PENDING → APPROVED/REJECTED, REJECTED → PENDING). Stores the business/legal operating address (address, city, province) collected during the partner application — distinct from the user's personal address on UserProfile (SS-028).
+- **BusinessDocument**: Metadata for a partner business document. Metadata is stored in PostgreSQL; binary contents live outside the database through the Partner-domain DocumentStorage abstraction (SS-038).
 - **PartnerTier**: Defines pricing tiers (Tier 1, Tier 2, Tier 3) with discount rules.
 - **Role**: System roles (admin, operator, customer, partner) assigned to users through a many-to-many junction.
 - **Permission**: Granular permissions mapped to roles through a many-to-many junction.
@@ -101,7 +103,8 @@ Order
 | Relationship | Type | Description |
 |--------------|------|-------------|
 | User -> UserProfile | One-to-One | Every user has exactly one profile |
-| UserProfile -> Partner | One-to-One | A profile may extend to a partner (optional) |
+| UserProfile -> Partner | One-to-One | A profile may extend to a partner (optional; one persistent Partner aggregate per profile) |
+| Partner -> BusinessDocument | One-to-Many | A partner owns many business documents |
 | Partner -> PartnerTier | Many-to-One | Partners belong to a pricing tier |
 | User -> Role | Many-to-Many | Users hold multiple roles (via UserRole) |
 | Role -> Permission | Many-to-Many | Roles have multiple permissions (via RolePermission) |

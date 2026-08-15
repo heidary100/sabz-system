@@ -68,6 +68,7 @@ Ownership summary:
 | `CORS_ORIGINS` | API | `apps/api/.env` | Compose `environment:` block |
 | `THROTTLE_TTL_MS`, `THROTTLE_LIMIT` | API | `apps/api/.env` (or code defaults) | Compose `environment:` block |
 | `DEV_ADMIN_MOBILE` | API (seed) | `apps/api/.env` | Compose `environment:` block |
+| `DOCUMENT_STORAGE_DRIVER`, `DOCUMENT_STORAGE_DIR` | API | `apps/api/.env` (or code defaults) | Compose `environment:` block (`DOCUMENT_STORAGE_DIR` pinned to `/app/.data/documents`, backed by the `api_documents` volume) |
 | `PORT`, `NODE_ENV` | API | `apps/api/.env` | Pinned by Compose |
 | `VITE_API_BASE_URL` | Admin | `apps/admin/.env` | Compose `environment:` block |
 | `NEXT_PUBLIC_API_BASE_URL` | Storefront | `apps/storefront/.env.local` | Not set; code fallback applies |
@@ -111,6 +112,21 @@ All values in `.env.example` files are safe local-development defaults. The foll
 - `DEV_ADMIN_MOBILE` — development-only; the seed refuses to run unless `NODE_ENV=development`.
 
 Never commit `.env` files (they are git-ignored) and never use the development placeholders in production.
+
+---
+
+# Document Storage
+
+Business document metadata lives in PostgreSQL (`BusinessDocument`); the binary
+contents are stored through the Partner-domain `DocumentStorage` abstraction
+(`DOCUMENT_STORAGE_DRIVER=local`, SS-038).
+
+- Host-native development: files are written under `DOCUMENT_STORAGE_DIR`
+  (default `.data/documents`), resolved relative to the API package directory
+  (`apps/api/.data/documents`). The `.data/` directory is git-ignored.
+- Docker Compose: `DOCUMENT_STORAGE_DIR` is pinned to `/app/.data/documents`
+  and backed by the `api_documents` named volume, so documents persist across
+  container restarts. `docker compose down -v` deletes them.
 
 ---
 
