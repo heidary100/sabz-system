@@ -131,33 +131,92 @@ Completes password reset.
 
 # 5. Partner API
 
+> **Implemented (SS-039):** the applicant-facing partner onboarding API below.
+> All partner routes require a JWT access token and resolve ownership exclusively
+> from the authenticated user — never from client-supplied ownership identifiers.
+> Non-owned resources return `404 Not Found` rather than `403` to avoid
+> disclosing their existence. Operator/admin partner endpoints are future work
+> (SS-040).
+
 POST /partners/apply
 
-Submit partner application.
+Creates the authenticated user's Partner application.
+
+- Requires a complete `UserProfile` (first and last name set); otherwise `400`.
+- Creates the application in `DRAFT`. If the request sets `submit: true`, the
+  application is validated for submission first; a business license document is
+  required, so a fresh application without one returns `422`.
+- Returns `409` if an application already exists for the user's profile.
+- Status codes: `201`, `400`, `401`, `409`, `422`.
 
 GET /partners/application
 
-Retrieve current application.
+Returns the authenticated user's current application, including status,
+lifecycle timestamps, rejection reason (where present), tier (once approved),
+and active document metadata. Returns `404` when no application exists.
+The response never includes storage keys, internal file paths, reviewer notes,
+or audit internals. Business documents can be retrieved and replaced while the
+application is editable.
 
 PATCH /partners/application
 
-Update application before approval.
+Updates the application before approval:
+
+- Business fields are editable only while the status is `DRAFT` or `REJECTED`.
+- `submit: true` transitions `DRAFT`/`REJECTED` → `PENDING` (resubmission),
+  clearing `rejectedAt` and `rejectionReason`.
+- `PENDING`/`APPROVED` applications are locked: mutations return `409`.
+- Submission requires the mandatory business fields and an active
+  `BUSINESS_LICENSE` document; otherwise `422`.
+- Clients cannot set the status or any lifecycle/reviewer field directly.
+- Status codes: `200`, `400`, `401`, `404`, `409`, `422`.
 
 POST /partners/documents
 
-Upload business documents.
+Uploads a business document (`multipart/form-data` with a `type` field and a
+`file` part).
+
+- Document types: `BUSINESS_LICENSE`, `NATIONAL_ID`, `TAX_REGISTRATION`,
+  `SUPPORTING`.
+- Accepted formats: PDF, PNG, JPG. Maximum 10 MB. The declared MIME type and the
+  file's magic bytes are both validated; the declared type must match the
+  detected content.
+- Storage keys are server-generated (`partners/<partnerId>/<documentId>.<ext>`)
+  and never derived from the original filename. Uploading a document of a type
+  that already has an active document replaces the old document.
+- Uploads are allowed only while the application is `DRAFT` or `REJECTED`;
+  otherwise `409`.
+- Status codes: `201`, `400`, `401`, `404`, `409`, `422`.
+
+GET /partners/documents
+
+Returns the authenticated user's active documents (metadata only; no storage
+keys). Returns `404` when the user has no application.
+
+GET /partners/documents/{id}
+
+Authenticated download of one of the user's own documents. Returns the binary
+with the stored MIME type and an attachment disposition. No public URLs are
+created. Non-owned documents return `404`.
+
+DELETE /partners/documents/{id}
+
+Removes one of the user's own documents. Allowed only while the application is
+`DRAFT` or `REJECTED`; otherwise `409`. The metadata row is soft-deleted and
+the binary is removed from storage. Non-owned documents return `404`.
 
 GET /partners/status
 
-Retrieve approval status.
+Planned — application status is returned by `GET /partners/application`.
 
 GET /partners/tier
 
-Retrieve current partner tier.
+Planned (SS-040) — tier information is returned on the application once
+approved.
 
 GET /partners/pricing
 
-Retrieve partner-specific pricing information.
+Planned (SS-040) — partner-specific pricing information.
 
 ---
 
