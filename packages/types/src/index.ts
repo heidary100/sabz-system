@@ -1,4 +1,5 @@
 export { ApiErrorPayload } from './api/errors';
+export { PaginatedResult } from './api/pagination';
 
 export { APP_ROLES, AppRole } from './auth/roles';
 export { AuthUser, UserStatus } from './auth/user';
@@ -23,3 +24,12 @@ export {
   PartnerTierSummary,
   UpdatePartnerApplicationInput,
 } from './partner/partner';
+
+export {
+  AdminPartnerDetail,
+  AdminPartnerListItem,
+  ApprovePartnerInput,
+  ChangePartnerTierInput,
+  PartnerListQuery,
+  RejectPartnerInput,
+} from './partner/admin';

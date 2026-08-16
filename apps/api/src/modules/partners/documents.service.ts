@@ -189,6 +189,40 @@ export class DocumentsService {
       throw new NotFoundException('سند یافت نشد.');
     }
 
+    return this.readBinary(document);
+  }
+
+  /**
+   * Operator/admin download of a business document scoped to an explicit
+   * Partner id. Authorization comes from the caller's role (enforced by the
+   * guard), never from a client-supplied user id. Documents belonging to a
+   * different Partner, documents of a soft-deleted partner, and soft-deleted
+   * documents are indistinguishable from missing ones (404) so their existence
+   * is not disclosed.
+   */
+  async getBinaryByPartner(
+    partnerId: string,
+    documentId: string,
+  ): Promise<{ buffer: Buffer; summary: PartnerDocumentSummary }> {
+    const document = await this.prisma.businessDocument.findFirst({
+      where: {
+        id: documentId,
+        partnerId,
+        deletedAt: null,
+        partner: { deletedAt: null },
+      },
+    });
+
+    if (!document) {
+      throw new NotFoundException('سند یافت نشد.');
+    }
+
+    return this.readBinary(document);
+  }
+
+  private async readBinary(
+    document: BusinessDocument,
+  ): Promise<{ buffer: Buffer; summary: PartnerDocumentSummary }> {
     let buffer: Buffer;
     try {
       buffer = await this.storage.get(document.storageKey);

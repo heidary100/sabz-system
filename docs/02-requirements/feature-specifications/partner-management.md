@@ -250,8 +250,36 @@ Operators shall be able to:
 - Preview documents
 - Approve applications
 - Reject applications
-- Request additional information
 - Add internal review notes
+- Change the tier of an approved partner
+
+> **Admin review API (SS-040 implementation):**
+>
+> - The operator/admin endpoints are `GET /admin/partners` (paginated list,
+>   default `PENDING`), `GET /admin/partners/{id}` (review detail),
+>   `PATCH /admin/partners/{id}/approve`, `PATCH /admin/partners/{id}/reject`,
+>   `PATCH /admin/partners/{id}/tier`, and
+>   `GET /admin/partners/{id}/documents/{documentId}` (document preview).
+> - All endpoints require a JWT token **and** either the `OPERATOR` or `ADMIN`
+>   role (`PARTNER-007`). There is no `SUPER_ADMIN` role; `ADMIN` is the
+>   implemented application role.
+> - List pagination uses `page`/`limit` (default 1/20, maximum 100) with
+>   deterministic `submittedAt DESC, id DESC` ordering. The default filter is
+>   `PENDING`; `status` accepts all `PartnerApprovalStatus` values.
+> - Decisions operate only on valid states. Approval and rejection require the
+>   partner to be `PENDING`; a tier change requires `APPROVED`. State conflicts
+>   and the loser of a concurrent decision return `409` (conditional
+>   `updateMany` on `approvalStatus` + `deletedAt`).
+> - Approval requires an active `BUSINESS_LICENSE` document (`422` otherwise)
+>   and a valid tier (`400` otherwise). The approval transition, the `PARTNER`
+>   role activation (assigned to the **applicant's** user, never the reviewer),
+>   and the `PARTNER_APPROVED` audit event are committed in one transaction.
+> - The review detail includes `reviewNotes` for operators; review notes are
+>   never exposed to applicants.
+> - Audit `before`/`after` payloads never contain `nationalId`,
+>   `businessLicenseNo`, document contents, raw storage paths, or secrets.
+> - Document preview serves only active documents of the requested partner;
+>   other partners' documents and soft-deleted documents return `404`.
 
 ---
 
@@ -401,7 +429,12 @@ PATCH /admin/partners/{id}/reject
 
 PATCH /admin/partners/{id}/tier
 
-GET /admin/partners/pending
+GET /admin/partners/{id}/documents/{documentId}
+
+> The operator endpoints above are implemented by SS-040. `GET
+> /admin/partners/pending` (from the registration-flow draft) is replaced by the
+> paginated `GET /admin/partners` with a default `status=PENDING` filter;
+> `request additional information` is out of scope and not implemented.
 
 ---
 
@@ -501,16 +534,16 @@ The system shall record:
 - Manual overrides
 - Dashboard access (optional)
 
-Expected future event names (implemented from SS-039/SS-040 onward, following the SS-038 audit contract):
+Audit events (implemented following the SS-038 audit contract):
 
-- `PARTNER_APPLICATION_CREATED`
-- `PARTNER_APPLICATION_UPDATED`
-- `PARTNER_APPLICATION_SUBMITTED`
-- `PARTNER_DOCUMENT_UPLOADED`
-- `PARTNER_DOCUMENT_REMOVED`
-- `PARTNER_APPROVED`
-- `PARTNER_REJECTED`
-- `PARTNER_TIER_CHANGED`
+- `PARTNER_APPLICATION_CREATED` (SS-039)
+- `PARTNER_APPLICATION_UPDATED` (SS-039)
+- `PARTNER_APPLICATION_SUBMITTED` (SS-039)
+- `PARTNER_DOCUMENT_UPLOADED` (SS-039)
+- `PARTNER_DOCUMENT_REMOVED` (SS-039)
+- `PARTNER_APPROVED` (SS-040)
+- `PARTNER_REJECTED` (SS-040)
+- `PARTNER_TIER_CHANGED` (SS-040)
 
 Sensitive information must never appear in audit `before`/`after` payloads:
 

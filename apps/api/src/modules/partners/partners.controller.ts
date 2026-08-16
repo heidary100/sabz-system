@@ -29,6 +29,7 @@ import {
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AuthUser } from '../auth/interfaces/auth-user.interface';
+import { buildAttachmentDisposition } from './download-disposition';
 import { DocumentsService } from './documents.service';
 import { CreateApplicationDto, UpdateApplicationDto, UploadDocumentDto } from './dto';
 import { OversizedUploadFilter } from './oversized-upload.filter';
@@ -157,17 +158,9 @@ export class PartnersController {
       documentId,
     );
 
-    // RFC 6266: filename* carries the real UTF-8 name (Persian etc.); the
-    // ASCII-safe filename= value is only a fallback for legacy clients. The
-    // original name was already sanitized (no path separators/control chars).
-    const asciiFallback = summary.originalName
-      .replace(/[^\x20-\x7E]/g, '_')
-      .replace(/"/g, "'")
-      .trim();
-
     return new StreamableFile(buffer, {
       type: summary.mimeType,
-      disposition: `attachment; filename="${asciiFallback || `document-${summary.id}.${this.extensionFromMime(summary.mimeType)}`}"; filename*=UTF-8''${encodeURIComponent(summary.originalName)}`,
+      disposition: buildAttachmentDisposition(summary),
       length: buffer.length,
     });
   }
@@ -186,11 +179,5 @@ export class PartnersController {
   ) {
     await this.documentsService.remove(user.userId, documentId, ipAddress);
     return { removed: true };
-  }
-
-  private extensionFromMime(mimeType: string): string {
-    if (mimeType === 'application/pdf') return 'pdf';
-    if (mimeType === 'image/png') return 'png';
-    return 'jpg';
   }
 }

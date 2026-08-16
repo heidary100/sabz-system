@@ -72,33 +72,42 @@ DRAFT -> PENDING -> APPROVED -> ACTIVE
 
 ## Step 4: Operator Review
 
+> **SS-040 alignment:** the operator review API is implemented. The pending
+> list is `GET /admin/partners` (default `status=PENDING`, paginated), review
+> detail is `GET /admin/partners/:id`, and the decision endpoints below use
+> `PATCH`. Operators and Admins authenticate with a JWT; the PARTNER role is
+> activated on approval.
+
 ```
-[Operator] -> GET /admin/partners/pending
-    -> [System] returns list of partner applications in PENDING
+[Operator] -> GET /admin/partners
+    -> [System] returns the paginated list of partner applications in PENDING
+    -> [System] returns partner details with documents and profile summary
 
 [Operator] -> GET /admin/partners/:id
     -> [System] returns partner details with documents
 
-[Operator] -> POST /admin/partners/:id/approve
+[Operator] -> PATCH /admin/partners/:id/approve
     Request:
     - tierId (UUID)
-    - notes (string, optional)
+    - reviewNotes (string, optional)
 
     -> [System] updates Partner.approvalStatus -> APPROVED, sets approvedAt
     -> [System] assigns PartnerTier
-    -> [System] sends SMS notification to partner
+    -> [System] grants the PARTNER role to the applicant (single transaction)
+    -> [System] writes the PARTNER_APPROVED audit event
 ```
 
 ## Step 5: Rejection (if applicable)
 
 ```
-[Operator] -> POST /admin/partners/:id/reject
+[Operator] -> PATCH /admin/partners/:id/reject
     Request:
     - reason (string)
+    - reviewNotes (string, optional)
 
     -> [System] updates Partner.approvalStatus -> REJECTED, sets rejectedAt
        and rejectionReason; reviewNotes may be set by the operator
-    -> [System] sends SMS notification with reason
+    -> [System] writes the PARTNER_REJECTED audit event
     -> [Partner] can correct the application and resubmit
        (approvalStatus -> PENDING, PARTNER-006)
 ```

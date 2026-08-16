@@ -431,6 +431,21 @@ AUTH-006 ("Administrative roles are assigned only by Super Administrators") cann
 
 The authorization foundation does not invent a super-admin role and does not implement role assignment. Enforcement of AUTH-006 — including a super-administrator elevation path — is deferred to the admin/role-management issues.
 
+## Partner Review Authorization (SS-040)
+
+The partner review API (`GET/PATCH /admin/partners*`) is implemented with
+`OPERATOR` and `ADMIN` — the application roles that exist in the system. The
+"Super Administrator" column above maps to the implemented `ADMIN` role for the
+implemented scope; the platform does not introduce a `SUPER_ADMIN` role.
+
+- Approve partner: `OPERATOR` / `ADMIN`
+- Reject partner: `OPERATOR` / `ADMIN`
+- Change tier: `OPERATOR` / `ADMIN`
+- Preview partner documents: `OPERATOR` / `ADMIN`
+
+Unauthenticated requests return `401`; `CUSTOMER` and `PARTNER` return `403`.
+The backend is the security boundary — client-side admin checks are UX only.
+
 ---
 
 # 11. Future Roles

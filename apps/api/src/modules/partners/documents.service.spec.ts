@@ -447,6 +447,76 @@ describe('DocumentsService', () => {
     });
   });
 
+  describe('getBinaryByPartner', () => {
+    const document = {
+      id: 'doc-1',
+      type: PartnerDocumentType.BUSINESS_LICENSE,
+      originalName: 'license.pdf',
+      mimeType: 'application/pdf',
+      sizeBytes: 100,
+      storageKey: 'partners/partner-1/doc-1.pdf',
+      createdAt: new Date('2026-08-16T00:00:00.000Z'),
+    };
+
+    it('returns the binary for a document scoped to the given partner', async () => {
+      prisma.businessDocument.findFirst.mockResolvedValue(document);
+      storage.get.mockResolvedValue(Buffer.from('%PDF-1.7'));
+
+      const { buffer, summary } = await service.getBinaryByPartner('partner-1', 'doc-1');
+
+      expect(buffer.toString()).toBe('%PDF-1.7');
+      expect(summary.id).toBe('doc-1');
+      expect(prisma.businessDocument.findFirst).toHaveBeenCalledWith({
+        where: {
+          id: 'doc-1',
+          partnerId: 'partner-1',
+          deletedAt: null,
+          partner: { deletedAt: null },
+        },
+      });
+      expect(JSON.stringify(summary)).not.toContain('storageKey');
+    });
+
+    it('throws 404 when the document belongs to another partner', async () => {
+      prisma.businessDocument.findFirst.mockResolvedValue(null);
+
+      await expect(service.getBinaryByPartner('partner-1', 'doc-other')).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(storage.get).not.toHaveBeenCalled();
+    });
+
+    it('throws 404 for a soft-deleted document', async () => {
+      prisma.businessDocument.findFirst.mockResolvedValue(null);
+
+      await expect(service.getBinaryByPartner('partner-1', 'doc-deleted')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('throws 404 when the owning partner is soft-deleted', async () => {
+      prisma.businessDocument.findFirst.mockResolvedValue(null);
+
+      await expect(service.getBinaryByPartner('partner-1', 'doc-1')).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(prisma.businessDocument.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ partner: { deletedAt: null } }),
+        }),
+      );
+    });
+
+    it('maps a missing stored binary to 404', async () => {
+      prisma.businessDocument.findFirst.mockResolvedValue(document);
+      storage.get.mockRejectedValue(new DocumentNotFoundError('partners/partner-1/doc-1.pdf'));
+
+      await expect(service.getBinaryByPartner('partner-1', 'doc-1')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
   describe('remove', () => {
     beforeEach(() => {
       prisma.userProfile.findUnique.mockResolvedValue({
