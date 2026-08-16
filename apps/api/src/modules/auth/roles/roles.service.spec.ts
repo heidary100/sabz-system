@@ -4,11 +4,17 @@ import { RolesService } from './roles.service';
 
 describe('RolesService', () => {
   let service: RolesService;
-  let prisma: { user: { findUnique: jest.Mock } };
+  let prisma: {
+    user: { findUnique: jest.Mock };
+    role: { findUnique: jest.Mock };
+  };
 
   beforeEach(() => {
     prisma = {
       user: {
+        findUnique: jest.fn(),
+      },
+      role: {
         findUnique: jest.fn(),
       },
     };
@@ -54,5 +60,36 @@ describe('RolesService', () => {
     prisma.user.findUnique.mockResolvedValue(null);
 
     await expect(service.findRoleNamesByUserId('user-1')).resolves.toEqual([]);
+  });
+
+  it('resolves the role id by name', async () => {
+    prisma.role.findUnique.mockResolvedValue({ id: 'role-partner' });
+
+    await expect(service.findRoleIdByName(AppRole.PARTNER)).resolves.toBe(
+      'role-partner',
+    );
+
+    expect(prisma.role.findUnique).toHaveBeenCalledWith({
+      where: { name: AppRole.PARTNER },
+      select: { id: true },
+    });
+  });
+
+  it('returns null when the role row does not exist', async () => {
+    prisma.role.findUnique.mockResolvedValue(null);
+
+    await expect(service.findRoleIdByName(AppRole.PARTNER)).resolves.toBeNull();
+  });
+
+  it('uses the provided transaction client for the lookup', async () => {
+    const tx = {
+      role: { findUnique: jest.fn().mockResolvedValue({ id: 'role-partner' }) },
+    };
+
+    await expect(service.findRoleIdByName(AppRole.PARTNER, tx as never)).resolves.toBe(
+      'role-partner',
+    );
+    expect(tx.role.findUnique).toHaveBeenCalled();
+    expect(prisma.role.findUnique).not.toHaveBeenCalled();
   });
 });

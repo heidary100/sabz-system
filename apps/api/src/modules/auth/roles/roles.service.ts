@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../common/database/prisma.service';
 import { AppRole } from '../enums/app-role.enum';
 
@@ -23,5 +24,22 @@ export class RolesService {
     });
 
     return user?.roles.map(({ role }) => role.name as AppRole) ?? [];
+  }
+
+  /**
+   * Resolves the Role row id for a known application role. The role name is
+   * never supplied by clients; it is derived server-side. Accepts an optional
+   * transaction client so role activation can join an interactive transaction.
+   */
+  async findRoleIdByName(
+    name: AppRole,
+    tx?: Prisma.TransactionClient,
+  ): Promise<string | null> {
+    const client = tx ?? this.prisma;
+    const role = await client.role.findUnique({
+      where: { name },
+      select: { id: true },
+    });
+    return role?.id ?? null;
   }
 }

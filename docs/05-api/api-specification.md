@@ -135,8 +135,11 @@ Completes password reset.
 > All partner routes require a JWT access token and resolve ownership exclusively
 > from the authenticated user — never from client-supplied ownership identifiers.
 > Non-owned resources return `404 Not Found` rather than `403` to avoid
-> disclosing their existence. Operator/admin partner endpoints are future work
-> (SS-040).
+> disclosing their existence.
+>
+> **Implemented (SS-040):** the operator/admin review API (list, detail,
+> approve, reject, tier change, document preview) is documented in the
+> [Admin Partner Review API](#51-admin-partner-review-api-ss-040) section.
 
 POST /partners/apply
 
@@ -211,12 +214,105 @@ Planned — application status is returned by `GET /partners/application`.
 
 GET /partners/tier
 
-Planned (SS-040) — tier information is returned on the application once
-approved.
+Tier information is returned on the application once approved; a dedicated
+endpoint is not yet implemented.
 
 GET /partners/pricing
 
 Planned (SS-040) — partner-specific pricing information.
+
+---
+
+# 5.1. Admin Partner Review API (SS-040)
+
+All routes require a JWT access token **and** either the `OPERATOR` or `ADMIN`
+role (`@Roles(OPERATOR, ADMIN)`). There is no `SUPER_ADMIN` role; `ADMIN` is the
+implemented application role. Authorization comes from the database role tables
+at request time, never from client-supplied identifiers.
+
+GET /admin/partners
+
+Returns a paginated list of partner applications, defaulting to `PENDING`.
+
+- Query parameters: `status` (one of `DRAFT`, `PENDING`, `APPROVED`, `REJECTED`;
+  default `PENDING`), `page` (≥ 1, default 1), `limit` (1–100, default 20).
+- Response: `{ items: [...], total, page, limit }`. Ordering is deterministic:
+  `submittedAt DESC` (nulls last), then `id DESC`. Soft-deleted partners are
+  always excluded.
+- Status codes: `200`, `400`, `401`, `403`.
+
+GET /admin/partners/{id}
+
+Returns the full review detail for one partner:
+
+- business information (including `nationalId` and `businessLicenseNo`, which
+  operators need for verification), approval status, lifecycle timestamps
+  (`submittedAt`, `approvedAt`, `rejectedAt`), `rejectionReason`, `reviewNotes`
+  (admin-only; never shown to the applicant), the assigned tier, active
+  document metadata, and the applicant's profile summary (`firstName`,
+  `lastName`, `mobile`).
+- The response never includes storage keys, filesystem paths, raw file content,
+  audit internals, or secrets.
+- Status codes: `200`, `401`, `403`, `404`.
+
+PATCH /admin/partners/{id}/approve
+
+Approves a `PENDING` partner application and activates the `PARTNER` role.
+
+- Body: `{ "tierId": "<uuid>", "reviewNotes": "<optional>" }`.
+- Prerequisites: the partner exists and is not deleted; the partner is
+  `PENDING`; an active `BUSINESS_LICENSE` document exists (otherwise `422`); the
+  tier exists (otherwise `400`).
+- The approval transition, `PARTNER` role activation, and the
+  `PARTNER_APPROVED` audit entry are committed in a single database
+  transaction. The role is assigned to the **applicant's** user; the reviewer is
+  recorded as `assignedBy` and as the audit actor.
+- Concurrent or repeated decisions on the same partner return `409`; the loser
+  of a concurrent approve/reject race receives `409`.
+- Status codes: `200`, `400`, `401`, `403`, `404`, `409`, `422`.
+
+PATCH /admin/partners/{id}/reject
+
+Rejects a `PENDING` partner application.
+
+- Body: `{ "reason": "<required>", "reviewNotes": "<optional>" }`.
+- Transitions `PENDING → REJECTED`, sets `rejectedAt`, `rejectionReason`, and
+  `reviewNotes` when supplied. The tier is not modified. The `PARTNER_REJECTED`
+  audit event is written in the same transaction.
+- Status codes: `200`, `400`, `401`, `403`, `404`, `409`.
+
+PATCH /admin/partners/{id}/tier
+
+Changes the tier of an `APPROVED` partner.
+
+- Body: `{ "tierId": "<uuid>" }`.
+- Only allowed for `APPROVED` partners; `DRAFT`, `PENDING`, and `REJECTED`
+  return `409`. The `PARTNER_TIER_CHANGED` audit event records the previous and
+  new tier identifiers.
+- Status codes: `200`, `400`, `401`, `403`, `404`, `409`.
+
+GET /admin/partners/{id}/documents/{documentId}
+
+Authenticated operator/admin preview or download of a partner business
+document.
+
+- The document must belong to the specified partner and must be active (not
+  soft-deleted); otherwise `404`. Documents of other partners are never
+  disclosed.
+- Returns the binary with the stored MIME type and a safe RFC 6266 attachment
+  disposition. No public URLs are created; storage keys are never exposed.
+- Status codes: `200`, `401`, `403`, `404`.
+
+Audit events written by this API:
+
+| Event | before | after |
+| --- | --- | --- |
+| `PARTNER_APPROVED` | `{ approvalStatus, tierId }` | `{ approvalStatus, tierId, approvedAt }` |
+| `PARTNER_REJECTED` | `{ approvalStatus }` | `{ approvalStatus, rejectedAt, rejectionReason }` |
+| `PARTNER_TIER_CHANGED` | `{ tierId }` | `{ tierId }` |
+
+Audit payloads never contain `nationalId`, `businessLicenseNo`, document
+contents, raw storage keys/paths, or secrets.
 
 ---
 
@@ -392,7 +488,8 @@ Manage users.
 
 GET /admin/partners
 
-Manage partners.
+Manage partners. Implemented as the paginated operator/admin review API — see
+[Admin Partner Review API](#51-admin-partner-review-api-ss-040).
 
 GET /admin/products
 
