@@ -16,6 +16,7 @@ describe('AdminPartnersController', () => {
   let controller: AdminPartnersController;
   let adminService: {
     list: jest.Mock;
+    listTiers: jest.Mock;
     getDetail: jest.Mock;
     approve: jest.Mock;
     reject: jest.Mock;
@@ -32,6 +33,7 @@ describe('AdminPartnersController', () => {
   beforeEach(() => {
     adminService = {
       list: jest.fn(),
+      listTiers: jest.fn(),
       getDetail: jest.fn(),
       approve: jest.fn(),
       reject: jest.fn(),
@@ -61,6 +63,19 @@ describe('AdminPartnersController', () => {
 
     expect(adminService.list).toHaveBeenCalledWith(query);
     expect(result).toEqual({ items: [], total: 0, page: 2, limit: 10 });
+  });
+
+  it('delegates listTiers', async () => {
+    adminService.listTiers.mockResolvedValue([
+      { id: 'tier-1', name: 'Tier 1', discountPercent: '5', minOrderQuantity: 1 },
+    ]);
+
+    const result = await controller.listTiers();
+
+    expect(adminService.listTiers).toHaveBeenCalled();
+    expect(result).toEqual([
+      { id: 'tier-1', name: 'Tier 1', discountPercent: '5', minOrderQuantity: 1 },
+    ]);
   });
 
   it('delegates getDetail with the partner id', async () => {

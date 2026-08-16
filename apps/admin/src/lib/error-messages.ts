@@ -17,7 +17,9 @@ const STATUS_TO_PERSIAN: Record<number, string> = {
   401: 'دسترسی غیرمجاز. دوباره وارد شوید.',
   403: 'شما مجوز انجام این عملیات را ندارید.',
   404: 'منبع درخواستی پیدا نشد.',
+  409: 'وضعیت درخواست تغییر کرده است؛ مجدد تلاش کنید.',
   410: 'کد تأیید منقضی شده است. کد جدید درخواست کنید.',
+  422: 'اعتبارسنجی انجام نشد؛ اطلاعات را بررسی کنید.',
   429: 'تعداد درخواست‌ها بیش از حد مجاز است. کمی بعد دوباره تلاش کنید.',
 }
 
@@ -25,17 +27,22 @@ export function translateApiError(error: unknown): string {
   if (error instanceof ApiError) {
     const message = error.payload?.message
     if (message) {
-      const translated = BACKEND_TO_PERSIAN[message]
-      if (translated) {
-        return translated
+      if (Array.isArray(message)) {
+        const first = message[0]
+        if (first) {
+          return BACKEND_TO_PERSIAN[first] ?? first
+        }
+      } else {
+        const translated = BACKEND_TO_PERSIAN[message]
+        if (translated) {
+          return translated
+        }
+        return message
       }
     }
     const statusMessage = STATUS_TO_PERSIAN[error.status]
     if (statusMessage) {
       return statusMessage
-    }
-    if (message) {
-      return message
     }
   }
   return 'خطایی رخ داد. دوباره تلاش کنید.'

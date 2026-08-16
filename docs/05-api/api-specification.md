@@ -241,6 +241,17 @@ Returns a paginated list of partner applications, defaulting to `PENDING`.
   always excluded.
 - Status codes: `200`, `400`, `401`, `403`.
 
+GET /admin/partners/tiers
+
+Returns the list of partner tiers available for assignment.
+
+- **Added by SS-041** so the admin UI can render tier selection in the approve
+  and tier-change flows. There is no per-partner scoping; all tiers are
+  returned.
+- Response: `[{ id, name, discountPercent, minOrderQuantity }, ...]`, ordered by
+  `minOrderQuantity` ascending. `discountPercent` is returned as a string.
+- Status codes: `200`, `401`, `403`.
+
 GET /admin/partners/{id}
 
 Returns the full review detail for one partner:
