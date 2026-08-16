@@ -101,6 +101,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build shared packages
+        # The e2e/integration suites invoke @sabz/api tests directly (not via
+        # Turbo), so @sabz/types must be compiled here or its dist/ is missing
+        # when the API's test sources resolve '@sabz/types'.
+        run: pnpm --filter @sabz/types build
+
       - name: Generate Prisma client
         run: pnpm --filter @sabz/api prisma:generate
 
