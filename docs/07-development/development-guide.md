@@ -133,6 +133,32 @@ Rules:
 
 ---
 
+# Admin Routing Conventions
+
+The admin application (`apps/admin`) is Persian-first, RTL, and uses the Sabz
+palette (`apps/admin/src/index.css`). Conventions established by SS-041:
+
+- Routes are declared in `apps/admin/src/app/App.tsx` as children of the
+  `RequireAuth` layout route and are wrapped in `RequireRole roles={ADMIN_ROLES}`
+  (`['OPERATOR', 'ADMIN']`). Frontend role gating is UX only — the API remains
+  the authorization boundary.
+- Sidebar navigation lives in `apps/admin/src/layouts/admin-layout.tsx`; new
+  entries are added to the `NAV_ITEMS` array with a Persian label.
+- API calls go through the `request()`/`requestBlob()` wrappers in
+  `apps/admin/src/services/api.ts` so bearer injection, single-flight refresh,
+  retry, and session clearing stay centralized.
+- Domain services live under `apps/admin/src/services/` (e.g. `partners.ts`)
+  and reuse `@sabz/types` contracts; pages/components never call `fetch`
+  directly.
+- Dates use native Jalali formatting (`apps/admin/src/lib/format.ts`); no
+  calendar dependency is required.
+- Partner review UI (SS-041): `/partners` lists applications with status filter
+  and pagination; `/partners/:id` shows business info, documents, and
+  approve/reject/tier-change actions. Documents are previewed/downloaded through
+  the authenticated `requestBlob` flow — never via public storage URLs.
+
+---
+
 # Available Scripts
 
 ```bash

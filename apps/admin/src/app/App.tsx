@@ -6,6 +6,8 @@ import { AdminLayout } from '../layouts/admin-layout'
 import { AccessDeniedPage } from '../pages/access-denied-page'
 import { DashboardPage } from '../pages/dashboard-page'
 import { LoginPage } from '../pages/login-page'
+import { PartnerDetailPage } from '../pages/partner-detail-page'
+import { PartnersPage } from '../pages/partners-page'
 
 export default function App() {
   return (
@@ -28,6 +30,22 @@ export default function App() {
               element={
                 <RequireRole roles={ADMIN_ROLES}>
                   <DashboardPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="partners"
+              element={
+                <RequireRole roles={ADMIN_ROLES}>
+                  <PartnersPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="partners/:id"
+              element={
+                <RequireRole roles={ADMIN_ROLES}>
+                  <PartnerDetailPage />
                 </RequireRole>
               }
             />

@@ -56,6 +56,15 @@ export class AdminPartnersController {
     return this.adminPartnersService.list(query);
   }
 
+  @Get('tiers')
+  @ApiOperation({ summary: 'List available partner tiers' })
+  @ApiResponse({ status: 200, description: 'Partner tiers returned.' })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  async listTiers() {
+    return this.adminPartnersService.listTiers();
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Return a partner application for review' })
   @ApiParam({ name: 'id', type: 'string', format: 'uuid' })

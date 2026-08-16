@@ -199,6 +199,35 @@ describe('Admin partner review API (e2e)', () => {
     });
   });
 
+  describe('tiers', () => {
+    it('lists available tiers for an OPERATOR', async () => {
+      const { accessToken } = await createUser('+989140000027', 'OPERATOR');
+
+      const response = await request(app.getHttpServer())
+        .get(`${BASE}/tiers`)
+        .set('Authorization', `Bearer ${accessToken}`)
+        .expect(200);
+
+      expect(Array.isArray(response.body)).toBe(true);
+      expect(response.body.length).toBeGreaterThanOrEqual(1);
+      expect(response.body[0]).toMatchObject({
+        id: expect.any(String),
+        name: expect.any(String),
+        discountPercent: expect.any(String),
+        minOrderQuantity: expect.any(Number),
+      });
+    });
+
+    it('denies a CUSTOMER with 403', async () => {
+      const { accessToken } = await createUser('+989140000028', 'CUSTOMER');
+
+      await request(app.getHttpServer())
+        .get(`${BASE}/tiers`)
+        .set('Authorization', `Bearer ${accessToken}`)
+        .expect(403);
+    });
+  });
+
   describe('list pagination', () => {
     let operator: { accessToken: string };
 

@@ -15,6 +15,11 @@ COPY packages ./packages
 
 RUN pnpm install --frozen-lockfile
 
+# Shared workspace packages are consumed through their built `dist` output
+# (.dockerignore excludes dist from the build context); build them so the
+# API can resolve @sabz/types at dev runtime.
+RUN pnpm --filter @sabz/types build && pnpm --filter @sabz/api-client build
+
 COPY apps/api ./apps/api
 
 EXPOSE 3000

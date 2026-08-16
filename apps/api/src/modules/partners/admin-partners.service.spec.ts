@@ -62,7 +62,7 @@ describe('AdminPartnersService', () => {
       findUnique: jest.Mock;
       updateMany: jest.Mock;
     };
-    partnerTier: { findUnique: jest.Mock };
+    partnerTier: { findUnique: jest.Mock; findMany: jest.Mock };
     businessDocument: { count: jest.Mock };
     userRole: { upsert: jest.Mock };
     $transaction: jest.Mock;
@@ -92,7 +92,7 @@ describe('AdminPartnersService', () => {
         findUnique: jest.fn(),
         updateMany: jest.fn(),
       },
-      partnerTier: { findUnique: jest.fn() },
+      partnerTier: { findUnique: jest.fn(), findMany: jest.fn() },
       businessDocument: { count: jest.fn() },
       userRole: { upsert: jest.fn() },
       $transaction: jest.fn(),
@@ -180,6 +180,35 @@ describe('AdminPartnersService', () => {
         province: 'تهران',
       });
       expect(result.items[0]!.submittedAt).toBe('2026-08-15T00:00:00.000Z');
+    });
+  });
+
+  describe('listTiers', () => {
+    it('returns all tiers ordered by min order quantity', async () => {
+      prisma.partnerTier.findMany.mockResolvedValue([
+        {
+          id: 'tier-3',
+          name: 'Tier 3',
+          discountPercent: { toString: () => '2.00' },
+          minOrderQuantity: 1,
+        },
+        {
+          id: 'tier-1',
+          name: 'Tier 1',
+          discountPercent: { toString: () => '10.00' },
+          minOrderQuantity: 100,
+        },
+      ]);
+
+      const result = await service.listTiers();
+
+      expect(prisma.partnerTier.findMany).toHaveBeenCalledWith({
+        orderBy: { minOrderQuantity: 'asc' },
+      });
+      expect(result).toEqual([
+        { id: 'tier-3', name: 'Tier 3', discountPercent: '2.00', minOrderQuantity: 1 },
+        { id: 'tier-1', name: 'Tier 1', discountPercent: '10.00', minOrderQuantity: 100 },
+      ]);
     });
   });
 

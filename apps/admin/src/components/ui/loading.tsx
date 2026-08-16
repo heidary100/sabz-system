@@ -1,12 +1,22 @@
 import clsx from 'clsx'
 
-export function Loading({ label, className }: { label?: string; className?: string }) {
+export function Loading({
+  label,
+  className,
+  compact = false,
+}: {
+  label?: string
+  className?: string
+  compact?: boolean
+}) {
   return (
     <div
       role="status"
       className={clsx(
         className,
-        'flex min-h-svh flex-col items-center justify-center gap-3 bg-background',
+        compact
+          ? 'flex flex-col items-center justify-center gap-3 py-12'
+          : 'flex min-h-svh flex-col items-center justify-center gap-3 bg-background',
       )}
     >
       <span

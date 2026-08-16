@@ -1,5 +1,5 @@
 import { ApiError, createApiClient } from '@sabz/api-client'
-import type { TokenPair } from '@sabz/types'
+import type { ApiErrorPayload, TokenPair } from '@sabz/types'
 
 export { ApiError }
 
@@ -77,6 +77,53 @@ export async function request<T>(
         ...(auth && accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
       },
     })
+
+  try {
+    return await performRequest()
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401 && auth && allowRefresh) {
+      const refreshed = await refreshSession()
+      if (refreshed) {
+        return performRequest()
+      }
+      clearSession()
+    }
+    throw error
+  }
+}
+
+/**
+ * Authenticated fetch that returns binary content instead of JSON. Used by the
+ * document preview/download flow, which mirrors request() exactly: bearer token
+ * injection, single-flight refresh, one retry, and session clearing on refresh
+ * failure stay centralized here.
+ */
+export async function requestBlob(
+  path: string,
+  init: RequestInit = {},
+  options: RequestOptions = {},
+): Promise<Blob> {
+  const { auth = true, allowRefresh = true } = options
+
+  const performRequest = async (): Promise<Blob> => {
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      ...init,
+      headers: {
+        ...(init.headers as Record<string, string> | undefined),
+        ...(auth && accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      },
+      credentials: 'include',
+    })
+
+    if (!response.ok) {
+      const payload = (await response.json().catch(() => undefined)) as
+        | ApiErrorPayload
+        | undefined
+      throw new ApiError(response.status, payload)
+    }
+
+    return response.blob()
+  }
 
   try {
     return await performRequest()

@@ -11,6 +11,7 @@ import type {
   AdminPartnerDetail,
   AdminPartnerListItem,
   PaginatedResult,
+  PartnerTierSummary,
 } from '@sabz/types';
 import { PrismaService } from '../../common/database/prisma.service';
 import { AppRole } from '../auth/enums/app-role.enum';
@@ -67,6 +68,19 @@ export class AdminPartnersService {
       page,
       limit,
     };
+  }
+
+  async listTiers(): Promise<PartnerTierSummary[]> {
+    const tiers = await this.prisma.partnerTier.findMany({
+      orderBy: { minOrderQuantity: 'asc' },
+    });
+
+    return tiers.map((tier) => ({
+      id: tier.id,
+      name: tier.name,
+      discountPercent: tier.discountPercent.toString(),
+      minOrderQuantity: tier.minOrderQuantity,
+    }));
   }
 
   async getDetail(partnerId: string): Promise<AdminPartnerDetail> {
