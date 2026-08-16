@@ -13,3 +13,13 @@ export {
 } from './auth/session';
 
 export { ProfileResponse, UpdateProfileInput } from './profile/profile';
+
+export {
+  CreatePartnerApplicationInput,
+  PartnerApplicationSummary,
+  PartnerDocumentSummary,
+  PartnerDocumentType,
+  PartnerStatus,
+  PartnerTierSummary,
+  UpdatePartnerApplicationInput,
+} from './partner/partner';

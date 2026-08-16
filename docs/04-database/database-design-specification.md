@@ -429,9 +429,20 @@ Business Rules
 - Storage paths are never exposed as public URLs.
 - The `partner_id` foreign key cascades on Partner deletion, but the database
   cascade cannot delete the binary files behind those rows. Physical file
-  cleanup must happen at the application layer (the SS-040 document-removal
+  cleanup must happen at the application layer (the SS-039 document-removal
   flow, which calls `DocumentStorage.delete`); the cascade alone would
   otherwise orphan files under `partners/<partner_id>/`.
+- **Applicant deletions and replacements (SS-039):** when an applicant removes a
+  document (`DELETE /partners/documents/{id}`) or replaces a document of the
+  same type, the `BusinessDocument` row is soft-deleted and the binary is
+  removed through `DocumentStorage` (best-effort after the database commit,
+  with failures logged). This is only possible while the application is
+  `DRAFT` or `REJECTED`; post-approval documents are not deletable by the
+  applicant, so approval-time audit retention is preserved. The interplay with
+  PARTNER-008 ("business documents must be retained for audit purposes unless
+  deleted according to legal or business retention policies") remains an open
+  concern for a future storage-retention policy; SS-039 intentionally does not
+  introduce such a policy or a reconciliation job.
 
 ---
 

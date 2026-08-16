@@ -207,6 +207,39 @@ Maximum file size:
 > - Metadata lives in PostgreSQL (`BusinessDocument`); binary contents live outside the database through the Partner-domain `DocumentStorage` abstraction.
 > - Storage paths are never exposed as public URLs.
 
+> **Applicant API (SS-039 implementation):**
+>
+> - The applicant-facing endpoints are `POST /partners/apply`,
+>   `GET /partners/application`, `PATCH /partners/application`,
+>   `POST /partners/documents`, `GET /partners/documents`,
+>   `GET /partners/documents/{id}`, and `DELETE /partners/documents/{id}`.
+> - All endpoints require authentication and resolve ownership exclusively from
+>   the authenticated user. Client-supplied ownership identifiers are never
+>   accepted. Non-owned resources return `404` (not `403`) so their existence is
+>   not disclosed.
+> - Applications are created in `DRAFT`. Submission (`PATCH` with `submit: true`,
+>   or `submit: true` on creation) transitions `DRAFT`/`REJECTED` → `PENDING`,
+>   clearing `rejectedAt` and `rejectionReason` on resubmission. `PENDING` and
+>   `APPROVED` applications are locked: business-field edits, document uploads,
+>   and document removals all return `409`.
+> - Submission requires the mandatory business fields (business name, business
+>   license number, address, city, province) and an active `BUSINESS_LICENSE`
+>   document; a `submit: true` during creation without a license returns `422`
+>   (a freshly created application has no documents yet). The natural flow is to
+>   create a draft, upload the license, then submit.
+> - Uploading a document whose type already has an active document replaces the
+>   old document (new row created, old row soft-deleted, old binary removed).
+> - `reviewNotes` are operator-internal and are not exposed to applicants.
+> - Audit `before`/`after` payloads never contain `nationalId`,
+>   `businessLicenseNo`, file contents, raw storage paths, or secrets. This is
+>   separate from the API response policy: the applicant's own application
+>   response may include `nationalId` and `businessLicenseNo`.
+> - Applicant deletions and replacements soft-delete the `BusinessDocument` row
+>   and remove the binary. The relationship between this behavior and
+>   PARTNER-008's retention requirement is documented in the Database Design
+>   Specification; SS-039 implements the applicant-facing behavior and does not
+>   introduce a storage-retention policy.
+
 ---
 
 ## Operator Review
