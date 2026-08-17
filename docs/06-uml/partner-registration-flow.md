@@ -9,7 +9,7 @@ Version: 1.0
 
 The partner registration flow handles B2B business account creation, verification, and tier assignment.
 
-> **Status: PLANNED — not yet implemented.** Password-based registration does not exist in the current API. The current authentication flow is OTP-first (see [Authentication API](../05-api/authentication-api.md)); the steps below describe the intended future design. OTP responses in the current API return `{ sent, expiresIn }`, never the code.
+> **Status: PLANNED — not yet implemented.** Password-based registration does not exist in the current API. The current authentication flow is OTP-first (see [Authentication API](../05-api/authentication-api.md)) and the current partner application flow is OTP-first as well: an authenticated customer creates the application via `POST /partners/apply` (see [Partner Management](../02-requirements/feature-specifications/partner-management.md) §9 and [API Specification](../05-api/api-specification.md) §5). The steps below describe a **legacy/future password-based design** — legacy concepts such as `companyName`, `businessType`, a `UNVERIFIED` user status, and `POST /partners/me/documents` are **not part of the implemented model** and are retained only to document the future password-registration requirement. OTP responses in the current API return `{ sent, expiresIn }`, never the code.
 >
 > **SS-038 alignment:** the flow below reflects the approved Partner lifecycle. The `Partner` row is the application aggregate (one persistent row per profile), state is tracked in `Partner.approvalStatus` (DRAFT → PENDING → APPROVED/REJECTED, REJECTED → PENDING), and documents are stored through the Partner-domain `DocumentStorage` abstraction — **not S3**. BusinessDocument metadata lives in PostgreSQL; binary contents live outside the database.
 
@@ -18,25 +18,31 @@ The partner registration flow handles B2B business account creation, verificatio
 # Registration States
 
 ```
-DRAFT -> PENDING -> APPROVED -> ACTIVE
+DRAFT -> PENDING -> APPROVED
                     |
                  REJECTED -> (corrected) -> PENDING
 ```
+> There is no `ACTIVE` partner state; the lifecycle is the
+> `PartnerApprovalStatus` enum (DRAFT | PENDING | APPROVED | REJECTED).
 
 # Detailed Flow
 
 ## Step 1: Initial Application
 
 ```
-[Partner] -> POST /auth/partner/register
+[Partner] -> POST /auth/partner/register   (future / planned — not implemented)
     Request:
     - phone, password
-    - companyName
+    - companyName      (legacy concept — the implemented field is businessName)
     - businessType (DISTRIBUTOR | WHOLESALER | RETAIL_SHOP | SYSTEM_INTEGRATOR | CORPORATE)
+      (legacy concept — not part of the implemented model)
     - nationalId
 
     -> [System] validates input
     -> [System] creates User (role: PARTNER, status: UNVERIFIED)
+       (legacy concept — the implemented UserStatus enum is
+        PENDING_OTP | ACTIVE | SUSPENDED | LOCKED; the PARTNER role is
+        granted only after application approval)
     -> [System] creates Partner (approvalStatus: DRAFT)
     -> [System] sends OTP via SMS
     -> Response: { message: "OTP sent" }
@@ -55,7 +61,7 @@ DRAFT -> PENDING -> APPROVED -> ACTIVE
 ## Step 3: Document Upload
 
 ```
-[Partner] -> POST /partners/me/documents (multipart/form-data)
+[Partner] -> POST /partners/documents (multipart/form-data)
     - businessLicense (file, required before submission/approval)
     - nationalCard (file)
     - otherDocuments (files)
@@ -67,7 +73,8 @@ DRAFT -> PENDING -> APPROVED -> ACTIVE
        under a server-generated key: partners/<partnerId>/<documentId>.<ext>
     -> [System] creates BusinessDocument metadata rows (type, originalName,
        mimeType, sizeBytes, storageKey) in PostgreSQL
-    -> [System] sends notification to operators
+    -> [System] sends notification to operators (future scope — Notification
+       Service is not yet implemented)
 ```
 
 ## Step 4: Operator Review
@@ -116,10 +123,19 @@ DRAFT -> PENDING -> APPROVED -> ACTIVE
 
 # Partner Tier Assignment
 
-| Tier | Criteria | Discount |
-|------|----------|----------|
-| Tier 1 | Standard new partner | Base discount |
-| Tier 2 | Verified history + volume | Higher discount |
-| Tier 3 | Long-term + high volume | Maximum discount |
+The defined tiers (partner-management.md §4/§7):
 
-Tier assignment is performed manually by operators during approval, based on business rules and partner profile.
+| Tier | Partner type |
+|------|--------------|
+| Tier 1 | Distributor (highest) |
+| Tier 2 | Wholesaler |
+| Tier 3 | Retailer (lowest) |
+
+Tier assignment is performed **manually** by operators during approval (M1).
+The concrete `discountPercent`/`minOrderQuantity` values are not yet defined
+(product decision, SS-042). Automatic tier promotion based on order volume is
+future M2 scope.
+
+> The earlier "Base/Higher/Maximum discount" tier table was a legacy,
+> contradictory proposal and is superseded by the table above (see
+> partner-management.md §7).

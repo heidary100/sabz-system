@@ -88,10 +88,13 @@ Any ACTIVE state ──► soft delete (deleted_at set, record hidden)
 | Guest | PENDING_OTP | Registration (AUTH-US-001) | Guest | Registration |
 | PENDING_OTP | ACTIVE | OTP verified | Guest | Registration |
 | ACTIVE | LOCKED | Repeated failed login attempts exceed threshold | System | Failed login |
-| LOCKED | ACTIVE | Lockout period expires or administrator unlocks | System / Super Admin | Account unlock |
-| ACTIVE | SUSPENDED | Account suspension | Operator / Super Admin | Account suspension |
-| SUSPENDED | ACTIVE | Account unsuspended | Operator / Super Admin | Account unsuspended |
-| Any active state | (soft-deleted) | Delete / anonymization request | Super Admin | Account deletion |
+| LOCKED | ACTIVE | Lockout period expires or administrator unlocks | System / Administrator (ADMIN) | Account unlock |
+| ACTIVE | SUSPENDED | Account suspension | Operator / Administrator (ADMIN) | Account suspension |
+| SUSPENDED | ACTIVE | Account unsuspended | Operator / Administrator (ADMIN) | Account unsuspended |
+| Any active state | (soft-deleted) | Delete / anonymization request | Administrator (ADMIN) | Account deletion |
+
+> The unlock/suspend/delete transitions are **future** workflows (not yet
+> implemented); the implemented admin role is `ADMIN` (no `SUPER_ADMIN`).
 
 ---
 
@@ -102,6 +105,11 @@ Any ACTIVE state ──► soft delete (deleted_at set, record hidden)
 - A password reset invalidates existing sessions; the account remains in its current state.
 - Soft-deleted accounts are hidden from queries but retained for audit and referential integrity (see [Identity Data Model](identity-data-model.md) §4).
 - Only operators and administrators may suspend accounts; only Super Administrators may assign roles or unlock accounts (AUTH-006, Authentication Specification §9).
+
+  > **Status: known gap / deferred.** Account suspension, lockout/unlock, and
+  > role assignment workflows are not yet implemented. There is no `SUPER_ADMIN`
+  > role; the implemented admin role is `ADMIN`. AUTH-006 is preserved as a
+  > future requirement (see Roles & Permissions Matrix §10).
 
 ---
 

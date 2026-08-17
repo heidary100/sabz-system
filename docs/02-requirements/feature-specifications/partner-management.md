@@ -39,7 +39,7 @@ The module supports Sabz System Platform's B2B sales model while ensuring that w
 - Customer
 - Partner
 - Operator
-- Super Administrator
+- Administrator (ADMIN)
 
 ---
 
@@ -89,7 +89,7 @@ Rejected applications may be corrected and resubmitted.
 
 ### PARTNER-007
 
-Only Operators and Super Administrators may approve or reject applications.
+Only Operators and Administrators (ADMIN) may approve or reject applications.
 
 ---
 
@@ -113,7 +113,7 @@ Upload Required Documents
 
 ↓
 
-Application Status = Pending Review
+Application Status = Pending review (PENDING)
 
 ↓
 
@@ -342,7 +342,7 @@ Acceptance Criteria
 - Only authenticated users can apply.
 - Required fields are validated.
 - Application is saved.
-- Status is Pending Review.
+- Status is Pending review (PENDING).
 
 ---
 
@@ -409,13 +409,13 @@ PATCH /partners/application
 
 POST /partners/documents
 
-GET /partners/status
+GET /partners/status — Planned / not yet implemented (application status is returned by `GET /partners/application`)
 
-GET /partners/dashboard
+GET /partners/dashboard — Planned (M2) / not yet implemented
 
-GET /partners/tier
+GET /partners/tier — Planned / not yet implemented (tier is returned on the application once approved)
 
-GET /partners/purchase-summary
+GET /partners/purchase-summary — Planned (M2) / not yet implemented
 
 Operator
 
@@ -495,15 +495,19 @@ Operator
 - Reject
 - Change tier
 
-Super Administrator
+Administrator (ADMIN)
 
 - Full access
-- Override approvals
-- Configure tier thresholds
+- Override approvals (future)
+- Configure tier thresholds (future / M2)
 
 ---
 
 # 12. Notifications
+
+> **Not implemented — future scope.** The Notification Service is not yet
+> implemented; none of the triggers below are delivered in the current
+> milestone. They are preserved as future requirements.
 
 Applicants shall receive notifications when:
 
@@ -574,8 +578,10 @@ The module shall return appropriate errors for:
 Requires:
 
 - Authentication & Identity
-- Notification Service
-- Media Service
+- Notification Service (future scope — not yet implemented)
+- Partner-domain DocumentStorage (metadata in PostgreSQL; binary contents
+  stored outside the database). The platform Media Service (future product-media
+  infrastructure, see Product Catalog) is **not** the Partner document storage.
 - Audit Logging
 
 Provides services to:
@@ -596,9 +602,9 @@ Positive Tests
 - Save draft
 - Approve application
 - Reject application
-- Display partner dashboard
-- Display tier information
-- Display purchase summary
+- Display partner dashboard (future / M2)
+- Display tier information (future / M2)
+- Display purchase summary (future / M2)
 
 Negative Tests
 
@@ -619,8 +625,8 @@ The Partner Management module is complete when:
 - Business documents can be uploaded and reviewed.
 - Approval and rejection workflows function correctly.
 - Tier assignment is operational.
-- Partner dashboard displays correct information.
-- Notifications are delivered.
+- Partner dashboard displays correct information (future / M2).
+- Notifications are delivered (future scope — Notification Service not yet implemented).
 - Audit logs are generated.
 - Unit, integration, and user acceptance tests pass.
 - The module is approved during the Milestone 1 review.

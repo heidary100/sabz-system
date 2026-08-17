@@ -126,6 +126,11 @@ Responsibilities
 
 Complete control over every module.
 
+> The implemented application roles are `CUSTOMER`, `PARTNER`, `OPERATOR`, and
+> `ADMIN` — there is no `SUPER_ADMIN` role. This section describes the future
+> administrative capability; the "Super Administrator" column in the matrix
+> maps to the implemented `ADMIN` role for the implemented scope (see §10).
+
 ---
 
 # 3. Permission Groups
@@ -286,7 +291,7 @@ Partner submits application
 
 ↓
 
-Application status = Pending
+Application status = Pending (PENDING)
 
 ↓
 
@@ -302,7 +307,7 @@ Rejected
 
 ↓
 
-Partner receives notification
+Partner receives notification (future scope — Notification Service not yet implemented)
 
 ---
 
