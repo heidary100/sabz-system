@@ -327,6 +327,55 @@ contents, raw storage keys/paths, or secrets.
 
 ---
 
+# 5.2. Admin User Read API (SS-061)
+
+All routes require a JWT access token **and** either the `OPERATOR` or `ADMIN`
+role (`@Roles(OPERATOR, ADMIN)`). There is no `SUPER_ADMIN` role; `ADMIN` is the
+implemented application role. Authorization comes from the database role tables
+at request time, never from client-supplied identifiers.
+
+This API is strictly read-only: it performs no user mutations, no session
+management, and writes no audit events.
+
+GET /admin/users
+
+Returns a paginated list of users.
+
+- Query parameters (all optional):
+  - `page` — page number, integer ≥ 1, default 1.
+  - `limit` — page size, integer 1–100, default 20.
+  - `search` — free-text search, maximum 32 characters (trimmed). Matches
+    **OR** semantics (case-insensitive substring) against `User.mobile`,
+    `UserProfile.firstName`, and `UserProfile.lastName`.
+  - `status` — one of `PENDING_OTP`, `ACTIVE`, `SUSPENDED`, `LOCKED`.
+  - `role` — one of `CUSTOMER`, `PARTNER`, `OPERATOR`, `ADMIN`; resolves against
+    `Role.name` through the `UserRole` relation.
+- All filters combine with AND; the search fields combine with OR.
+- Soft-deleted users (`deletedAt` set) are always excluded.
+- Ordering is deterministic: `createdAt DESC`, then `id DESC`.
+- Response: `{ items: [...], total, page, limit }`, where each item is a
+  summary with `id`, `mobile`, `status`, `profile` (`firstName`, `lastName`),
+  `roles` (array of role names), `partner` summary (`id`, `businessName`,
+  `approvalStatus`) when present, `createdAt`, and `updatedAt`.
+- Unknown query parameters are ignored (whitelist validation).
+- Status codes: `200`, `400`, `401`, `403`.
+
+GET /admin/users/{id}
+
+Returns the detail for one user.
+
+- `id` must be a valid UUID; otherwise `404`.
+- Response includes `id`, `mobile`, `email` (nullable), `status`, `profile`
+  (`firstName`, `lastName`), `roles` (each with `name` and `assignedAt`),
+  `partner` summary when present, `lastLoginAt` (nullable), `createdAt`, and
+  `updatedAt`.
+- Soft-deleted or nonexistent users return `404`.
+- Responses never include `passwordHash`, refresh tokens, session records,
+  session identifiers, audit records, or secrets.
+- Status codes: `200`, `401`, `403`, `404`.
+
+---
+
 # 6. Product API
 
 GET /products
@@ -495,7 +544,8 @@ Dashboard metrics.
 
 GET /admin/users
 
-Manage users.
+Manage users. Implemented as the paginated operator/admin read API — see
+[Admin User Read API](#52-admin-user-read-api-ss-061).
 
 GET /admin/partners
 

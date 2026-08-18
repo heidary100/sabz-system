@@ -33,3 +33,12 @@ export {
   PartnerListQuery,
   RejectPartnerInput,
 } from './partner/admin';
+
+export {
+  AdminPartnerSummary,
+  AdminUserDetail,
+  AdminUserProfileSummary,
+  AdminUserRoleSummary,
+  AdminUserSummary,
+  UserListQuery,
+} from './admin/user';

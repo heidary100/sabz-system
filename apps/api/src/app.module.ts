@@ -7,6 +7,7 @@ import { RedisModule } from './common/redis/redis.module';
 import { HealthModule } from './health/health.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { PartnersModule } from './modules/partners/partners.module';
+import { UsersModule } from './modules/users/users.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { PartnersModule } from './modules/partners/partners.module';
     HealthModule,
     AuthModule,
     PartnersModule,
+    UsersModule,
   ],
   providers: [
     {
