@@ -541,6 +541,56 @@ complete user records, or secrets.
 
 ---
 
+# 5.5. Admin Audit Query API (SS-064)
+
+A read-only query API over the shared audit log. All routes require a JWT access
+token **and** either the `OPERATOR` or `ADMIN` role (`@Roles(OPERATOR, ADMIN)`);
+`CUSTOMER` and `PARTNER` receive `403`, unauthenticated requests receive `401`.
+The endpoint is strictly read-only: it performs no mutations and writes **no**
+audit events for querying.
+
+GET /admin/audit
+
+Returns a paginated, deterministically ordered audit log.
+
+- Query parameters (all optional):
+  - `page` — page number, integer ≥ 1, default 1.
+  - `limit` — page size, integer 1–100, default 20.
+  - `actorId` — exact `AuditLog.userId` match; must be a valid UUID.
+  - `action` — exact audit action match (e.g. `USER_SUSPENDED`,
+    `PARTNER_TIER_CHANGED`); trimmed, maximum 64 characters.
+  - `entity` — exact audit entity match (e.g. `User`, `Partner`,
+    `UserRole`); trimmed, maximum 64 characters.
+  - `entityId` — exact `AuditLog.entityId` match; must be a valid UUID.
+  - `from` — inclusive lower bound on `createdAt` (ISO 8601 UTC).
+  - `to` — inclusive upper bound on `createdAt` (ISO 8601 UTC).
+- All filters combine with AND. `action`/`entity` are exact-match filters; there
+  is no partial matching. `from`/`to` are inclusive on both ends; a date-only
+  input such as `2026-08-18` means `2026-08-18T00:00:00.000Z`, so use full
+  timestamps for day-boundary queries. `from` later than `to` returns `400`.
+- Ordering is deterministic: `createdAt DESC`, then `id DESC`.
+- Response: `{ items: [...], total, page, limit }`. Each item is:
+  `id`, `userId` (the raw stored actor id, nullable), `actor` (resolved actor
+  object or `null`), `action`, `entity`, `entityId` (nullable), `before` /
+  `after` (nullable opaque payload objects), `ipAddress` (nullable), and
+  `createdAt` (ISO 8601 UTC).
+- Actor resolution: `actor` contains `id`, `mobile`, `firstName`, `lastName`.
+  Because `AuditLog` intentionally has no foreign key to `User`, the actor may
+  no longer exist: the row is still returned, `userId` preserves the raw value,
+  and `actor` is `null`. Soft-deleted actors resolve normally so attribution is
+  retained for the trusted admin viewer. Missing actors never produce `404`.
+- Payload safety: `before`/`after` are returned exactly as stored. Their safety
+  is guaranteed at write time — every audit producer excludes OTP codes, tokens
+  and token hashes, password hashes, national IDs, business license numbers,
+  document storage keys/filesystem paths, and secrets (see the authentication
+  feature specification §12 and database design specification §8). Responses
+  never include authentication internals such as `passwordHash`, refresh
+  tokens, session contents, or secrets.
+- Unknown query parameters are ignored (whitelist validation).
+- Status codes: `200`, `400`, `401`, `403`.
+
+---
+
 # 6. Product API
 
 GET /products
@@ -714,6 +764,11 @@ Manage users. Implemented as the paginated operator/admin read API — see
 lifecycle endpoints — see [Admin User Lifecycle API](#53-admin-user-lifecycle-api-ss-062) —
 plus the role administration endpoints — see
 [Admin Role Administration API](#54-admin-role-administration-api-ss-063).
+
+GET /admin/audit
+
+Query the audit log. Implemented as the read-only operator/admin audit query
+API — see [Admin Audit Query API](#55-admin-audit-query-api-ss-064).
 
 GET /admin/partners
 

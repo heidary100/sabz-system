@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
@@ -22,7 +22,7 @@ import { TokenService } from './services/token.service';
         secret: configService.getOrThrow<string>('JWT_ACCESS_SECRET'),
       }),
     }),
-    AuditModule,
+    forwardRef(() => AuditModule),
   ],
   controllers: [AuthController],
   providers: [

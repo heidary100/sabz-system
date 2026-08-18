@@ -45,3 +45,5 @@ export {
 } from './admin/user';
 
 export { RoleSummary } from './admin/role';
+
+export { AuditActor, AuditEntry, AuditListQuery } from './admin/audit';
