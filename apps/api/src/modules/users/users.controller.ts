@@ -1,12 +1,15 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpStatus,
   Ip,
   Param,
+  ParseEnumPipe,
   ParseUUIDPipe,
   Patch,
+  Put,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -108,5 +111,43 @@ export class UsersController {
     @Ip() ipAddress?: string,
   ) {
     return this.usersService.unlockUser(userId, user.userId, ipAddress);
+  }
+
+  @Put(':id/roles/:role')
+  @Roles(AppRole.ADMIN)
+  @ApiOperation({ summary: 'Assign a role to a user (ADMIN only)' })
+  @ApiParam({ name: 'id', type: 'string', format: 'uuid' })
+  @ApiParam({ name: 'role', enum: AppRole })
+  @ApiResponse({ status: 200, description: 'Role assigned.' })
+  @ApiResponse({ status: 400, description: 'Invalid role.' })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  @ApiResponse({ status: 404, description: 'User or role not found.' })
+  async assignRole(
+    @Param('id', UUID_PARAM) userId: string,
+    @Param('role', new ParseEnumPipe(AppRole)) role: AppRole,
+    @CurrentUser() user: AuthUser,
+    @Ip() ipAddress?: string,
+  ) {
+    return this.usersService.assignRole(userId, role, user.userId, ipAddress);
+  }
+
+  @Delete(':id/roles/:role')
+  @Roles(AppRole.ADMIN)
+  @ApiOperation({ summary: 'Remove a role from a user (ADMIN only)' })
+  @ApiParam({ name: 'id', type: 'string', format: 'uuid' })
+  @ApiParam({ name: 'role', enum: AppRole })
+  @ApiResponse({ status: 200, description: 'Role removed.' })
+  @ApiResponse({ status: 400, description: 'Invalid role.' })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  @ApiResponse({ status: 404, description: 'User or role not found.' })
+  async removeRole(
+    @Param('id', UUID_PARAM) userId: string,
+    @Param('role', new ParseEnumPipe(AppRole)) role: AppRole,
+    @CurrentUser() user: AuthUser,
+    @Ip() ipAddress?: string,
+  ) {
+    return this.usersService.removeRole(userId, role, user.userId, ipAddress);
   }
 }

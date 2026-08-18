@@ -355,4 +355,259 @@ describe('Admin user lifecycle API (SS-062) (e2e)', () => {
       expect(serialized).not.toContain('sessionId');
     });
   });
+
+  describe('role administration API (SS-063)', () => {
+    const ROLES_BASE = '/api/v1/admin/roles';
+
+    describe('authorization', () => {
+      it('rejects the role routes without a token with 401', async () => {
+        const id = '00000000-0000-0000-0000-000000000000';
+        await request(app.getHttpServer()).get(ROLES_BASE).expect(401);
+        await request(app.getHttpServer())
+          .put(`${BASE}/${id}/roles/OPERATOR`)
+          .expect(401);
+        await request(app.getHttpServer())
+          .delete(`${BASE}/${id}/roles/OPERATOR`)
+          .expect(401);
+      });
+
+      it('rejects CUSTOMER, PARTNER and OPERATOR with 403 and allows ADMIN', async () => {
+        const customer = await createUser('CUSTOMER');
+        const partner = await createUser('PARTNER');
+        const operator = await createUser('OPERATOR');
+        const admin = await createUser('ADMIN');
+        const target = await createUser('CUSTOMER');
+
+        for (const token of [customer, partner, operator]) {
+          await request(app.getHttpServer())
+            .get(ROLES_BASE)
+            .set('Authorization', `Bearer ${token.accessToken}`)
+            .expect(403);
+          await request(app.getHttpServer())
+            .put(`${BASE}/${target.userId}/roles/OPERATOR`)
+            .set('Authorization', `Bearer ${token.accessToken}`)
+            .expect(403);
+          await request(app.getHttpServer())
+            .delete(`${BASE}/${target.userId}/roles/OPERATOR`)
+            .set('Authorization', `Bearer ${token.accessToken}`)
+            .expect(403);
+        }
+
+        await request(app.getHttpServer())
+          .get(ROLES_BASE)
+          .set('Authorization', `Bearer ${admin.accessToken}`)
+          .expect(200);
+      });
+    });
+
+    describe('role listing', () => {
+      it('returns all roles with permissions and no internal fields', async () => {
+        const admin = await createUser('ADMIN');
+
+        const response = await request(app.getHttpServer())
+          .get(ROLES_BASE)
+          .set('Authorization', `Bearer ${admin.accessToken}`)
+          .expect(200);
+
+        const names = response.body.map((role: { name: string }) => role.name).sort();
+        expect(names).toEqual(['ADMIN', 'CUSTOMER', 'OPERATOR', 'PARTNER'].sort());
+        for (const role of response.body as Array<Record<string, unknown>>) {
+          expect(role).toHaveProperty('id');
+          expect(role).toHaveProperty('name');
+          expect(role).toHaveProperty('description');
+          expect(role).toHaveProperty('permissions');
+          expect(Array.isArray(role.permissions)).toBe(true);
+        }
+        const serialized = JSON.stringify(response.body);
+        expect(serialized).not.toContain('passwordHash');
+        expect(serialized).not.toContain('refreshToken');
+      });
+    });
+
+    describe('assignment and removal flows', () => {
+      it('assigns OPERATOR, then PARTNER while preserving existing roles', async () => {
+        const admin = await createUser('ADMIN');
+        const target = await createUser('CUSTOMER');
+
+        const assigned = await request(app.getHttpServer())
+          .put(`${BASE}/${target.userId}/roles/OPERATOR`)
+          .set('Authorization', `Bearer ${admin.accessToken}`)
+          .expect(200);
+        expect(
+          assigned.body.roles.some((role: { name: string }) => role.name === 'OPERATOR'),
+        ).toBe(true);
+
+        await request(app.getHttpServer())
+          .put(`${BASE}/${target.userId}/roles/PARTNER`)
+          .set('Authorization', `Bearer ${admin.accessToken}`)
+          .expect(200);
+
+        const detail = await request(app.getHttpServer())
+          .get(`${BASE}/${target.userId}`)
+          .set('Authorization', `Bearer ${admin.accessToken}`)
+          .expect(200);
+        const names = detail.body.roles.map((role: { name: string }) => role.name).sort();
+        expect(names).toEqual(['CUSTOMER', 'OPERATOR', 'PARTNER'].sort());
+      });
+
+      it('is idempotent on duplicate assignment', async () => {
+        const admin = await createUser('ADMIN');
+        const target = await createUser('CUSTOMER');
+
+        await request(app.getHttpServer())
+          .put(`${BASE}/${target.userId}/roles/OPERATOR`)
+          .set('Authorization', `Bearer ${admin.accessToken}`)
+          .expect(200);
+        await request(app.getHttpServer())
+          .put(`${BASE}/${target.userId}/roles/OPERATOR`)
+          .set('Authorization', `Bearer ${admin.accessToken}`)
+          .expect(200);
+
+        const audits = await prisma.auditLog.findMany({
+          where: { entityId: target.userId, action: 'ROLE_ASSIGNED' },
+        });
+        expect(audits).toHaveLength(1);
+      });
+
+      it('removes PARTNER while keeping the remaining roles', async () => {
+        const admin = await createUser('ADMIN');
+        const target = await createUser('CUSTOMER');
+        await prisma.userRole.create({
+          data: {
+            userId: target.userId,
+            roleId: roleIds['PARTNER']!,
+            assignedBy: admin.userId,
+          },
+        });
+
+        const removed = await request(app.getHttpServer())
+          .delete(`${BASE}/${target.userId}/roles/PARTNER`)
+          .set('Authorization', `Bearer ${admin.accessToken}`)
+          .expect(200);
+        expect(
+          removed.body.roles.some((role: { name: string }) => role.name === 'PARTNER'),
+        ).toBe(false);
+        expect(
+          removed.body.roles.some((role: { name: string }) => role.name === 'CUSTOMER'),
+        ).toBe(true);
+      });
+
+      it('returns 200 unchanged when removing an already-absent role', async () => {
+        const admin = await createUser('ADMIN');
+        const target = await createUser('CUSTOMER');
+
+        const response = await request(app.getHttpServer())
+          .delete(`${BASE}/${target.userId}/roles/OPERATOR`)
+          .set('Authorization', `Bearer ${admin.accessToken}`)
+          .expect(200);
+        expect(response.body.id).toBe(target.userId);
+
+        const audits = await prisma.auditLog.findMany({
+          where: { entityId: target.userId, action: 'ROLE_REMOVED' },
+        });
+        expect(audits).toHaveLength(0);
+      });
+
+      it('assigns ADMIN to another user', async () => {
+        const admin = await createUser('ADMIN');
+        const target = await createUser('CUSTOMER');
+
+        const assigned = await request(app.getHttpServer())
+          .put(`${BASE}/${target.userId}/roles/ADMIN`)
+          .set('Authorization', `Bearer ${admin.accessToken}`)
+          .expect(200);
+        expect(
+          assigned.body.roles.some((role: { name: string }) => role.name === 'ADMIN'),
+        ).toBe(true);
+
+        const audits = await prisma.auditLog.findMany({
+          where: { entityId: target.userId, action: 'ROLE_ASSIGNED' },
+        });
+        expect(audits).toHaveLength(1);
+        expect(audits[0]!.after).toEqual({ role: 'ADMIN' });
+      });
+
+      it('denies self role modification with 403', async () => {
+        const admin = await createUser('ADMIN');
+
+        await request(app.getHttpServer())
+          .put(`${BASE}/${admin.userId}/roles/OPERATOR`)
+          .set('Authorization', `Bearer ${admin.accessToken}`)
+          .expect(403);
+        await request(app.getHttpServer())
+          .delete(`${BASE}/${admin.userId}/roles/OPERATOR`)
+          .set('Authorization', `Bearer ${admin.accessToken}`)
+          .expect(403);
+      });
+
+      it('denies ADMIN-role removal with 403', async () => {
+        const admin = await createUser('ADMIN');
+        const targetAdmin = await createUser('ADMIN');
+
+        await request(app.getHttpServer())
+          .delete(`${BASE}/${targetAdmin.userId}/roles/ADMIN`)
+          .set('Authorization', `Bearer ${admin.accessToken}`)
+          .expect(403);
+      });
+
+      it('returns 404 for a soft-deleted target', async () => {
+        const admin = await createUser('ADMIN');
+        const target = await createUser('CUSTOMER');
+        await prisma.user.update({
+          where: { id: target.userId },
+          data: { deletedAt: new Date() },
+        });
+
+        await request(app.getHttpServer())
+          .put(`${BASE}/${target.userId}/roles/OPERATOR`)
+          .set('Authorization', `Bearer ${admin.accessToken}`)
+          .expect(404);
+        await request(app.getHttpServer())
+          .delete(`${BASE}/${target.userId}/roles/OPERATOR`)
+          .set('Authorization', `Bearer ${admin.accessToken}`)
+          .expect(404);
+      });
+
+      it('returns 404 for a non-UUID id and 400 for an invalid role', async () => {
+        const admin = await createUser('ADMIN');
+
+        await request(app.getHttpServer())
+          .put(`${BASE}/not-a-uuid/roles/OPERATOR`)
+          .set('Authorization', `Bearer ${admin.accessToken}`)
+          .expect(404);
+        await request(app.getHttpServer())
+          .put(`${BASE}/00000000-0000-0000-0000-000000000000/roles/MAYOR`)
+          .set('Authorization', `Bearer ${admin.accessToken}`)
+          .expect(400);
+        await request(app.getHttpServer())
+          .delete(`${BASE}/00000000-0000-0000-0000-000000000000/roles/MAYOR`)
+          .set('Authorization', `Bearer ${admin.accessToken}`)
+          .expect(400);
+      });
+
+      it('writes audit entries and never returns sensitive data', async () => {
+        const admin = await createUser('ADMIN');
+        const target = await createUser('CUSTOMER');
+
+        const response = await request(app.getHttpServer())
+          .put(`${BASE}/${target.userId}/roles/OPERATOR`)
+          .set('Authorization', `Bearer ${admin.accessToken}`)
+          .expect(200);
+
+        const serialized = JSON.stringify(response.body);
+        expect(serialized).not.toContain('passwordHash');
+        expect(serialized).not.toContain('refreshToken');
+        expect(serialized).not.toContain('sessionId');
+
+        const audits = await prisma.auditLog.findMany({
+          where: { entityId: target.userId, action: 'ROLE_ASSIGNED' },
+        });
+        expect(audits).toHaveLength(1);
+        expect(audits[0]!.userId).toBe(admin.userId);
+        expect(audits[0]!.entity).toBe('UserRole');
+        expect(JSON.stringify(audits[0])).not.toContain('passwordHash');
+        expect(JSON.stringify(audits[0])).not.toContain('refreshToken');
+      });
+    });
+  });
 });

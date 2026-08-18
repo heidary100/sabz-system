@@ -12,6 +12,8 @@ describe('UsersController', () => {
     suspendUser: jest.Mock;
     unsuspendUser: jest.Mock;
     unlockUser: jest.Mock;
+    assignRole: jest.Mock;
+    removeRole: jest.Mock;
   };
 
   beforeEach(() => {
@@ -21,13 +23,15 @@ describe('UsersController', () => {
       suspendUser: jest.fn(),
       unsuspendUser: jest.fn(),
       unlockUser: jest.fn(),
+      assignRole: jest.fn(),
+      removeRole: jest.fn(),
     };
     controller = new UsersController(
       usersService as unknown as UsersService,
     );
   });
 
-  it('requires OPERATOR or ADMIN on read routes and unlock ADMIN only', () => {
+  it('requires OPERATOR or ADMIN on read/lifecycle routes and ADMIN only on role and unlock routes', () => {
     const reflector = new Reflector();
 
     for (const handler of [
@@ -43,11 +47,17 @@ describe('UsersController', () => {
       expect(roles).toEqual([AppRole.OPERATOR, AppRole.ADMIN]);
     }
 
-    const unlockRoles = reflector.getAllAndOverride<AppRole[]>(ROLES_KEY, [
+    for (const handler of [
       UsersController.prototype.unlock,
-      UsersController,
-    ]);
-    expect(unlockRoles).toEqual([AppRole.ADMIN]);
+      UsersController.prototype.assignRole,
+      UsersController.prototype.removeRole,
+    ]) {
+      const roles = reflector.getAllAndOverride<AppRole[]>(ROLES_KEY, [
+        handler,
+        UsersController,
+      ]);
+      expect(roles).toEqual([AppRole.ADMIN]);
+    }
   });
 
   it('delegates list with the query', async () => {
@@ -120,5 +130,43 @@ describe('UsersController', () => {
       '1.2.3.4',
     );
     expect(result).toEqual({ id: 'user-1', status: 'ACTIVE' });
+  });
+
+  it('delegates assignRole with id, role, actor and ip', async () => {
+    usersService.assignRole.mockResolvedValue({ id: 'user-1', roles: [] });
+
+    const result = await controller.assignRole(
+      'user-1',
+      AppRole.OPERATOR,
+      { userId: 'actor-1', sessionId: 'session-1', mobile: '+989123456789' },
+      '1.2.3.4',
+    );
+
+    expect(usersService.assignRole).toHaveBeenCalledWith(
+      'user-1',
+      AppRole.OPERATOR,
+      'actor-1',
+      '1.2.3.4',
+    );
+    expect(result).toEqual({ id: 'user-1', roles: [] });
+  });
+
+  it('delegates removeRole with id, role, actor and ip', async () => {
+    usersService.removeRole.mockResolvedValue({ id: 'user-1', roles: [] });
+
+    const result = await controller.removeRole(
+      'user-1',
+      AppRole.PARTNER,
+      { userId: 'actor-1', sessionId: 'session-1', mobile: '+989123456789' },
+      '1.2.3.4',
+    );
+
+    expect(usersService.removeRole).toHaveBeenCalledWith(
+      'user-1',
+      AppRole.PARTNER,
+      'actor-1',
+      '1.2.3.4',
+    );
+    expect(result).toEqual({ id: 'user-1', roles: [] });
   });
 });

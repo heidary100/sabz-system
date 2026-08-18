@@ -9,10 +9,12 @@ import type {
   AdminUserDetail,
   AdminUserSummary,
   PaginatedResult,
+  RoleSummary,
 } from '@sabz/types';
 import { PrismaService } from '../../common/database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { AppRole } from '../auth/enums/app-role.enum';
+import { RolesService } from '../auth/roles/roles.service';
 import { ListUsersQueryDto, SuspendUserDto } from './dto';
 
 const DEFAULT_PAGE = 1;
@@ -54,6 +56,7 @@ export class UsersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
+    private readonly rolesService: RolesService,
   ) {}
 
   async list(query: ListUsersQueryDto): Promise<PaginatedResult<AdminUserSummary>> {
@@ -183,6 +186,201 @@ export class UsersService {
       createdAt: user.createdAt.toISOString(),
       updatedAt: user.updatedAt.toISOString(),
     };
+  }
+
+  /**
+   * Lists the available application roles with their (read-only) permission
+   * names. The role/permission catalogs are not mutable in M1, so this is a
+   * read-only snapshot with deterministic ordering.
+   */
+  async listRoles(): Promise<RoleSummary[]> {
+    const roles = await this.prisma.role.findMany({
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        permissions: {
+          select: { permission: { select: { name: true } } },
+          orderBy: { permission: { name: 'asc' } },
+        },
+      },
+      orderBy: [{ name: 'asc' }],
+    });
+
+    return roles.map((role) => ({
+      id: role.id,
+      name: role.name as AppRole,
+      description: role.description,
+      permissions: role.permissions.map(({ permission }) => permission.name),
+    }));
+  }
+
+  /**
+   * Assigns a role to a user (SS-063). The assignment is purely additive: the
+   * target's existing roles are preserved and only the given role is touched.
+   *
+   * Guards (enforced inside the transaction): missing / soft-deleted target →
+   * 404; self role modification → 403; actor not ADMIN → 403; role row missing
+   * → 404.
+   *
+   * The `UserRole.upsert` on the composite key `(userId, roleId)` is the
+   * authoritative operation. A mutation is detected without a separate
+   * existence pre-check: the `create` branch writes an explicit `assignedAt`
+   * captured before the upsert, and the `update` branch is a no-op that leaves
+   * the existing `assignedAt` untouched. When the upsert returns a row whose
+   * `assignedAt` matches that pre-captured timestamp, this transaction created
+   * the row and the `ROLE_ASSIGNED` audit is written; otherwise the assignment
+   * already existed and no audit is written.
+   *
+   * Concurrent duplicates: Prisma's `upsert` is not atomic under concurrent
+   * creates — two transactions can both read "absent" and the loser then
+   * fails the unique `(userId, roleId)` insert with `P2002`. A `P2002` on the
+   * `UserRole` key means a concurrent transaction created the row first, so
+   * the assignment already exists: the losing transaction treats it as a
+   * no-op (no audit, no rollback of anything else) and the request returns the
+   * unchanged user. This keeps exactly one `ROLE_ASSIGNED` audit for a
+   * duplicate assignment under concurrency.
+   */
+  async assignRole(
+    targetId: string,
+    role: AppRole,
+    actorId: string,
+    ipAddress?: string,
+  ): Promise<AdminUserDetail> {
+    await this.prisma.$transaction(async (tx) => {
+      const target = await this.readLifecycleTarget(tx, targetId);
+      if (!target || target.deletedAt !== null) {
+        throw new NotFoundException('کاربر یافت نشد.');
+      }
+
+      if (target.id === actorId) {
+        throw new ForbiddenException('امکان تغییر نقش خودتان وجود ندارد.');
+      }
+
+      await this.assertActorIsAdmin(
+        tx,
+        actorId,
+        'فقط مدیران میتوانند نقشها را مدیریت کنند.',
+      );
+
+      const roleId = await this.rolesService.findRoleIdByName(role, tx);
+      if (!roleId) {
+        throw new NotFoundException('نقش یافت نشد.');
+      }
+
+      let created = false;
+      try {
+        const now = new Date();
+        const assigned = await tx.userRole.upsert({
+          where: { userId_roleId: { userId: targetId, roleId } },
+          create: {
+            userId: targetId,
+            roleId,
+            assignedBy: actorId,
+            assignedAt: now,
+          },
+          update: {},
+        });
+        created = assigned.assignedAt.getTime() === now.getTime();
+      } catch (error) {
+        if (this.isUserRoleUniqueViolation(error)) {
+          return;
+        }
+        throw error;
+      }
+
+      if (!created) {
+        return;
+      }
+
+      await this.auditService.log(
+        {
+          userId: actorId,
+          action: 'ROLE_ASSIGNED',
+          entity: 'UserRole',
+          entityId: targetId,
+          before: { role: null },
+          after: { role },
+          ipAddress,
+        },
+        tx,
+      );
+    });
+
+    return this.getDetail(targetId);
+  }
+
+  /**
+   * Removes a role from a user (SS-063).
+   *
+   * Guards (enforced inside the transaction): missing / soft-deleted target →
+   * 404; self role modification → 403; actor not ADMIN → 403; ADMIN-role
+   * removal → 403 (M1 policy); role row missing → 404.
+   *
+   * The conditional `deleteMany` on `(userId, roleId)` is idempotent and
+   * race-safe: removing an already-absent role is a true no-op (200 unchanged,
+   * no audit), and concurrent duplicate removals produce exactly one
+   * `ROLE_REMOVED` audit.
+   *
+   * Last-active-ADMIN invariant: M1 forbids every operation that could reduce
+   * ADMIN membership (ADMIN removal → 403, self-modification → 403, and
+   * assignment is additive only), so this method cannot make the active-ADMIN
+   * count zero. If a future issue makes ADMIN removal possible, an
+   * SS-062-style lock + count guard must be introduced here.
+   */
+  async removeRole(
+    targetId: string,
+    role: AppRole,
+    actorId: string,
+    ipAddress?: string,
+  ): Promise<AdminUserDetail> {
+    await this.prisma.$transaction(async (tx) => {
+      const target = await this.readLifecycleTarget(tx, targetId);
+      if (!target || target.deletedAt !== null) {
+        throw new NotFoundException('کاربر یافت نشد.');
+      }
+
+      if (target.id === actorId) {
+        throw new ForbiddenException('امکان تغییر نقش خودتان وجود ندارد.');
+      }
+
+      await this.assertActorIsAdmin(
+        tx,
+        actorId,
+        'فقط مدیران میتوانند نقشها را مدیریت کنند.',
+      );
+
+      if (role === AppRole.ADMIN) {
+        throw new ForbiddenException('حذف نقش مدیر ممکن نیست.');
+      }
+
+      const roleId = await this.rolesService.findRoleIdByName(role, tx);
+      if (!roleId) {
+        throw new NotFoundException('نقش یافت نشد.');
+      }
+
+      const removed = await tx.userRole.deleteMany({
+        where: { userId: targetId, roleId },
+      });
+      if (removed.count === 0) {
+        return;
+      }
+
+      await this.auditService.log(
+        {
+          userId: actorId,
+          action: 'ROLE_REMOVED',
+          entity: 'UserRole',
+          entityId: targetId,
+          before: { role },
+          after: { role: null },
+          ipAddress,
+        },
+        tx,
+      );
+    });
+
+    return this.getDetail(targetId);
   }
 
   private toSummary(user: ListUserRow): AdminUserSummary {
@@ -416,6 +614,19 @@ export class UsersService {
 
   private roleNames(target: LifecycleTargetRow): AppRole[] {
     return target.roles.map(({ role }) => role.name as AppRole);
+  }
+
+  /**
+   * True when a query failed because a concurrent transaction inserted the
+   * same `(userId, roleId)` `UserRole` row first. The caller treats this as
+   * "the assignment already exists" (an idempotent no-op), not as an error.
+   */
+  private isUserRoleUniqueViolation(error: unknown): boolean {
+    return (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002' &&
+      error.meta?.modelName === 'UserRole'
+    );
   }
 
   /**

@@ -452,6 +452,95 @@ available. Audit payloads never contain secrets or tokens.
 
 ---
 
+# 5.4. Admin Role Administration API (SS-063)
+
+All routes require a JWT access token **and** the `ADMIN` role
+(`@Roles(ADMIN)`). `CUSTOMER`, `PARTNER`, and `OPERATOR` receive `403`;
+unauthenticated requests receive `401`. There is no `SUPER_ADMIN` role; `ADMIN`
+is the implemented application role, and role administration is `ADMIN`-only.
+
+This is the M1 role-administration scope of AUTH-006. It implements the
+administrative assignment/removal of roles and a read-only role catalog. It does
+**not** implement role creation/deletion, permission creation/assignment, a
+permission-management UI, or any privileged hierarchy beyond `ADMIN`; those
+AUTH-006 capabilities remain deferred.
+
+Each mutation is committed in a single database transaction together with its
+audit event; if the audit write fails the role change rolls back. Role
+mutations never return or write `passwordHash`, refresh tokens, token hashes,
+session contents, or secrets.
+
+GET /admin/roles
+
+Returns the role catalog (read-only; writes no audit).
+
+- Response: `[{ id, name, description, permissions }, ...]` where `permissions`
+  is an array of permission names (read-only; empty when no permissions are
+  seeded). Ordering is deterministic by `name` ascending.
+- No internal database fields are exposed.
+- Status codes: `200`, `401`, `403`.
+
+PUT /admin/users/{id}/roles/{role}
+
+Assigns a role to a user. The role is one of `CUSTOMER`, `PARTNER`, `OPERATOR`,
+`ADMIN`.
+
+- `id` must be a valid UUID (`404` otherwise); `role` must be a valid application
+  role (`400` otherwise). The target must exist and not be soft-deleted (`404`);
+  a valid role with no matching `Role` row also returns `404`.
+- Self role modification is forbidden (`403`).
+- The assignment is **additive**: existing roles are preserved and only the
+  named role is touched. Assigning `CUSTOMER` + `PARTNER` leaves the user with
+  both roles.
+- The `UserRole` row is written with `UserRole.upsert` on the composite key
+  `(userId, roleId)`. Assignment is **idempotent**: repeating an existing
+  assignment returns `200` with the unchanged user detail and writes **no**
+  duplicate row and **no** audit entry. The upsert is the authoritative
+  operation; mutation detection does not rely on a separate existence check.
+- Assigning the `ADMIN` role to another user is allowed (an `ADMIN` actor may
+  not target themselves). This only increases the active-ADMIN population and
+  never weakens the last-active-ADMIN invariant.
+- Role assignment is allowed regardless of the target's account status
+  (`ACTIVE`, `SUSPENDED`, `LOCKED`, `PENDING_OTP`); a non-`ACTIVE` account
+  cannot authenticate, so an assigned role is inert until the account is
+  `ACTIVE`. Soft-deleted targets are always `404`.
+- Writes the `ROLE_ASSIGNED` audit event.
+- Status codes: `200`, `400`, `401`, `403`, `404`.
+
+DELETE /admin/users/{id}/roles/{role}
+
+Removes a role from a user.
+
+- `id` must be a valid UUID (`404` otherwise); `role` must be a valid application
+  role (`400` otherwise). The target must exist and not be soft-deleted (`404`);
+  a valid role with no matching `Role` row also returns `404`.
+- Self role modification is forbidden (`403`).
+- The `ADMIN` role **cannot be removed** in M1 (`403`); this policy, together
+  with the self-modification restriction and additive-only assignment, ensures
+  role mutations can never reduce the active-ADMIN population to zero.
+- Removal is **idempotent**: removing an already-absent non-`ADMIN` role returns
+  `200` with the unchanged user detail and writes **no** audit entry.
+- Removing roles from `SUSPENDED`/`LOCKED` targets is allowed; only soft-deleted
+  targets return `404`. A suspended or locked `ADMIN` still holds the `ADMIN`
+  role and is not an "active `ADMIN`" for the last-active-ADMIN invariant.
+- Writes the `ROLE_REMOVED` audit event.
+- Status codes: `200`, `400`, `401`, `403`, `404`.
+
+Audit events written by this API:
+
+| Event | before | after |
+| --- | --- | --- |
+| `ROLE_ASSIGNED` | `{ role: null }` | `{ role: "OPERATOR" }` |
+| `ROLE_REMOVED` | `{ role: "OPERATOR" }` | `{ role: null }` |
+
+The audit `userId` is the `ADMIN` performing the mutation; `entity` is
+`UserRole` and `entityId` is the target user id. The request IP is recorded when
+available. No audit entry is written for `GET /admin/roles`. Audit payloads
+never contain `passwordHash`, refresh tokens, token hashes, session contents,
+complete user records, or secrets.
+
+---
+
 # 6. Product API
 
 GET /products
@@ -622,7 +711,9 @@ GET /admin/users
 
 Manage users. Implemented as the paginated operator/admin read API — see
 [Admin User Read API](#52-admin-user-read-api-ss-061) — plus the account
-lifecycle endpoints — see [Admin User Lifecycle API](#53-admin-user-lifecycle-api-ss-062).
+lifecycle endpoints — see [Admin User Lifecycle API](#53-admin-user-lifecycle-api-ss-062) —
+plus the role administration endpoints — see
+[Admin Role Administration API](#54-admin-role-administration-api-ss-063).
 
 GET /admin/partners
 
