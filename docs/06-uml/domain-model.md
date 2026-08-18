@@ -32,7 +32,6 @@ User (identity root)
 +-- UserProfile (one-to-one)
 |   +-- id: UUID
 |   +-- firstName: string
-|   +-- firstName: string
 |   +-- lastName: string
 |   +-- avatarUrl: string?
 |   +-- address: string? (personal/contact address of the user; SS-028)
@@ -47,7 +46,7 @@ User (identity root)
 |       |      |       | REJECTED), default DRAFT
 |       +-- approvedAt / submittedAt / rejectedAt: DateTime?
 |       +-- rejectionReason / reviewNotes: string?
-|       +-- nationalId: string
+|       +-- nationalId: string?
 |       +-- tier: PartnerTier
 |       +-- businessAddress (province, city, fullAddress) — business/legal
 |       |      operating address, distinct from the profile's personal
@@ -56,7 +55,7 @@ User (identity root)
 |
 +-- Role (many-to-many via UserRole, sole authorization source)
 |   +-- id: UUID
-|   +-- name: string (CUSTOMER, PARTNER, OPERATOR, SUPER_ADMIN)
+|   +-- name: string (CUSTOMER, PARTNER, OPERATOR, ADMIN)
 |   +-- permissions: Permission[] (via RolePermission)
 |
 +-- Permission (many-to-many via RolePermission)
@@ -75,7 +74,7 @@ User (identity root)
 
 PartnerTier
 +-- id: UUID
-+-- name: string (Tier 1, Tier 2, Tier 3)
++-- name: string (Tier 1 – Distributor, Tier 2 – Wholesaler, Tier 3 – Retailer)
 +-- discountPercentage: decimal(5,2)
 +-- minOrderQuantity: int
 
@@ -251,10 +250,15 @@ BlogPost
 | PartnerApprovalStatus | DRAFT, PENDING, APPROVED, REJECTED |
 | PartnerDocumentType | BUSINESS_LICENSE, NATIONAL_ID, TAX_REGISTRATION, SUPPORTING |
 | Role | CUSTOMER, PARTNER, OPERATOR, ADMIN (role names stored in the Role table; sole authorization source) |
-| VerificationStatus | PENDING, VERIFIED, REJECTED |
-| BusinessType | DISTRIBUTOR, WHOLESALER, RETAIL_SHOP, SYSTEM_INTEGRATOR, CORPORATE |
 | ProductStatus | DRAFT, PUBLISHED, ARCHIVED |
 | StockStatus | IN_STOCK, LOW_STOCK, OUT_OF_STOCK |
 | OrderStatus | PENDING, CONFIRMED, PROCESSING, SHIPPED, DELIVERED, CANCELLED, RETURNED |
 | PaymentStatus | PENDING, SUCCESS, FAILED, REFUNDED |
 | ShippingStatus | PENDING, PICKED_UP, IN_TRANSIT, OUT_FOR_DELIVERY, DELIVERED |
+
+> **Enum notes:** there is no `VerificationStatus` enum; the Partner lifecycle is
+> tracked by `PartnerApprovalStatus` and per-document verification is future
+> work (see [Database Design Specification](../04-database/database-design-specification.md)).
+> The `BusinessType` enum is a legacy concept from the planned password-based
+> partner registration design (see [Partner Registration Flow](partner-registration-flow.md))
+> and is **not implemented**.

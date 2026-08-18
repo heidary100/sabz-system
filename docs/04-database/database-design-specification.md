@@ -237,6 +237,11 @@ Business Rules
 - A user may hold multiple roles simultaneously (AUTH-005).
 - Administrative roles are assigned only by Super Administrators (AUTH-006).
 
+  > **Status: known gap / deferred.** There is no `SUPER_ADMIN` role; the
+  > implemented admin role is `ADMIN`. AUTH-006 is preserved as a future
+  > requirement; enforcement is deferred to the admin/role-management work
+  > (see Roles & Permissions Matrix §10).
+
 ---
 
 ## Permission

@@ -40,7 +40,7 @@ It is the foundation for every other module.
 - Customer (B2C)
 - Partner (B2B)
 - Operator
-- Super Administrator
+- Administrator (ADMIN)
 
 ---
 
@@ -79,6 +79,11 @@ Users may hold multiple roles simultaneously (e.g., Customer + Partner).
 ### AUTH-006
 
 Administrative roles are assigned only by Super Administrators.
+
+> **Status: known gap / deferred.** There is no `SUPER_ADMIN` role in the
+> implemented role model (`CUSTOMER`, `PARTNER`, `OPERATOR`, `ADMIN`). AUTH-006
+> is preserved as a future requirement; enforcement is deferred to the
+> admin/role-management work (see Roles & Permissions Matrix §10).
 
 ---
 
@@ -294,13 +299,13 @@ Authenticated User
 Operator
 
 - Read user profiles
-- Suspend accounts
+- Suspend accounts (future — suspension workflow not yet implemented)
 
-Super Administrator
+Administrator (ADMIN)
 
-- Full user management
-- Assign roles
-- Unlock accounts
+- Full user management (future — role/user-management workflows deferred)
+- Assign roles (future — deferred, see Roles & Permissions Matrix §10)
+- Unlock accounts (future — lockout/unlock workflow not yet implemented)
 
 ---
 

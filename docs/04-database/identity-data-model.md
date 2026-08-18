@@ -111,6 +111,11 @@ Junction tables add `assigned_at` and `assigned_by` where meaningful. Audit even
 - RBAC grants are derived from the union of all permissions of all assigned roles.
 - Administrative roles are assigned only by Super Administrators (AUTH-006).
 
+  > **Status: known gap / deferred.** There is no `SUPER_ADMIN` role; the
+  > implemented admin role is `ADMIN`. AUTH-006 is preserved as a future
+  > requirement; enforcement is deferred to the admin/role-management work
+  > (see Roles & Permissions Matrix §10).
+
 ---
 
 # 7. Decision: Account Status Is an Enumeration
