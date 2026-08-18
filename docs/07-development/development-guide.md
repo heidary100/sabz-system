@@ -157,6 +157,36 @@ palette (`apps/admin/src/index.css`). Conventions established by SS-041:
   approve/reject/tier-change actions. Documents are previewed/downloaded through
   the authenticated `requestBlob` flow — never via public storage URLs.
 
+## Admin User Management UI (SS-066)
+
+The admin user-management UI builds on the SS-061/062/063 read + lifecycle +
+role-administration APIs. As with all admin frontend, role gating is UX only —
+the SS-061/062/063 APIs remain the authorization boundary.
+
+- `/users` (`UsersPage`, `RequireRole roles={ADMIN_ROLES}`): user list with
+  search (mobile / first name / last name, debounced ~300ms), status filter,
+  role filter, and pagination. Row click opens `/users/:id`.
+- `/users/:id` (`UserDetailPage`): identity, profile, roles, and partner
+  sections plus lifecycle actions derived from account status. Suspend
+  (optional reason, max 500 chars) and unsuspend are available to `OPERATOR`
+  and `ADMIN`; unlock is `ADMIN` only. Role assignment and role removal are
+  `ADMIN` only. The `ADMIN` role has no removal path and self-role modification
+  is disabled client-side (backend still rejects it). On a `409` the affected
+  user/list is refetched so the UI never keeps stale state.
+- `/roles` (`RolesPage`, `RequireRole roles={['ADMIN']}`): read-only role
+  catalog (name, description, permissions). No CRUD. The `نقش‌ها` sidebar item
+  is hidden for `OPERATOR`, but the route remains server- and route-gated for
+  `ADMIN`.
+- User details are held in React memory only — never persisted to
+  localStorage/sessionStorage/IndexedDB.
+- New services `users.ts` and `roles.ts` reuse `request()`; labels live in
+  `lib/user-labels.ts`; dialogs under `components/users/`.
+
+Manual acceptance: see the SS-066 checklist in the issue (search, filters,
+pagination, lifecycle transitions, role assignment/removal, `409`/`403`
+handling, `/roles` ADMIN-only, RTL/Persian, loading/empty/error states).
+
+
 ---
 
 # Available Scripts
