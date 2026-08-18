@@ -179,13 +179,15 @@ describe('Admin dashboard API database integration (SS-065)', () => {
     await createUser(UserStatus.ACTIVE, ['CUSTOMER']);
     await createUser(UserStatus.ACTIVE, ['CUSTOMER', 'PARTNER']);
     await createUser(UserStatus.SUSPENDED, ['OPERATOR']);
+    await createUser(UserStatus.ACTIVE, ['ADMIN']);
+    // A soft-deleted ADMIN-role user must not be counted in the admin bucket.
     await createUser(UserStatus.ACTIVE, ['ADMIN'], true);
 
     const result = await service.getSummary();
 
-    // Lower bounds from this test's own seeds: the service must count every
-    // non-deleted user holding each role. Exact bucket equality cannot be
-    // asserted here because parallel workers also assign roles.
+    // Lower bounds from this test's own non-deleted seeds: the service must
+    // count every non-deleted user holding each role. Exact bucket equality
+    // cannot be asserted here because parallel workers also assign roles.
     expect(result.roles.customer).toBeGreaterThanOrEqual(2);
     expect(result.roles.partner).toBeGreaterThanOrEqual(1);
     expect(result.roles.operator).toBeGreaterThanOrEqual(1);
