@@ -463,6 +463,25 @@ the "Operators cannot change administrator roles" restriction. Self-suspension
 and suspension of the last active `ADMIN` are rejected with `409`. See
 [Admin User Lifecycle API](../05-api/api-specification.md#53-admin-user-lifecycle-api-ss-062).
 
+## Role Administration Authorization (SS-063)
+
+The admin role administration API (`GET /admin/roles`,
+`PUT /admin/users/{id}/roles/{role}`, `DELETE /admin/users/{id}/roles/{role}`)
+is implemented with `ADMIN` only, mapping the matrix's "Assign roles" row to the
+implemented `ADMIN` role:
+
+- Assign a role: `ADMIN` only
+- Remove a role: `ADMIN` only
+- List roles/permissions: `ADMIN` only
+- `CUSTOMER`, `PARTNER`, `OPERATOR`: `403`
+
+Role administration is `ADMIN`-only in M1; there is no `SUPER_ADMIN` and no
+privileged hierarchy beyond `ADMIN`. Assignment is additive and idempotent;
+`ADMIN`-role removal and self role modification are forbidden; the
+last-active-`ADMIN` invariant cannot be weakened through role mutations because
+no role mutation can reduce `ADMIN` membership. See
+[Admin Role Administration API](../05-api/api-specification.md#54-admin-role-administration-api-ss-063).
+
 ---
 
 # 11. Future Roles

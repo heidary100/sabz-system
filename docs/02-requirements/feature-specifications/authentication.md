@@ -80,10 +80,15 @@ Users may hold multiple roles simultaneously (e.g., Customer + Partner).
 
 Administrative roles are assigned only by Super Administrators.
 
-> **Status: known gap / deferred.** There is no `SUPER_ADMIN` role in the
-> implemented role model (`CUSTOMER`, `PARTNER`, `OPERATOR`, `ADMIN`). AUTH-006
-> is preserved as a future requirement; enforcement is deferred to the
-> admin/role-management work (see Roles & Permissions Matrix §10).
+> **Status: partially implemented (M1).** There is no `SUPER_ADMIN` role in the
+> implemented role model (`CUSTOMER`, `PARTNER`, `OPERATOR`, `ADMIN`). The M1
+> role-administration API (SS-063) implements the administrative
+> assignment/removal of roles with `ADMIN` as the privileged role: `ADMIN`
+> may assign any role (including `ADMIN`) to another user and may remove
+> non-`ADMIN` roles, but may not remove the `ADMIN` role or modify their own
+> roles. Future privileged-administrator concepts — including a
+> `SUPER_ADMIN` role and role/permission CRUD — remain deferred (see Roles &
+> Permissions Matrix §10).
 
 ---
 

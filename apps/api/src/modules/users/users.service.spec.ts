@@ -3,9 +3,11 @@ import {
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { AppRole } from '../auth/enums/app-role.enum';
+import { RolesService } from '../auth/roles/roles.service';
 import { UsersService } from './users.service';
 
 const now = new Date('2026-08-16T00:00:00.000Z');
@@ -66,8 +68,12 @@ describe('UsersService', () => {
       findMany: jest.Mock;
       findUnique: jest.Mock;
     };
+    role: {
+      findMany: jest.Mock;
+    };
     $transaction: jest.Mock;
   };
+  let rolesService: { findRoleIdByName: jest.Mock };
   let audit: { log: jest.Mock };
   let tx: {
     user: {
@@ -76,6 +82,10 @@ describe('UsersService', () => {
     };
     userSession: {
       updateMany: jest.Mock;
+    };
+    userRole: {
+      upsert: jest.Mock;
+      deleteMany: jest.Mock;
     };
     $queryRaw: jest.Mock;
   };
@@ -89,6 +99,10 @@ describe('UsersService', () => {
       userSession: {
         updateMany: jest.fn(),
       },
+      userRole: {
+        upsert: jest.fn(),
+        deleteMany: jest.fn(),
+      },
       $queryRaw: jest.fn(),
     };
     prisma = {
@@ -96,6 +110,9 @@ describe('UsersService', () => {
         count: jest.fn(),
         findMany: jest.fn(),
         findUnique: jest.fn(),
+      },
+      role: {
+        findMany: jest.fn(),
       },
       $transaction: jest.fn(),
     };
@@ -105,10 +122,12 @@ describe('UsersService', () => {
       }
       return Promise.all(operation as Promise<unknown>[]);
     });
+    rolesService = { findRoleIdByName: jest.fn() };
     audit = { log: jest.fn() };
     service = new UsersService(
       prisma as unknown as PrismaService,
       audit as unknown as AuditService,
+      rolesService as unknown as RolesService,
     );
   });
 
@@ -784,6 +803,347 @@ describe('UsersService', () => {
       await expect(
         service.unlockUser('user-1', 'actor-1'),
       ).rejects.toThrow(ConflictException);
+    });
+  });
+
+  describe('listRoles', () => {
+    it('maps role rows to summaries with read-only permission names', async () => {
+      prisma.role.findMany.mockResolvedValue([
+        {
+          id: 'role-admin',
+          name: 'ADMIN',
+          description: 'Super administrator',
+          permissions: [{ permission: { name: 'users.assign' } }],
+        },
+        {
+          id: 'role-customer',
+          name: 'CUSTOMER',
+          description: null,
+          permissions: [],
+        },
+      ]);
+
+      const result = await service.listRoles();
+
+      expect(result).toEqual([
+        {
+          id: 'role-admin',
+          name: 'ADMIN',
+          description: 'Super administrator',
+          permissions: ['users.assign'],
+        },
+        {
+          id: 'role-customer',
+          name: 'CUSTOMER',
+          description: null,
+          permissions: [],
+        },
+      ]);
+      expect(prisma.role.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: [{ name: 'asc' }],
+        }),
+      );
+    });
+
+    it('returns an empty list when no roles are seeded', async () => {
+      prisma.role.findMany.mockResolvedValue([]);
+
+      await expect(service.listRoles()).resolves.toEqual([]);
+    });
+  });
+
+  describe('assignRole', () => {
+    function mockAssignCall(target: ReturnType<typeof makeLifecycleTarget>) {
+      tx.user.findUnique
+        .mockResolvedValueOnce(target)
+        .mockResolvedValueOnce(makeActorRow([AppRole.ADMIN]));
+      rolesService.findRoleIdByName.mockResolvedValue('role-id');
+      tx.userRole.upsert.mockImplementation(
+        async (args: { create: { assignedAt: Date } }) => ({
+          assignedAt: args.create.assignedAt,
+        }),
+      );
+      prisma.user.findUnique.mockResolvedValue(makeDetailRow());
+    }
+
+    it('assigns the role via upsert and writes ROLE_ASSIGNED in the same transaction', async () => {
+      mockAssignCall(makeLifecycleTarget());
+
+      const result = await service.assignRole(
+        'user-1',
+        AppRole.OPERATOR,
+        'actor-1',
+        '1.2.3.4',
+      );
+
+      expect(tx.userRole.upsert).toHaveBeenCalledWith({
+        where: {
+          userId_roleId: { userId: 'user-1', roleId: 'role-id' },
+        },
+        create: expect.objectContaining({
+          userId: 'user-1',
+          roleId: 'role-id',
+          assignedBy: 'actor-1',
+        }),
+        update: {},
+      });
+      expect(audit.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: 'actor-1',
+          action: 'ROLE_ASSIGNED',
+          entity: 'UserRole',
+          entityId: 'user-1',
+          before: { role: null },
+          after: { role: AppRole.OPERATOR },
+          ipAddress: '1.2.3.4',
+        }),
+        tx,
+      );
+      expect(result).toEqual(expect.objectContaining({ id: 'user-1' }));
+    });
+
+    it('treats an existing assignment as a no-op with no audit', async () => {
+      mockAssignCall(makeLifecycleTarget());
+      tx.userRole.upsert.mockResolvedValue({
+        assignedAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+
+      const result = await service.assignRole(
+        'user-1',
+        AppRole.OPERATOR,
+        'actor-1',
+      );
+
+      expect(audit.log).not.toHaveBeenCalled();
+      expect(result).toEqual(expect.objectContaining({ id: 'user-1' }));
+    });
+
+    it('treats a concurrent duplicate assignment (P2002) as a no-op with no audit', async () => {
+      mockAssignCall(makeLifecycleTarget());
+      tx.userRole.upsert.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError(
+          'Unique constraint failed on the fields: (`userId`,`roleId`)',
+          {
+            code: 'P2002',
+            clientVersion: 'test',
+            meta: { modelName: 'UserRole', target: ['userId', 'roleId'] },
+          },
+        ),
+      );
+
+      const result = await service.assignRole(
+        'user-1',
+        AppRole.OPERATOR,
+        'actor-1',
+      );
+
+      expect(audit.log).not.toHaveBeenCalled();
+      expect(result).toEqual(expect.objectContaining({ id: 'user-1' }));
+    });
+
+    it('propagates non-unique database errors', async () => {
+      mockAssignCall(makeLifecycleTarget());
+      tx.userRole.upsert.mockRejectedValue(new Error('connection lost'));
+
+      await expect(
+        service.assignRole('user-1', AppRole.OPERATOR, 'actor-1'),
+      ).rejects.toThrow('connection lost');
+      expect(audit.log).not.toHaveBeenCalled();
+    });
+
+    it('assigns an ADMIN role to another user and audits it', async () => {
+      mockAssignCall(makeLifecycleTarget());
+
+      await service.assignRole('user-1', AppRole.ADMIN, 'actor-1');
+
+      const entry = audit.log.mock.calls[0]![0] as {
+        action: string;
+        after: Record<string, unknown>;
+      };
+      expect(entry.action).toBe('ROLE_ASSIGNED');
+      expect(entry.after).toEqual({ role: AppRole.ADMIN });
+    });
+
+    it('only touches the given role and preserves existing roles', async () => {
+      mockAssignCall(
+        makeLifecycleTarget({
+          roles: [{ role: { name: 'CUSTOMER' } }, { role: { name: 'PARTNER' } }],
+        }),
+      );
+
+      await service.assignRole('user-1', AppRole.OPERATOR, 'actor-1');
+
+      expect(tx.userRole.upsert).toHaveBeenCalledTimes(1);
+      expect(tx.userRole.deleteMany).not.toHaveBeenCalled();
+      expect(tx.userRole.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            userId_roleId: { userId: 'user-1', roleId: 'role-id' },
+          },
+        }),
+      );
+    });
+
+    it('rejects a missing target with 404', async () => {
+      tx.user.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.assignRole('user-missing', AppRole.OPERATOR, 'actor-1'),
+      ).rejects.toThrow(NotFoundException);
+      expect(tx.userRole.upsert).not.toHaveBeenCalled();
+    });
+
+    it('rejects a soft-deleted target with 404', async () => {
+      tx.user.findUnique.mockResolvedValue(
+        makeLifecycleTarget({ deletedAt: now }),
+      );
+
+      await expect(
+        service.assignRole('user-deleted', AppRole.OPERATOR, 'actor-1'),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('forbids modifying your own roles with 403', async () => {
+      tx.user.findUnique.mockResolvedValue(makeLifecycleTarget());
+
+      await expect(
+        service.assignRole('user-1', AppRole.OPERATOR, 'user-1'),
+      ).rejects.toThrow(ForbiddenException);
+      expect(tx.userRole.upsert).not.toHaveBeenCalled();
+    });
+
+    it('rejects a non-ADMIN actor with 403', async () => {
+      tx.user.findUnique
+        .mockResolvedValueOnce(makeLifecycleTarget())
+        .mockResolvedValueOnce(makeActorRow([AppRole.OPERATOR]));
+
+      await expect(
+        service.assignRole('user-1', AppRole.OPERATOR, 'actor-1'),
+      ).rejects.toThrow(ForbiddenException);
+      expect(tx.userRole.upsert).not.toHaveBeenCalled();
+    });
+
+    it('returns 404 when the role row is missing', async () => {
+      tx.user.findUnique
+        .mockResolvedValueOnce(makeLifecycleTarget())
+        .mockResolvedValueOnce(makeActorRow([AppRole.ADMIN]));
+      rolesService.findRoleIdByName.mockResolvedValue(null);
+
+      await expect(
+        service.assignRole('user-1', AppRole.OPERATOR, 'actor-1'),
+      ).rejects.toThrow(NotFoundException);
+      expect(tx.userRole.upsert).not.toHaveBeenCalled();
+      expect(audit.log).not.toHaveBeenCalled();
+    });
+
+    it('never writes sensitive data into the audit payload', async () => {
+      mockAssignCall(makeLifecycleTarget());
+
+      await service.assignRole('user-1', AppRole.OPERATOR, 'actor-1');
+
+      const serialized = JSON.stringify(audit.log.mock.calls);
+      expect(serialized).not.toContain('passwordHash');
+      expect(serialized).not.toContain('refreshToken');
+      expect(serialized).not.toContain('sessionId');
+    });
+  });
+
+  describe('removeRole', () => {
+    function mockRemoveCall(target: ReturnType<typeof makeLifecycleTarget>) {
+      tx.user.findUnique
+        .mockResolvedValueOnce(target)
+        .mockResolvedValueOnce(makeActorRow([AppRole.ADMIN]));
+      rolesService.findRoleIdByName.mockResolvedValue('role-id');
+      tx.userRole.deleteMany.mockResolvedValue({ count: 1 });
+      prisma.user.findUnique.mockResolvedValue(makeDetailRow());
+    }
+
+    it('removes the role and writes ROLE_REMOVED in the same transaction', async () => {
+      mockRemoveCall(
+        makeLifecycleTarget({ roles: [{ role: { name: 'OPERATOR' } }] }),
+      );
+
+      const result = await service.removeRole(
+        'user-1',
+        AppRole.OPERATOR,
+        'actor-1',
+        '1.2.3.4',
+      );
+
+      expect(tx.userRole.deleteMany).toHaveBeenCalledWith({
+        where: { userId: 'user-1', roleId: 'role-id' },
+      });
+      expect(audit.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: 'actor-1',
+          action: 'ROLE_REMOVED',
+          entity: 'UserRole',
+          entityId: 'user-1',
+          before: { role: AppRole.OPERATOR },
+          after: { role: null },
+          ipAddress: '1.2.3.4',
+        }),
+        tx,
+      );
+      expect(result).toEqual(expect.objectContaining({ id: 'user-1' }));
+    });
+
+    it('treats removing an already-absent role as a no-op with no audit', async () => {
+      mockRemoveCall(makeLifecycleTarget());
+      tx.userRole.deleteMany.mockResolvedValue({ count: 0 });
+
+      const result = await service.removeRole(
+        'user-1',
+        AppRole.OPERATOR,
+        'actor-1',
+      );
+
+      expect(audit.log).not.toHaveBeenCalled();
+      expect(result).toEqual(expect.objectContaining({ id: 'user-1' }));
+    });
+
+    it('forbids ADMIN-role removal with 403', async () => {
+      tx.user.findUnique
+        .mockResolvedValueOnce(
+          makeLifecycleTarget({ roles: [{ role: { name: 'ADMIN' } }] }),
+        )
+        .mockResolvedValueOnce(makeActorRow([AppRole.ADMIN]));
+
+      await expect(
+        service.removeRole('user-1', AppRole.ADMIN, 'actor-1'),
+      ).rejects.toThrow(ForbiddenException);
+      expect(tx.userRole.deleteMany).not.toHaveBeenCalled();
+      expect(audit.log).not.toHaveBeenCalled();
+    });
+
+    it('forbids removing your own roles with 403', async () => {
+      tx.user.findUnique.mockResolvedValue(makeLifecycleTarget());
+
+      await expect(
+        service.removeRole('user-1', AppRole.OPERATOR, 'user-1'),
+      ).rejects.toThrow(ForbiddenException);
+      expect(tx.userRole.deleteMany).not.toHaveBeenCalled();
+    });
+
+    it('rejects a missing target with 404', async () => {
+      tx.user.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.removeRole('user-missing', AppRole.OPERATOR, 'actor-1'),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('returns 404 when the role row is missing', async () => {
+      tx.user.findUnique
+        .mockResolvedValueOnce(makeLifecycleTarget())
+        .mockResolvedValueOnce(makeActorRow([AppRole.ADMIN]));
+      rolesService.findRoleIdByName.mockResolvedValue(null);
+
+      await expect(
+        service.removeRole('user-1', AppRole.OPERATOR, 'actor-1'),
+      ).rejects.toThrow(NotFoundException);
+      expect(tx.userRole.deleteMany).not.toHaveBeenCalled();
     });
   });
 });

@@ -111,7 +111,10 @@ Any ACTIVE state ──► soft delete (deleted_at set, record hidden)
   > **Implemented (SS-062):** suspension, unsuspension, and unlock are live via
   > the [Admin User Lifecycle API](../05-api/api-specification.md#53-admin-user-lifecycle-api-ss-062).
   > There is no `SUPER_ADMIN` role; the implemented admin role is `ADMIN`.
-  > AUTH-006's remaining role-assignment portion is addressed by SS-063.
+  > AUTH-006's remaining role-assignment portion is implemented by SS-063
+  > (the [Admin Role Administration API](../05-api/api-specification.md#54-admin-role-administration-api-ss-063)),
+  > where role assignment/removal is `ADMIN`-only and the `ADMIN` role itself
+  > cannot be removed.
 
 - Suspending an account revokes all of its non-revoked sessions atomically with the status change. Access tokens are not individually invalidated; the JWT strategy rejects any non-`ACTIVE` user on subsequent requests and refresh is denied for revoked sessions.
 - Unsuspending or unlocking does **not** restore previous sessions; the user authenticates again.

@@ -43,3 +43,5 @@ export {
   UserListQuery,
   UserStatusChangeInput,
 } from './admin/user';
+
+export { RoleSummary } from './admin/role';
