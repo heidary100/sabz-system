@@ -141,3 +141,26 @@ describe('Partner lifecycle and BusinessDocument schema (SS-038)', () => {
     ]);
   });
 });
+
+describe('AuditLog query index (SS-064)', () => {
+  const auditLog = Prisma.dmmf.datamodel.models.find(
+    (model) => model.name === 'AuditLog',
+  );
+
+  const ss064Migration = () => {
+    const migrationsDir = join(__dirname, '..', '..', '..', 'prisma', 'migrations');
+    const folder = readdirSync(migrationsDir).find((name) =>
+      name.includes('ss_064_audit_query_indexes'),
+    );
+    expect(folder).toBeDefined();
+    return readFileSync(join(migrationsDir, folder!, 'migration.sql'), 'utf8');
+  };
+
+  it('adds the [entity, createdAt] composite index for entity-scoped admin queries', () => {
+    const index = auditLog?.fields.find((field) => field.name === 'createdAt');
+    expect(index).toBeDefined();
+    expect(ss064Migration()).toContain(
+      'CREATE INDEX "AuditLog_entity_createdAt_idx" ON "AuditLog"("entity", "createdAt");',
+    );
+  });
+});
