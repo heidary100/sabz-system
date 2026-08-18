@@ -1,7 +1,7 @@
 import { Prisma, PrismaClient, PartnerApprovalStatus, PartnerDocumentType, UserStatus } from '@prisma/client';
 
 function uniqueMobile(): string {
-  return `+989${String(Date.now()).slice(-9)}${Math.floor(Math.random() * 90 + 10)}`;
+  return `+989${String(Date.now()).slice(-9)}${Math.floor(Math.random() * 900_000 + 100_000)}`;
 }
 
 describe('Partner application database integration (SS-039)', () => {
