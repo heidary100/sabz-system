@@ -5,11 +5,14 @@ import { Button } from '../components/catalyst/button'
 const NAV_ITEMS = [
   { to: '/dashboard', label: 'پیشخوان' },
   { to: '/partners', label: 'درخواست‌های همکاری' },
+  { to: '/users', label: 'کاربران' },
+  { to: '/roles', label: 'نقش‌ها' },
 ] as const
 
 export function AdminLayout() {
   const { user, logout } = useAuth()
   const location = useLocation()
+  const isAdmin = user?.roles.includes('ADMIN') ?? false
   const activeItem = NAV_ITEMS.find(
     (item) =>
       location.pathname === item.to || location.pathname.startsWith(`${item.to}/`),
@@ -23,7 +26,7 @@ export function AdminLayout() {
           <span className="text-sm font-bold text-foreground">پنل مدیریت سبز</span>
         </div>
         <nav className="flex flex-col gap-1 p-4">
-          {NAV_ITEMS.map((item) => (
+          {NAV_ITEMS.filter((item) => isAdmin || item.to !== '/roles').map((item) => (
             <NavLink
               key={item.to}
               to={item.to}

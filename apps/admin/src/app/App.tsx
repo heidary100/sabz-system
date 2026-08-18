@@ -8,6 +8,9 @@ import { DashboardPage } from '../pages/dashboard-page'
 import { LoginPage } from '../pages/login-page'
 import { PartnerDetailPage } from '../pages/partner-detail-page'
 import { PartnersPage } from '../pages/partners-page'
+import { RolesPage } from '../pages/roles-page'
+import { UserDetailPage } from '../pages/user-detail-page'
+import { UsersPage } from '../pages/users-page'
 
 export default function App() {
   return (
@@ -46,6 +49,30 @@ export default function App() {
               element={
                 <RequireRole roles={ADMIN_ROLES}>
                   <PartnerDetailPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="users"
+              element={
+                <RequireRole roles={ADMIN_ROLES}>
+                  <UsersPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="users/:id"
+              element={
+                <RequireRole roles={ADMIN_ROLES}>
+                  <UserDetailPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="roles"
+              element={
+                <RequireRole roles={['ADMIN']}>
+                  <RolesPage />
                 </RequireRole>
               }
             />

@@ -47,3 +47,7 @@ export function translateApiError(error: unknown): string {
   }
   return 'خطایی رخ داد. دوباره تلاش کنید.'
 }
+
+export function isConflictError(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 409
+}
