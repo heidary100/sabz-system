@@ -49,3 +49,7 @@ export interface UserListQuery {
   status?: UserStatus;
   role?: AppRole;
 }
+
+export interface UserStatusChangeInput {
+  reason?: string;
+}

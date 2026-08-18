@@ -299,13 +299,13 @@ Authenticated User
 Operator
 
 - Read user profiles
-- Suspend accounts (future — suspension workflow not yet implemented)
+- Suspend and unsuspend accounts (implemented in SS-062; operators may not act on `ADMIN`-role accounts)
 
 Administrator (ADMIN)
 
-- Full user management (future — role/user-management workflows deferred)
+- Full user management
+- Suspend / unsuspend / unlock accounts (implemented in SS-062)
 - Assign roles (future — deferred, see Roles & Permissions Matrix §10)
-- Unlock accounts (future — lockout/unlock workflow not yet implemented)
 
 ---
 
@@ -371,7 +371,9 @@ The system shall record (implemented event names):
 - Logout / session revocation → `SESSION_REVOKED`
 - Profile update → `PROFILE_UPDATE`
 - Role assignment → reserved for the future role-management flow
-- Account suspension / lockout / unlock → reserved for when those workflows exist
+- Account suspension → `USER_SUSPENDED` (SS-062; also revokes the account's sessions)
+- Account unsuspension → `USER_UNSUSPENDED` (SS-062)
+- Account unlock → `USER_UNLOCKED` (SS-062)
 
 Audit entries never contain OTP codes, tokens (raw or hashed), passwords, or secret material.
 
