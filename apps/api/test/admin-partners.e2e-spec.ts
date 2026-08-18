@@ -63,6 +63,30 @@ describe('Admin partner review API (e2e)', () => {
   const tierIds: string[] = [];
   const roleIds: Record<string, string> = {};
 
+  /**
+   * Seeds a role idempotently and race-safely. Jest runs the e2e spec files
+   * in parallel workers against the same Postgres instance; Prisma's upsert
+   * is not atomic under concurrent creates, so a bare upsert can fail with
+   * P2002 when two workers seed the same role simultaneously. Create + P2002
+   * fallback makes the seed safe regardless of which specs run together.
+   */
+  async function seedRole(name: string): Promise<string> {
+    const existing = await prisma.role.findUnique({ where: { name } });
+    if (existing) {
+      return existing.id;
+    }
+    try {
+      const created = await prisma.role.create({ data: { name } });
+      return created.id;
+    } catch (error) {
+      const row = await prisma.role.findUnique({ where: { name } });
+      if (row) {
+        return row.id;
+      }
+      throw error;
+    }
+  }
+
   beforeAll(async () => {
     storageDir = await mkdtemp(join(tmpdir(), 'admin-partner-e2e-'));
     process.env.DOCUMENT_STORAGE_DIR = storageDir;
@@ -78,12 +102,7 @@ describe('Admin partner review API (e2e)', () => {
     prisma = app.get(PrismaService);
 
     for (const role of ['CUSTOMER', 'PARTNER', 'OPERATOR', 'ADMIN']) {
-      const row = await prisma.role.upsert({
-        where: { name: role },
-        update: {},
-        create: { name: role },
-      });
-      roleIds[role] = row.id;
+      roleIds[role] = await seedRole(role);
     }
 
     const tier = await prisma.partnerTier.create({
