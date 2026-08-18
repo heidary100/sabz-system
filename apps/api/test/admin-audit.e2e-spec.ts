@@ -14,7 +14,7 @@ const BASE = '/api/v1/admin/audit';
 const USERS_BASE = '/api/v1/admin/users';
 
 function uniqueMobile(): string {
-  return `+989${String(Date.now()).slice(-9)}${Math.floor(Math.random() * 90 + 10)}`;
+  return `+989${String(Date.now()).slice(-9)}${Math.floor(Math.random() * 900_000 + 100_000)}`;
 }
 
 describe('Admin audit query API (SS-064) (e2e)', () => {

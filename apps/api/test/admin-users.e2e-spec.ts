@@ -13,7 +13,7 @@ const BASE = '/api/v1/admin/users';
 const AUTH_BASE = '/api/v1/auth';
 
 function uniqueMobile(): string {
-  return `+989${String(Date.now()).slice(-9)}${Math.floor(Math.random() * 90 + 10)}`;
+  return `+989${String(Date.now()).slice(-9)}${Math.floor(Math.random() * 900_000 + 100_000)}`;
 }
 
 describe('Admin user lifecycle API (SS-062) (e2e)', () => {

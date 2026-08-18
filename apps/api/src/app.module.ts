@@ -6,6 +6,7 @@ import { PrismaModule } from './common/database/prisma.module';
 import { RedisModule } from './common/redis/redis.module';
 import { HealthModule } from './health/health.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { PartnersModule } from './modules/partners/partners.module';
 import { UsersModule } from './modules/users/users.module';
 
@@ -32,6 +33,7 @@ import { UsersModule } from './modules/users/users.module';
     RedisModule,
     HealthModule,
     AuthModule,
+    DashboardModule,
     PartnersModule,
     UsersModule,
   ],

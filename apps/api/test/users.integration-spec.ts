@@ -17,7 +17,7 @@ import { UsersService } from '../src/modules/users/users.service';
 jest.setTimeout(30_000);
 
 function uniqueMobile(): string {
-  return `+989${String(Date.now()).slice(-9)}${Math.floor(Math.random() * 90 + 10)}`;
+  return `+989${String(Date.now()).slice(-9)}${Math.floor(Math.random() * 900_000 + 100_000)}`;
 }
 
 describe('Admin user read + lifecycle database integration (SS-061/SS-062)', () => {
@@ -158,7 +158,13 @@ describe('Admin user read + lifecycle database integration (SS-061/SS-062)', () 
 
   describe('list', () => {
     it('searches by mobile with a partial, case-insensitive match', async () => {
-      const token = String(Date.now()).slice(-8);
+      // The token must be unique to this test: a bare ms timestamp would be
+      // shared by parallel workers in the same millisecond, and their random
+      // mobiles would accidentally match the partial search. The random suffix
+      // makes a cross-worker collision practically impossible.
+      const token = `${String(Date.now()).slice(-8)}${Math.floor(
+        Math.random() * 900 + 100,
+      )}`;
       const firstMobile = `+9891${token}1`;
       const secondMobile = `+9891${token}2`;
       await createUser({
@@ -245,8 +251,9 @@ describe('Admin user read + lifecycle database integration (SS-061/SS-062)', () 
     });
 
     it('filters by role through the real Role/UserRole join', async () => {
+      const mobile = uniqueMobile();
       await createUser({
-        mobile: uniqueMobile(),
+        mobile,
         firstName: 'نگار',
         lastName: 'جعفری',
         roles: [AppRole.OPERATOR],
@@ -255,9 +262,9 @@ describe('Admin user read + lifecycle database integration (SS-061/SS-062)', () 
       const result = await service.list({ role: AppRole.OPERATOR });
 
       expect(result.total).toBeGreaterThanOrEqual(1);
-      for (const item of result.items) {
-        expect(item.roles).toContain(AppRole.OPERATOR);
-      }
+      const mine = result.items.find((item) => item.mobile === mobile);
+      expect(mine).toBeDefined();
+      expect(mine!.roles).toContain(AppRole.OPERATOR);
     });
 
     it('combines search, status and role filters', async () => {

@@ -47,3 +47,11 @@ export {
 export { RoleSummary } from './admin/role';
 
 export { AuditActor, AuditEntry, AuditListQuery } from './admin/audit';
+
+export {
+  DashboardPartnerCounts,
+  DashboardRecentAudit,
+  DashboardRoleCounts,
+  DashboardSummary,
+  DashboardUserCounts,
+} from './admin/dashboard';

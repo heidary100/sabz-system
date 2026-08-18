@@ -591,6 +591,66 @@ Returns a paginated, deterministically ordered audit log.
 
 ---
 
+# 5.6. Admin Dashboard API (SS-065)
+
+A read-only operational dashboard snapshot of already-implemented domains.
+All routes require a JWT access token **and** either the `OPERATOR` or `ADMIN`
+role (`@Roles(OPERATOR, ADMIN)`); `CUSTOMER` and `PARTNER` receive `403`,
+unauthenticated requests receive `401`. There is no `SUPER_ADMIN` role; `ADMIN`
+is the implemented application role. The endpoint is strictly read-only: it
+performs no mutations and writes **no** audit events for querying.
+
+This API is deliberately not an analytics subsystem. It exposes counts and
+bounded recent lists only; revenue, orders, products, inventory, pricing,
+charts, trends, and time-series metrics are out of scope.
+
+GET /admin/dashboard
+
+Returns the operational summary.
+
+- Response:
+  ```json
+  {
+    "users": { "total": 0, "active": 0, "suspended": 0, "locked": 0, "pendingOtp": 0 },
+    "roles": { "customer": 0, "partner": 0, "operator": 0, "admin": 0 },
+    "partners": { "draft": 0, "pending": 0, "approved": 0, "rejected": 0 },
+    "recentPartners": [],
+    "recentAudit": []
+  }
+  ```
+- `users` — counts of non-deleted users by `User.status`. The statuses are
+  mutually exclusive enum values, so `active + suspended + locked + pendingOtp`
+  always equals `total` (the count of all non-deleted users).
+- `roles` — counts of **non-deleted users holding each application role**,
+  regardless of account status (a role on a non-`ACTIVE` account is an inert
+  assignment and is still counted). A user holding multiple roles is counted
+  once in each role bucket; within one bucket a user is never double-counted.
+  Soft-deleted users are excluded.
+- `partners` — counts of non-deleted partners by `Partner.approvalStatus`. The
+  lifecycle states are mutually exclusive, so `draft + pending + approved +
+  rejected` equals the count of all non-deleted partners.
+- `recentPartners` — the **5** most recent partner applications (bounded),
+  including all statuses (`DRAFT`, `PENDING`, `APPROVED`, `REJECTED`).
+  Ordering is deterministic: `submittedAt DESC` (nulls last, so `DRAFT` rows
+  sort after all submitted applications), then `id DESC`. Each item is the
+  lightweight partner summary `{ id, businessName, approvalStatus, city,
+  province, submittedAt, createdAt }`. Sensitive business identifiers
+  (`nationalId`, `businessLicenseNo`), `reviewNotes`, rejection details, tier,
+  and document data are never included.
+- `recentAudit` — the **8** most recent audit entries (bounded), each a compact
+  `{ id, userId, actor, action, entity, entityId, createdAt }`. Ordering is
+  deterministic: `createdAt DESC`, then `id DESC`. `actor` resolution follows
+  the SS-064 policy: soft-deleted actors resolve normally, and a missing actor
+  yields `actor: null` while the raw `userId` is preserved. The `before`/`after`
+  payload blobs and `ipAddress` are **not** exposed on the dashboard.
+- All dates are ISO 8601 UTC strings; no Jalali conversion is performed by the
+  API.
+- The aggregate reads run in a single Prisma transaction for a coherent enough
+  operational snapshot; SERIALIZABLE isolation is intentionally not used.
+- Status codes: `200`, `401`, `403`.
+
+---
+
 # 6. Product API
 
 GET /products
@@ -755,7 +815,8 @@ Issue refund.
 
 GET /admin/dashboard
 
-Dashboard metrics.
+Dashboard metrics. Implemented as the read-only operator/admin operational
+snapshot API — see [Admin Dashboard API](#56-admin-dashboard-api-ss-065).
 
 GET /admin/users
 

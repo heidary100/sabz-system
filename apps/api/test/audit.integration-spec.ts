@@ -6,7 +6,7 @@ import { AuditService } from '../src/modules/audit/audit.service';
 jest.setTimeout(30_000);
 
 function uniqueMobile(): string {
-  return `+989${String(Date.now()).slice(-9)}${Math.floor(Math.random() * 90 + 10)}`;
+  return `+989${String(Date.now()).slice(-9)}${Math.floor(Math.random() * 900_000 + 100_000)}`;
 }
 
 function uniqueUuid(): string {
