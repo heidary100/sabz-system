@@ -376,6 +376,82 @@ Returns the detail for one user.
 
 ---
 
+# 5.3. Admin User Lifecycle API (SS-062)
+
+All routes require a JWT access token and use the same authorization source as
+the [Admin User Read API](#52-admin-user-read-api-ss-061): roles are resolved
+from the database role tables at request time. `suspend` and `unsuspend` allow
+`OPERATOR` and `ADMIN`; `unlock` is `ADMIN` only. `CUSTOMER` and `PARTNER`
+receive `403`.
+
+Each mutation is committed in a single database transaction together with its
+audit event; if the audit write fails the status (and, for suspension, the
+session revocation) rolls back. Lifecycle endpoints never return or write
+`passwordHash`, refresh tokens, token hashes, OTP data, session contents, or
+secrets.
+
+The supported transitions are:
+
+- `ACTIVE → SUSPENDED` (suspend)
+- `SUSPENDED → ACTIVE` (unsuspend)
+- `LOCKED → ACTIVE` (unlock)
+
+There is no administrative `ACTIVE → LOCKED` transition, no direct
+`PENDING_OTP → ACTIVE` activation, and no account deletion. A `PENDING_OTP`,
+`SUSPENDED`, or `LOCKED` target for a transition that does not start from that
+status returns `409 Conflict`.
+
+PATCH /admin/users/{id}/suspend
+
+- Body: `{ "reason"?: string }` (optional, trimmed, maximum 500 characters).
+- Requires the target to exist and not be soft-deleted (`404` otherwise) and to
+  be `ACTIVE` (`409` otherwise).
+- Self-suspension is forbidden (`409`).
+- An `OPERATOR` may not suspend an account holding the `ADMIN` role (`403`);
+  only `ADMIN` may act on `ADMIN` accounts.
+- The system must never reach a state with zero active `ADMIN` users: the last
+  active `ADMIN` cannot be suspended (`409`). The check runs inside the
+  transaction and is concurrency-safe.
+- All non-revoked sessions of the target are revoked in the same transaction.
+  Access tokens are not individually invalidated; they expire within 15 minutes
+  and the JWT strategy rejects any non-`ACTIVE` user, so a suspended account
+  cannot use existing sessions afterwards.
+- Writes the `USER_SUSPENDED` audit event.
+- Status codes: `200`, `400`, `401`, `403`, `404`, `409`.
+
+PATCH /admin/users/{id}/unsuspend
+
+- No body.
+- Requires the target to exist, not be soft-deleted (`404`), and be `SUSPENDED`
+  (`409` otherwise).
+- An `OPERATOR` may not act on an `ADMIN`-role account (`403`).
+- Old sessions are **not** restored; the user authenticates again.
+- Writes the `USER_UNSUSPENDED` audit event.
+- Status codes: `200`, `401`, `403`, `404`, `409`.
+
+PATCH /admin/users/{id}/unlock
+
+- No body. `ADMIN` only (`OPERATOR` → `403`).
+- Requires the target to exist, not be soft-deleted (`404`), and be `LOCKED`
+  (`409` otherwise).
+- Sessions remain revoked; the user authenticates again.
+- Writes the `USER_UNLOCKED` audit event.
+- Status codes: `200`, `401`, `403`, `404`, `409`.
+
+Audit events written by this API:
+
+| Event | before | after |
+| --- | --- | --- |
+| `USER_SUSPENDED` | `{ status }` | `{ status, reason? }` |
+| `USER_UNSUSPENDED` | `{ status }` | `{ status }` |
+| `USER_UNLOCKED` | `{ status }` | `{ status }` |
+
+The audit `userId` is the operator/admin performing the mutation; `entity` is
+`User` and `entityId` is the target user id. The request IP is recorded when
+available. Audit payloads never contain secrets or tokens.
+
+---
+
 # 6. Product API
 
 GET /products
@@ -545,7 +621,8 @@ Dashboard metrics.
 GET /admin/users
 
 Manage users. Implemented as the paginated operator/admin read API — see
-[Admin User Read API](#52-admin-user-read-api-ss-061).
+[Admin User Read API](#52-admin-user-read-api-ss-061) — plus the account
+lifecycle endpoints — see [Admin User Lifecycle API](#53-admin-user-lifecycle-api-ss-062).
 
 GET /admin/partners
 

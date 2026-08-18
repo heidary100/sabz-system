@@ -93,8 +93,10 @@ Any ACTIVE state ──► soft delete (deleted_at set, record hidden)
 | SUSPENDED | ACTIVE | Account unsuspended | Operator / Administrator (ADMIN) | Account unsuspended |
 | Any active state | (soft-deleted) | Delete / anonymization request | Administrator (ADMIN) | Account deletion |
 
-> The unlock/suspend/delete transitions are **future** workflows (not yet
-> implemented); the implemented admin role is `ADMIN` (no `SUPER_ADMIN`).
+> **Implemented (SS-062):** the suspend, unsuspend, and unlock workflows below
+> (`USER_SUSPENDED`, `USER_UNSUSPENDED`, `USER_UNLOCKED`). The
+> `ACTIVE → LOCKED` automatic lockout transition and account deletion remain
+> future work. The implemented admin role is `ADMIN` (no `SUPER_ADMIN`).
 
 ---
 
@@ -104,12 +106,16 @@ Any ACTIVE state ──► soft delete (deleted_at set, record hidden)
 - Lockout threshold, lockout duration, and unlock policy follow the security requirements in the Authentication Specification (§11).
 - A password reset invalidates existing sessions; the account remains in its current state.
 - Soft-deleted accounts are hidden from queries but retained for audit and referential integrity (see [Identity Data Model](identity-data-model.md) §4).
-- Only operators and administrators may suspend accounts; only Super Administrators may assign roles or unlock accounts (AUTH-006, Authentication Specification §9).
+- Only operators and administrators may suspend accounts (SS-062). An operator may not act on an `ADMIN`-role account; only `ADMIN` may suspend/unsuspend/unlock an `ADMIN` account and only `ADMIN` may unlock accounts (AUTH-006 scope; see the Roles & Permissions Matrix §10).
 
-  > **Status: known gap / deferred.** Account suspension, lockout/unlock, and
-  > role assignment workflows are not yet implemented. There is no `SUPER_ADMIN`
-  > role; the implemented admin role is `ADMIN`. AUTH-006 is preserved as a
-  > future requirement (see Roles & Permissions Matrix §10).
+  > **Implemented (SS-062):** suspension, unsuspension, and unlock are live via
+  > the [Admin User Lifecycle API](../05-api/api-specification.md#53-admin-user-lifecycle-api-ss-062).
+  > There is no `SUPER_ADMIN` role; the implemented admin role is `ADMIN`.
+  > AUTH-006's remaining role-assignment portion is addressed by SS-063.
+
+- Suspending an account revokes all of its non-revoked sessions atomically with the status change. Access tokens are not individually invalidated; the JWT strategy rejects any non-`ACTIVE` user on subsequent requests and refresh is denied for revoked sessions.
+- Unsuspending or unlocking does **not** restore previous sessions; the user authenticates again.
+- The system must never reach a state with zero active `ADMIN` users (last-active-ADMIN invariant). Self-suspension is forbidden and the last active `ADMIN` cannot be suspended; the check is enforced inside the mutation transaction.
 
 ---
 

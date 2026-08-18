@@ -41,4 +41,5 @@ export {
   AdminUserRoleSummary,
   AdminUserSummary,
   UserListQuery,
+  UserStatusChangeInput,
 } from './admin/user';

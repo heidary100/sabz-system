@@ -451,6 +451,18 @@ implemented scope; the platform does not introduce a `SUPER_ADMIN` role.
 Unauthenticated requests return `401`; `CUSTOMER` and `PARTNER` return `403`.
 The backend is the security boundary — client-side admin checks are UX only.
 
+## User Lifecycle Authorization (SS-062)
+
+The admin user lifecycle API (`PATCH /admin/users*`) is implemented with:
+
+- Suspend / unsuspend: `OPERATOR` / `ADMIN`
+- Unlock: `ADMIN` only
+
+An `OPERATOR` may not act on an `ADMIN`-role account (`403`), consistent with
+the "Operators cannot change administrator roles" restriction. Self-suspension
+and suspension of the last active `ADMIN` are rejected with `409`. See
+[Admin User Lifecycle API](../05-api/api-specification.md#53-admin-user-lifecycle-api-ss-062).
+
 ---
 
 # 11. Future Roles
