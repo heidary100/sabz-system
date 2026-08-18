@@ -4,6 +4,7 @@ import { RequireAuth } from '../auth/require-auth'
 import { RequireRole } from '../auth/require-role'
 import { AdminLayout } from '../layouts/admin-layout'
 import { AccessDeniedPage } from '../pages/access-denied-page'
+import { AuditPage } from '../pages/audit-page'
 import { DashboardPage } from '../pages/dashboard-page'
 import { LoginPage } from '../pages/login-page'
 import { PartnerDetailPage } from '../pages/partner-detail-page'
@@ -73,6 +74,14 @@ export default function App() {
               element={
                 <RequireRole roles={['ADMIN']}>
                   <RolesPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="audit"
+              element={
+                <RequireRole roles={ADMIN_ROLES}>
+                  <AuditPage />
                 </RequireRole>
               }
             />
