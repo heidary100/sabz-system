@@ -856,21 +856,64 @@ Business reports.
 
 # 14. Product Administration
 
+GET /admin/products
+
+Retrieve paginated product list. Query params: `page` (default 1), `limit`
+(default 20, max 100), `search` (case-insensitive contains on name/slug),
+`status`, `categoryId`, `brandId`. Response is a `PaginatedResult<ProductSummary>`.
+Ordering is deterministic: `createdAt DESC`, then `id DESC`. Soft-deleted
+products are always excluded.
+
+GET /admin/products/{id}
+
+Retrieve a single `ProductDetail` (includes `brand`, `category`, `variants`
+and `media`). Missing, invalid-UUID, or soft-deleted products return 404.
+No internal fields (`storageKey`, `logoKey`, `deletedAt`, `createdBy`,
+`updatedBy`) are exposed; Decimal fields are serialized as strings.
+
 POST /admin/products
 
-Create product.
+Create a product. Body uses the `CreateProductInput` contract. Every product
+starts as `DRAFT` regardless of any submitted `status` (a non-`DRAFT` status is
+rejected with 400); publication is an explicit lifecycle action. `slug` is
+generated from `name` when omitted. Invalid or soft-deleted `brandId`/
+`categoryId` return 404. Duplicate slug returns 409. Audits `PRODUCT_CREATED`.
 
 PATCH /admin/products/{id}
 
-Update product.
+Update product business fields (`name`, `slug`, `shortDescription`,
+`description`, `brandId`, `categoryId`, `warranty`, `condition`, weight/
+dimensions, `originCountry`). `status` is not editable through PATCH — lifecycle
+transitions happen only via the publish/archive endpoints. An archived product
+cannot be updated (409). Duplicate slug returns 409. Audits `PRODUCT_UPDATED`
+with only the changed business fields.
 
 DELETE /admin/products/{id}
 
-Archive product.
+Soft-delete a product (`deletedAt` set; no hard delete; no cascade to variants/
+media). Only `ARCHIVED` products may be deleted (other statuses return 409).
+Audits `PRODUCT_DELETED`. The response is the last-known product detail.
 
-POST /admin/products/{id}/restore
+POST /admin/products/{id}/publish
 
-Restore archived product.
+Transition `DRAFT → PUBLISHED`. Requires at least one non-deleted variant
+(otherwise 409). A product that is not `DRAFT` returns 409. Conditional and
+race-safe. Audits `PRODUCT_PUBLISHED`.
+
+POST /admin/products/{id}/archive
+
+Transition `PUBLISHED → ARCHIVED`. A product that is not `PUBLISHED` returns
+409. Conditional and race-safe. Audits `PRODUCT_ARCHIVED`.
+
+Authorization: all product administration endpoints require `OPERATOR` or
+`ADMIN` (`JwtAuthGuard` + `RolesGuard`). There is no SUPER_ADMIN role.
+
+Pricing boundary: `Product` has no price and no SKU; the retail/base price and
+the sellable SKU live on `ProductVariant` (created in SS-104). Tier pricing,
+discounts and pricing rules are out of scope for SS-102.
+
+Deferred: categories/brands CRUD (SS-103), variant CRUD (SS-104), product
+media/storage (SS-105), storefront/public product APIs.
 
 ---
 
