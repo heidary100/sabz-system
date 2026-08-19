@@ -132,46 +132,70 @@ paths are never exposed as public URLs.
 ```
 Product
 +-- id: UUID
-+-- title: string
-+-- slug: string
-+-- description: text
-+-- status: ProductStatus (DRAFT, PUBLISHED, ARCHIVED)
-+-- sku: string
-+-- categoryId: UUID
-+-- brandId: UUID
++-- name: string
++-- slug: string (unique)
++-- shortDescription: string?
++-- description: text?
++-- condition: ProductCondition (NEW | OPEN_BOX | REFURBISHED | USED | STOCK_CLEARANCE)
++-- status: ProductStatus (DRAFT | PUBLISHED | ARCHIVED)
++-- brandId: UUID (required)
++-- categoryId: UUID (required)
++-- warranty: string?
++-- weightKg / widthCm / heightCm / depthCm: decimal?
++-- originCountry: string?
 +-- createdAt: DateTime
-|
++|
 +-- Category
-|   +-- id: UUID
-|   +-- name: string
-|   +-- slug: string
-|   +-- parentId: UUID (self-referencing)
-|   +-- sortOrder: int
-|
++|   +-- id: UUID
++|   +-- name: string
++|   +-- slug: string (unique)
++|   +-- parentId: UUID (self-referencing, unlimited depth)
++|   +-- sortOrder: int
++|   +-- isVisible: boolean
++|
 +-- Brand
-|   +-- id: UUID
-|   +-- name: string
-|   +-- slug: string
-|
++|   +-- id: UUID
++|   +-- name: string
++|   +-- slug: string (unique)
++|   +-- description: string?
++|   +-- logoKey: string? (storage reference; binary in SS-105)
++|   +-- isFeatured: boolean
++|
++-- ProductVariant (owns the sellable SKU + retail/base price)
++|   +-- id: UUID
++|   +-- productId: UUID
++|   +-- sku: string (unique, variant-owned)
++|   +-- barcode: string?
++|   +-- name: string? (display label only; attributes deferred to SS-104)
++|   +-- price: decimal(12,2) (retail/base price)
++|   +-- stockQuantity: int (M1 catalog availability snapshot; EPIC-006 owns real inventory)
++|
 +-- ProductMedia
-|   +-- id: UUID
-|   +-- url: string
-|   +-- type: MediaType (IMAGE, VIDEO)
-|   +-- sortOrder: int
-|   +-- isWatermarked: boolean
-|
-+-- ProductSpecification
-|   +-- id: UUID
-|   +-- key: string
-|   +-- value: string
-|
-+-- Inventory
-    +-- id: UUID
-    +-- quantity: int
-    +-- reservedQuantity: int
-    +-- warehouseId: UUID
-    +-- status: StockStatus (IN_STOCK, LOW_STOCK, OUT_OF_STOCK)
++|   +-- id: UUID
++|   +-- productId: UUID (required; product-owned)
++|   +-- variantId: UUID? (optional variant link)
++|   +-- mediaType: ProductMediaType (IMAGE | VIDEO)
++|   +-- originalName / mimeType / sizeBytes
++|   +-- storageKey: string (unique, server-generated; binary outside DB)
++|   +-- sortOrder: int
++|   +-- isPrimary: boolean
++|
++-- ProductSpecification (deferred to SS-104)
++|
++-- Inventory (EPIC-006)
++    +-- id: UUID
++    +-- quantity: int
++    +-- reservedQuantity: int
++    +-- warehouseId: UUID
++    +-- status: StockStatus (IN_STOCK, LOW_STOCK, OUT_OF_STOCK)
 ```
+
+> **SS-100 notes:** the sellable SKU is owned by **ProductVariant** — Product has
+> no SKU. The variant retail/base price lives on ProductVariant. `stockQuantity`
+> is a temporary M1 snapshot, not the EPIC-006 system of record. ProductMedia is
+> product-owned with an optional `variantId`; its binary contents are stored
+> behind a Product-domain storage abstraction (SS-105), not the Partner
+> `DocumentStorage`. Product lifecycle in M1 is `DRAFT → PUBLISHED → ARCHIVED`.
 
 ---
 
@@ -251,7 +275,9 @@ BlogPost
 | PartnerDocumentType | BUSINESS_LICENSE, NATIONAL_ID, TAX_REGISTRATION, SUPPORTING |
 | Role | CUSTOMER, PARTNER, OPERATOR, ADMIN (role names stored in the Role table; sole authorization source) |
 | ProductStatus | DRAFT, PUBLISHED, ARCHIVED |
-| StockStatus | IN_STOCK, LOW_STOCK, OUT_OF_STOCK |
+| ProductCondition | NEW, OPEN_BOX, REFURBISHED, USED, STOCK_CLEARANCE |
+| ProductMediaType | IMAGE, VIDEO |
+| StockStatus | IN_STOCK, LOW_STOCK, OUT_OF_STOCK (EPIC-006) |
 | OrderStatus | PENDING, CONFIRMED, PROCESSING, SHIPPED, DELIVERED, CANCELLED, RETURNED |
 | PaymentStatus | PENDING, SUCCESS, FAILED, REFUNDED |
 | ShippingStatus | PENDING, PICKED_UP, IN_TRANSIT, OUT_FOR_DELIVERY, DELIVERED |

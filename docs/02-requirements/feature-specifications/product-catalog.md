@@ -559,7 +559,45 @@ Negative Tests
 
 ---
 
-# 16. Definition of Done
+# 16. Applied Schema Notes (SS-100)
+
+The following are the applied EPIC-005 schema decisions established by SS-100.
+They record how the feature spec is realized in the current Prisma schema:
+
+1. **SKU is owned by ProductVariant.** The sellable SKU lives on `ProductVariant`
+   (unique). Product has **no** sellable SKU field. This overrides any earlier
+   reading of CATALOG-002 that implied a product-level SKU; the purchasable unit
+   is the variant.
+2. **ProductVariant owns the retail/base price** (`Decimal(12,2)`). Tier pricing,
+   discounts, `PricingRule`, promotions, and bulk pricing are **not** part of
+   EPIC-005 and are deferred.
+3. **`ProductVariant.stockQuantity` is a temporary M1 catalog availability
+   snapshot**, not the future EPIC-006 inventory system of record (warehouses,
+   reservations, movements/history, receiving, returns, reorder, reporting).
+4. **ProductMedia uses a separate product-domain storage boundary.** Metadata
+   lives in PostgreSQL (`storageKey` server-generated and unique); binaries live
+   behind the Product-domain `ProductMediaStorage` abstraction (SS-105). The
+   Partner `DocumentStorage` is not reused.
+5. **Product lifecycle in M1 is `DRAFT → PUBLISHED → ARCHIVED`.** The optional
+   Pending Review workflow is not implemented. `HIDDEN` is not in M1 and may be
+   added later as a forward enum migration.
+6. **No tier pricing in EPIC-005.**
+7. **`ProductVariant.name` is a display label only**; configurable attributes
+   (color/capacity/size/etc.) are deferred to SS-104. No EAV or
+   `ProductAttribute`/`ProductAttributeValue` tables exist in SS-100.
+8. **Category uses one required `categoryId` on Product** in M1 (no
+   `ProductCategory` junction table).
+9. **ProductMedia is Product-owned** (`productId` required) with an optional
+   `variantId` for variant-specific media.
+
+The first-image-primary rule (CATALOG-006) and product publish invariants
+(at least one variant, required data) are **application-level** invariants
+enforced in later issues (SS-102/SS-103/SS-104/SS-105); the schema stores the
+fields required for those validations (`isPrimary`, `sortOrder`, etc.).
+
+---
+
+# 17. Definition of Done
 
 The Product Catalog module is complete when:
 
