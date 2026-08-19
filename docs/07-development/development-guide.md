@@ -221,6 +221,37 @@ retry, Jalali dates, missing-actor fallback, Persian labels, sanitized
 before/after, no secrets, IP in dialog only, 401 refresh, RTL/pagination
 direction, no persistence, no console logging).
 
+## Admin Dashboard UI (SS-068)
+
+The admin dashboard builds on the SS-065 read-only operational snapshot API
+(`GET /admin/dashboard`, `OPERATOR`/`ADMIN` only). As with all admin frontend,
+role gating is UX only — the SS-065 API remains the authorization and
+data-access boundary.
+
+- `/dashboard` (`DashboardPage`, `RequireRole roles={ADMIN_ROLES}`): a compact
+  operational snapshot. Sidebar label: «پیشخوان».
+- Major sections: user statistics (total / active / suspended / locked /
+  pending-OTP), role distribution (assigned roles regardless of account
+  status), partner lifecycle funnel (draft / pending / approved / rejected —
+  a current-state snapshot, not a time-series), recent partner applications
+  (max 5, rows link to `/partners/:id`), and recent audit activity (max 8,
+  actor/action/entity only — no before/after, no IP).
+- Data source of truth is `GET /admin/dashboard`; the page performs no
+  client-side metric computation. A manual «به‌روزرسانی» button refetches;
+  there is no polling or auto-refresh.
+- Dashboard data lives in React memory only — never persisted to
+  localStorage/sessionStorage/IndexedDB, and never logged to the console.
+- New `services/dashboard.ts` reuses `request()`; state hook
+  `use-dashboard.ts`; dashboard-local `StatCard` primitive and recent-list
+  components under `components/dashboard/`; labels/badges/format helpers are
+  reused from `lib/` and the partner/user/audit components.
+
+Manual acceptance: see the SS-068 checklist in the issue (ADMIN/OPERATOR
+access, all metric blocks, partner badge consistency, partner row navigation,
+view-all links, audit labels, missing-actor fallback, empty recent lists,
+loading/error/retry, 401 refresh, 403 message, refresh button, RTL/Persian,
+no persistence, no console logging).
+
 
 ---
 
