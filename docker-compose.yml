@@ -84,10 +84,17 @@ services:
       # implemented (SS-038); object-storage drivers are future work.
       DOCUMENT_STORAGE_DRIVER: ${DOCUMENT_STORAGE_DRIVER:-local}
       DOCUMENT_STORAGE_DIR: /app/.data/documents
+      # Product media storage (SS-105). Pinned directory: the api_product_media
+      # named volume is mounted at exactly this path, so it must not be
+      # overridden independently of that mount. Only the local driver is
+      # implemented; object storage is future work.
+      PRODUCT_MEDIA_STORAGE_DRIVER: ${PRODUCT_MEDIA_STORAGE_DRIVER:-local}
+      PRODUCT_MEDIA_STORAGE_DIR: /app/.data/product-media
     volumes:
       - ./apps/api:/app/apps/api
       - api_node_modules:/app/apps/api/node_modules
       - api_documents:/app/.data/documents
+      - api_product_media:/app/.data/product-media
     depends_on:
       postgres:
         condition: service_healthy
@@ -131,3 +138,6 @@ volumes:
   # Persistent local development storage for business documents. Mounted at
   # /app/.data/documents in the API container (see DOCUMENT_STORAGE_DIR).
   api_documents:
+  # Persistent local development storage for product media. Mounted at
+  # /app/.data/product-media in the API container (see PRODUCT_MEDIA_STORAGE_DIR).
+  api_product_media:

@@ -737,6 +737,85 @@ product variant API and the EPIC-005 minimal inventory boundary.
 
 ---
 
+# 17C. Applied Decisions — SS-105 (Product Media API & Storage Foundation)
+
+The following decisions were resolved while implementing the operator/admin
+product media API and the Product-domain media storage abstraction.
+
+1. **Product-domain storage abstraction.** A separate `ProductMediaStorage`
+   abstraction (`put`/`get`/`delete`) is introduced under
+   `apps/api/src/modules/products/storage/` with a `LocalDiskMediaStorage`
+   implementation. It is deliberately **not** the Partner `DocumentStorage`
+   (SS-038/039): partner documents and product media have different security
+   and lifecycle semantics, and the SS-100 schema note records this
+   product-specific storage boundary. No S3 dependency is added; object storage
+   is future work behind the same seam.
+2. **Storage security.** The `storageKey` is server-generated
+   (`products/<productId>/<mediaId>.<ext>`), never derived from the client
+   filename. `originalName` is sanitized and display-only. The local-disk
+   implementation rejects traversal, absolute paths, Windows drive paths,
+   backslashes, NUL bytes, and any root escape. `storageKey`, absolute paths,
+   and the storage root are never exposed in responses, audit payloads, or
+   errors.
+3. **Validation.** Images JPG/PNG/WEBP and video MP4 (from the product-catalog
+   spec) are accepted. Images are validated by MIME + magic bytes; MP4 is
+   validated by MIME + the ISOBMFF `ftyp` container signature only — no
+   codec/stream validation (no media parser exists in M1). A single 10 MB cap
+   applies to all media, enforced at both the multipart interceptor and the
+   service. A declared `mediaType` that contradicts the detected content is
+   rejected.
+4. **Primary-image semantics (CATALOG-006).** The first uploaded IMAGE
+   automatically becomes primary; only one IMAGE may be primary; videos are
+   never primary. The invariant is enforced transactionally by row-locking the
+   owning product (`SELECT ... FOR UPDATE`) so concurrent first-uploads
+   serialize and cannot produce two primaries. Uploading the first image with
+   `isPrimary: false` is rejected (409) so a product can never have zero
+   primary images. Deleting the primary promotes the next image by `sortOrder`
+   inside the same transaction.
+5. **Ordering.** `sortOrder` is server-generated (incrementing per product) and
+   is not client-controlled in SS-105. A dedicated reorder endpoint and primary
+   switching are deferred; they are not part of this issue.
+6. **Deletion / retention.** `DELETE /admin/media/:id` soft-deletes the
+   `ProductMedia` row (with audit) transactionally, then removes the binary
+   post-commit; a binary-removal failure is logged, never rolled back after the
+   DB commit (the SS-039 filesystem/DB consistency model). Uploads write the
+   binary first and best-effort clean the orphaned binary if the DB write
+   fails. Deleting variant-associated media does not delete the variant.
+7. **Variant association.** A supplied `variantId` must exist, not be
+   soft-deleted, and belong to the same product (404 otherwise). No
+   variant-specific media business logic beyond this relationship.
+8. **Product state gating.** Media uploads require the product to exist and not
+   be soft-deleted (404) and not be `ARCHIVED` (409), matching the variant
+   mutation rule.
+9. **Audit events.** `PRODUCT_MEDIA_UPLOADED` and `PRODUCT_MEDIA_REMOVED`.
+   Payloads contain only safe metadata (product/variant ids, media type, MIME,
+   size, sortOrder/isPrimary). No `PRODUCT_MEDIA_PRIMARY_CHANGED` event is
+   introduced because primary changes are side effects of upload/delete and are
+   captured by those events. `storageKey` and filesystem paths are never
+   included.
+10. **Endpoints.** `POST /admin/products/:productId/media`, `GET
+    /admin/products/:productId/media`, `GET
+    /admin/products/:productId/media/:mediaId`, and `DELETE /admin/media/:id`.
+    All require `OPERATOR`/`ADMIN`. The product-scoped media list is provided as
+    an independent contract; `ProductDetail.media` (SS-102) is unchanged and
+    reflects only active media ordered by `sortOrder`.
+11. **Deferred processing.** Watermarking (CATALOG-007), image optimization,
+    thumbnail generation, and video transcoding are **not** implemented in
+    SS-105. No `isWatermarked`/processing fields are added to the schema, and no
+    sharp/ffmpeg/queue/worker dependency is introduced. These remain M2 work.
+12. **No public delivery.** SS-105 exposes only authenticated admin
+    download/preview. No public URLs, CDN, or storefront media APIs are added;
+    the `ProductMediaStorage` interface stays minimal (`put`/`get`/`delete`)
+    with no signed-URL generation. Public/storefront delivery can introduce a
+    public-media adapter later without changing Product business logic.
+13. **Shared types.** `ProductMediaSummary` (SS-101) fully covers the JSON
+    metadata response; no new `@sabz/types` contract is introduced.
+14. **Environment.** New `PRODUCT_MEDIA_STORAGE_DRIVER`/`DIR` variables follow
+    the `DOCUMENT_*` conventions, and a dedicated `api_product_media` named
+    volume persists media at `/app/.data/product-media` inside Docker Compose.
+
+---
+
 # 18. Definition of Done
 
 The Product Catalog module is complete when:
