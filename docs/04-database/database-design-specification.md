@@ -457,32 +457,43 @@ Purpose
 
 Represents a sellable item.
 
+> **SKU ownership (SS-100):** the sellable SKU is owned by **ProductVariant**,
+> not by Product. Product has **no** `sku` field. See ProductVariant below.
+
 Fields
 
 - id
-- sku
-- title
+- name
 - slug
 - short_description
 - description
 - brand_id
 - category_id
 - warranty
-- status
+- condition (`NEW`, `OPEN_BOX`, `REFURBISHED`, `USED`, `STOCK_CLEARANCE`)
+- status (`DRAFT`, `PUBLISHED`, `ARCHIVED`)
+- weight_kg
+- width_cm
+- height_cm
+- depth_cm
+- origin_country
 
 Relationships
 
-- One Product → Many Images
-- One Product → Many Videos
 - One Product → Many Variants
-- One Product → Many Inventory Records
-- One Product → Many Pricing Rules
+- One Product → Many Media
+- Many Products → One Brand
+- Many Products → One Category (single required `category_id`, M1 decision)
 
 Business Rules
 
-- SKU must be unique.
 - Slug must be unique.
 - Archived products cannot be purchased.
+- Product lifecycle in M1 is `DRAFT → PUBLISHED → ARCHIVED`. No Pending Review
+  workflow; `HIDDEN` is not part of M1 and may be added later as a forward
+  enum migration.
+- A product must have at least one variant before publication — an
+  **application-level invariant** (the schema alone cannot enforce it).
 
 ---
 
@@ -492,11 +503,10 @@ Purpose
 
 Represents a purchasable variation of a product.
 
-Examples
-
-- Capacity
-- Color
-- Size
+> **SKU ownership (SS-100):** ProductVariant owns the sellable `sku` (unique).
+> Product has no SKU. `price` is the retail/base price (`Decimal(12,2)`).
+> `stockQuantity` is a **temporary M1 catalog availability snapshot**, not the
+> eventual EPIC-006 inventory system of record (see Inventory Boundary below).
 
 Fields
 
@@ -504,12 +514,20 @@ Fields
 - product_id
 - sku
 - barcode
-- option_values
+- name (display label only; configurable attributes deferred to SS-104)
+- price (retail/base price, `Decimal(12,2)`)
+- stock_quantity (`Int`, default `0`)
+
+Relationships
+
+- Many Variants → One Product
+- One Variant → Many Media (optional)
 
 Business Rules
 
-- Each variant has independent inventory.
-- Each variant may have independent pricing.
+- Each variant has an independent retail/base price.
+- `stockQuantity` must conceptually never be negative (application-level
+  invariant, enforced from SS-103/SS-104; no DB CHECK in SS-100).
 
 ---
 
@@ -522,15 +540,98 @@ Organizes products into a hierarchical catalog.
 Fields
 
 - id
-- parent_id
-- title
+- name
 - slug
+- parent_id (self-referencing, unlimited logical depth)
 - sort_order
+- is_visible
+
+Relationships
+
+- Self-referencing tree via `parent_id`
+- One Category → Many Products
 
 Business Rules
 
-- Unlimited nesting supported.
+- Unlimited nesting supported; no fixed-depth restriction.
 - Slugs must be unique.
+
+---
+
+## Brand
+
+Purpose
+
+Product manufacturer/brand classification.
+
+Fields
+
+- id
+- name
+- slug
+- description
+- logo_key (storage reference only; binary storage belongs to SS-105)
+- is_featured
+
+Relationships
+
+- One Brand → Many Products
+
+Business Rules
+
+- Brand slugs must be unique.
+- `logo_key` is a server-generated storage reference; no public URL is stored.
+
+---
+
+## ProductMedia
+
+Purpose
+
+Images and videos attached to a product (and optionally a variant).
+
+> **Storage boundary (SS-100):** Product media uses a Product-domain-specific
+> storage abstraction. `storage_key` is server-generated and never derived from
+> the client filename; the binary contents live outside PostgreSQL behind that
+> abstraction (local disk + future S3 seam). SS-100 establishes only the schema
+> boundary; the `ProductMediaStorage` provider is implemented in SS-105.
+
+Fields
+
+- id
+- product_id
+- variant_id (optional)
+- media_type (`IMAGE`, `VIDEO`)
+- original_name
+- mime_type
+- size_bytes
+- storage_key (unique, server-generated)
+- sort_order
+- is_primary
+
+Relationships
+
+- Many Media → One Product
+- Many Media → One Variant (optional)
+
+Business Rules
+
+- `storage_key` must be unique at the database level.
+- The first image is the primary thumbnail; `is_primary`/`sort_order` are
+  application-level invariants (enforced in SS-105).
+- Storage paths are never exposed as public URLs.
+
+---
+
+## Inventory Boundary (SS-100 vs EPIC-006)
+
+`ProductVariant.stock_quantity` is a **temporary M1 catalog availability
+snapshot**. It is **not** the future inventory system of record.
+
+EPIC-006 will own: warehouses, multi-warehouse stock, reservations, inventory
+movements/history, receiving, returns, reorder workflows, and inventory
+reporting. EPIC-006 may later replace `stock_quantity` or maintain it as a
+denormalized projection, keyed by the stable `variant_id`.
 
 ---
 
@@ -828,6 +929,23 @@ Indexes should exist for:
 - Business document partner + deleted_at (composite)
 
 Composite indexes should be used where appropriate for filtering and reporting.
+
+Catalog indexes (SS-100):
+
+- `Category.slug` (unique)
+- `Category.parent_id`
+- `Category (is_visible, deleted_at)`
+- `Brand.slug` (unique)
+- `Product.slug` (unique)
+- `Product (status, deleted_at)`
+- `Product (category_id, deleted_at)`
+- `Product (brand_id, deleted_at)`
+- `ProductVariant.sku` (unique)
+- `ProductVariant (product_id, deleted_at)`
+- `ProductMedia.storage_key` (unique)
+- `ProductMedia (product_id, deleted_at)`
+- `ProductMedia (product_id, sort_order)`
+- `ProductMedia (variant_id)`
 
 ---
 

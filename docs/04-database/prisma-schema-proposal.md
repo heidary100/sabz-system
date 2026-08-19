@@ -291,6 +291,152 @@ model BusinessDocument {
 
 ---
 
+# Product Catalog Domain (SS-100)
+
+This section documents the applied product catalog schema (SS-100), the EPIC-005
+Prisma foundation. It is **documentation only** and reflects the applied
+migration `ss_100_product_catalog_foundation`.
+
+Design decisions:
+
+1. **SKU is owned by ProductVariant.** Product has no sellable SKU; `ProductVariant.sku` is unique.
+2. **Retail/base price on ProductVariant** (`Decimal(12,2)`). No tier pricing, discounts, or `PricingRule` in EPIC-005.
+3. **`ProductVariant.stockQuantity` is an M1 catalog availability snapshot**, not the EPIC-006 inventory system of record.
+4. **ProductMedia has its own product-domain storage boundary** (`storageKey` server-generated, unique); the `ProductMediaStorage` provider is SS-105, not the Partner `DocumentStorage`.
+5. **Product lifecycle in M1 is `DRAFT → PUBLISHED → ARCHIVED`.** No Pending Review; `HIDDEN` is future.
+6. **No tier pricing** in EPIC-005.
+7. **`ProductVariant.name` is a display label only**; configurable attributes are deferred to SS-104 (no EAV/`ProductAttribute`/`ProductAttributeValue` in SS-100).
+8. **Category uses one required `categoryId` on Product** in M1 (no junction table).
+9. **ProductMedia is Product-owned** with an optional `variantId`.
+
+```prisma
+enum ProductStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum ProductCondition {
+  NEW
+  OPEN_BOX
+  REFURBISHED
+  USED
+  STOCK_CLEARANCE
+}
+
+enum ProductMediaType {
+  IMAGE
+  VIDEO
+}
+
+model Category {
+  id         String    @id @default(uuid())
+  name       String
+  slug       String    @unique
+  parentId   String?
+  parent     Category? @relation("CategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children   Category[] @relation("CategoryTree")
+  sortOrder  Int       @default(0)
+  isVisible  Boolean   @default(true)
+  products   Product[]
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime?
+  createdBy  String?
+  updatedBy  String?
+  @@index([parentId])
+  @@index([isVisible, deletedAt])
+}
+
+model Brand {
+  id          String    @id @default(uuid())
+  name        String
+  slug        String    @unique
+  description String?
+  logoKey     String?
+  isFeatured  Boolean   @default(false)
+  products    Product[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  createdBy   String?
+  updatedBy   String?
+}
+
+model Product {
+  id               String            @id @default(uuid())
+  name             String
+  slug             String            @unique
+  shortDescription String?
+  description      String?
+  brandId          String
+  brand            Brand             @relation(fields: [brandId], references: [id])
+  categoryId       String
+  category         Category          @relation(fields: [categoryId], references: [id])
+  warranty         String?
+  condition        ProductCondition
+  status           ProductStatus     @default(DRAFT)
+  weightKg         Decimal?          @db.Decimal(8, 3)
+  widthCm          Decimal?          @db.Decimal(8, 2)
+  heightCm         Decimal?          @db.Decimal(8, 2)
+  depthCm          Decimal?          @db.Decimal(8, 2)
+  originCountry    String?
+  variants         ProductVariant[]
+  media            ProductMedia[]
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  deletedAt        DateTime?
+  createdBy        String?
+  updatedBy        String?
+  @@index([status, deletedAt])
+  @@index([categoryId, deletedAt])
+  @@index([brandId, deletedAt])
+}
+
+model ProductVariant {
+  id            String          @id @default(uuid())
+  productId     String
+  product       Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  sku           String          @unique
+  barcode       String?
+  name          String?
+  price         Decimal         @db.Decimal(12, 2)
+  stockQuantity Int             @default(0)
+  media         ProductMedia[]
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  deletedAt     DateTime?
+  createdBy     String?
+  updatedBy     String?
+  @@index([productId, deletedAt])
+}
+
+model ProductMedia {
+  id           String            @id @default(uuid())
+  productId    String
+  product      Product           @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variantId    String?
+  variant      ProductVariant?   @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  mediaType    ProductMediaType
+  originalName String
+  mimeType     String
+  sizeBytes    Int
+  storageKey   String            @unique
+  sortOrder    Int               @default(0)
+  isPrimary    Boolean           @default(false)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  deletedAt    DateTime?
+  createdBy    String?
+  updatedBy    String?
+  @@index([productId, deletedAt])
+  @@index([productId, sortOrder])
+  @@index([variantId])
+}
+```
+
+---
+
 # Future Authentication Methods
 
 `passwordHash` is nullable. When passwordless OTP login or OAuth (Google/Apple) is introduced, add a `UserAuthMethod` child model:
