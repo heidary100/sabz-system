@@ -642,6 +642,54 @@ notes with API-level behavior.
 
 ---
 
+# 17A. Applied Decisions — SS-103 (Admin Category & Brand API)
+
+The following decisions were resolved while implementing the operator/admin
+category and brand administration API (SS-103). They extend the SS-100/SS-101
+schema notes with API-level behavior.
+
+1. **Module placement.** Categories and Brands live inside the existing
+   `ProductsModule` (one controller + one service per resource). No separate
+   module and no generic catalog abstraction.
+2. **Slug.** `slug` is optional on create and generated deterministically from
+   `name` when omitted (lowercase, runs of non-alphanumeric characters collapsed
+   to a hyphen, trimmed, capped at 255 chars; falls back to a `<entity>-<random>`
+   suffix when the sanitized name is empty). The tiny pure helper is shared with
+   `ProductsService` via `apps/api/src/modules/products/slug.ts`. Duplicate slug
+   returns 409, including under P2002 races. `slug` may be changed via PATCH.
+3. **Uniqueness.** Only `slug` is unique. Duplicate category names are allowed
+   (even under the same parent); no name-uniqueness constraint is added.
+4. **Category hierarchy.** Unlimited depth. `parentId: null` means root.
+   Self-parenting is rejected (409). Moving a category under one of its own
+   descendants is rejected (409) via an application-level ancestor walk inside
+   the transaction. A soft-deleted parent cannot be referenced (404).
+5. **Category delete.** Soft-delete only (`deletedAt`/`updatedBy`; no hard
+   delete, no cascade). Deletion is rejected with 409 when the category has
+   non-deleted children or is referenced by non-deleted products. Children are
+   not auto-re-parented.
+6. **Brand delete.** Soft-delete only. Deletion is rejected with 409 when the
+   brand is referenced by non-deleted products (required `Product.brandId` FK).
+7. **Brand `isFeatured`.** `isFeatured` is part of the product-catalog
+   requirement (featured brands) and is administrable in SS-103: it is returned
+   by GET list/detail and accepted on create/update. It defaults to `false`.
+   `logoKey` is **not** exposed or accepted in SS-103; brand logo/media belongs
+   to SS-105.
+8. **List filters.** Category and brand lists support pagination only. The
+   shared `CategoryListQuery`/`BrandListQuery` contracts carry `page`/`limit`
+   and no search or filter fields; none are added.
+9. **Projections.** Explicit Prisma `select` projections only. Responses never
+   expose `logoKey`, `deletedAt`, `createdBy`, `updatedBy` (or `storageKey`).
+   `CategoryDetail` returns exactly one level of non-deleted children. There is
+   no `BrandDetail` contract; `BrandSummary` is reused for brand detail.
+10. **Audit events.** `CATEGORY_CREATED`, `CATEGORY_UPDATED`, `CATEGORY_DELETED`,
+    `BRAND_CREATED`, `BRAND_UPDATED`, `BRAND_DELETED`. Payloads contain only
+    safe business-state deltas (changed fields, or deletion metadata on delete);
+    storage keys, secrets, and `createdBy`/`updatedBy` are never included.
+11. **Authorization.** All category/brand endpoints require `OPERATOR` or
+    `ADMIN` (`JwtAuthGuard` + `RolesGuard`). No SUPER_ADMIN, no permission guard.
+
+---
+
 # 18. Definition of Done
 
 The Product Catalog module is complete when:

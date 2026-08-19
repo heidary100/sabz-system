@@ -73,10 +73,12 @@ export interface CreateBrandInput {
   name: string;
   slug?: string;
   description?: string;
+  isFeatured?: boolean;
 }
 
 export interface UpdateBrandInput {
   name?: string;
   slug?: string;
   description?: string | null;
+  isFeatured?: boolean;
 }

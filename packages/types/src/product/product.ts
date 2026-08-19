@@ -22,6 +22,7 @@ export interface BrandSummary {
   name: string;
   slug: string;
   description: string | null;
+  isFeatured: boolean;
 }
 
 export interface VariantSummary {

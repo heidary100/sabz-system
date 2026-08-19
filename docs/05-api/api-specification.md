@@ -912,24 +912,93 @@ Pricing boundary: `Product` has no price and no SKU; the retail/base price and
 the sellable SKU live on `ProductVariant` (created in SS-104). Tier pricing,
 discounts and pricing rules are out of scope for SS-102.
 
-Deferred: categories/brands CRUD (SS-103), variant CRUD (SS-104), product
-media/storage (SS-105), storefront/public product APIs.
+Deferred: variant CRUD (SS-104), product media/storage (SS-105), storefront/
+public product APIs.
 
 ---
 
-# 15. Category Administration
+# 15. Category & Brand Administration
+
+Both category and brand administration endpoints require `OPERATOR` or `ADMIN`
+(`JwtAuthGuard` + `RolesGuard`). There is no SUPER_ADMIN role. All mutations are
+soft-deletes only (no hard delete), write audit events transactionally, and
+never expose internal fields (`deletedAt`, `createdBy`, `updatedBy`,
+`storageKey`, `logoKey`).
+
+## 15.1 Categories
+
+GET /admin/categories
+
+Retrieve a paginated category list. Query params: `page` (default 1), `limit`
+(default 20, max 100). Response is a `PaginatedResult<CategorySummary>` with
+fields `id`, `name`, `slug`, `parentId`, `sortOrder`, `isVisible`. Ordering is
+deterministic: `sortOrder ASC`, then `name ASC`, then `id ASC`. Soft-deleted
+categories are always excluded.
+
+GET /admin/categories/{id}
+
+Retrieve a single `CategoryDetail` (the `CategorySummary` fields plus a
+one-level `children: CategorySummary[]` of non-deleted children, ordered by
+`sortOrder ASC`, `name ASC`, `id ASC`). Missing, invalid-UUID, or soft-deleted
+categories return 404.
 
 POST /admin/categories
 
-Create category.
+Create a category. Body uses the `CreateCategoryInput` contract: `name`
+(required, max 255), `slug` (optional; generated from `name` when omitted;
+`[a-z0-9]` and hyphens, max 255), `parentId` (optional UUID; `null` or omitted =
+root), `sortOrder` (optional, non-negative integer), `isVisible` (optional
+boolean). A missing or soft-deleted `parentId` returns 404. Duplicate slug
+returns 409. Audits `CATEGORY_CREATED`.
 
 PATCH /admin/categories/{id}
 
-Update category.
+Update category fields (`name`, `slug`, `parentId`, `sortOrder`, `isVisible`).
+`parentId: null` moves the category to root. Self-parenting and moves that would
+form a cycle (moving a category under one of its descendants) return 409.
+Duplicate slug returns 409. Audits `CATEGORY_UPDATED` with only the changed
+fields.
 
 DELETE /admin/categories/{id}
 
-Archive category.
+Soft-delete a category (`deletedAt` set; no hard delete; no cascade). Deletion
+is rejected with 409 when the category has non-deleted children or is referenced
+by non-deleted products. Audits `CATEGORY_DELETED` with deletion metadata only.
+
+## 15.2 Brands
+
+GET /admin/brands
+
+Retrieve a paginated brand list. Query params: `page` (default 1), `limit`
+(default 20, max 100). Response is a `PaginatedResult<BrandSummary>` with fields
+`id`, `name`, `slug`, `description`, `isFeatured`. Ordering is deterministic:
+`name ASC`, then `id ASC`. Soft-deleted brands are always excluded.
+
+GET /admin/brands/{id}
+
+Retrieve a single `BrandSummary` (`id`, `name`, `slug`, `description`,
+`isFeatured`). Missing, invalid-UUID, or soft-deleted brands return 404. The
+internal `logoKey` is never exposed (brand logo/media belongs to SS-105).
+
+POST /admin/brands
+
+Create a brand. Body uses the `CreateBrandInput` contract: `name` (required,
+max 255), `slug` (optional; generated from `name` when omitted; `[a-z0-9]` and
+hyphens, max 255), `description` (optional, max 1000), `isFeatured` (optional
+boolean, default false). Duplicate slug returns 409. `logoKey` is not accepted
+(logo belongs to SS-105). Audits `BRAND_CREATED`.
+
+PATCH /admin/brands/{id}
+
+Update brand fields (`name`, `slug`, `description`, `isFeatured`).
+`description: null` clears the description. Duplicate slug returns 409. Audits
+`BRAND_UPDATED` with only the changed fields.
+
+DELETE /admin/brands/{id}
+
+Soft-delete a brand (`deletedAt` set; no hard delete). Deletion is rejected with
+409 when the brand is referenced by non-deleted products. Audits
+`BRAND_DELETED` with deletion metadata only.
 
 ---
 
