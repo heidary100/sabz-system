@@ -7,3 +7,6 @@ export { ListCategoriesQueryDto } from './list-categories-query.dto';
 export { CreateBrandDto } from './create-brand.dto';
 export { UpdateBrandDto } from './update-brand.dto';
 export { ListBrandsQueryDto } from './list-brands-query.dto';
+export { CreateVariantDto } from './create-variant.dto';
+export { UpdateVariantDto } from './update-variant.dto';
+export { UpdateVariantInventoryDto } from './update-inventory.dto';

@@ -690,6 +690,53 @@ schema notes with API-level behavior.
 
 ---
 
+# 17B. Applied Decisions — SS-104 (Admin Product Variant & Minimal Inventory API)
+
+The following decisions were resolved while implementing the operator/admin
+product variant API and the EPIC-005 minimal inventory boundary.
+
+1. **Module placement.** Variant CRUD and the inventory endpoint live inside the
+   existing `ProductsModule` (two thin controllers — `ProductVariantsController`
+   at `admin/products` and `AdminVariantsController` at `admin/variants` — both
+   delegating to a single `VariantsService`). No `InventoryModule` is created:
+   EPIC-005 owns only the temporary `ProductVariant.stockQuantity` boundary;
+   EPIC-006 owns the real inventory subsystem.
+2. **SKU.** Globally unique via the DB `@unique` constraint; duplicate `sku`
+   returns 409 under P2002 (race-safe, no pre-check dependency). SKU is
+   trimmed and bounded (max 64); no stricter format is imposed by the catalog
+   requirements.
+3. **Price.** Required, positive, `Decimal(12,2)`; accepted and returned as a
+   string (never a JS number), consistent with `PartnerTier.discountPercent`.
+   Tier pricing, discounts and pricing rules remain out of scope.
+4. **Inventory semantics — absolute set.** `PATCH /admin/variants/:id/inventory`
+   replaces `stockQuantity` with an absolute value `>= 0`. No delta, no
+   movement/history record: the adjustment-with-reason and movement semantics
+   in `inventory-management.md` are EPIC-006 scope. The M1 boundary is exactly
+   `ProductVariant.stockQuantity`. The write is atomic and conditional on
+   `deletedAt IS NULL`; stock can never become negative.
+5. **Variant `name`.** `ProductVariant.name` is an optional display label only
+   (SS-100 note #7). No EAV / `ProductAttribute` / configurable attributes are
+   introduced in SS-104.
+6. **Lifecycle.** Creating or mutating a variant requires the owning product to
+   exist, not be soft-deleted (404) and not be `ARCHIVED` (409). Variant
+   update and inventory writes are additionally conditional at the row level on
+   the variant and its owning product still being active, so a mutation racing a
+   concurrent archive or soft-delete fails cleanly instead of writing against a
+   now-archived/deleted product. Variant deletion is soft-delete only; a deleted
+   variant can never be resurrected or mutated. Deleting the only variant of a
+   published product does not auto-unpublish — the publish precondition applies
+   only at publish time.
+7. **Audit events.** `PRODUCT_VARIANT_CREATED`, `PRODUCT_VARIANT_UPDATED`,
+   `PRODUCT_VARIANT_DELETED` and `PRODUCT_INVENTORY_SET`. A price change is
+   captured by `PRODUCT_VARIANT_UPDATED`'s before/after delta (no separate
+   price-change event). Payloads are minimal business deltas only; price is a
+   string; no secrets, storage keys, filesystem paths or full Prisma records.
+8. **Response contract.** `VariantSummary` (existing SS-101 contract) is reused
+   for list, detail, update, delete and inventory responses. No `VariantDetail`
+   and no new shared types are introduced.
+
+---
+
 # 18. Definition of Done
 
 The Product Catalog module is complete when:
