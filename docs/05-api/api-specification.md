@@ -912,8 +912,76 @@ Pricing boundary: `Product` has no price and no SKU; the retail/base price and
 the sellable SKU live on `ProductVariant` (created in SS-104). Tier pricing,
 discounts and pricing rules are out of scope for SS-102.
 
-Deferred: variant CRUD (SS-104), product media/storage (SS-105), storefront/
-public product APIs.
+Deferred: product media/storage (SS-105), storefront/public product APIs.
+
+## 14.1 Variant & Minimal Inventory Administration (SS-104)
+
+All variant endpoints require `OPERATOR` or `ADMIN` (`JwtAuthGuard` +
+`RolesGuard`). There is no SUPER_ADMIN role. Mutations run inside a transaction,
+write audit events transactionally, and never expose internal fields
+(`deletedAt`, `createdBy`, `updatedBy`, `storageKey`). `price` is a
+`Decimal(12,2)` serialized as a string (never a JS number), consistent with
+`PartnerTier.discountPercent`.
+
+GET /admin/products/{productId}/variants
+
+List the active (non-soft-deleted) variants of a product as an array of
+`VariantSummary` (`id`, `productId`, `sku`, `barcode`, `name`, `price`,
+`stockQuantity`). Missing, invalid-UUID, or soft-deleted products return 404.
+Ordering is deterministic: `createdAt ASC`, then `id ASC`.
+
+POST /admin/products/{productId}/variants
+
+Create a variant for the product taken from the route param (never from the
+body). Body uses `sku` (required, trimmed, max 64), `barcode` (optional, max
+64), `name` (optional display label, max 255), `price` (required, positive,
+`Decimal(12,2)` as string), `stockQuantity` (optional integer >= 0, default 0).
+The owning product must exist, not be soft-deleted (404) and not be `ARCHIVED`
+(409). Duplicate `sku` returns 409 (DB unique constraint, race-safe). Audits
+`PRODUCT_VARIANT_CREATED`.
+
+GET /admin/variants/{id}
+
+Retrieve a single `VariantSummary`. Missing, invalid-UUID, or soft-deleted
+variants return 404. No internal fields are exposed.
+
+PATCH /admin/variants/{id}
+
+Update variant business fields: `sku`, `barcode`, `name`, `price`. `barcode`/
+`name` may be `null` to clear. `productId` is not accepted (re-parenting is
+forbidden) and inventory fields are not accepted (inventory authority lives in
+the inventory endpoint below). `deletedAt`/`createdBy`/`updatedBy` are
+server-owned. Duplicate `sku` returns 409. An archived owning product returns
+409. The write is conditional on the variant and its owning product still being
+active, so a mutation racing a concurrent archive or soft-delete fails cleanly.
+Audits `PRODUCT_VARIANT_UPDATED` with only the changed fields (price changes
+are captured in the before/after delta).
+
+DELETE /admin/variants/{id}
+
+Soft-delete a variant (`deletedAt` + `updatedBy`; no hard delete). Missing,
+invalid-UUID, or soft-deleted variants return 404. A variant may be deleted
+regardless of its `stockQuantity`. Deleting the only variant of a published
+product does **not** unpublish the product; the publish prerequisite (at least
+one active variant) applies only at publish time. Audits
+`PRODUCT_VARIANT_DELETED`. The response is the last-known `VariantSummary`.
+
+PATCH /admin/variants/{id}/inventory
+
+Set the absolute `stockQuantity` (the M1 inventory boundary). Body:
+`stockQuantity` (required integer >= 0). The write is atomic and conditional on
+the variant and its owning product being active (`deletedAt IS NULL` and product
+not archived), so it never resurrects a deleted variant, cannot produce a
+negative value (validated `>= 0`), and a mutation racing a concurrent archive or
+soft-delete fails cleanly. Concurrent absolute sets are last-writer-wins
+(acceptable for a manual admin set-stock operation; no delta/movement
+semantics). An archived owning product returns 409. Audits
+`PRODUCT_INVENTORY_SET` with the integer before/after stock.
+
+Authorization: all variant endpoints require `OPERATOR` or `ADMIN`. There is no
+SUPER_ADMIN role. The inventory boundary is EPIC-005: only
+`ProductVariant.stockQuantity` is exposed; warehouses, reservations,
+movements/history, receiving, returns and reorder belong to EPIC-006.
 
 ---
 

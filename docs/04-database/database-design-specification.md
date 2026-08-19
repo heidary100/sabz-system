@@ -528,6 +528,9 @@ Business Rules
 - Each variant has an independent retail/base price.
 - `stockQuantity` must conceptually never be negative (application-level
   invariant, enforced from SS-103/SS-104; no DB CHECK in SS-100).
+  SS-104 enforces it via the inventory endpoint, which accepts an absolute
+  `stockQuantity >= 0` and writes it atomically against `deletedAt IS NULL`.
+  No movement/history record is written (EPIC-006 owns that).
 
 ---
 

@@ -7,13 +7,15 @@ import { CategoriesController } from './categories.controller';
 import { CategoriesService } from './categories.service';
 import { ProductsController } from './products.controller';
 import { ProductsService } from './products.service';
+import { AdminVariantsController, ProductVariantsController } from './variants.controller';
+import { VariantsService } from './variants.service';
 
 /**
- * Product-domain module (SS-102/SS-103). Owns the operator/admin product
- * administration API: products, categories and brands (CRUD, soft-delete,
- * hierarchy and slug semantics). Mutations write audit events through the
- * shared AuditService. Variants (SS-104) and media (SS-105) are read-only
- * here; brand logo/media belong to SS-105.
+ * Product-domain module (SS-102/SS-103/SS-104). Owns the operator/admin product
+ * administration API: products, categories, brands (CRUD, soft-delete,
+ * hierarchy and slug semantics) and product variants (CRUD, soft-delete and the
+ * M1 inventory boundary). Mutations write audit events through the shared
+ * AuditService. Product media/storage belong to SS-105.
  */
 @Module({
   imports: [AuthModule, AuditModule],
@@ -21,11 +23,14 @@ import { ProductsService } from './products.service';
     ProductsController,
     CategoriesController,
     BrandsController,
+    ProductVariantsController,
+    AdminVariantsController,
   ],
   providers: [
     ProductsService,
     CategoriesService,
     BrandsService,
+    VariantsService,
   ],
 })
 export class ProductsModule {}

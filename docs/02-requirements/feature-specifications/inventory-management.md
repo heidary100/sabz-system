@@ -19,6 +19,14 @@ The Inventory & Warehouse Management module tracks product availability, invento
 
 It ensures inventory accuracy across purchasing, sales, returns, and future accounting integrations.
 
+> **M1 boundary (EPIC-005 / SS-104).** In Milestone 1 the only inventory state
+> exposed is `ProductVariant.stockQuantity` (a temporary catalog availability
+> snapshot), via `PATCH /admin/variants/:id/inventory` (absolute set, never
+> negative). Warehouses, multi-warehouse stock, reservations, inventory
+> movements/history, receiving, returns, reorder workflows and reporting are
+> **EPIC-006** scope and are not implemented in SS-104. No movement or history
+> records are created by SS-104.
+
 ---
 
 # 2. Goals
