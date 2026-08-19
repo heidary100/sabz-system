@@ -12,6 +12,7 @@ import type {
 } from '@sabz/types';
 import { PrismaService } from '../../common/database/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { generateSlug } from './slug';
 import {
   CreateProductDto,
   ListProductsQueryDto,
@@ -20,7 +21,6 @@ import {
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 20;
-const SLUG_MAX = 255;
 
 function escapeLike(search: string): string {
   return search.replace(/[\\%_]/g, '\\$&');
@@ -35,7 +35,13 @@ const listSelect = {
   createdAt: true,
   updatedAt: true,
   brand: {
-    select: { id: true, name: true, slug: true, description: true },
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      description: true,
+      isFeatured: true,
+    },
   },
   category: {
     select: {
@@ -67,7 +73,13 @@ const detailSelect = {
   updatedAt: true,
   deletedAt: true,
   brand: {
-    select: { id: true, name: true, slug: true, description: true },
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      description: true,
+      isFeatured: true,
+    },
   },
   category: {
     select: {
@@ -186,7 +198,7 @@ export class ProductsService {
       );
     }
 
-    const slug = dto.slug ?? this.generateSlug(dto.name);
+    const slug = dto.slug ?? generateSlug(dto.name, 'product');
 
     try {
       const product = await this.prisma.$transaction(async (tx) => {
@@ -666,24 +678,6 @@ export class ProductsService {
       error.code === 'P2002' &&
       error.meta?.modelName === 'Product'
     );
-  }
-
-  /**
-   * Deterministic slug generation from a product name. No external library:
-   * lowercase, replace runs of non-alphanumeric characters with a single
-   * hyphen, trim leading/trailing hyphens, cap length. Falls back to a random
-   * suffix when the sanitized name is empty.
-   */
-  private generateSlug(name: string): string {
-    const slug = name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      .slice(0, SLUG_MAX);
-    if (slug.length === 0) {
-      return `product-${crypto.randomUUID().slice(0, 8)}`;
-    }
-    return slug;
   }
 }
 

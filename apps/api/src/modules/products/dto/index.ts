@@ -1,3 +1,9 @@
 export { CreateProductDto } from './create-product.dto';
 export { ListProductsQueryDto } from './list-products-query.dto';
 export { UpdateProductDto } from './update-product.dto';
+export { CreateCategoryDto } from './create-category.dto';
+export { UpdateCategoryDto } from './update-category.dto';
+export { ListCategoriesQueryDto } from './list-categories-query.dto';
+export { CreateBrandDto } from './create-brand.dto';
+export { UpdateBrandDto } from './update-brand.dto';
+export { ListBrandsQueryDto } from './list-brands-query.dto';
