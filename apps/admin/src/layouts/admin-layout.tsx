@@ -7,6 +7,7 @@ const NAV_ITEMS = [
   { to: '/partners', label: 'درخواست‌های همکاری' },
   { to: '/users', label: 'کاربران' },
   { to: '/roles', label: 'نقش‌ها' },
+  { to: '/audit', label: 'گزارش فعالیت‌ها' },
 ] as const
 
 export function AdminLayout() {

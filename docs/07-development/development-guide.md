@@ -186,6 +186,41 @@ Manual acceptance: see the SS-066 checklist in the issue (search, filters,
 pagination, lifecycle transitions, role assignment/removal, `409`/`403`
 handling, `/roles` ADMIN-only, RTL/Persian, loading/empty/error states).
 
+## Admin Audit Viewer UI (SS-067)
+
+The admin audit viewer builds on the SS-064 read-only audit query API
+(`GET /admin/audit`). As with all admin frontend, role gating is UX only —
+the SS-064 API remains the authorization and data-access boundary.
+
+- `/audit` (`AuditPage`, `RequireRole roles={ADMIN_ROLES}`): read-only,
+  paginated audit log with filters. Sidebar label: «گزارش فعالیت‌ها».
+- Filters map 1:1 to the SS-064 query contract: actor (`actorId`, exact UUID
+  input — no name/mobile search by design), action (Select of known actions),
+  entity (Select of known entities), entity ID (UUID input), from/to date range
+  (native date inputs, converted to local-time day boundaries and sent as ISO
+  UTC strings). All filters buffer behind the «اعمال فیلتر» (Apply) button.
+  Invalid UUIDs and `from > to` are blocked client-side; unknown future
+  actions/entities still render via a raw-value fallback.
+- Read-only: no mutations, no audit editing/deletion/export. No client-side
+  fuzzy filtering — the backend owns query semantics.
+- Table shows date/time (Jalali), actor (name/mobile, «سیستم/ناشناس» fallback
+  for missing actors), action/entity Persian labels, entity ID, and a
+  «مشاهده» action. IP address appears only in the details dialog.
+- Before/after are shown as a structured, sanitized key/value view in an
+  expandable dialog (`AuditDetailsDialog`) — never raw JSON blobs in the table.
+  Client-side key sanitization is defense-in-depth only; the backend write-time
+  policy remains authoritative. No `dangerouslySetInnerHTML`.
+- Audit data lives in React memory only — never persisted to
+  localStorage/sessionStorage/IndexedDB, and never logged to the console.
+- New `services/audit.ts` reuses `request()`; state hook `use-audit-log.ts`;
+  labels in `lib/audit-labels.ts`; sanitizer in `lib/audit-sanitize.ts`.
+
+Manual acceptance: see the SS-067 checklist in the issue (ADMIN/OPERATOR
+access, pagination, each filter, combined filters, clear/reset, empty/error +
+retry, Jalali dates, missing-actor fallback, Persian labels, sanitized
+before/after, no secrets, IP in dialog only, 401 refresh, RTL/pagination
+direction, no persistence, no console logging).
+
 
 ---
 
