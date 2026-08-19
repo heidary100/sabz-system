@@ -597,7 +597,52 @@ fields required for those validations (`isPrimary`, `sortOrder`, etc.).
 
 ---
 
-# 17. Definition of Done
+# 17. Applied Decisions — SS-102 (Admin Product API)
+
+The following decisions were resolved while implementing the operator/admin
+product administration API (SS-102). They extend the SS-100/SS-101 schema
+notes with API-level behavior.
+
+1. **Creation always produces `DRAFT`.** Clients may not create a product
+   directly as `PUBLISHED`. A submitted `status` other than `DRAFT` is
+   rejected with 400; `DRAFT` is ignored. Publication is an explicit
+   lifecycle action via `POST /admin/products/{id}/publish`.
+2. **Slug.** When `slug` is omitted it is generated deterministically from
+   `name` (lowercase, runs of non-alphanumeric characters collapsed to a
+   hyphen, trimmed, capped at 255 chars; falls back to a random suffix when
+   the sanitized name is empty). No external slug library is used. Duplicate
+   slug returns 409, including under P2002 races.
+3. **Publish prerequisite.** Publishing requires **at least one non-deleted
+   variant** (CATALOG-008 / §16.9). It does **not** require `stockQuantity >
+   0` or a primary image — those are SS-104/SS-105 concerns and are not
+   documented publish blockers for M1.
+4. **Lifecycle.** `DRAFT → PUBLISHED → ARCHIVED`, with no reverse transitions
+   in M1. `PATCH` does **not** accept a `status`; status changes occur only
+   through the publish/archive endpoints, and an archived product cannot be
+   updated (409).
+5. **Delete.** Only `ARCHIVED` products may be soft-deleted (other statuses →
+   409). Deletion sets `deletedAt`/`updatedBy`; it does not hard-delete and
+   does not cascade to variants or media (SS-104/105 own their child
+   lifecycle).
+6. **Audit events.** `PRODUCT_CREATED`, `PRODUCT_UPDATED`, `PRODUCT_PUBLISHED`,
+   `PRODUCT_ARCHIVED`, and `PRODUCT_DELETED`. Payloads contain only safe
+   business-state deltas; storage keys, secrets, and `createdBy`/`updatedBy`
+   are never included.
+7. **Brand/category references.** SS-102 only reads references (SS-103 owns
+   their CRUD/deletion). Creating/updating verifies the referenced brand and
+   category exist and are not soft-deleted; missing/soft-deleted references
+   return 404.
+8. **Variant/media reads.** `GET /admin/products/{id}` returns the full
+   `ProductDetail` contract including `variants` and `media` (read-only,
+   non-deleted rows only, no storage internals). SS-102 exposes no
+   variant/media mutation endpoints.
+9. **Pricing boundary.** `Product` has no price and no SKU. The retail/base
+   price and the sellable SKU live on `ProductVariant` (SS-104). Price does
+   not appear in any SS-102 product input.
+
+---
+
+# 18. Definition of Done
 
 The Product Catalog module is complete when:
 
