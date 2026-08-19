@@ -1154,21 +1154,94 @@ Mark notification as read.
 
 ---
 
-# 21. Media API
+# 21. Product Media Administration API (SS-105)
 
-POST /media/upload
+The product media administration endpoints are M1 admin-side infrastructure.
+Media metadata lives in PostgreSQL (`ProductMedia`); the binary contents are
+stored through the Product-domain `ProductMediaStorage` abstraction (local disk
+in M1, object storage later). The `storageKey` and filesystem paths are never
+exposed in responses, audit payloads, or errors.
 
-Upload image or video.
+All endpoints require `JwtAuthGuard` + `RolesGuard` with `OPERATOR` or `ADMIN`.
 
-DELETE /media/{id}
+## Upload media
 
-Delete media.
+```
+POST /admin/products/{productId}/media
+```
 
-GET /media/{id}
+`multipart/form-data`. Requires an authenticated OPERATOR/ADMIN.
 
-Retrieve media.
+- `file` (required, single): the image or video binary.
+- `mediaType` (optional, `IMAGE | VIDEO`): inferred from detected content when
+  omitted; rejected with 409 if it contradicts the detected content.
+- `variantId` (optional UUID): the variant the media belongs to. Must belong to
+  the same product (404 otherwise).
+- `isPrimary` (optional boolean): only meaningful for the first image.
 
-All uploaded product images must automatically receive the configured watermark before becoming publicly available.
+Validated formats and limits (per the product-catalog spec):
+
+- Images: JPG, PNG, WEBP — validated by MIME + magic bytes.
+- Videos: MP4 — validated by MIME + ISOBMFF `ftyp` container signature (no
+  codec/stream validation in M1).
+- Maximum size: 10 MB (enforced at the multipart interceptor and service level).
+
+Ownership rules:
+
+- The owning product must exist and not be soft-deleted (404).
+- An `ARCHIVED` product rejects new media (409).
+- A supplied `variantId` must exist, not be soft-deleted, and belong to the
+  route `productId` (404 otherwise).
+- The `productId` always comes from the route param, never the client body.
+
+Primary/order semantics (M1):
+
+- The first uploaded IMAGE automatically becomes primary (CATALOG-006).
+- Only one IMAGE may be primary; videos are never primary.
+- Uploading the first image with `isPrimary: false` is rejected with 409 so a
+  product always has a primary image.
+- `sortOrder` is server-generated (incrementing per product); it is not
+  client-controlled in SS-105. Reordering is deferred.
+
+Success returns `201` with a `ProductMediaSummary` (no `storageKey`). Errors:
+`400` invalid file, `401` unauthenticated, `403` forbidden, `404` product or
+variant not found, `409` archived product or media-type mismatch.
+
+## List media
+
+```
+GET /admin/products/{productId}/media
+```
+
+Returns the active (non-soft-deleted) media of a product as
+`ProductMediaSummary[]`, ordered by `sortOrder`. `404` when the product is
+missing or soft-deleted.
+
+## Download / preview media
+
+```
+GET /admin/products/{productId}/media/{mediaId}
+```
+
+Returns the media binary (`StreamableFile`) using the stored MIME type and a
+sanitized `Content-Disposition` (the `originalName` is display-only). Missing,
+soft-deleted, or cross-product media, and missing binaries all return `404`.
+No public URL is exposed in M1.
+
+## Delete media
+
+```
+DELETE /admin/media/{id}
+```
+
+Soft-deletes the `ProductMedia` row and removes its binary after the database
+transaction commits. If the deleted media was the primary image, the next image
+by `sortOrder` is promoted to primary. Returns `200` with `{ removed: true }`,
+or `404` when the media does not exist or is already soft-deleted.
+
+Watermarking, image optimization, thumbnails, and video transcoding are not part
+of SS-105; they are deferred (M2). Public/storefront media delivery is out of
+scope for this milestone.
 
 ---
 
