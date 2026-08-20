@@ -13,7 +13,10 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:3000',
+        // Inside the Compose network the API container is reachable by its
+        // service name; `localhost` here would resolve to this admin
+        // container and fail.
+        target: process.env.API_PROXY_TARGET ?? 'http://localhost:3000',
         changeOrigin: true,
       },
     },
