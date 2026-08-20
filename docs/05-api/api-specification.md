@@ -1092,6 +1092,9 @@ Delete pricing rule.
 
 # 17. Inventory Administration
 
+The inventory overview, adjust, bulk import and history endpoints below are
+future EPIC-006 scope (SS-112 onward) and are not implemented yet.
+
 GET /admin/inventory
 
 Inventory overview.
@@ -1107,6 +1110,122 @@ Bulk inventory import.
 GET /admin/inventory/history
 
 Inventory movements.
+
+## 17.1 Warehouse Management API (SS-111)
+
+All warehouse administration endpoints require `ADMIN` (`JwtAuthGuard` +
+`RolesGuard`); `CUSTOMER`/`PARTNER`/`OPERATOR` are denied with 403 and
+unauthenticated requests with 401. There is no SUPER_ADMIN role and no
+permission-based RBAC. All mutations are transactional and write a
+transactional `AuditLog` event; an audit failure rolls back the mutation.
+
+Warehouses are soft-delete-aware (`deletedAt`): every read and lifecycle
+operation excludes soft-deleted warehouses and treats them as not found (404).
+There is no hard-delete endpoint and no soft-delete endpoint — deactivation
+is the operational lifecycle mechanism. Inventory rows are never destroyed:
+the `InventoryItem.warehouse_id` FK is `ON DELETE RESTRICT`.
+
+Responses never expose internal fields (`deletedAt`, `createdBy`,
+`updatedBy`) or inventory contents. Warehouse code uniqueness is enforced by
+the database; a duplicate `code` returns 409 (race-safe via P2002). Codes are
+trimmed and stored as provided (case-sensitive); no slug generation.
+
+### GET /admin/warehouses
+
+List warehouses with pagination. Query parameters:
+
+- `page` — page number, starting at 1 (default 1)
+- `limit` — page size, 1–100 (default 20)
+- `status` — filter by `ACTIVE` or `INACTIVE`
+- `search` — case-insensitive substring match against `name` OR `code`
+
+Always filters `deletedAt IS NULL`. Ordering is deterministic:
+`createdAt DESC`, then `id DESC`. Response: `PaginatedResult<WarehouseSummary>`
+(`{ items, total, page, limit }`).
+
+Errors: 400 (invalid query), 401, 403.
+
+### GET /admin/warehouses/{id}
+
+Return a single `WarehouseDetail`. Missing, invalid-UUID, or soft-deleted
+warehouses return 404.
+
+Errors: 401, 403, 404.
+
+### POST /admin/warehouses
+
+Create a warehouse. Body: `code` (required, unique, max 100), `name`
+(required, max 255), `address` (optional, max 1000), `contactName` (optional,
+max 255), `contactPhone` (optional, max 100). New warehouses are created with
+status `ACTIVE`. Response: 201 `WarehouseDetail`.
+
+Errors: 400 (invalid body), 401, 403, 409 (duplicate `code`).
+
+### PATCH /admin/warehouses/{id}
+
+Update mutable fields: `code`, `name`, `address`, `contactName`,
+`contactPhone`. Passing `null` for `address`/`contactName`/`contactPhone`
+clears the field. Status cannot be changed here — use the dedicated lifecycle
+endpoints. The write is a conditional `updateMany` on
+`id + deletedAt IS NULL`, so a mutation racing a concurrent soft-delete fails
+cleanly and a soft-deleted warehouse is never resurrected. Response: 200
+`WarehouseDetail`.
+
+Errors: 400 (invalid body), 401, 403, 404 (missing/soft-deleted), 409
+(duplicate `code`).
+
+### POST /admin/warehouses/{id}/deactivate
+
+Transition an `ACTIVE` warehouse to `INACTIVE`. Guards (all enforced inside
+the transaction):
+
+- missing / soft-deleted → 404
+- already `INACTIVE` → 409
+- the last active warehouse (the platform must never have zero active,
+  non-deleted warehouses) → 409
+
+Race safety: the active warehouse rows are locked (`SELECT ... FOR UPDATE`)
+before the conditional transition, so concurrent deactivations of two
+different warehouses cannot both commit and zero out the active count — the
+loser re-reads the committed active set and fails with 409. Transient
+interactive-transaction errors (a blocked transaction timing out under lock
+contention) are retried a bounded number of times so the loser returns 409
+rather than a 5xx. Response: 200 `WarehouseDetail`.
+
+Errors: 401, 403, 404, 409.
+
+### POST /admin/warehouses/{id}/activate
+
+Transition an `INACTIVE` warehouse to `ACTIVE`. Guards: missing /
+soft-deleted → 404; already `ACTIVE` → 409. The transition is a conditional
+`updateMany` on `id + status = INACTIVE + deletedAt IS NULL`, so a concurrent
+transition wins and the loser fails with 409. Activation can never reduce the
+active count, so no active-set lock is required. Response: 200
+`WarehouseDetail`.
+
+Errors: 401, 403, 404, 409.
+
+### Audit events
+
+- `WAREHOUSE_CREATED` — `before: null`, `after: { code, name, status,
+  address?, contactName?, contactPhone? }`
+- `WAREHOUSE_UPDATED` — `before`/`after` = changed business fields only
+- `WAREHOUSE_DEACTIVATED` — `before: { status: "ACTIVE" }`,
+  `after: { status: "INACTIVE" }`
+- `WAREHOUSE_ACTIVATED` — `before: { status: "INACTIVE" }`,
+  `after: { status: "ACTIVE" }`
+
+All events use `entity = "Warehouse"`, `entityId = warehouse.id`, the actor's
+`userId`, and the request `ipAddress`. Payloads never include `deletedAt`,
+`createdBy`, `updatedBy`, raw Prisma records, inventory contents, storage
+paths, or secrets.
+
+### Out of scope
+
+Inventory stock operations, `InventoryItem` reads/mutation, receive/adjust,
+reservations, movements/history, inventory read API, transfers, returns,
+low-stock notifications, and reporting are owned by later EPIC-006 issues
+(SS-112 onward) and are not implemented here.
 
 ---
 

@@ -7,6 +7,7 @@ import { RedisModule } from './common/redis/redis.module';
 import { HealthModule } from './health/health.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { InventoryModule } from './modules/inventory/inventory.module';
 import { PartnersModule } from './modules/partners/partners.module';
 import { ProductsModule } from './modules/products/products.module';
 import { UsersModule } from './modules/users/users.module';
@@ -35,6 +36,7 @@ import { UsersModule } from './modules/users/users.module';
     HealthModule,
     AuthModule,
     DashboardModule,
+    InventoryModule,
     PartnersModule,
     ProductsModule,
     UsersModule,

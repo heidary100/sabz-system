@@ -683,6 +683,17 @@ Business Rules
   data, not a user-created warehouse; it is ensured idempotently by the
   bootstrap helper in all environments.
 
+Applied Decisions (SS-111)
+
+- Warehouse lifecycle is operational via status transitions
+  (activate/deactivate) with a **last-active-warehouse invariant**: the system
+  must never reach zero active, non-deleted warehouses. Deactivation of the
+  last active warehouse is rejected (409); the active rows are locked
+  (`SELECT ... FOR UPDATE`) inside an interactive transaction so concurrent
+  deactivations cannot violate the invariant.
+- There is no hard-delete path; the `deletedAt` column exists for future
+  soft-delete semantics and to preserve historical inventory integrity.
+
 ---
 
 ## Inventory Item
