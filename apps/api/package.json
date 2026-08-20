@@ -10,6 +10,7 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "prisma db seed",
+    "prisma:bootstrap": "tsx prisma/bootstrap.ts",
     "prisma:studio": "prisma studio",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",

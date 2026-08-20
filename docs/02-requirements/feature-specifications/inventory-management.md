@@ -26,6 +26,27 @@ It ensures inventory accuracy across purchasing, sales, returns, and future acco
 > movements/history, receiving, returns, reorder workflows and reporting are
 > **EPIC-006** scope and are not implemented in SS-104. No movement or history
 > records are created by SS-104.
+>
+> **EPIC-006 schema foundation (SS-109).** SS-109 applies the inventory schema
+> foundation only — no inventory API or UI:
+>
+> - `InventoryItem` is **authoritative** (one row per variant + warehouse);
+>   `ProductVariant.stockQuantity` remains as a **denormalized M1 aggregate**.
+> - Every future EPIC-006 stock mutation updates `InventoryItem` and refreshes
+>   `ProductVariant.stockQuantity` in the **same transaction** (single write
+>   path via the inventory module from SS-111 onward).
+> - Existing `stockQuantity` values are backfilled into the default warehouse
+>   exactly once by the idempotent bootstrap helper.
+> - **available = quantityOnHand − quantityReserved** (derived, never stored).
+> - The `InventoryMovement` ledger is immutable (no update/delete columns);
+>   `Reservation` schema is applied (`ACTIVE → RELEASED | CONSUMED | EXPIRED`).
+> - Active M1 movement types: `INITIAL_STOCK`, `PURCHASE_RECEIPT`,
+>   `MANUAL_ADJUSTMENT`, `DAMAGE`, `RESERVATION`, `RESERVATION_RELEASE`. Forward
+>   members (`SALE`, `RETURN_RECEIVED`, `RETURN_REJECTED`, `STOCK_TRANSFER`,
+>   `HOLO_IMPORT`) are declared for future workflows and are not implemented.
+> - Transfers, returns workflow, Holo import, storefront availability, and
+>   low-stock alerts remain deferred. Removal of `ProductVariant.stockQuantity`
+>   is **not** part of SS-109.
 
 ---
 

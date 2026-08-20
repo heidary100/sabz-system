@@ -182,12 +182,46 @@ Product
 +|
 +-- ProductSpecification (deferred to SS-104)
 +|
-+-- Inventory (EPIC-006)
-+    +-- id: UUID
-+    +-- quantity: int
-+    +-- reservedQuantity: int
-+    +-- warehouseId: UUID
-+    +-- status: StockStatus (IN_STOCK, LOW_STOCK, OUT_OF_STOCK)
++-- Inventory (EPIC-006 / SS-109 — schema foundation applied)
++    +-- Warehouse
++    |   +-- id: UUID
++    |   +-- code: string (unique; the infrastructure default is code 'DEFAULT')
++    |   +-- name: string
++    |   +-- address / contactName / contactPhone: string?
++    |   +-- status: WarehouseStatus (ACTIVE | INACTIVE), default ACTIVE
++    |   +-- soft-delete: deletedAt + audit fields
++    +-- InventoryItem (authoritative — one row per variant + warehouse)
++    |   +-- id: UUID
++    |   +-- variantId: UUID (-> ProductVariant, ON DELETE RESTRICT)
++    |   +-- warehouseId: UUID (-> Warehouse, ON DELETE RESTRICT)
++    |   +-- quantityOnHand: int (default 0)
++    |   +-- quantityReserved: int (default 0)
++    |   +-- reorderLevel / criticalLevel: int?
++    |   +-- @@unique([variantId, warehouseId])
++    +-- InventoryMovement (immutable append-only ledger; no update/delete columns)
++    |   +-- id: UUID
++    |   +-- inventoryItemId: UUID (-> InventoryItem, ON DELETE RESTRICT)
++    |   +-- variantId / warehouseId: string (denormalized snapshots)
++    |   +-- type: InventoryMovementType (M1 + forward members)
++    |   +-- quantity: int, reservedDelta: int (default 0)
++    |   +-- reason / notes / reference: string? (reference is internal-only)
++    |   +-- onHandBefore / onHandAfter / reservedBefore / reservedAfter: int
++    |   +-- createdAt / createdBy
++    +-- Reservation
++        +-- id: UUID
++        +-- inventoryItemId: UUID (-> InventoryItem, ON DELETE RESTRICT)
++        +-- quantity: int
++        +-- status: ReservationStatus (ACTIVE | RELEASED | CONSUMED | EXPIRED), default ACTIVE
++        +-- expiresAt / releasedAt / consumedAt / expiredAt: DateTime?
++        +-- createdAt / createdBy / updatedBy
+```
+
+> **Inventory semantics (SS-109):** `InventoryItem` is authoritative;
+> `ProductVariant.stockQuantity` is retained as a denormalized M1 aggregate that
+> future EPIC-006 mutations refresh in the same transaction. **available =
+> quantityOnHand − quantityReserved** (derived, never stored). Existing
+> `stockQuantity` values are backfilled into the default warehouse exactly once
+> by the idempotent bootstrap helper. No inventory API/UI exists yet.
 ```
 
 > **SS-100 notes:** the sellable SKU is owned by **ProductVariant** — Product has
@@ -277,7 +311,9 @@ BlogPost
 | ProductStatus | DRAFT, PUBLISHED, ARCHIVED |
 | ProductCondition | NEW, OPEN_BOX, REFURBISHED, USED, STOCK_CLEARANCE |
 | ProductMediaType | IMAGE, VIDEO |
-| StockStatus | IN_STOCK, LOW_STOCK, OUT_OF_STOCK (EPIC-006) |
+| WarehouseStatus | ACTIVE, INACTIVE (EPIC-006 / SS-109) |
+| InventoryMovementType | INITIAL_STOCK, PURCHASE_RECEIPT, SALE, RESERVATION, RESERVATION_RELEASE, MANUAL_ADJUSTMENT, DAMAGE, RETURN_RECEIVED, RETURN_REJECTED, STOCK_TRANSFER, HOLO_IMPORT (EPIC-006 / SS-109) |
+| ReservationStatus | ACTIVE, RELEASED, CONSUMED, EXPIRED (EPIC-006 / SS-109) |
 | OrderStatus | PENDING, CONFIRMED, PROCESSING, SHIPPED, DELIVERED, CANCELLED, RETURNED |
 | PaymentStatus | PENDING, SUCCESS, FAILED, REFUNDED |
 | ShippingStatus | PENDING, PICKED_UP, IN_TRANSIT, OUT_FOR_DELIVERY, DELIVERED |
@@ -288,3 +324,7 @@ BlogPost
 > The `BusinessType` enum is a legacy concept from the planned password-based
 > partner registration design (see [Partner Registration Flow](partner-registration-flow.md))
 > and is **not implemented**.
+> The earlier `StockStatus` (IN_STOCK, LOW_STOCK, OUT_OF_STOCK) is **not
+> stored** in SS-109; stock status is derived at runtime from
+> `reorderLevel`/`criticalLevel` versus available quantity. Low-stock alerting
+> is deferred (EPIC-006 M3).

@@ -531,6 +531,11 @@ Business Rules
   SS-104 enforces it via the inventory endpoint, which accepts an absolute
   `stockQuantity >= 0` and writes it atomically against `deletedAt IS NULL`.
   No movement/history record is written (EPIC-006 owns that).
+- **SS-109 handoff:** `stockQuantity` remains as the denormalized M1 aggregate;
+  `InventoryItem` is authoritative. Future EPIC-006 mutations update both in the
+  same transaction. SS-109 backfills existing `stockQuantity` values into the
+  default warehouse without modifying them. Removing `stockQuantity` is future
+  work, not SS-109.
 
 ---
 
@@ -626,15 +631,57 @@ Business Rules
 
 ---
 
-## Inventory Boundary (SS-100 vs EPIC-006)
+## Inventory Boundary (SS-100 vs EPIC-006 / SS-109)
 
 `ProductVariant.stock_quantity` is a **temporary M1 catalog availability
-snapshot**. It is **not** the future inventory system of record.
+snapshot**. It is **not** the inventory system of record.
 
-EPIC-006 will own: warehouses, multi-warehouse stock, reservations, inventory
+SS-109 (EPIC-006 foundation) establishes the inventory system of record:
+
+- **`InventoryItem` is authoritative.** There is exactly one inventory row per
+  `(variant_id, warehouse_id)`.
+- **`ProductVariant.stock_quantity` is retained as a denormalized aggregate**
+  for M1 compatibility (it is not removed in SS-109).
+- Every future EPIC-006 stock mutation updates `InventoryItem` **and** refreshes
+  `ProductVariant.stock_quantity` in the **same transaction** (single write
+  path, owned by the inventory module from SS-111 onward).
+- Existing `ProductVariant.stock_quantity` values are backfilled into the
+  default warehouse exactly once by the idempotent bootstrap helper
+  (`apps/api/prisma/bootstrap.ts`, also invoked by `prisma:seed` for dev).
+
+EPIC-006 owns: warehouses, multi-warehouse stock, reservations, inventory
 movements/history, receiving, returns, reorder workflows, and inventory
-reporting. EPIC-006 may later replace `stock_quantity` or maintain it as a
-denormalized projection, keyed by the stable `variant_id`.
+reporting. In SS-109 only the schema foundation is applied; no inventory API or
+UI exists yet. Future removal of `stock_quantity` is **not** part of SS-109.
+
+---
+
+## Warehouse
+
+Purpose
+
+Reference record for a physical or logical stock location. Each warehouse
+maintains independent inventory.
+
+Fields
+
+- id
+- code (unique, required)
+- name (required)
+- address
+- contact_name
+- contact_phone
+- status (`WarehouseStatus` — `ACTIVE`, `INACTIVE`, default `ACTIVE`)
+- created_at / updated_at / deleted_at (soft-delete) / created_by / updated_by
+
+Business Rules
+
+- `code` must be unique.
+- Warehouses are soft-deleted (`deleted_at`); inventory rows are never silently
+  destroyed (the `InventoryItem.warehouse_id` FK is `ON DELETE RESTRICT`).
+- The **default warehouse** (`code = 'DEFAULT'`) is infrastructure/reference
+  data, not a user-created warehouse; it is ensured idempotently by the
+  bootstrap helper in all environments.
 
 ---
 
@@ -642,22 +689,86 @@ denormalized projection, keyed by the stable `variant_id`.
 
 Purpose
 
-Tracks stock for each product variant.
+Tracks stock for each product variant **per warehouse** — the authoritative
+inventory row.
 
 Fields
 
 - id
 - warehouse_id
 - variant_id
-- quantity_on_hand
-- quantity_reserved
-- reorder_level
+- quantity_on_hand (default 0)
+- quantity_reserved (default 0)
+- reorder_level (nullable)
+- critical_level (nullable)
+- created_at / updated_at / created_by / updated_by
 
 Business Rules
 
-Available Stock = Quantity On Hand − Quantity Reserved
+- Available Stock = Quantity On Hand − Quantity Reserved; **available is
+  derived, never stored**.
+- **Exactly one row per `(variant_id, warehouse_id)`** (composite unique).
+- Stock cannot become negative (application-level invariant, enforced by the
+  future mutation APIs — not a DB CHECK in SS-109).
+- Both FKs (`warehouse_id`, `variant_id`) are `ON DELETE RESTRICT` so stock is
+  never silently destroyed.
 
-Stock cannot become negative.
+---
+
+## Inventory Movement
+
+Purpose
+
+Immutable, append-only ledger of every inventory change (INV-003).
+
+Fields
+
+- id
+- inventory_item_id (FK → InventoryItem, `ON DELETE RESTRICT`)
+- variant_id (denormalized snapshot, not an FK)
+- warehouse_id (denormalized snapshot, not an FK)
+- type (`InventoryMovementType`)
+- quantity (signed on-hand delta)
+- reserved_delta (default 0)
+- reason / notes / reference (nullable; `reference` is internal linkage and is
+  never exposed by API contracts)
+- on_hand_before / on_hand_after (balance snapshots)
+- reserved_before / reserved_after (default 0)
+- created_at / created_by
+
+Business Rules
+
+- The ledger is **immutable**: it has no `updated_at`, `updated_by` or
+  `deleted_at` columns.
+- Every inventory change creates exactly one movement record.
+- `InventoryMovementType` declares forward members (`SALE`, `RETURN_RECEIVED`,
+  `RETURN_REJECTED`, `STOCK_TRANSFER`, `HOLO_IMPORT`) for future workflows; only
+  M1 types (`INITIAL_STOCK`, `PURCHASE_RECEIPT`, `MANUAL_ADJUSTMENT`, `DAMAGE`,
+  `RESERVATION`, `RESERVATION_RELEASE`) are actively produced in M1.
+
+---
+
+## Reservation
+
+Purpose
+
+Allocates inventory to pending orders so reserved stock is unavailable for new
+orders (INV-004).
+
+Fields
+
+- id
+- inventory_item_id (FK → InventoryItem, `ON DELETE RESTRICT`)
+- quantity
+- status (`ReservationStatus` — `ACTIVE`, `RELEASED`, `CONSUMED`, `EXPIRED`,
+  default `ACTIVE`)
+- expires_at (nullable — lazy expiry), released_at, consumed_at, expired_at
+- created_at / created_by / updated_by
+
+Business Rules
+
+- Reservation lifecycle: `ACTIVE → RELEASED | CONSUMED | EXPIRED`.
+- No order models or additional reservation fields are introduced in SS-109.
 
 ---
 
@@ -949,6 +1060,20 @@ Catalog indexes (SS-100):
 - `ProductMedia (product_id, deleted_at)`
 - `ProductMedia (product_id, sort_order)`
 - `ProductMedia (variant_id)`
+
+Inventory indexes (SS-109):
+
+- `Warehouse.code` (unique)
+- `Warehouse (status, deleted_at)`
+- `InventoryItem (variant_id, warehouse_id)` (unique — one row per variant + warehouse)
+- `InventoryItem (warehouse_id)`
+- `InventoryMovement (inventory_item_id, created_at)`
+- `InventoryMovement (variant_id, created_at)`
+- `InventoryMovement (warehouse_id, created_at)`
+- `InventoryMovement (type, created_at)`
+- `InventoryMovement (created_at)`
+- `Reservation (inventory_item_id)`
+- `Reservation (status, expires_at)`
 
 ---
 
