@@ -80,7 +80,6 @@ describe('Admin product API database integration (SS-102)', () => {
       where: { entityId: { in: createdProductIds } },
     });
     await prisma.productMedia.deleteMany({ where: { id: { in: createdMediaIds } } });
-    await prisma.productVariant.deleteMany({ where: { id: { in: createdVariantIds } } });
     // Defensive: delete any products still referencing the brands/categories we
     // created (a test may have created a product without recording its id, or a
     // helper created one that was not tracked).
@@ -94,6 +93,24 @@ describe('Admin product API database integration (SS-102)', () => {
       select: { id: true },
     });
     const orphanIds = orphanProducts.map((row) => row.id);
+    const orphanVariantRows = await prisma.productVariant.findMany({
+      where: { productId: { in: orphanIds } },
+      select: { id: true },
+    });
+    const variantIds = [
+      ...createdVariantIds,
+      ...orphanVariantRows.map((row) => row.id),
+    ];
+    await prisma.inventoryMovement.deleteMany({
+      where: { inventoryItem: { variantId: { in: variantIds } } },
+    });
+    await prisma.reservation.deleteMany({
+      where: { inventoryItem: { variantId: { in: variantIds } } },
+    });
+    await prisma.inventoryItem.deleteMany({
+      where: { variantId: { in: variantIds } },
+    });
+    await prisma.productVariant.deleteMany({ where: { id: { in: createdVariantIds } } });
     await prisma.productVariant.deleteMany({
       where: { productId: { in: orphanIds } },
     });
