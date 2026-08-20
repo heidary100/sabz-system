@@ -567,3 +567,401 @@ describe('Product catalog indexes and migration (SS-100)', () => {
     expect(sql).not.toContain('ALTER TABLE "BusinessDocument"');
   });
 });
+
+describe('Inventory enums (SS-109)', () => {
+  const warehouseStatus = Prisma.dmmf.datamodel.enums.find(
+    (candidate) => candidate.name === 'WarehouseStatus',
+  );
+  const movementType = Prisma.dmmf.datamodel.enums.find(
+    (candidate) => candidate.name === 'InventoryMovementType',
+  );
+  const reservationStatus = Prisma.dmmf.datamodel.enums.find(
+    (candidate) => candidate.name === 'ReservationStatus',
+  );
+
+  it('defines the WarehouseStatus values', () => {
+    expect(warehouseStatus?.values.map((value) => value.name)).toEqual([
+      'ACTIVE',
+      'INACTIVE',
+    ]);
+  });
+
+  it('defines every InventoryMovementType member in declaration order', () => {
+    expect(movementType?.values.map((value) => value.name)).toEqual([
+      'INITIAL_STOCK',
+      'PURCHASE_RECEIPT',
+      'SALE',
+      'RESERVATION',
+      'RESERVATION_RELEASE',
+      'MANUAL_ADJUSTMENT',
+      'DAMAGE',
+      'RETURN_RECEIVED',
+      'RETURN_REJECTED',
+      'STOCK_TRANSFER',
+      'HOLO_IMPORT',
+    ]);
+  });
+
+  it('defines the ReservationStatus values', () => {
+    expect(reservationStatus?.values.map((value) => value.name)).toEqual([
+      'ACTIVE',
+      'RELEASED',
+      'CONSUMED',
+      'EXPIRED',
+    ]);
+  });
+});
+
+describe('Warehouse model (SS-109)', () => {
+  const warehouse = Prisma.dmmf.datamodel.models.find(
+    (model) => model.name === 'Warehouse',
+  );
+
+  const ss109Migration = () => {
+    const migrationsDir = join(__dirname, '..', '..', '..', 'prisma', 'migrations');
+    const folder = readdirSync(migrationsDir).find((name) =>
+      name.includes('ss_109_inventory_foundation'),
+    );
+    expect(folder).toBeDefined();
+    return readFileSync(join(migrationsDir, folder!, 'migration.sql'), 'utf8');
+  };
+
+  it('defines the Warehouse model with reference, audit and soft-delete fields', () => {
+    expect(warehouse).toBeDefined();
+    const expected = [
+      'id',
+      'code',
+      'name',
+      'address',
+      'contactName',
+      'contactPhone',
+      'status',
+      'createdAt',
+      'updatedAt',
+      'deletedAt',
+      'createdBy',
+      'updatedBy',
+    ];
+    const names = warehouse!.fields.map((field) => field.name);
+    expect(names).toEqual(expect.arrayContaining(expected));
+  });
+
+  it('makes Warehouse.code unique and defaults status to ACTIVE', () => {
+    const code = warehouse?.fields.find((field) => field.name === 'code');
+    expect(code!.isUnique).toBe(true);
+
+    const status = warehouse?.fields.find((field) => field.name === 'status');
+    expect(status!.type).toBe('WarehouseStatus');
+    expect(status!.default).toBe('ACTIVE');
+  });
+
+  it('creates the Warehouse [status, deletedAt] index', () => {
+    expect(ss109Migration()).toContain(
+      'CREATE INDEX "Warehouse_status_deletedAt_idx" ON "Warehouse"("status", "deletedAt");',
+    );
+  });
+});
+
+describe('InventoryItem model (SS-109)', () => {
+  const inventoryItem = Prisma.dmmf.datamodel.models.find(
+    (model) => model.name === 'InventoryItem',
+  );
+
+  const ss109Migration = () => {
+    const migrationsDir = join(__dirname, '..', '..', '..', 'prisma', 'migrations');
+    const folder = readdirSync(migrationsDir).find((name) =>
+      name.includes('ss_109_inventory_foundation'),
+    );
+    expect(folder).toBeDefined();
+    return readFileSync(join(migrationsDir, folder!, 'migration.sql'), 'utf8');
+  };
+
+  it('defines the InventoryItem model with quantity, threshold and audit fields', () => {
+    expect(inventoryItem).toBeDefined();
+    const expected = [
+      'id',
+      'warehouseId',
+      'variantId',
+      'quantityOnHand',
+      'quantityReserved',
+      'reorderLevel',
+      'criticalLevel',
+      'createdAt',
+      'updatedAt',
+      'createdBy',
+      'updatedBy',
+    ];
+    const names = inventoryItem!.fields.map((field) => field.name);
+    expect(names).toEqual(expect.arrayContaining(expected));
+  });
+
+  it('defaults the inventory quantities to 0 and keeps thresholds optional', () => {
+    const onHand = inventoryItem?.fields.find(
+      (field) => field.name === 'quantityOnHand',
+    );
+    const reserved = inventoryItem?.fields.find(
+      (field) => field.name === 'quantityReserved',
+    );
+    expect(onHand!.type).toBe('Int');
+    expect(onHand!.default).toBe(0);
+    expect(reserved!.type).toBe('Int');
+    expect(reserved!.default).toBe(0);
+
+    for (const name of ['reorderLevel', 'criticalLevel']) {
+      const field = inventoryItem?.fields.find(
+        (candidate) => candidate.name === name,
+      );
+      expect(field!.type).toBe('Int');
+      expect(field!.isRequired).toBe(false);
+    }
+  });
+
+  it('enforces exactly one InventoryItem per (variantId, warehouseId)', () => {
+    expect(inventoryItem!.uniqueFields).toContainEqual([
+      'variantId',
+      'warehouseId',
+    ]);
+    expect(ss109Migration()).toContain(
+      'CREATE UNIQUE INDEX "InventoryItem_variantId_warehouseId_key" ON "InventoryItem"("variantId", "warehouseId");',
+    );
+  });
+
+  it('indexes InventoryItem by warehouseId', () => {
+    expect(ss109Migration()).toContain(
+      'CREATE INDEX "InventoryItem_warehouseId_idx" ON "InventoryItem"("warehouseId");',
+    );
+  });
+
+  it('restricts deletion on both warehouse and variant relations', () => {
+    const warehouse = inventoryItem?.fields.find(
+      (field) => field.name === 'warehouse',
+    );
+    const variant = inventoryItem?.fields.find(
+      (field) => field.name === 'variant',
+    );
+
+    expect(warehouse).toBeDefined();
+    expect(warehouse!.kind).toBe('object');
+    expect(warehouse!.type).toBe('Warehouse');
+    expect(warehouse!.relationOnDelete).toBe('Restrict');
+
+    expect(variant).toBeDefined();
+    expect(variant!.kind).toBe('object');
+    expect(variant!.type).toBe('ProductVariant');
+    expect(variant!.relationOnDelete).toBe('Restrict');
+  });
+});
+
+describe('InventoryMovement model (SS-109)', () => {
+  const movement = Prisma.dmmf.datamodel.models.find(
+    (model) => model.name === 'InventoryMovement',
+  );
+
+  const ss109Migration = () => {
+    const migrationsDir = join(__dirname, '..', '..', '..', 'prisma', 'migrations');
+    const folder = readdirSync(migrationsDir).find((name) =>
+      name.includes('ss_109_inventory_foundation'),
+    );
+    expect(folder).toBeDefined();
+    return readFileSync(join(migrationsDir, folder!, 'migration.sql'), 'utf8');
+  };
+
+  it('defines the immutable append-only ledger fields', () => {
+    expect(movement).toBeDefined();
+    const expected = [
+      'id',
+      'inventoryItemId',
+      'variantId',
+      'warehouseId',
+      'type',
+      'quantity',
+      'reservedDelta',
+      'reason',
+      'notes',
+      'reference',
+      'onHandBefore',
+      'onHandAfter',
+      'reservedBefore',
+      'reservedAfter',
+      'createdAt',
+      'createdBy',
+    ];
+    const names = movement!.fields.map((field) => field.name);
+    expect(names).toEqual(expect.arrayContaining(expected));
+  });
+
+  it('exposes no update/delete columns on the immutable ledger', () => {
+    expect(movement!.fields.find((field) => field.name === 'updatedAt')).toBeUndefined();
+    expect(movement!.fields.find((field) => field.name === 'deletedAt')).toBeUndefined();
+    expect(movement!.fields.find((field) => field.name === 'updatedBy')).toBeUndefined();
+  });
+
+  it('defaults the reservation deltas and previous/after reserved snapshots to 0', () => {
+    for (const name of ['reservedDelta', 'reservedBefore', 'reservedAfter']) {
+      const field = movement?.fields.find(
+        (candidate) => candidate.name === name,
+      );
+      expect(field!.type).toBe('Int');
+      expect(field!.default).toBe(0);
+    }
+  });
+
+  it('creates the five movement query indexes', () => {
+    const sql = ss109Migration();
+    expect(sql).toContain(
+      'CREATE INDEX "InventoryMovement_inventoryItemId_createdAt_idx" ON "InventoryMovement"("inventoryItemId", "createdAt");',
+    );
+    expect(sql).toContain(
+      'CREATE INDEX "InventoryMovement_variantId_createdAt_idx" ON "InventoryMovement"("variantId", "createdAt");',
+    );
+    expect(sql).toContain(
+      'CREATE INDEX "InventoryMovement_warehouseId_createdAt_idx" ON "InventoryMovement"("warehouseId", "createdAt");',
+    );
+    expect(sql).toContain(
+      'CREATE INDEX "InventoryMovement_type_createdAt_idx" ON "InventoryMovement"("type", "createdAt");',
+    );
+    expect(sql).toContain(
+      'CREATE INDEX "InventoryMovement_createdAt_idx" ON "InventoryMovement"("createdAt");',
+    );
+  });
+
+  it('restricts deletion on the inventoryItem relation', () => {
+    const inventoryItem = movement?.fields.find(
+      (field) => field.name === 'inventoryItem',
+    );
+    expect(inventoryItem).toBeDefined();
+    expect(inventoryItem!.kind).toBe('object');
+    expect(inventoryItem!.type).toBe('InventoryItem');
+    expect(inventoryItem!.relationOnDelete).toBe('Restrict');
+  });
+});
+
+describe('Reservation model (SS-109)', () => {
+  const reservation = Prisma.dmmf.datamodel.models.find(
+    (model) => model.name === 'Reservation',
+  );
+
+  const ss109Migration = () => {
+    const migrationsDir = join(__dirname, '..', '..', '..', 'prisma', 'migrations');
+    const folder = readdirSync(migrationsDir).find((name) =>
+      name.includes('ss_109_inventory_foundation'),
+    );
+    expect(folder).toBeDefined();
+    return readFileSync(join(migrationsDir, folder!, 'migration.sql'), 'utf8');
+  };
+
+  it('defines the Reservation model fields', () => {
+    expect(reservation).toBeDefined();
+    const expected = [
+      'id',
+      'inventoryItemId',
+      'quantity',
+      'status',
+      'expiresAt',
+      'releasedAt',
+      'consumedAt',
+      'expiredAt',
+      'createdAt',
+      'createdBy',
+      'updatedBy',
+    ];
+    const names = reservation!.fields.map((field) => field.name);
+    expect(names).toEqual(expect.arrayContaining(expected));
+  });
+
+  it('defaults Reservation.status to ACTIVE', () => {
+    const status = reservation?.fields.find((field) => field.name === 'status');
+    expect(status!.type).toBe('ReservationStatus');
+    expect(status!.default).toBe('ACTIVE');
+  });
+
+  it('creates the reservation indexes', () => {
+    const sql = ss109Migration();
+    expect(sql).toContain(
+      'CREATE INDEX "Reservation_inventoryItemId_idx" ON "Reservation"("inventoryItemId");',
+    );
+    expect(sql).toContain(
+      'CREATE INDEX "Reservation_status_expiresAt_idx" ON "Reservation"("status", "expiresAt");',
+    );
+  });
+
+  it('restricts deletion on the inventoryItem relation', () => {
+    const inventoryItem = reservation?.fields.find(
+      (field) => field.name === 'inventoryItem',
+    );
+    expect(inventoryItem).toBeDefined();
+    expect(inventoryItem!.kind).toBe('object');
+    expect(inventoryItem!.type).toBe('InventoryItem');
+    expect(inventoryItem!.relationOnDelete).toBe('Restrict');
+  });
+});
+
+describe('Inventory foundation migration (SS-109)', () => {
+  const ss109Migration = () => {
+    const migrationsDir = join(__dirname, '..', '..', '..', 'prisma', 'migrations');
+    const folder = readdirSync(migrationsDir).find((name) =>
+      name.includes('ss_109_inventory_foundation'),
+    );
+    expect(folder).toBeDefined();
+    return readFileSync(join(migrationsDir, folder!, 'migration.sql'), 'utf8');
+  };
+
+  const sql = ss109Migration();
+
+  it('creates the three inventory enums', () => {
+    expect(sql).toContain(
+      `CREATE TYPE "WarehouseStatus" AS ENUM ('ACTIVE', 'INACTIVE');`,
+    );
+    expect(sql).toContain(
+      `CREATE TYPE "InventoryMovementType" AS ENUM ('INITIAL_STOCK', 'PURCHASE_RECEIPT', 'SALE', 'RESERVATION', 'RESERVATION_RELEASE', 'MANUAL_ADJUSTMENT', 'DAMAGE', 'RETURN_RECEIVED', 'RETURN_REJECTED', 'STOCK_TRANSFER', 'HOLO_IMPORT');`,
+    );
+    expect(sql).toContain(
+      `CREATE TYPE "ReservationStatus" AS ENUM ('ACTIVE', 'RELEASED', 'CONSUMED', 'EXPIRED');`,
+    );
+  });
+
+  it('creates the four inventory tables', () => {
+    for (const table of [
+      'Warehouse',
+      'InventoryItem',
+      'InventoryMovement',
+      'Reservation',
+    ]) {
+      expect(sql).toContain(`CREATE TABLE "${table}"`);
+    }
+  });
+
+  it('enforces the approved FK ON DELETE RESTRICT semantics', () => {
+    expect(sql).toContain(
+      'ALTER TABLE "InventoryItem" ADD CONSTRAINT "InventoryItem_warehouseId_fkey" FOREIGN KEY ("warehouseId") REFERENCES "Warehouse"("id") ON DELETE RESTRICT ON UPDATE CASCADE;',
+    );
+    expect(sql).toContain(
+      'ALTER TABLE "InventoryItem" ADD CONSTRAINT "InventoryItem_variantId_fkey" FOREIGN KEY ("variantId") REFERENCES "ProductVariant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;',
+    );
+    expect(sql).toContain(
+      'ALTER TABLE "InventoryMovement" ADD CONSTRAINT "InventoryMovement_inventoryItemId_fkey" FOREIGN KEY ("inventoryItemId") REFERENCES "InventoryItem"("id") ON DELETE RESTRICT ON UPDATE CASCADE;',
+    );
+    expect(sql).toContain(
+      'ALTER TABLE "Reservation" ADD CONSTRAINT "Reservation_inventoryItemId_fkey" FOREIGN KEY ("inventoryItemId") REFERENCES "InventoryItem"("id") ON DELETE RESTRICT ON UPDATE CASCADE;',
+    );
+  });
+
+  it('keeps ProductVariant.stockQuantity and existing tables untouched', () => {
+    const variant = Prisma.dmmf.datamodel.models.find(
+      (model) => model.name === 'ProductVariant',
+    );
+    const stockQuantity = variant?.fields.find(
+      (field) => field.name === 'stockQuantity',
+    );
+    expect(stockQuantity).toBeDefined();
+    expect(stockQuantity!.type).toBe('Int');
+    expect(stockQuantity!.default).toBe(0);
+
+    expect(sql).not.toContain('DROP TABLE');
+    expect(sql).not.toContain('DROP TYPE');
+    expect(sql).not.toContain('ALTER TABLE "ProductVariant"');
+    expect(sql).not.toContain('ALTER TABLE "Product"');
+    expect(sql).not.toContain('ALTER TABLE "User"');
+    expect(sql).not.toContain('ALTER TABLE "Partner"');
+  });
+});

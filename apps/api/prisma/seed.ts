@@ -1,5 +1,6 @@
 import { PrismaClient, UserStatus } from '@prisma/client';
 import { IRANIAN_MOBILE_REGEX } from '../src/modules/auth/dto/request-otp.dto';
+import { bootstrap } from './bootstrap';
 
 const prisma = new PrismaClient();
 
@@ -68,8 +69,10 @@ async function main(): Promise<void> {
     },
   });
 
+  await bootstrap(prisma);
+
   console.log(
-    `Seeded ${ROLES.length} roles and the development admin (${devAdminMobile}).`,
+    `Seeded ${ROLES.length} roles, the development admin (${devAdminMobile}), and bootstrapped inventory.`,
   );
 }
 

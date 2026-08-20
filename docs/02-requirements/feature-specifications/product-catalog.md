@@ -574,6 +574,12 @@ They record how the feature spec is realized in the current Prisma schema:
 3. **`ProductVariant.stockQuantity` is a temporary M1 catalog availability
    snapshot**, not the future EPIC-006 inventory system of record (warehouses,
    reservations, movements/history, receiving, returns, reorder, reporting).
+   **SS-109 handoff:** `InventoryItem` becomes authoritative; `stockQuantity`
+   is retained as the denormalized M1 aggregate, and existing values are
+   backfilled into the default warehouse exactly once by the idempotent
+   bootstrap helper. Future EPIC-006 mutations update `InventoryItem` and
+   refresh `stockQuantity` in the same transaction; removing `stockQuantity`
+   is **not** part of SS-109.
 4. **ProductMedia uses a separate product-domain storage boundary.** Metadata
    lives in PostgreSQL (`storageKey` server-generated and unique); binaries live
    behind the Product-domain `ProductMediaStorage` abstraction (SS-105). The

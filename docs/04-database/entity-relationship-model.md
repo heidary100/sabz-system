@@ -51,9 +51,11 @@ Product
 +-- ProductVariant (owns the sellable SKU + retail/base price)
 +-- ProductMedia (images, videos; product-owned, optional variantId)
 +-- ProductSpecification (key-value attributes; deferred to SS-104)
-+-- Inventory (EPIC-006)
++-- Inventory (EPIC-006 / SS-109)
     +-- Warehouse
-    +-- StockLevel
+    +-- InventoryItem (one per variant + warehouse; authoritative)
+    +-- InventoryMovement (immutable ledger)
+    +-- Reservation
 ```
 
 - **Product**: Core product entity with name, slug, description, condition, and lifecycle status (DRAFT/PUBLISHED/ARCHIVED). Product has **no** sellable SKU; the SKU is owned by ProductVariant (SS-100).
@@ -62,8 +64,14 @@ Product
 - **ProductVariant**: Purchasable variation owning the unique SKU and the retail/base price (`Decimal(12,2)`). Holds a temporary M1 `stockQuantity` availability snapshot (EPIC-005); full inventory belongs to EPIC-006.
 - **ProductMedia**: Associated images and videos with watermarking support. Product-owned with an optional `variantId`; `storageKey` is server-generated and unique.
 - **ProductSpecification**: Dynamic key-value attribute pairs for product specs (deferred to SS-104).
-- **Inventory**: Stock tracking per variant per warehouse (EPIC-006).
-- **Warehouse**: Physical storage location reference (EPIC-006).
+- **Inventory** (EPIC-006 / SS-109): Stock tracking per variant per warehouse.
+  `InventoryItem` is authoritative; `ProductVariant.stockQuantity` is a
+  denormalized M1 aggregate (available = onHand − reserved, derived).
+- **Warehouse**: Physical storage location reference (EPIC-006 / SS-109); the
+  default warehouse (code `DEFAULT`) is infrastructure reference data.
+- **InventoryMovement**: Immutable append-only ledger of inventory changes
+  (SS-109).
+- **Reservation**: Inventory allocation to pending orders (SS-109).
 
 ---
 
@@ -115,7 +123,7 @@ Order
 | Product -> Brand | Many-to-One | Products belong to one brand |
 | Product -> ProductVariant | One-to-Many | Products have one or more variants (owns SKU + retail price) |
 | Product -> ProductMedia | One-to-Many | Products have multiple media files (product-owned, optional variantId) |
-| Product -> Inventory | One-to-One | Products have inventory records |
+| ProductVariant -> InventoryItem | One-to-Many | Variants have one inventory row per warehouse (SS-109) |
 | Order -> User | Many-to-One | Orders belong to customers |
 | Order -> OrderItem | One-to-Many | Orders contain multiple items |
 | Order -> Payment | One-to-Many | Orders may have multiple payment attempts |

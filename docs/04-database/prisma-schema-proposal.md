@@ -437,6 +437,157 @@ model ProductMedia {
 
 ---
 
+# Inventory Domain (SS-109)
+
+This section documents the applied EPIC-006 inventory foundation (SS-109). It is
+**documentation only** and reflects the applied migration
+`ss_109_inventory_foundation`.
+
+Design decisions:
+
+1. **`InventoryItem` is authoritative** — one row per `(variantId, warehouseId)`
+   (composite unique). `ProductVariant.stockQuantity` is retained as a
+   denormalized M1 aggregate and is refreshed in the same transaction as future
+   inventory mutations (single write path, owned by the inventory module from
+   SS-111 onward). `stockQuantity` is **not** removed in SS-109.
+2. **Available = quantityOnHand − quantityReserved** (derived, never stored).
+3. **`InventoryMovement` is an immutable append-only ledger** — no
+   `updatedAt`/`updatedBy`/`deletedAt`. It stores before/after balance snapshots
+   and a signed on-hand delta. `variantId`/`warehouseId` are denormalized
+   snapshots (not FKs); `reference` is internal linkage and is never exposed.
+4. **`InventoryMovementType` declares forward members** (`SALE`,
+   `RETURN_RECEIVED`, `RETURN_REJECTED`, `STOCK_TRANSFER`, `HOLO_IMPORT`) for
+   future workflows; only M1 types (`INITIAL_STOCK`, `PURCHASE_RECEIPT`,
+   `MANUAL_ADJUSTMENT`, `DAMAGE`, `RESERVATION`, `RESERVATION_RELEASE`) are
+   actively produced in M1.
+5. **FKs use `ON DELETE RESTRICT`** so inventory rows are never silently
+   destroyed (warehouse, variant, inventoryItem).
+6. **Reservation** schema is applied for M1 (ACTIVE → RELEASED | CONSUMED |
+   EXPIRED); no order models are added.
+7. **Default warehouse** (`code = 'DEFAULT'`) is infrastructure reference data,
+   ensured idempotently by `apps/api/prisma/bootstrap.ts` (also invoked by
+   `prisma:seed` for dev). Existing `stockQuantity` values are backfilled into
+   it exactly once, idempotently; soft-deleted variants and variants under
+   archived/deleted products are excluded.
+8. **No inventory API or UI** exists in SS-109.
+
+```prisma
+enum WarehouseStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum InventoryMovementType {
+  INITIAL_STOCK
+  PURCHASE_RECEIPT
+  SALE
+  RESERVATION
+  RESERVATION_RELEASE
+  MANUAL_ADJUSTMENT
+  DAMAGE
+  RETURN_RECEIVED
+  RETURN_REJECTED
+  STOCK_TRANSFER
+  HOLO_IMPORT
+}
+
+enum ReservationStatus {
+  ACTIVE
+  RELEASED
+  CONSUMED
+  EXPIRED
+}
+
+model Warehouse {
+  id           String          @id @default(uuid())
+  code         String          @unique
+  name         String
+  address      String?
+  contactName  String?
+  contactPhone String?
+  status       WarehouseStatus @default(ACTIVE)
+
+  inventoryItems InventoryItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+  createdBy String?
+  updatedBy String?
+
+  @@index([status, deletedAt])
+}
+
+model InventoryItem {
+  id               String         @id @default(uuid())
+  warehouseId      String
+  warehouse        Warehouse      @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  variantId        String
+  variant          ProductVariant @relation(fields: [variantId], references: [id], onDelete: Restrict)
+  quantityOnHand   Int            @default(0)
+  quantityReserved Int            @default(0)
+  reorderLevel     Int?
+  criticalLevel    Int?
+
+  movements   InventoryMovement[]
+  reservations Reservation[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?
+  updatedBy String?
+
+  @@unique([variantId, warehouseId])
+  @@index([warehouseId])
+}
+
+model InventoryMovement {
+  id              String               @id @default(uuid())
+  inventoryItemId String
+  inventoryItem   InventoryItem        @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+  variantId       String
+  warehouseId     String
+  type            InventoryMovementType
+  quantity        Int
+  reservedDelta   Int                  @default(0)
+  reason          String?
+  notes           String?
+  reference       String?
+  onHandBefore    Int
+  onHandAfter     Int
+  reservedBefore  Int                  @default(0)
+  reservedAfter   Int                  @default(0)
+  createdAt       DateTime             @default(now())
+  createdBy       String?
+
+  @@index([inventoryItemId, createdAt])
+  @@index([variantId, createdAt])
+  @@index([warehouseId, createdAt])
+  @@index([type, createdAt])
+  @@index([createdAt])
+}
+
+model Reservation {
+  id              String            @id @default(uuid())
+  inventoryItemId String
+  inventoryItem   InventoryItem     @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+  quantity        Int
+  status          ReservationStatus @default(ACTIVE)
+  expiresAt       DateTime?
+  releasedAt      DateTime?
+  consumedAt      DateTime?
+  expiredAt       DateTime?
+  createdAt       DateTime          @default(now())
+  createdBy       String?
+  updatedBy       String?
+
+  @@index([inventoryItemId])
+  @@index([status, expiresAt])
+}
+```
+
+---
+
 # Future Authentication Methods
 
 `passwordHash` is nullable. When passwordless OTP login or OAuth (Google/Apple) is introduced, add a `UserAuthMethod` child model:
