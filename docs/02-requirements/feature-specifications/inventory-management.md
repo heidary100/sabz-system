@@ -47,6 +47,35 @@ It ensures inventory accuracy across purchasing, sales, returns, and future acco
 > - Transfers, returns workflow, Holo import, storefront availability, and
 >   low-stock alerts remain deferred. Removal of `ProductVariant.stockQuantity`
 >   is **not** part of SS-109.
+>
+> **SS-111 applied decisions (warehouse management).** SS-111 implements the
+> admin warehouse management API only — no stock, reservation, movement or
+> receive/adjust behavior:
+>
+> - Routes (all ADMIN-only, `JwtAuthGuard` + `RolesGuard`; no SUPER_ADMIN, no
+>   permission RBAC): list (paginated + status filter + name/code search),
+>   detail, create, update, activate, deactivate. No DELETE endpoint.
+> - Warehouses are soft-delete-aware (`deletedAt`); every read and lifecycle
+>   operation treats soft-deleted warehouses as 404. There is no soft-delete
+>   endpoint — deactivation is the operational lifecycle mechanism.
+> - `code` is trimmed and stored as provided (case-sensitive) with uniqueness
+>   enforced by the database; a duplicate `code` returns 409 race-safely
+>   (P2002).
+> - Deterministic list ordering: `createdAt DESC`, then `id DESC`.
+> - **Last-active-warehouse invariant:** the platform must never have zero
+>   active, non-deleted warehouses. Deactivating the last active warehouse
+>   returns 409. The active warehouse rows are locked (`SELECT ... FOR UPDATE`)
+>   inside an interactive transaction so concurrent deactivations cannot zero
+>   out the active count — exactly one wins and the loser fails with 409.
+> - Every mutation is transactional and writes a transactional audit event
+>   (`WAREHOUSE_CREATED`, `WAREHOUSE_UPDATED`, `WAREHOUSE_DEACTIVATED`,
+>   `WAREHOUSE_ACTIVATED`); an audit failure rolls back the mutation.
+> - Responses and audit payloads never expose `deletedAt`, `createdBy`,
+>   `updatedBy`, inventory contents, storage paths, or secrets.
+> - Warehouse lifecycle operations never create or modify `InventoryItem` or
+>   `InventoryMovement` rows. Inactive warehouses may not receive future
+>   inventory — that enforcement belongs to the stock operations issue
+>   (SS-113), not SS-111.
 
 ---
 
