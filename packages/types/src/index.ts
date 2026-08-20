@@ -82,3 +82,31 @@ export {
   UpdateVariantInput,
   UpdateVariantInventoryInput,
 } from './product/admin';
+
+export {
+  InventoryMovementType,
+  InventoryStockStatus,
+  ReservationStatus,
+  WarehouseStatus,
+} from './inventory/type';
+
+export { WarehouseDetail, WarehouseSummary } from './inventory/warehouse';
+
+export {
+  InventoryItemSummary,
+  InventoryMovementSummary,
+  InventoryVariantRef,
+  ReservationSummary,
+} from './inventory/inventory';
+
+export {
+  AdjustInventoryInput,
+  CreateWarehouseInput,
+  InventoryListQuery,
+  MovementListQuery,
+  ReceiveStockInput,
+  ReservationListQuery,
+  ReserveInventoryInput,
+  UpdateWarehouseInput,
+  WarehouseListQuery,
+} from './inventory/admin';
