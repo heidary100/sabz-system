@@ -255,6 +255,71 @@ no persistence, no console logging).
 
 ---
 
+# SS-106 — Admin Product & Catalog UI
+
+Access: OPERATOR + ADMIN (`RequireRole roles={ADMIN_ROLES}`). No
+`SUPER_ADMIN`, no `@Permissions`.
+
+Routes (sidebar: محصولات، دسته‌بندی‌ها، برندها):
+
+- `/products` (`ProductsPage`): paginated list with search, status /
+  category / brand filters, loading / empty / error+retry, row navigation to
+  detail, and a create dialog.
+- `/products/:id` (`ProductDetailPage`): business info, lifecycle actions,
+  and read-only Variant + Media sections.
+- `/categories` (`CategoriesPage`): paginated list with create / edit /
+  delete dialogs; parent column and parent select (self-parent prevented in
+  the UI; the backend remains authoritative for descendant cycles via 409).
+- `/brands` (`BrandsPage`): paginated list with create / edit / delete
+  dialogs.
+
+Product lifecycle (backend-authoritative, never optimistic):
+
+- DRAFT: Edit, Publish. PUBLISHED: Edit, Archive. ARCHIVED: Delete only;
+  editing is blocked by the backend (409) and the UI hides edit/publish/
+  archive. Publishing a DRAFT with no variant returns 409.
+- Lifecycle actions call `POST /admin/products/:id/publish`,
+  `POST /admin/products/:id/archive`, `DELETE /admin/products/:id`. On 409
+  the UI shows the Persian backend message and refetches the authoritative
+  detail.
+
+Ownership boundaries:
+
+- **Variants** are read-only in SS-106 (SKU / name / barcode / price /
+  stock displayed with a note that these belong to the variant). Variant
+  CRUD/inventory belongs to SS-107.
+- **Media** are read-only metadata in SS-106. Upload/delete/reorder/download
+  belong to SS-108 (media preview is intentionally not surfaced here).
+- Product create/edit uses Catalyst dialogs; forms never expose product
+  SKU/price/stock, status selection, or variant/media management.
+
+Implementation notes:
+
+- New services `services/products.ts`, `services/categories.ts`,
+  `services/brands.ts` map 1:1 to the SS-102/103 admin endpoints using the
+  existing `request()` wrapper.
+- Plain React hooks (`use-product-list.ts`, `use-product-detail.ts`,
+  `use-category-list.ts`, `use-brand-list.ts`, plus option hooks) follow the
+  existing `requestSeq` stale-response protection, page-reset-on-filter, and
+  page-clamp conventions. No new state-management library.
+- Category/brand option lists (product filters, product form selects,
+  category parent select) fetch page 1 with `limit=100` because the
+  category/brand list endpoints expose no search — this is a documented
+  limitation for M1.
+- Labels live in `lib/product-labels.ts`; `ProductStatusBadge` follows the
+  existing badge convention. Dates reuse the Jalali helpers; prices are
+  strings from the API and are displayed without arithmetic.
+- `isFeatured` on brands is intentionally **not** exposed/mutated in SS-106;
+  it is deferred until its product/media requirements are scoped.
+
+Manual acceptance is the established convention (no React test harness); see
+the SS-106 issue checklist covering role access, filters, pagination,
+lifecycle 409 refresh, category hierarchy/self-parent, delete-blocked 409s,
+read-only variant/media, no storageKey/logoKey leakage, refresh, and
+RTL/Persian.
+
+---
+
 # Available Scripts
 
 ```bash

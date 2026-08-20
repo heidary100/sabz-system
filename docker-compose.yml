@@ -111,6 +111,9 @@ services:
       - "5173:5173"
     environment:
       VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:3000/api/v1}
+      # Vite dev-server proxy target for relative /api calls. Inside the
+      # Compose network the API is reached by its service name, not localhost.
+      API_PROXY_TARGET: ${API_PROXY_TARGET:-http://api:3000}
     command: ["pnpm", "--filter", "@sabz/admin", "dev", "--host", "0.0.0.0"]
     volumes:
       - ./apps/admin:/app/apps/admin
