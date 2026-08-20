@@ -252,7 +252,13 @@ export function ProductDetailPage() {
         onStock={(variant) => setVariantDialog({ mode: 'stock', variant })}
         onDelete={(variant) => setVariantDialog({ mode: 'delete', variant })}
       />
-      <ProductMediaSection media={product.media} />
+      <ProductMediaSection
+        media={product.media}
+        variants={product.variants}
+        productId={product.id}
+        manageable={manageable}
+        onRefetch={() => void refetch()}
+      />
 
       {dialog === 'edit' && (
         <ProductEditDialog
