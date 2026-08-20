@@ -1,6 +1,7 @@
 import type { VariantSummary } from '@sabz/types'
 import { Subheading } from '../catalyst/heading'
 import { Text } from '../catalyst/text'
+import { Button } from '../catalyst/button'
 import {
   Table,
   TableBody,
@@ -9,14 +10,39 @@ import {
   TableHeader,
   TableRow,
 } from '../catalyst/table'
+import { VariantAvailabilityBadge } from '../variants/variant-availability-badge'
 
-export function ProductVariantsSection({ variants }: { variants: VariantSummary[] }) {
+export function ProductVariantsSection({
+  variants,
+  manageable,
+  onCreate,
+  onEdit,
+  onStock,
+  onDelete,
+}: {
+  variants: VariantSummary[]
+  manageable: boolean
+  onCreate: () => void
+  onEdit: (variant: VariantSummary) => void
+  onStock: (variant: VariantSummary) => void
+  onDelete: (variant: VariantSummary) => void
+}) {
   return (
     <section className="rounded-lg border border-border bg-white p-6">
-      <Subheading>واریانت‌ها</Subheading>
-      <Text className="mt-1 text-xs text-zinc-500">
-        SKU، قیمت و موجودی به واریانت تعلق دارد و در این بخش فقط به‌صورت نمایشی ارائه می‌شود.
-      </Text>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <Subheading>واریانت‌ها</Subheading>
+          <Text className="mt-1 text-xs text-zinc-500">
+            SKU، قیمت و موجودی به واریانت تعلق دارد. موجودی، نمای کلی (M1) است و به انبار مربوط نمی‌شود.
+          </Text>
+        </div>
+        {manageable && (
+          <Button color="primary" onClick={onCreate}>
+            افزودن واریانت
+          </Button>
+        )}
+      </div>
+
       {variants.length === 0 ? (
         <Text className="mt-4">هنوز واریانتی برای این محصول ثبت نشده است.</Text>
       ) : (
@@ -29,6 +55,7 @@ export function ProductVariantsSection({ variants }: { variants: VariantSummary[
                 <TableHeader>بارکد</TableHeader>
                 <TableHeader>قیمت</TableHeader>
                 <TableHeader>موجودی</TableHeader>
+                {manageable && <TableHeader>عملیات</TableHeader>}
               </TableRow>
             </TableHead>
             <TableBody>
@@ -44,7 +71,29 @@ export function ProductVariantsSection({ variants }: { variants: VariantSummary[
                   <TableCell dir="ltr" className="text-zinc-500">
                     {variant.price}
                   </TableCell>
-                  <TableCell className="text-zinc-500">{variant.stockQuantity}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <span dir="ltr" className="text-zinc-500">
+                        {variant.stockQuantity}
+                      </span>
+                      <VariantAvailabilityBadge stockQuantity={variant.stockQuantity} />
+                    </div>
+                  </TableCell>
+                  {manageable && (
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Button outline onClick={() => onEdit(variant)}>
+                          ویرایش
+                        </Button>
+                        <Button outline onClick={() => onStock(variant)}>
+                          موجودی
+                        </Button>
+                        <Button outline onClick={() => onDelete(variant)}>
+                          حذف
+                        </Button>
+                      </div>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))}
             </TableBody>

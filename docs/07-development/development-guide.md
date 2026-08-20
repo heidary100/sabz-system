@@ -320,6 +320,78 @@ RTL/Persian.
 
 ---
 
+# SS-107 — Admin Product Variant & Minimal Inventory UI
+
+Access: OPERATOR + ADMIN (`RequireRole roles={ADMIN_ROLES}`). No
+`SUPER_ADMIN`, no `@Permissions`. As with all admin frontend, role gating is UX
+only — the SS-104 API remains the authorization and data-access boundary.
+
+Route: no new route. Variant management lives inside `/products/:id`
+(`ProductDetailPage`); there is no standalone variant sidebar item because
+variants are product-scoped.
+
+Surface:
+
+- The SS-106 read-only variant section is evolved into an actionable
+  management surface: «افزودن واریانت» button plus per-row «ویرایش» /
+  «موجودی» / «حذف» actions that open Catalyst dialogs.
+- `VariantForm` (single reusable dialog) handles create and edit:
+  SKU (required, `ltr`, max 64), barcode (optional, nullable-clear), variant
+  name/display label (optional, max 255 — no EAV/attributes in M1), retail
+  price (required string, `^\d{1,10}(\.\d{1,2})?$`), and initial stock on
+  create only.
+- Stock is managed through the dedicated `VariantInventoryDialog`:
+  `PATCH /admin/variants/:id/inventory` is an **absolute set** of
+  `stockQuantity` (integer ≥ 0). Negative values are blocked client-side and
+  the backend rejects them (400). No delta, no movement history, no warehouse,
+  no reservation — those belong to EPIC-006.
+- Availability is a derived presentation only (`0 → ناموجود`, `> 0 → موجود`);
+  the API exposes only `stockQuantity` and no availability field.
+- Delete is soft-delete (confirmation dialog, no hard-delete language, no
+  restore UI). Deleting the only variant of a published product does not
+  unpublish it.
+- Prices are strings from the API and are never passed through floating-point
+  arithmetic; no currency engine or symbol is introduced.
+
+Lifecycle (backend-authoritative, never optimistic):
+
+- DRAFT / PUBLISHED products: full variant management.
+- ARCHIVED products: the variant table stays read-only (create/edit/stock/
+  delete controls are hidden); the backend still rejects mutations with 409.
+- After every mutation the variant list and product detail are refetched. On a
+  409 (duplicate SKU, archived product, concurrent archive/soft-delete race)
+  the Persian backend message is shown via `translateApiError()` and both
+  fetches are refreshed so the UI never keeps stale state.
+- Variant data lives in React memory only — never persisted to
+  localStorage/sessionStorage/IndexedDB, and never logged to the console.
+  Only shared-contract fields are rendered (never `deletedAt`/`createdBy`/
+  `updatedBy`/storage keys).
+
+Implementation notes:
+
+- New `services/variants.ts` (`listVariants`, `createVariant`,
+  `updateVariant`, `deleteVariant`, `setVariantInventory`) maps 1:1 to the
+  SS-104 endpoints using the existing `request()` wrapper.
+- New request-input contracts `CreateVariantInput` / `UpdateVariantInput` /
+  `UpdateVariantInventoryInput` were added to `@sabz/types` following the
+  existing shared-input convention (`CreateProductInput`, …). No new response
+  types; `VariantSummary` (SS-101) is reused for every response.
+- The variant table renders from the product-detail payload
+  (`ProductDetail.variants`, authoritative non-deleted variant list), so no
+  dedicated variant-list fetch or pagination is needed; every mutation
+  refetches the product detail.
+- Labels/formatting stay in the components; no new `lib/variant-labels.ts` is
+  introduced. SKU/barcode/price/stock are rendered `dir="ltr"`.
+
+Manual acceptance is the established convention (no React test harness); see
+the SS-107 checklist in the issue (ADMIN/OPERATOR access, CUSTOMER/PARTNER
+denied, variant CRUD, stock absolute-set + negative-blocked, availability
+display, DRAFT/PUBLISHED/ARCHIVED lifecycle, duplicate-SKU 409 + refetch,
+stale-race 409 + refetch, 404/401/403 handling, loading/empty/error+retry,
+confirmation dialog, RTL/Persian, no sensitive fields, refresh reload).
+
+---
+
 # Available Scripts
 
 ```bash

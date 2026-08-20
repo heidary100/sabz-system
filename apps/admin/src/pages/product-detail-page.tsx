@@ -7,18 +7,27 @@ import { translateApiError } from '../lib/error-messages'
 import { formatDateTime } from '../lib/format'
 import { PRODUCT_CONDITION_LABELS } from '../lib/product-labels'
 import { archiveProduct, deleteProduct, publishProduct } from '../services/products'
+import { deleteVariant } from '../services/variants'
 import { Button } from '../components/catalyst/button'
 import { Heading, Subheading } from '../components/catalyst/heading'
 import { EmptyState } from '../components/ui/empty-state'
 import { Loading } from '../components/ui/loading'
+import { DeleteConfirmDialog } from '../components/ui/delete-confirm-dialog'
 import { ProductStatusBadge } from '../components/products/product-status-badge'
 import { ProductForm } from '../components/products/product-form'
 import { LifecycleConfirmDialog } from '../components/products/lifecycle-confirm-dialog'
 import { ProductVariantsSection } from '../components/products/product-variants-section'
 import { ProductMediaSection } from '../components/products/product-media-section'
-import type { ProductDetail } from '@sabz/types'
+import { VariantForm } from '../components/variants/variant-form'
+import { VariantInventoryDialog } from '../components/variants/variant-inventory-dialog'
+import type { ProductDetail, VariantSummary } from '@sabz/types'
 
 type DialogName = 'edit' | 'publish' | 'archive' | 'delete' | null
+
+type VariantDialogState =
+  | { mode: 'create' }
+  | { mode: 'edit' | 'delete' | 'stock'; variant: VariantSummary }
+  | null
 
 function InfoItem({ label, value }: { label: string; value: string | null }) {
   return (
@@ -63,6 +72,7 @@ export function ProductDetailPage() {
   const { product, loading, error, refetch } = useProductDetail(id ?? '')
 
   const [dialog, setDialog] = useState<DialogName>(null)
+  const [variantDialog, setVariantDialog] = useState<VariantDialogState>(null)
 
   if (loading && !product) {
     return <Loading label="در حال بارگذاری محصول…" />
@@ -122,6 +132,30 @@ export function ProductDetailPage() {
     setDialog(null)
     void refetch()
   }
+
+  const handleVariantSuccess = (): void => {
+    setVariantDialog(null)
+    void refetch()
+  }
+
+  const handleVariantConflict = (): void => {
+    void refetch()
+  }
+
+  const handleVariantDelete = async (): Promise<void> => {
+    if (variantDialog?.mode !== 'delete') {
+      return
+    }
+    try {
+      await deleteVariant(variantDialog.variant.id)
+      void refetch()
+    } catch (error) {
+      void refetch()
+      throw error
+    }
+  }
+
+  const manageable = product.status !== 'ARCHIVED'
 
   return (
     <div className="mx-auto max-w-6xl space-y-8">
@@ -210,7 +244,14 @@ export function ProductDetailPage() {
         </dl>
       </section>
 
-      <ProductVariantsSection variants={product.variants} />
+      <ProductVariantsSection
+        variants={product.variants}
+        manageable={manageable}
+        onCreate={() => setVariantDialog({ mode: 'create' })}
+        onEdit={(variant) => setVariantDialog({ mode: 'edit', variant })}
+        onStock={(variant) => setVariantDialog({ mode: 'stock', variant })}
+        onDelete={(variant) => setVariantDialog({ mode: 'delete', variant })}
+      />
       <ProductMediaSection media={product.media} />
 
       {dialog === 'edit' && (
@@ -251,6 +292,39 @@ export function ProductDetailPage() {
         color="red"
         onClose={() => setDialog(null)}
         onConfirm={() => runAction('delete')}
+      />
+
+      <VariantForm
+        open={
+          variantDialog !== null &&
+          (variantDialog.mode === 'create' || variantDialog.mode === 'edit')
+        }
+        productId={product.id}
+        variant={variantDialog?.mode === 'edit' ? variantDialog.variant : null}
+        onClose={() => setVariantDialog(null)}
+        onSuccess={handleVariantSuccess}
+        onConflict={handleVariantConflict}
+      />
+
+      <VariantInventoryDialog
+        open={variantDialog?.mode === 'stock'}
+        variant={variantDialog?.mode === 'stock' ? variantDialog.variant : null}
+        onClose={() => setVariantDialog(null)}
+        onSuccess={handleVariantSuccess}
+        onConflict={handleVariantConflict}
+      />
+
+      <DeleteConfirmDialog
+        open={variantDialog?.mode === 'delete'}
+        title="حذف واریانت"
+        description={
+          variantDialog?.mode === 'delete'
+            ? `واریانت «${variantDialog.variant.sku}» از چیدمان فعال محصول حذف میشود.`
+            : ''
+        }
+        confirmLabel="حذف واریانت"
+        onClose={() => setVariantDialog(null)}
+        onConfirm={handleVariantDelete}
       />
     </div>
   )
