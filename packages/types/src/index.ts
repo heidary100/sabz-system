@@ -74,8 +74,11 @@ export {
   CreateBrandInput,
   CreateCategoryInput,
   CreateProductInput,
+  CreateVariantInput,
   ProductListQuery,
   UpdateBrandInput,
   UpdateCategoryInput,
   UpdateProductInput,
+  UpdateVariantInput,
+  UpdateVariantInventoryInput,
 } from './product/admin';

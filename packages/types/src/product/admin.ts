@@ -82,3 +82,22 @@ export interface UpdateBrandInput {
   description?: string | null;
   isFeatured?: boolean;
 }
+
+export interface CreateVariantInput {
+  sku: string;
+  barcode?: string;
+  name?: string;
+  price: string;
+  stockQuantity?: number;
+}
+
+export interface UpdateVariantInput {
+  sku?: string;
+  barcode?: string | null;
+  name?: string | null;
+  price?: string;
+}
+
+export interface UpdateVariantInventoryInput {
+  stockQuantity: number;
+}
