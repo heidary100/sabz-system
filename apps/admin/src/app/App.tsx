@@ -5,10 +5,14 @@ import { RequireRole } from '../auth/require-role'
 import { AdminLayout } from '../layouts/admin-layout'
 import { AccessDeniedPage } from '../pages/access-denied-page'
 import { AuditPage } from '../pages/audit-page'
+import { BrandsPage } from '../pages/brands-page'
+import { CategoriesPage } from '../pages/categories-page'
 import { DashboardPage } from '../pages/dashboard-page'
 import { LoginPage } from '../pages/login-page'
 import { PartnerDetailPage } from '../pages/partner-detail-page'
 import { PartnersPage } from '../pages/partners-page'
+import { ProductDetailPage } from '../pages/product-detail-page'
+import { ProductsPage } from '../pages/products-page'
 import { RolesPage } from '../pages/roles-page'
 import { UserDetailPage } from '../pages/user-detail-page'
 import { UsersPage } from '../pages/users-page'
@@ -82,6 +86,38 @@ export default function App() {
               element={
                 <RequireRole roles={ADMIN_ROLES}>
                   <AuditPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="products"
+              element={
+                <RequireRole roles={ADMIN_ROLES}>
+                  <ProductsPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="products/:id"
+              element={
+                <RequireRole roles={ADMIN_ROLES}>
+                  <ProductDetailPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="categories"
+              element={
+                <RequireRole roles={ADMIN_ROLES}>
+                  <CategoriesPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="brands"
+              element={
+                <RequireRole roles={ADMIN_ROLES}>
+                  <BrandsPage />
                 </RequireRole>
               }
             />

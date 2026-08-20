@@ -4,6 +4,9 @@ import { Button } from '../components/catalyst/button'
 
 const NAV_ITEMS = [
   { to: '/dashboard', label: 'پیشخوان' },
+  { to: '/products', label: 'محصولات' },
+  { to: '/categories', label: 'دسته‌بندی‌ها' },
+  { to: '/brands', label: 'برندها' },
   { to: '/partners', label: 'درخواست‌های همکاری' },
   { to: '/users', label: 'کاربران' },
   { to: '/roles', label: 'نقش‌ها' },
