@@ -392,6 +392,81 @@ confirmation dialog, RTL/Persian, no sensitive fields, refresh reload).
 
 ---
 
+# SS-108 — Admin Product Media UI
+
+Access: OPERATOR + ADMIN (`RequireRole roles={ADMIN_ROLES}`). No
+`SUPER_ADMIN`, no `@Permissions`. As with all admin frontend, role gating is UX
+only — the SS-105 API remains the authorization and data-access boundary.
+
+Route: no new route. Media management lives inside `/products/:id`
+(`ProductDetailPage`); there is no standalone media sidebar item because media
+are product-scoped.
+
+Surface:
+
+- The SS-106 read-only media section is evolved into an actionable surface:
+  «افزودن رسانه» button plus per-row «مشاهده» / «دانلود» / «حذف» actions.
+- Upload (`MediaUploadDialog`): the first Admin multipart upload. Sends
+  `POST /admin/products/:productId/media` with `multipart/form-data` — required
+  `file` and optional `variantId` only. `mediaType` is never sent (the backend
+  infers it from content) and `isPrimary`/`sortOrder` are never sent (server
+  controlled). Client-side validation (empty file, > 10 MB, unsupported browser
+  MIME) is UX only; the backend stays authoritative for magic-byte validation,
+  MIME mismatch, and size limits. No upload progress percentage — the transport
+  is plain `fetch`.
+- Preview (`MediaPreviewDialog`): authenticated `requestBlob` fetch +
+  `URL.createObjectURL`. Images render in `<img>`, MP4 renders in
+  `<video controls>`; object URLs are revoked on close. Download triggers a
+  browser download using the sanitized `originalName`. No public URLs, no
+  `storageKey`/path exposure.
+- Delete (`MediaDeleteDialog`): `DELETE /admin/media/:id` soft-delete with
+  confirmation; no restore, no hard delete.
+
+Backend-controlled primary/order semantics (do not simulate in the UI):
+
+- Ordering is server-controlled (`sortOrder`); there is no reorder endpoint and
+  no drag-and-drop/move controls.
+- The first uploaded IMAGE automatically becomes primary; videos are never
+  primary; deleting the primary promotes the next image on the server. There is
+  no "set primary" control and `isPrimary` is never mutated client-side.
+- After every mutation (and on 409/404 conflicts) the product detail is
+  refetched so the media section reflects authoritative server state.
+
+Lifecycle (backend-authoritative, never optimistic):
+
+- DRAFT / PUBLISHED products: full media management.
+- ARCHIVED products: the media table stays read-only (upload/delete controls are
+  hidden); viewing/download remain available.
+- Media data lives in React memory only — never persisted to
+  localStorage/sessionStorage/IndexedDB, and never logged to the console. Only
+  shared-contract fields (`ProductMediaSummary`) are rendered.
+
+Implementation notes:
+
+- New `services/media.ts` (`uploadProductMedia`, `listProductMedia`,
+  `downloadProductMedia`, `deleteProductMedia`) maps 1:1 to the SS-105
+  endpoints. Upload uses the new `requestMultipart` helper in `services/api.ts`,
+  which mirrors `request()`/`requestBlob()` bearer injection + single-flight
+  refresh + retry + session clearing but never sets `Content-Type` (the browser
+  generates the multipart boundary).
+- The media section renders from `ProductDetail.media` (authoritative active
+  media ordered by `sortOrder`); mutation/dialog state stays inside
+  `ProductMediaSection` so the page only passes `media`, `variants`, `productId`,
+  `manageable`, and the existing `refetch`.
+- No `@sabz/types` change: `ProductMediaSummary` fully covers the response
+  contract. No new dependencies, no test framework.
+
+Manual acceptance is the established convention (no React test harness); see
+the SS-108 checklist in the issue (OPERATOR/ADMIN access, CUSTOMER/PARTNER
+denied, upload JPEG/PNG/WEBP/MP4, invalid/oversized/empty rejection, variant
+association, first-image-primary, server ordering, no reorder/primary-toggle
+controls, authenticated image/MP4 preview, download with original filename,
+delete + primary promotion after refetch, 400/403/404/409 Persian messages,
+401 refresh, no storageKey/public URL/path leakage, object URL revocation,
+RTL/Persian/Vazirmatn, loading/empty/error states, refresh reload).
+
+---
+
 # Available Scripts
 
 ```bash

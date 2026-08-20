@@ -93,6 +93,56 @@ export async function request<T>(
 }
 
 /**
+ * Authenticated multipart/form-data upload that returns JSON. Used by the
+ * product media upload flow. Mirrors request()/requestBlob() exactly: bearer
+ * token injection, single-flight refresh, one retry, and session clearing on
+ * refresh failure stay centralized here.
+ *
+ * The `Content-Type` header is intentionally never set: the browser must
+ * generate the multipart boundary itself.
+ */
+export async function requestMultipart<T>(
+  path: string,
+  formData: FormData,
+  options: RequestOptions = {},
+): Promise<T> {
+  const { auth = true, allowRefresh = true } = options
+
+  const performRequest = async (): Promise<T> => {
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      method: 'POST',
+      body: formData,
+      headers: {
+        ...(auth && accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      },
+      credentials: 'include',
+    })
+
+    if (!response.ok) {
+      const payload = (await response.json().catch(() => undefined)) as
+        | ApiErrorPayload
+        | undefined
+      throw new ApiError(response.status, payload)
+    }
+
+    return (await response.json()) as T
+  }
+
+  try {
+    return await performRequest()
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401 && auth && allowRefresh) {
+      const refreshed = await refreshSession()
+      if (refreshed) {
+        return performRequest()
+      }
+      clearSession()
+    }
+    throw error
+  }
+}
+
+/**
  * Authenticated fetch that returns binary content instead of JSON. Used by the
  * document preview/download flow, which mirrors request() exactly: bearer token
  * injection, single-flight refresh, one retry, and session clearing on refresh
