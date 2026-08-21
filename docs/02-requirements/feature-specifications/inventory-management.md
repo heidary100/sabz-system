@@ -123,6 +123,66 @@ It ensures inventory accuracy across purchasing, sales, returns, and future acco
 > - Reads are non-mutating: no `InventoryMovement` rows and no inventory
 >   changes are created by any read endpoint.
 
+> **SS-113 applied decisions (inventory mutation API).** SS-113 implements the
+> EPIC-006 core stock mutations — receive and absolute adjust — plus the SS-104
+> compatibility handoff. No reservations, transfers, returns, Holo import,
+> movement-history API, or inventory UI:
+>
+> - Routes (all `OPERATOR` + `ADMIN`, `JwtAuthGuard` + `RolesGuard`; no
+>   SUPER_ADMIN, no permission RBAC): `POST /admin/inventory/receive` and
+>   `POST /admin/inventory/adjust`. Success returns HTTP 200 with the SS-112
+>   `InventoryItemSummary` (post-mutation state); responses never expose
+>   `deletedAt`, `createdBy`, `updatedBy` or `InventoryMovement.reference`.
+> - **Receive** (`quantity` integer > 0, optional trimmed `notes` max 1000) is
+>   an atomic increment against the authoritative `InventoryItem`. The
+>   first-ever receipt for a `(variantId, warehouseId)` pair creates the item
+>   and writes `INITIAL_STOCK` (`onHandBefore = 0`); later receipts write
+>   `PURCHASE_RECEIPT`. Two concurrent receives on the same item both succeed:
+>   the row is locked (`SELECT ... FOR UPDATE`) and the increment is atomic; the
+>   first-receipt create race is resolved by the composite unique constraint
+>   with a bounded retry (P2002), so both first-ever receives succeed.
+> - **Adjust** (`quantity` integer >= 0 is the **absolute desired
+>   `quantityOnHand`**, mandatory trimmed non-empty `reason` max 500, optional
+>   trimmed `notes` max 1000) computes `delta = requested − current` and writes
+>   a signed `MANUAL_ADJUSTMENT` movement with exact `onHandBefore/After`
+>   snapshots. The item write is a conditional expected-value update
+>   (`quantityOnHand = <in-transaction read>` + lifecycle predicate): concurrent
+>   adjustments resolve to exactly **one winner** and the stale requester
+>   receives 409 with no movement/audit. A same-value adjust (delta 0) still
+>   records a zero-delta movement and audit. Adjust never creates items (404
+>   when absent) and can never produce negative stock.
+> - **Every successful mutation writes exactly one immutable
+>   `InventoryMovement` and exactly one transactional `AuditLog` event**
+>   (`INVENTORY_RECEIVED` / `INVENTORY_ADJUSTED`, `entity = "InventoryItem"`,
+>   flat camelCase payload with balances and delta). An audit failure rolls back
+>   the item change, the movement and the aggregate.
+> - **`InventoryItem` is authoritative; `ProductVariant.stockQuantity` is the
+>   denormalized aggregate** refreshed in the same transaction via the shared
+>   `aggregateVariantStock` helper (active, non-deleted warehouses; active
+>   non-deleted, non-ARCHIVED variants/products; absent rows aggregate to 0 —
+>   byte-identical scope to SS-112 reads). The variant row is locked
+>   (`SELECT ... FOR UPDATE`) before the aggregate is computed so concurrent
+>   mutations on different items of the same variant cannot write a stale
+>   aggregate.
+> - **SS-104 compatibility endpoint repoint:** `PATCH /admin/variants/:id/
+>   inventory` remains available in M1 (deprecated, not removed) but no longer
+>   writes `ProductVariant.stockQuantity` directly. It delegates to the
+>   inventory write path: an absolute set on the **default warehouse**
+>   (`code = 'DEFAULT'`, ensured idempotently), `MANUAL_ADJUSTMENT` movement,
+>   aggregate refresh and the legacy `PRODUCT_INVENTORY_SET` audit, all in one
+>   transaction. `VariantsService` performs no stock transaction anymore; there
+>   is exactly one inventory write path (`InventoryService`).
+> - **Known residual gap (out of SS-113 scope):** the SS-104 variant **create**
+>   path still accepts an optional `stockQuantity` that is written only to
+>   `ProductVariant.stockQuantity` without an `InventoryItem` row. A variant
+>   created this way after bootstrap has `stockQuantity = N` but aggregates to
+>   0 until stock is received/adjusted or bootstrap is re-run. Removing the
+>   field or routing create through the write path is deferred to a follow-up
+>   issue.
+> - `InventoryItem` rows are permanent (no `deletedAt`); mutations never
+>   resurrect deleted variants/products or mutate inactive warehouses
+>   (missing/deleted → 404, archived product or inactive warehouse → 409).
+
 ---
 
 # 2. Goals

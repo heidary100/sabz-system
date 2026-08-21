@@ -968,15 +968,19 @@ one active variant) applies only at publish time. Audits
 
 PATCH /admin/variants/{id}/inventory
 
-Set the absolute `stockQuantity` (the M1 inventory boundary). Body:
-`stockQuantity` (required integer >= 0). The write is atomic and conditional on
-the variant and its owning product being active (`deletedAt IS NULL` and product
-not archived), so it never resurrects a deleted variant, cannot produce a
-negative value (validated `>= 0`), and a mutation racing a concurrent archive or
-soft-delete fails cleanly. Concurrent absolute sets are last-writer-wins
-(acceptable for a manual admin set-stock operation; no delta/movement
-semantics). An archived owning product returns 409. Audits
-`PRODUCT_INVENTORY_SET` with the integer before/after stock.
+**DEPRECATED (SS-113, not removed in M1).** Set the absolute `stockQuantity`
+through the inventory write path: the value is applied as an absolute set on the
+**default warehouse** (`code = 'DEFAULT'`) `InventoryItem`, a
+`MANUAL_ADJUSTMENT` movement is written, `ProductVariant.stockQuantity` is
+refreshed to the authoritative aggregate, and `PRODUCT_INVENTORY_SET` is
+audited — all in one transaction. Body: `stockQuantity` (required integer >= 0).
+The write is conditional on the variant and its owning product being active
+(`deletedAt IS NULL` and product not archived), so it never resurrects a deleted
+variant, cannot produce a negative value (validated `>= 0`), and a mutation
+racing a concurrent archive or soft-delete fails cleanly. An archived owning
+product returns 409. The response is the post-write `VariantSummary`. New code
+must use `POST /admin/inventory/receive` and `POST /admin/inventory/adjust`
+(§17.3) instead.
 
 Authorization: all variant endpoints require `OPERATOR` or `ADMIN`. There is no
 SUPER_ADMIN role. The inventory boundary is EPIC-005: only
@@ -1284,10 +1288,95 @@ paths, or secrets.
 
 ### Out of scope
 
-Inventory stock operations, receive/adjust, reservations, movements/history,
-transfers, returns, low-stock notifications, and reporting are owned by later
-EPIC-006 issues (SS-113 onward) and are not implemented here. The inventory
-read API is implemented in SS-112 (§17.1).
+Reservations, release/consume, transfers, returns, Holo import, low-stock
+notifications, reporting, movement-history reads, and storefront availability
+are later EPIC-006 issues, not SS-111/SS-112.
+
+## 17.3 Inventory Mutation API (SS-113)
+
+Both mutation endpoints require `OPERATOR` or `ADMIN` (`JwtAuthGuard` +
+`RolesGuard`); `CUSTOMER`/`PARTNER` are denied with 403, unauthenticated
+requests with 401. There is no SUPER_ADMIN role and no permission-based RBAC.
+
+Every successful mutation writes exactly **one immutable `InventoryMovement`**
+and exactly **one transactional `AuditLog` event**, updates the authoritative
+`InventoryItem`, and refreshes `ProductVariant.stockQuantity` to the aggregate
+of `InventoryItem.quantityOnHand` across active, non-deleted warehouses — all
+in a single interactive transaction, so the four writes commit or roll back
+atomically (an audit failure rolls back the item change, the movement and the
+aggregate). Movements always record `reservedDelta = 0`,
+`reservedBefore = 0`, `reservedAfter = 0` (no reservation logic in SS-113) and
+never expose `reference`. Responses are the SS-112 `InventoryItemSummary`
+contract and never expose `deletedAt`, `createdBy`, `updatedBy` or movement
+internals. Success returns HTTP 200.
+
+Errors: 400 (invalid body), 401, 403, 404 (missing/deleted variant, product or
+warehouse — non-disclosure), 409 (archived product, inactive warehouse, or
+stale concurrent adjustment).
+
+### POST /admin/inventory/receive
+
+Receive stock into a warehouse. Body:
+
+- `variantId` — required UUID
+- `warehouseId` — required UUID
+- `quantity` — required integer > 0 (the increment, never an absolute
+  replacement)
+- `notes` — optional, trimmed, max 1000
+
+Semantics: the first-ever receipt for a `(variantId, warehouseId)` pair creates
+the `InventoryItem` (`quantityOnHand = quantity`, `quantityReserved = 0`) and
+writes an `INITIAL_STOCK` movement (`onHandBefore = 0`). Any later receipt
+atomically increments `quantityOnHand` and writes a `PURCHASE_RECEIPT` movement.
+Two concurrent receives on the same item both succeed (the row is locked with
+`SELECT ... FOR UPDATE` inside the transaction and the increment is atomic);
+concurrent first-ever receipts resolve through the composite unique constraint
+with a bounded retry, so both succeed.
+
+Response: 200 `InventoryItemSummary` (post-mutation state).
+
+Audit: `INVENTORY_RECEIVED`, `entity = "InventoryItem"`, `entityId =
+inventoryItem.id`, `after: { variantId, warehouseId, quantity, onHandBefore,
+onHandAfter }`.
+
+### POST /admin/inventory/adjust
+
+Absolute inventory adjustment (physical count reconciliation). Body:
+
+- `variantId` — required UUID
+- `warehouseId` — required UUID
+- `quantity` — required integer >= 0 — the **absolute desired `quantityOnHand`**,
+  not a delta
+- `reason` — required, trimmed, non-empty, max 500
+- `notes` — optional, trimmed, max 1000
+
+Semantics: `delta = requested − current`; the item write is a conditional
+expected-value update (`WHERE quantityOnHand = <value read in the transaction>`
+plus the active lifecycle predicate), so a concurrent adjustment on the same
+item resolves to exactly **one winner** and the stale requester receives 409
+with no movement or audit written. A same-value adjust (delta 0) still records
+a zero-delta `MANUAL_ADJUSTMENT` movement and audit. The result can never be
+negative (`quantity >= 0` is validated). Adjusting a pair with no
+`InventoryItem` returns 404 (adjust never creates items).
+
+Response: 200 `InventoryItemSummary` (post-mutation state).
+
+Audit: `INVENTORY_ADJUSTED`, `entity = "InventoryItem"`, `entityId =
+inventoryItem.id`, `after: { variantId, warehouseId, requestedQuantity, delta,
+reason, onHandBefore, onHandAfter }`.
+
+### Movement types produced
+
+- `INITIAL_STOCK` — first-ever receive into a newly-created `InventoryItem`
+- `PURCHASE_RECEIPT` — receive into an existing item
+- `MANUAL_ADJUSTMENT` — absolute adjust, including the SS-104 compatibility
+  path
+
+### Out of scope
+
+Reservations, release/consume, transfers, returns, Holo import, low-stock
+notifications, reporting, movement-history reads, and storefront availability
+are later EPIC-006 issues, not SS-113.
 
 ---
 

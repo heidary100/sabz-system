@@ -11,9 +11,10 @@ import { WarehousesService } from './warehouses.service';
  * paginated reads, create/update and the activate/deactivate lifecycle with
  * transactional audit. SS-112 adds the read-only inventory API (overview,
  * per-variant and per-warehouse stock) with derived availability/stock status,
- * plus the aggregate helper boundary reused by the SS-113 mutation API. This
- * module does not import the products domain; cross-domain existence checks
- * go through Prisma directly.
+ * plus the aggregate helper boundary reused by the SS-113 mutation API. SS-113
+ * adds the receive/adjust mutation API and the SS-104 compatibility write path,
+ * all through InventoryService. This module does not import the products
+ * domain; cross-domain existence checks go through Prisma directly.
  */
 @Module({
   imports: [AuthModule, AuditModule],

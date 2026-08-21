@@ -67,6 +67,15 @@ describe('Admin variant API (SS-104) (e2e)', () => {
     await prisma.auditLog.deleteMany({
       where: { entityId: { in: variantIds } },
     });
+    await prisma.inventoryMovement.deleteMany({
+      where: { inventoryItem: { variantId: { in: variantIds } } },
+    });
+    await prisma.reservation.deleteMany({
+      where: { inventoryItem: { variantId: { in: variantIds } } },
+    });
+    await prisma.inventoryItem.deleteMany({
+      where: { variantId: { in: variantIds } },
+    });
     await prisma.productVariant.deleteMany({ where: { id: { in: variantIds } } });
     const orphanProducts = await prisma.product.findMany({
       where: {

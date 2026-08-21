@@ -723,6 +723,15 @@ Business Rules
   future mutation APIs — not a DB CHECK in SS-109).
 - Both FKs (`warehouse_id`, `variant_id`) are `ON DELETE RESTRICT` so stock is
   never silently destroyed.
+- **SS-113 applied decisions:** receive increments `quantity_on_hand`
+  atomically under a `SELECT ... FOR UPDATE` row lock (exact
+  `on_hand_before/after` movement snapshots); adjust is an absolute set via a
+  conditional expected-value update (`quantity_on_hand = <in-transaction
+  read>`) so concurrent adjustments resolve to exactly one winner and the
+  stale requester fails with 409. The first-receipt create race is resolved by
+  the composite unique constraint with a bounded retry. No version/lock/
+  counter columns were added — the concurrency model uses conditional updates
+  and row locks already established by the repository.
 
 ---
 

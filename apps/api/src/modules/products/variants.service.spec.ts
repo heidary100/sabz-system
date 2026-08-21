@@ -1,6 +1,7 @@
 import { Prisma, ProductStatus } from '@prisma/client';
 import { PrismaService } from '../../common/database/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { InventoryService } from '../inventory/inventory.service';
 import { VariantsService } from './variants.service';
 
 function makeVariantRow(overrides: Record<string, unknown> = {}) {
@@ -52,6 +53,7 @@ describe('VariantsService', () => {
     $transaction: jest.Mock;
   };
   let audit: { log: jest.Mock };
+  let inventory: { setVariantStockCompat: jest.Mock };
   let tx: TxMock;
 
   beforeEach(() => {
@@ -76,6 +78,7 @@ describe('VariantsService', () => {
       $transaction: jest.fn(),
     };
     audit = { log: jest.fn() };
+    inventory = { setVariantStockCompat: jest.fn().mockResolvedValue(undefined) };
 
     prisma.$transaction.mockImplementation((arg: unknown) => {
       if (typeof arg === 'function') {
@@ -90,6 +93,7 @@ describe('VariantsService', () => {
     service = new VariantsService(
       prisma as unknown as PrismaService,
       audit as unknown as AuditService,
+      inventory as unknown as InventoryService,
     );
   });
 
@@ -307,89 +311,62 @@ describe('VariantsService', () => {
   });
 
   describe('updateInventory', () => {
-    it('sets stock atomically and audits PRODUCT_INVENTORY_SET', async () => {
-      tx.product.findUnique.mockResolvedValue(makeProductRow());
-      tx.productVariant.findUnique
-        .mockResolvedValueOnce(
-          makeVariantRow({ stockQuantity: 3, price: { toString: () => '100.00' } }),
-        ) // target
-        .mockResolvedValueOnce(
-          makeVariantRow({ stockQuantity: 8, price: { toString: () => '100.00' } }),
-        ); // current
-      tx.productVariant.updateMany.mockResolvedValue({ count: 1 });
+    it('delegates the write to the inventory path and returns the refreshed summary', async () => {
+      prisma.productVariant.findUnique.mockResolvedValue(
+        makeVariantRow({ stockQuantity: 8, price: { toString: () => '100.00' } }),
+      );
 
-      const result = await service.updateInventory('var-1', { stockQuantity: 8 }, 'actor-1');
+      const result = await service.updateInventory(
+        'var-1',
+        { stockQuantity: 8 },
+        'actor-1',
+      );
 
+      expect(inventory.setVariantStockCompat).toHaveBeenCalledWith(
+        'var-1',
+        8,
+        'actor-1',
+        undefined,
+      );
       expect(result.stockQuantity).toBe(8);
-      expect(tx.productVariant.updateMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            id: 'var-1',
-            deletedAt: null,
-            product: { is: { deletedAt: null, status: { not: ProductStatus.ARCHIVED } } },
-          }),
-          data: expect.objectContaining({ stockQuantity: 8, updatedBy: 'actor-1' }),
-        }),
+    });
+
+    it('never writes ProductVariant.stockQuantity or audits from VariantsService', async () => {
+      prisma.productVariant.findUnique.mockResolvedValue(
+        makeVariantRow({ stockQuantity: 8, price: { toString: () => '100.00' } }),
       );
-      expect(audit.log).toHaveBeenCalledWith(
-        expect.objectContaining({
-          action: 'PRODUCT_INVENTORY_SET',
-          before: { stockQuantity: 3 },
-          after: { stockQuantity: 8 },
-        }),
-        tx,
+
+      await service.updateInventory('var-1', { stockQuantity: 8 }, 'actor-1');
+
+      expect(tx.productVariant.updateMany).not.toHaveBeenCalled();
+      expect(audit.log).not.toHaveBeenCalled();
+    });
+
+    it('passes the request ip to the inventory write path', async () => {
+      prisma.productVariant.findUnique.mockResolvedValue(
+        makeVariantRow({ stockQuantity: 8, price: { toString: () => '100.00' } }),
+      );
+
+      await service.updateInventory(
+        'var-1',
+        { stockQuantity: 8 },
+        'actor-1',
+        '127.0.0.1',
+      );
+
+      expect(inventory.setVariantStockCompat).toHaveBeenCalledWith(
+        'var-1',
+        8,
+        'actor-1',
+        '127.0.0.1',
       );
     });
 
-    it('throws 404 when the concurrent update matched nothing (variant deleted)', async () => {
-      tx.product.findUnique.mockResolvedValue(makeProductRow());
-      tx.productVariant.findUnique
-        .mockResolvedValueOnce(makeVariantRow())
-        .mockResolvedValueOnce(null);
-      tx.productVariant.updateMany.mockResolvedValue({ count: 0 });
-
-      await expect(
-        service.updateInventory('var-1', { stockQuantity: 1 }, 'actor-1'),
-      ).rejects.toMatchObject({ status: 404 });
-    });
-
-    it('throws 409 when the owning product is archived', async () => {
-      tx.productVariant.findUnique.mockResolvedValue(makeVariantRow());
-      tx.product.findUnique.mockResolvedValue(
-        makeProductRow({ status: ProductStatus.ARCHIVED }),
+    it('throws 404 when the variant is soft-deleted after the write (no resurrection)', async () => {
+      inventory.setVariantStockCompat.mockResolvedValue(undefined);
+      prisma.productVariant.findUnique.mockResolvedValue(
+        makeVariantRow({ deletedAt: new Date() }),
       );
-      await expect(
-        service.updateInventory('var-1', { stockQuantity: 1 }, 'actor-1'),
-      ).rejects.toMatchObject({ status: 409 });
-    });
-
-    it('throws 409 when a concurrent archive makes the atomic update match nothing', async () => {
-      // In-transaction pre-reads pass, but the guarded updateMany matches zero
-      // rows because the owning product was archived concurrently.
-      tx.productVariant.findUnique
-        .mockResolvedValueOnce(makeVariantRow()) // target read
-        .mockResolvedValueOnce(makeVariantRow()) // conflict resolution variant read
-        .mockResolvedValueOnce(null); // current read after update (not reached)
-      tx.product.findUnique
-        .mockResolvedValueOnce(makeProductRow()) // assertProductForMutation
-        .mockResolvedValueOnce(
-          makeProductRow({ status: ProductStatus.ARCHIVED }), // conflict resolution product read
-        );
-      tx.productVariant.updateMany.mockResolvedValue({ count: 0 });
-
-      await expect(
-        service.updateInventory('var-1', { stockQuantity: 1 }, 'actor-1'),
-      ).rejects.toMatchObject({ status: 409 });
-    });
-
-    it('throws 404 when a concurrent soft-delete makes the atomic update match nothing', async () => {
-      tx.productVariant.findUnique
-        .mockResolvedValueOnce(makeVariantRow()) // target read
-        .mockResolvedValueOnce(
-          makeVariantRow({ deletedAt: new Date() }), // conflict resolution variant read
-        );
-      tx.product.findUnique.mockResolvedValue(makeProductRow());
-      tx.productVariant.updateMany.mockResolvedValue({ count: 0 });
 
       await expect(
         service.updateInventory('var-1', { stockQuantity: 1 }, 'actor-1'),

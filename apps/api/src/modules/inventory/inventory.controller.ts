@@ -1,9 +1,13 @@
 import {
+  Body,
   Controller,
   Get,
+  HttpCode,
   HttpStatus,
+  Ip,
   Param,
   ParseUUIDPipe,
+  Post,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -18,17 +22,23 @@ import { AppRole } from '../auth/enums/app-role.enum';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { AuthUser } from '../auth/interfaces/auth-user.interface';
 import { InventoryService } from './inventory.service';
 import {
+  AdjustInventoryDto,
   ListInventoryQueryDto,
   ListWarehouseInventoryQueryDto,
+  ReceiveStockDto,
 } from './dto';
 
 const UUID_PARAM = new ParseUUIDPipe({ errorHttpStatusCode: HttpStatus.NOT_FOUND });
 
 /**
- * Admin inventory read endpoints (SS-112). Read-only: paginated overview,
- * per-variant stock across active warehouses, and per-warehouse stock.
+ * Admin inventory endpoints. SS-112 owns the read-only routes (overview,
+ * per-variant stock across active warehouses, and per-warehouse stock); SS-113
+ * adds the receive and absolute-adjust mutation routes. Controllers are thin:
+ * all transaction and business logic lives in InventoryService.
  */
 @ApiTags('admin-inventory')
 @ApiBearerAuth()
@@ -37,6 +47,46 @@ const UUID_PARAM = new ParseUUIDPipe({ errorHttpStatusCode: HttpStatus.NOT_FOUND
 @Controller('admin')
 export class InventoryController {
   constructor(private readonly inventoryService: InventoryService) {}
+
+  @Post('inventory/receive')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Receive stock into a warehouse; creates the InventoryItem on first receipt (INITIAL_STOCK) and increments it on later receipts (PURCHASE_RECEIPT)',
+  })
+  @ApiResponse({ status: 200, description: 'InventoryItemSummary after receipt.' })
+  @ApiResponse({ status: 400, description: 'Invalid body.' })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  @ApiResponse({ status: 404, description: 'Variant, product or warehouse not found.' })
+  @ApiResponse({ status: 409, description: 'Archived product or inactive warehouse.' })
+  async receive(
+    @Body() dto: ReceiveStockDto,
+    @CurrentUser() user: AuthUser,
+    @Ip() ipAddress?: string,
+  ) {
+    return this.inventoryService.receive(dto, user.userId, ipAddress);
+  }
+
+  @Post('inventory/adjust')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Absolute inventory adjustment with a mandatory reason; quantity is the desired quantityOnHand, not a delta',
+  })
+  @ApiResponse({ status: 200, description: 'InventoryItemSummary after adjustment.' })
+  @ApiResponse({ status: 400, description: 'Invalid body.' })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  @ApiResponse({ status: 404, description: 'Variant, product, warehouse or item not found.' })
+  @ApiResponse({ status: 409, description: 'Archived product, inactive warehouse or stale concurrent adjust.' })
+  async adjust(
+    @Body() dto: AdjustInventoryDto,
+    @CurrentUser() user: AuthUser,
+    @Ip() ipAddress?: string,
+  ) {
+    return this.inventoryService.adjust(dto, user.userId, ipAddress);
+  }
 
   @Get('inventory')
   @ApiOperation({
