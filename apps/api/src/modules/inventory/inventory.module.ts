@@ -1,19 +1,24 @@
 import { Module } from '@nestjs/common';
 import { AuditModule } from '../audit/audit.module';
 import { AuthModule } from '../auth/auth.module';
+import { InventoryController } from './inventory.controller';
+import { InventoryService } from './inventory.service';
 import { WarehousesController } from './warehouses.controller';
 import { WarehousesService } from './warehouses.service';
 
 /**
- * Inventory-domain module (EPIC-006). SS-111 owns warehouse management only:
+ * Inventory-domain module (EPIC-006). SS-111 owns warehouse management:
  * paginated reads, create/update and the activate/deactivate lifecycle with
- * transactional audit. Warehouse management is independent of the runtime
- * inventory (stock/receive/adjust/reservation/movement) logic owned by
- * SS-112 onward; this module does not import the products domain.
+ * transactional audit. SS-112 adds the read-only inventory API (overview,
+ * per-variant and per-warehouse stock) with derived availability/stock status,
+ * plus the aggregate helper boundary reused by the SS-113 mutation API. This
+ * module does not import the products domain; cross-domain existence checks
+ * go through Prisma directly.
  */
 @Module({
   imports: [AuthModule, AuditModule],
-  controllers: [WarehousesController],
-  providers: [WarehousesService],
+  controllers: [WarehousesController, InventoryController],
+  providers: [WarehousesService, InventoryService],
+  exports: [InventoryService],
 })
 export class InventoryModule {}

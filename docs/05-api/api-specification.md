@@ -1092,26 +1092,88 @@ Delete pricing rule.
 
 # 17. Inventory Administration
 
-The inventory overview, adjust, bulk import and history endpoints below are
-future EPIC-006 scope (SS-112 onward) and are not implemented yet.
+All inventory administration endpoints require `OPERATOR` or `ADMIN`
+(`JwtAuthGuard` + `RolesGuard`). There is no SUPER_ADMIN role and no
+permission-based RBAC. Reads never expose internal fields (`deletedAt`,
+`createdBy`, `updatedBy`) or movement/ledger internals.
 
-GET /admin/inventory
+## 17.1 Inventory Read API (SS-112)
 
-Inventory overview.
+The SS-112 read API is read-only. It never writes `InventoryItem`,
+`InventoryMovement`, `Reservation` or `ProductVariant.stockQuantity`.
 
-PATCH /admin/inventory/{id}
+**Derived availability:** `available = quantityOnHand − quantityReserved`,
+computed server-side at read time. `available` is never stored.
 
-Adjust stock.
+**Derived stock status:** computed per row from `available` against the
+configured thresholds:
 
-POST /admin/inventory/import
+- `OUT_OF_STOCK` when `available <= 0`
+- `LOW_STOCK` when `available <= reorderLevel` (`criticalLevel` is the fallback
+  threshold when `reorderLevel` is not configured)
+- `IN_STOCK` otherwise
 
-Bulk inventory import.
+**Operational lifecycle filtering (applies to every read):** soft-deleted
+variants, soft-deleted/ARCHIVED products, and soft-deleted or INACTIVE
+warehouses are always excluded. `InventoryItem` rows are permanent (no soft
+delete). Inactive warehouses never contribute to reads or to the
+`stockQuantity` aggregate.
 
-GET /admin/inventory/history
+**Response item (`InventoryItemSummary`):** `id`, `variantId`, `warehouseId`,
+`quantityOnHand`, `quantityReserved`, `available`, `reorderLevel`,
+`criticalLevel`, `stockStatus`, `variant` (`id`, `sku`, `name`), `warehouse`
+(`id`, `code`, `name`, `status`).
 
-Inventory movements.
+### GET /admin/inventory
 
-## 17.1 Warehouse Management API (SS-111)
+Paginated stock overview. Query parameters:
+
+- `page` — page number, starting at 1 (default 1)
+- `limit` — page size, 1–100 (default 20)
+- `variantId` — UUID filter for one variant
+- `warehouseId` — UUID filter for one warehouse
+- `stockStatus` — `IN_STOCK` / `LOW_STOCK` / `OUT_OF_STOCK` (filtered after
+  derivation)
+- `search` — case-insensitive substring match against variant `sku` OR
+  `name` (LIKE wildcards are escaped)
+
+All filters combine with AND. Ordering is deterministic: `createdAt DESC`,
+then `id DESC`. Response: `PaginatedResult<InventoryItemSummary>`.
+
+Errors: 400 (invalid query), 401, 403.
+
+### GET /admin/inventory/variants/{variantId}
+
+Return the inventory of one variant across its **active**, non-deleted
+warehouses as an array of `InventoryItemSummary`. Ordering is deterministic:
+`warehouse.code ASC`, then `id ASC`. Missing, invalid-UUID, soft-deleted, or
+ARCHIVED-product variants return 404.
+
+Errors: 401, 403, 404.
+
+### GET /admin/warehouses/{warehouseId}/inventory
+
+Return the paginated inventory of one warehouse. Query parameters: `page`
+(default 1), `limit` (default 20, max 100). Ordering is deterministic:
+`createdAt DESC`, then `id DESC`. Response:
+`PaginatedResult<InventoryItemSummary>`. Missing, invalid-UUID, soft-deleted,
+or INACTIVE warehouses return 404.
+
+Errors: 400 (invalid query), 401, 403, 404.
+
+### stockQuantity compatibility
+
+`ProductVariant.stockQuantity` remains the **denormalized aggregate** of
+`InventoryItem.quantityOnHand` across active, non-deleted warehouses for
+active (non-deleted, non-ARCHIVED) variants/products. The aggregate is computed
+by the shared inventory aggregate helper (`InventoryService`), which the
+SS-113 mutation API reuses so every EPIC-006 stock mutation refreshes
+`stockQuantity` in the same transaction. A variant with no InventoryItem rows
+aggregates to `0`. The legacy SS-104 `PATCH /admin/variants/:id/inventory`
+endpoint remains available in M1 as the temporary boundary and is repointed
+through the inventory write path by SS-113 (deprecated, not removed).
+
+## 17.2 Warehouse Management API (SS-111)
 
 All warehouse administration endpoints require `ADMIN` (`JwtAuthGuard` +
 `RolesGuard`); `CUSTOMER`/`PARTNER`/`OPERATOR` are denied with 403 and
@@ -1222,10 +1284,10 @@ paths, or secrets.
 
 ### Out of scope
 
-Inventory stock operations, `InventoryItem` reads/mutation, receive/adjust,
-reservations, movements/history, inventory read API, transfers, returns,
-low-stock notifications, and reporting are owned by later EPIC-006 issues
-(SS-112 onward) and are not implemented here.
+Inventory stock operations, receive/adjust, reservations, movements/history,
+transfers, returns, low-stock notifications, and reporting are owned by later
+EPIC-006 issues (SS-113 onward) and are not implemented here. The inventory
+read API is implemented in SS-112 (§17.1).
 
 ---
 
