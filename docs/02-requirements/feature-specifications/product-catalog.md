@@ -740,6 +740,15 @@ product variant API and the EPIC-005 minimal inventory boundary.
 8. **Response contract.** `VariantSummary` (existing SS-101 contract) is reused
    for list, detail, update, delete and inventory responses. No `VariantDetail`
    and no new shared types are introduced.
+9. **EPIC-006 handoff.** `ProductVariant.stockQuantity` is the temporary M1
+   availability snapshot; `InventoryItem` is authoritative from SS-109 onward.
+   SS-112 (EPIC-006) adds the read-only admin inventory API and the shared
+   aggregate helper that projects
+   `stockQuantity = SUM(InventoryItem.quantityOnHand)` across active,
+   non-deleted warehouses. This endpoint (`PATCH /admin/variants/:id/inventory`)
+   remains the temporary M1 write boundary and is repointed through the
+   inventory write path by SS-113 (deprecated, not removed in M1). Removal of
+   `stockQuantity` is future work.
 
 ---
 

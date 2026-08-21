@@ -16,3 +16,9 @@ export type WarehouseStatus = 'ACTIVE' | 'INACTIVE';
 export type ReservationStatus = 'ACTIVE' | 'RELEASED' | 'CONSUMED' | 'EXPIRED';
 
 export type InventoryStockStatus = 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK';
+
+export const INVENTORY_STOCK_STATUSES: readonly InventoryStockStatus[] = [
+  'IN_STOCK',
+  'LOW_STOCK',
+  'OUT_OF_STOCK',
+] as const;

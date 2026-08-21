@@ -84,6 +84,7 @@ export {
 } from './product/admin';
 
 export {
+  INVENTORY_STOCK_STATUSES,
   InventoryMovementType,
   InventoryStockStatus,
   ReservationStatus,

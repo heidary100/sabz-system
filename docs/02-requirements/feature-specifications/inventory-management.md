@@ -76,6 +76,52 @@ It ensures inventory accuracy across purchasing, sales, returns, and future acco
 >   `InventoryMovement` rows. Inactive warehouses may not receive future
 >   inventory — that enforcement belongs to the stock operations issue
 >   (SS-113), not SS-111.
+>
+> **SS-112 applied decisions (inventory read API).** SS-112 implements the
+> read-only admin inventory API — no mutations, no movements, no reservations:
+>
+> - Routes (all `OPERATOR` + `ADMIN`, `JwtAuthGuard` + `RolesGuard`; no
+>   SUPER_ADMIN, no permission RBAC): `GET /admin/inventory` (paginated
+>   overview with `variantId`/`warehouseId`/`stockStatus` filters and SKU/name
+>   search), `GET /admin/inventory/variants/{variantId}` (per-variant stock
+>   across active warehouses, returned as an array), and
+>   `GET /admin/warehouses/{warehouseId}/inventory` (paginated per-warehouse
+>   stock).
+> - **availability = quantityOnHand − quantityReserved is always derived at
+>   read time and never stored** (no `available` column; the read API computes
+>   it per row).
+> - **Stock status is derived at runtime** from the available quantity against
+>   `reorderLevel`/`criticalLevel`: `OUT_OF_STOCK` when `available <= 0`,
+>   `LOW_STOCK` when `available <= reorderLevel` (`criticalLevel` is the
+>   fallback threshold when `reorderLevel` is unset), else `IN_STOCK`.
+>   `criticalLevel` maps into the same `LOW_STOCK` bucket — there is no fourth
+>   status in the shared contract.
+> - **Operational-read lifecycle rule:** soft-deleted variants, soft-deleted or
+>   ARCHIVED products, and soft-deleted or INACTIVE warehouses are always
+>   excluded. `InventoryItem` rows are permanent (no `deletedAt`). Reads treat
+>   missing/deleted/archived variants and missing/deleted/inactive warehouses
+>   as 404.
+> - **Deterministic ordering:** overview and warehouse-scoped reads use
+>   `createdAt DESC`, then `id DESC`; variant-scoped reads use `warehouse.code
+>   ASC`, then `id ASC`.
+> - **Aggregate boundary:** the shared aggregate helper
+>   (`InventoryService` / `inventory-aggregate.ts`) computes
+>   `SUM(InventoryItem.quantityOnHand)` across **active, non-deleted**
+>   warehouses for **active (non-deleted, non-ARCHIVED)** variants/products.
+>   A variant with no qualifying `InventoryItem` rows aggregates to `0`.
+>   Inactive warehouses never contribute. SS-112 exposes this helper so SS-113
+>   refreshes `ProductVariant.stockQuantity` in the same transaction as every
+>   mutation — zero drift between the authoritative `InventoryItem` values and
+>   the `ProductVariant.stockQuantity` projection.
+> - **SS-104 compatibility endpoint:** `PATCH /admin/variants/:id/inventory`
+>   remains available in M1 as the temporary boundary and is **not** modified
+>   by SS-112. It is repointed through the inventory write path by SS-113
+>   (deprecated, not removed in M1). SS-112 introduces no new writer of
+>   `ProductVariant.stockQuantity`.
+> - Responses never expose `deletedAt`, `createdBy`, `updatedBy`,
+>   `InventoryMovement.reference`, or other internal storage/audit fields.
+> - Reads are non-mutating: no `InventoryMovement` rows and no inventory
+>   changes are created by any read endpoint.
 
 ---
 
