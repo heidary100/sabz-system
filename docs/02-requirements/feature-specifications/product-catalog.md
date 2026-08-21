@@ -579,7 +579,13 @@ They record how the feature spec is realized in the current Prisma schema:
    backfilled into the default warehouse exactly once by the idempotent
    bootstrap helper. Future EPIC-006 mutations update `InventoryItem` and
    refresh `stockQuantity` in the same transaction; removing `stockQuantity`
-   is **not** part of SS-109.
+   is **not** part of SS-109. **SS-113 handoff:** receive/adjust and the
+   SS-104 `PATCH /admin/variants/:id/inventory` compatibility endpoint now
+   route through the single inventory write path, so every stock write
+   refreshes `stockQuantity` from the authoritative `InventoryItem` rows in
+   the same transaction. The SS-104 variant **create** `stockQuantity` field
+   remains a direct M1 snapshot and is a documented residual gap (see
+   inventory-management.md, SS-113 applied decisions).
 4. **ProductMedia uses a separate product-domain storage boundary.** Metadata
    lives in PostgreSQL (`storageKey` server-generated and unique); binaries live
    behind the Product-domain `ProductMediaStorage` abstraction (SS-105). The

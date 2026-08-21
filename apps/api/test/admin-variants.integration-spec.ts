@@ -1,6 +1,7 @@
 import { ProductCondition, ProductStatus } from '@prisma/client';
 import { PrismaService } from '../src/common/database/prisma.service';
 import { AuditService } from '../src/modules/audit/audit.service';
+import { InventoryService } from '../src/modules/inventory/inventory.service';
 import { VariantsService } from '../src/modules/products/variants.service';
 
 jest.setTimeout(30_000);
@@ -75,7 +76,8 @@ describe('Admin variant API database integration (SS-104)', () => {
     prisma = new PrismaService();
     await prisma.$connect();
     const audit = new AuditService(prisma);
-    service = new VariantsService(prisma, audit);
+    const inventory = new InventoryService(prisma, audit);
+    service = new VariantsService(prisma, audit, inventory);
   });
 
   afterAll(async () => {

@@ -10,6 +10,8 @@ describe('InventoryController', () => {
     list: jest.Mock;
     listByVariant: jest.Mock;
     listByWarehouse: jest.Mock;
+    receive: jest.Mock;
+    adjust: jest.Mock;
   };
 
   beforeEach(() => {
@@ -17,6 +19,8 @@ describe('InventoryController', () => {
       list: jest.fn(),
       listByVariant: jest.fn(),
       listByWarehouse: jest.fn(),
+      receive: jest.fn(),
+      adjust: jest.fn(),
     };
     controller = new InventoryController(service as unknown as InventoryService);
   });
@@ -24,6 +28,8 @@ describe('InventoryController', () => {
   it('requires OPERATOR and ADMIN on every route', () => {
     const reflector = new Reflector();
     const handlers = [
+      InventoryController.prototype.receive,
+      InventoryController.prototype.adjust,
       InventoryController.prototype.list,
       InventoryController.prototype.listByVariant,
       InventoryController.prototype.listByWarehouse,
@@ -36,6 +42,20 @@ describe('InventoryController', () => {
       ]);
       expect(roles).toEqual([AppRole.OPERATOR, AppRole.ADMIN]);
     }
+  });
+
+  it('delegates receive to the service with dto, actor id and ip', async () => {
+    const dto = { variantId: 'v', warehouseId: 'w', quantity: 5 };
+    const user = { userId: 'user-1', sessionId: 's', mobile: 'm' };
+    await controller.receive(dto as never, user as never, '1.2.3.4');
+    expect(service.receive).toHaveBeenCalledWith(dto, 'user-1', '1.2.3.4');
+  });
+
+  it('delegates adjust to the service with dto, actor id and ip', async () => {
+    const dto = { variantId: 'v', warehouseId: 'w', quantity: 5, reason: 'r' };
+    const user = { userId: 'user-1', sessionId: 's', mobile: 'm' };
+    await controller.adjust(dto as never, user as never, '1.2.3.4');
+    expect(service.adjust).toHaveBeenCalledWith(dto, 'user-1', '1.2.3.4');
   });
 
   it('delegates list to the service with the query', async () => {

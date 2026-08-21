@@ -4,6 +4,7 @@ import {
   WarehouseStatus,
 } from '@prisma/client';
 import { PrismaService } from '../src/common/database/prisma.service';
+import { AuditService } from '../src/modules/audit/audit.service';
 import { InventoryService } from '../src/modules/inventory/inventory.service';
 import { aggregateVariantStock } from '../src/modules/inventory/inventory-aggregate';
 
@@ -115,7 +116,8 @@ describe('Admin inventory read API database integration (SS-112)', () => {
   beforeAll(async () => {
     prisma = new PrismaService();
     await prisma.$connect();
-    service = new InventoryService(prisma);
+    const audit = new AuditService(prisma);
+    service = new InventoryService(prisma, audit);
   });
 
   afterAll(async () => {

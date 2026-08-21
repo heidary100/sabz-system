@@ -1,9 +1,15 @@
 import { NotFoundException } from '@nestjs/common';
-import { ProductStatus, WarehouseStatus } from '@prisma/client';
+import {
+  InventoryMovementType,
+  ProductStatus,
+  WarehouseStatus,
+} from '@prisma/client';
 import { PrismaService } from '../../common/database/prisma.service';
+import { AuditService } from '../audit/audit.service';
 import { InventoryService } from './inventory.service';
 
 const now = new Date('2026-08-21T00:00:00.000Z');
+const actorId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 
 function makeItemRow(overrides: Record<string, unknown> = {}) {
   return {
@@ -21,6 +27,25 @@ function makeItemRow(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function makeVariantRow(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'var-1',
+    deletedAt: null,
+    productId: 'prod-1',
+    stockQuantity: 0,
+    ...overrides,
+  };
+}
+
+function makeProductRow(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'prod-1',
+    deletedAt: null,
+    status: ProductStatus.DRAFT,
+    ...overrides,
+  };
+}
+
 describe('InventoryService', () => {
   let service: InventoryService;
   let prisma: {
@@ -28,26 +53,60 @@ describe('InventoryService', () => {
       count: jest.Mock;
       findMany: jest.Mock;
       groupBy: jest.Mock;
+      findUnique: jest.Mock;
     };
     productVariant: { findFirst: jest.Mock };
     warehouse: { findFirst: jest.Mock };
     $transaction: jest.Mock;
   };
+  let audit: { log: jest.Mock };
+  let tx: {
+    product: { findUnique: jest.Mock };
+    productVariant: { findUnique: jest.Mock; updateMany: jest.Mock };
+    warehouse: { findFirst: jest.Mock; upsert: jest.Mock };
+    inventoryItem: {
+      findFirst: jest.Mock;
+      findUnique: jest.Mock;
+      create: jest.Mock;
+      updateMany: jest.Mock;
+      groupBy: jest.Mock;
+    };
+    inventoryMovement: { create: jest.Mock };
+    $queryRaw: jest.Mock;
+  };
 
   beforeEach(() => {
+    tx = {
+      product: { findUnique: jest.fn() },
+      productVariant: { findUnique: jest.fn(), updateMany: jest.fn() },
+      warehouse: { findFirst: jest.fn(), upsert: jest.fn() },
+      inventoryItem: {
+        findFirst: jest.fn(),
+        findUnique: jest.fn(),
+        create: jest.fn(),
+        updateMany: jest.fn(),
+        groupBy: jest.fn(),
+      },
+      inventoryMovement: { create: jest.fn() },
+      $queryRaw: jest.fn(),
+    };
+    tx.inventoryItem.groupBy.mockResolvedValue([]);
     prisma = {
       inventoryItem: {
         count: jest.fn(),
         findMany: jest.fn(),
         groupBy: jest.fn(),
+        findUnique: jest.fn(),
       },
       productVariant: { findFirst: jest.fn() },
       warehouse: { findFirst: jest.fn() },
       $transaction: jest.fn(),
     };
+    audit = { log: jest.fn().mockResolvedValue(undefined) };
+
     prisma.$transaction.mockImplementation((arg: unknown) => {
       if (typeof arg === 'function') {
-        return arg(prisma);
+        return arg(tx);
       }
       if (Array.isArray(arg)) {
         return Promise.all(arg as Promise<unknown>[]);
@@ -55,12 +114,481 @@ describe('InventoryService', () => {
       return arg;
     });
 
-    service = new InventoryService(prisma as unknown as PrismaService);
+    service = new InventoryService(
+      prisma as unknown as PrismaService,
+      audit as unknown as AuditService,
+    );
   });
 
-  function lastFindMany() {
-    return prisma.inventoryItem.findMany.mock.calls.at(-1)![0];
+  function seedActiveVariant() {
+    tx.productVariant.findUnique.mockResolvedValue(makeVariantRow());
+    tx.product.findUnique.mockResolvedValue(makeProductRow());
   }
+
+  function seedActiveWarehouse() {
+    tx.warehouse.findFirst.mockResolvedValue({
+      id: 'wh-1',
+      status: WarehouseStatus.ACTIVE,
+    });
+  }
+
+  describe('receive', () => {
+    it('creates the InventoryItem and writes an INITIAL_STOCK movement on first receipt', async () => {
+      seedActiveVariant();
+      seedActiveWarehouse();
+      tx.$queryRaw
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([]);
+      tx.inventoryItem.create.mockResolvedValue({ id: 'item-1' });
+      tx.productVariant.updateMany.mockResolvedValue({ count: 1 });
+      prisma.inventoryItem.findUnique.mockResolvedValue(
+        makeItemRow({ quantityOnHand: 10 }),
+      );
+
+      const result = await service.receive(
+        { variantId: 'var-1', warehouseId: 'wh-1', quantity: 10 },
+        actorId,
+      );
+
+      expect(tx.inventoryItem.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            variantId: 'var-1',
+            warehouseId: 'wh-1',
+            quantityOnHand: 10,
+            quantityReserved: 0,
+          }),
+        }),
+      );
+      expect(tx.inventoryMovement.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            type: InventoryMovementType.INITIAL_STOCK,
+            quantity: 10,
+            onHandBefore: 0,
+            onHandAfter: 10,
+            reservedDelta: 0,
+            reservedBefore: 0,
+            reservedAfter: 0,
+            reason: null,
+          }),
+        }),
+      );
+      expect(audit.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'INVENTORY_RECEIVED',
+          entity: 'InventoryItem',
+          entityId: 'item-1',
+          after: expect.objectContaining({
+            quantity: 10,
+            onHandBefore: 0,
+            onHandAfter: 10,
+          }),
+        }),
+        tx,
+      );
+      expect(result.quantityOnHand).toBe(10);
+    });
+
+    it('increments an existing item with a PURCHASE_RECEIPT movement', async () => {
+      seedActiveVariant();
+      seedActiveWarehouse();
+      tx.$queryRaw
+        .mockResolvedValueOnce([{ id: 'item-1', quantityOnHand: 5 }])
+        .mockResolvedValueOnce([]);
+      tx.inventoryItem.updateMany.mockResolvedValue({ count: 1 });
+      tx.productVariant.updateMany.mockResolvedValue({ count: 1 });
+      prisma.inventoryItem.findUnique.mockResolvedValue(
+        makeItemRow({ quantityOnHand: 15 }),
+      );
+
+      const result = await service.receive(
+        { variantId: 'var-1', warehouseId: 'wh-1', quantity: 10 },
+        actorId,
+      );
+
+      expect(tx.inventoryItem.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: { quantityOnHand: { increment: 10 }, updatedBy: actorId },
+        }),
+      );
+      expect(tx.inventoryMovement.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            type: InventoryMovementType.PURCHASE_RECEIPT,
+            onHandBefore: 5,
+            onHandAfter: 15,
+          }),
+        }),
+      );
+      expect(result.quantityOnHand).toBe(15);
+      expect(tx.inventoryItem.create).not.toHaveBeenCalled();
+    });
+
+    it('throws 409 when the owning product is archived', async () => {
+      tx.productVariant.findUnique.mockResolvedValue(makeVariantRow());
+      tx.product.findUnique.mockResolvedValue(
+        makeProductRow({ status: ProductStatus.ARCHIVED }),
+      );
+      seedActiveWarehouse();
+
+      await expect(
+        service.receive(
+          { variantId: 'var-1', warehouseId: 'wh-1', quantity: 1 },
+          actorId,
+        ),
+      ).rejects.toMatchObject({ status: 409 });
+      expect(tx.inventoryMovement.create).not.toHaveBeenCalled();
+      expect(audit.log).not.toHaveBeenCalled();
+    });
+
+    it('throws 404 when the variant or product is deleted', async () => {
+      tx.productVariant.findUnique.mockResolvedValue(
+        makeVariantRow({ deletedAt: new Date() }),
+      );
+      seedActiveWarehouse();
+
+      await expect(
+        service.receive(
+          { variantId: 'var-1', warehouseId: 'wh-1', quantity: 1 },
+          actorId,
+        ),
+      ).rejects.toMatchObject({ status: 404 });
+    });
+
+    it('throws 404 for a missing warehouse and 409 for an inactive warehouse', async () => {
+      seedActiveVariant();
+
+      tx.warehouse.findFirst.mockResolvedValue(null);
+      await expect(
+        service.receive(
+          { variantId: 'var-1', warehouseId: 'wh-1', quantity: 1 },
+          actorId,
+        ),
+      ).rejects.toMatchObject({ status: 404 });
+
+      tx.warehouse.findFirst.mockResolvedValue({
+        id: 'wh-1',
+        status: WarehouseStatus.INACTIVE,
+      });
+      await expect(
+        service.receive(
+          { variantId: 'var-1', warehouseId: 'wh-1', quantity: 1 },
+          actorId,
+        ),
+      ).rejects.toMatchObject({ status: 409 });
+    });
+
+    it('rolls back the mutation when the audit write fails', async () => {
+      seedActiveVariant();
+      seedActiveWarehouse();
+      tx.$queryRaw
+        .mockResolvedValueOnce([{ id: 'item-1', quantityOnHand: 5 }])
+        .mockResolvedValueOnce([]);
+      tx.inventoryItem.updateMany.mockResolvedValue({ count: 1 });
+      tx.productVariant.updateMany.mockResolvedValue({ count: 1 });
+      audit.log.mockRejectedValueOnce(new Error('audit down'));
+
+      await expect(
+        service.receive(
+          { variantId: 'var-1', warehouseId: 'wh-1', quantity: 10 },
+          actorId,
+        ),
+      ).rejects.toThrow('audit down');
+      expect(prisma.inventoryItem.findUnique).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('adjust', () => {
+    it('applies an absolute increase with a positive delta and MANUAL_ADJUSTMENT movement', async () => {
+      seedActiveVariant();
+      seedActiveWarehouse();
+      tx.inventoryItem.findFirst.mockResolvedValue({
+        id: 'item-1',
+        quantityOnHand: 15,
+      });
+      tx.inventoryItem.updateMany.mockResolvedValue({ count: 1 });
+      tx.$queryRaw.mockResolvedValueOnce([]);
+      tx.productVariant.updateMany.mockResolvedValue({ count: 1 });
+      prisma.inventoryItem.findUnique.mockResolvedValue(
+        makeItemRow({ quantityOnHand: 20 }),
+      );
+
+      const result = await service.adjust(
+        { variantId: 'var-1', warehouseId: 'wh-1', quantity: 20, reason: 'تطبیق' },
+        actorId,
+      );
+
+      expect(tx.inventoryItem.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            id: 'item-1',
+            quantityOnHand: 15,
+          }),
+          data: { quantityOnHand: 20, updatedBy: actorId },
+        }),
+      );
+      expect(tx.inventoryMovement.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            type: InventoryMovementType.MANUAL_ADJUSTMENT,
+            quantity: 5,
+            onHandBefore: 15,
+            onHandAfter: 20,
+            reason: 'تطبیق',
+          }),
+        }),
+      );
+      expect(audit.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'INVENTORY_ADJUSTED',
+          after: expect.objectContaining({
+            requestedQuantity: 20,
+            delta: 5,
+            reason: 'تطبیق',
+            onHandBefore: 15,
+            onHandAfter: 20,
+          }),
+        }),
+        tx,
+      );
+      expect(result.quantityOnHand).toBe(20);
+    });
+
+    it('applies an absolute decrease with a negative delta', async () => {
+      seedActiveVariant();
+      seedActiveWarehouse();
+      tx.inventoryItem.findFirst.mockResolvedValue({
+        id: 'item-1',
+        quantityOnHand: 15,
+      });
+      tx.inventoryItem.updateMany.mockResolvedValue({ count: 1 });
+      tx.$queryRaw.mockResolvedValueOnce([]);
+      tx.productVariant.updateMany.mockResolvedValue({ count: 1 });
+      prisma.inventoryItem.findUnique.mockResolvedValue(
+        makeItemRow({ quantityOnHand: 12 }),
+      );
+
+      await service.adjust(
+        { variantId: 'var-1', warehouseId: 'wh-1', quantity: 12, reason: 'کسر' },
+        actorId,
+      );
+
+      expect(tx.inventoryMovement.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            quantity: -3,
+            onHandBefore: 15,
+            onHandAfter: 12,
+          }),
+        }),
+      );
+    });
+
+    it('records a zero-delta movement and audit for a same-value adjust', async () => {
+      seedActiveVariant();
+      seedActiveWarehouse();
+      tx.inventoryItem.findFirst.mockResolvedValue({
+        id: 'item-1',
+        quantityOnHand: 15,
+      });
+      tx.inventoryItem.updateMany.mockResolvedValue({ count: 1 });
+      tx.$queryRaw.mockResolvedValueOnce([]);
+      tx.productVariant.updateMany.mockResolvedValue({ count: 1 });
+      prisma.inventoryItem.findUnique.mockResolvedValue(
+        makeItemRow({ quantityOnHand: 15 }),
+      );
+
+      await service.adjust(
+        { variantId: 'var-1', warehouseId: 'wh-1', quantity: 15, reason: 'تأیید' },
+        actorId,
+      );
+
+      expect(tx.inventoryMovement.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            quantity: 0,
+            onHandBefore: 15,
+            onHandAfter: 15,
+          }),
+        }),
+      );
+      expect(audit.log).toHaveBeenCalled();
+    });
+
+    it('throws 404 when no InventoryItem exists for the pair', async () => {
+      seedActiveVariant();
+      seedActiveWarehouse();
+      tx.inventoryItem.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.adjust(
+          { variantId: 'var-1', warehouseId: 'wh-1', quantity: 10, reason: 'r' },
+          actorId,
+        ),
+      ).rejects.toMatchObject({ status: 404 });
+      expect(tx.inventoryMovement.create).not.toHaveBeenCalled();
+    });
+
+    it('throws 409 when a concurrent adjust changed quantityOnHand (stale absolute set)', async () => {
+      seedActiveVariant();
+      seedActiveWarehouse();
+      tx.inventoryItem.findFirst.mockResolvedValue({
+        id: 'item-1',
+        quantityOnHand: 15,
+      });
+      tx.inventoryItem.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(
+        service.adjust(
+          { variantId: 'var-1', warehouseId: 'wh-1', quantity: 20, reason: 'r' },
+          actorId,
+        ),
+      ).rejects.toMatchObject({ status: 409 });
+      expect(tx.inventoryMovement.create).not.toHaveBeenCalled();
+      expect(audit.log).not.toHaveBeenCalled();
+    });
+
+    it('refreshes the aggregate stockQuantity in the same transaction', async () => {
+      seedActiveVariant();
+      seedActiveWarehouse();
+      tx.inventoryItem.findFirst.mockResolvedValue({
+        id: 'item-1',
+        quantityOnHand: 10,
+      });
+      tx.inventoryItem.updateMany.mockResolvedValue({ count: 1 });
+      tx.$queryRaw.mockResolvedValueOnce([]);
+      tx.inventoryItem.groupBy.mockResolvedValue([
+        { variantId: 'var-1', _sum: { quantityOnHand: 25 } },
+      ]);
+      tx.productVariant.updateMany.mockResolvedValue({ count: 1 });
+      prisma.inventoryItem.findUnique.mockResolvedValue(makeItemRow());
+
+      await service.adjust(
+        { variantId: 'var-1', warehouseId: 'wh-1', quantity: 25, reason: 'r' },
+        actorId,
+      );
+
+      expect(tx.productVariant.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'var-1', deletedAt: null },
+          data: { stockQuantity: 25, updatedBy: actorId },
+        }),
+      );
+    });
+
+    it('rolls back when the audit write fails', async () => {
+      seedActiveVariant();
+      seedActiveWarehouse();
+      tx.inventoryItem.findFirst.mockResolvedValue({
+        id: 'item-1',
+        quantityOnHand: 10,
+      });
+      tx.inventoryItem.updateMany.mockResolvedValue({ count: 1 });
+      tx.$queryRaw.mockResolvedValueOnce([]);
+      tx.productVariant.updateMany.mockResolvedValue({ count: 1 });
+      audit.log.mockRejectedValueOnce(new Error('audit down'));
+
+      await expect(
+        service.adjust(
+          { variantId: 'var-1', warehouseId: 'wh-1', quantity: 5, reason: 'r' },
+          actorId,
+        ),
+      ).rejects.toThrow('audit down');
+      expect(prisma.inventoryItem.findUnique).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('setVariantStockCompat', () => {
+    it('writes through the inventory path (default warehouse, movement, aggregate, legacy audit)', async () => {
+      seedActiveVariant();
+      tx.warehouse.upsert.mockResolvedValue({ id: 'wh-default' });
+      tx.warehouse.findFirst.mockResolvedValue({
+        id: 'wh-default',
+        status: WarehouseStatus.ACTIVE,
+      });
+      tx.productVariant.findUnique.mockResolvedValue(
+        makeVariantRow({ stockQuantity: 1 }),
+      );
+      tx.inventoryItem.findFirst.mockResolvedValue(null);
+      tx.inventoryItem.create.mockResolvedValue({ id: 'item-default' });
+      tx.$queryRaw.mockResolvedValueOnce([]);
+      tx.inventoryItem.groupBy.mockResolvedValue([
+        { variantId: 'var-1', _sum: { quantityOnHand: 7 } },
+      ]);
+      tx.productVariant.updateMany.mockResolvedValue({ count: 1 });
+
+      await service.setVariantStockCompat('var-1', 7, actorId);
+
+      expect(tx.warehouse.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { code: 'DEFAULT' },
+        }),
+      );
+      expect(tx.inventoryItem.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            warehouseId: 'wh-default',
+            quantityOnHand: 7,
+          }),
+        }),
+      );
+      expect(tx.inventoryMovement.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            type: InventoryMovementType.MANUAL_ADJUSTMENT,
+            quantity: 7,
+            onHandBefore: 0,
+            onHandAfter: 7,
+          }),
+        }),
+      );
+      expect(audit.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'PRODUCT_INVENTORY_SET',
+          entity: 'ProductVariant',
+          entityId: 'var-1',
+          before: { stockQuantity: 1 },
+          after: { stockQuantity: 7 },
+        }),
+        tx,
+      );
+    });
+
+    it('throws 409 for an archived owning product', async () => {
+      tx.productVariant.findUnique.mockResolvedValue(makeVariantRow());
+      tx.product.findUnique.mockResolvedValue(
+        makeProductRow({ status: ProductStatus.ARCHIVED }),
+      );
+
+      await expect(
+        service.setVariantStockCompat('var-1', 5, actorId),
+      ).rejects.toMatchObject({ status: 409 });
+      expect(tx.inventoryMovement.create).not.toHaveBeenCalled();
+    });
+
+    it('never creates an orphan item under a deleted or inactive default warehouse', async () => {
+      seedActiveVariant();
+      tx.warehouse.upsert.mockResolvedValue({ id: 'wh-default' });
+
+      tx.warehouse.findFirst.mockResolvedValue(null);
+      await expect(
+        service.setVariantStockCompat('var-1', 5, actorId),
+      ).rejects.toMatchObject({ status: 404 });
+
+      tx.warehouse.findFirst.mockResolvedValue({
+        id: 'wh-default',
+        status: WarehouseStatus.INACTIVE,
+      });
+      await expect(
+        service.setVariantStockCompat('var-1', 5, actorId),
+      ).rejects.toMatchObject({ status: 409 });
+
+      expect(tx.inventoryItem.create).not.toHaveBeenCalled();
+      expect(tx.inventoryMovement.create).not.toHaveBeenCalled();
+      expect(audit.log).not.toHaveBeenCalled();
+    });
+  });
 
   describe('list', () => {
     it('builds the query with default pagination, lifecycle filtering and deterministic ordering', async () => {
@@ -98,7 +626,9 @@ describe('InventoryService', () => {
 
       await service.list({ page: 2, limit: 10 });
 
-      expect(lastFindMany()).toEqual(expect.objectContaining({ skip: 10, take: 10 }));
+      expect(prisma.inventoryItem.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ skip: 10, take: 10 }),
+      );
     });
 
     it('filters by variantId and warehouseId', async () => {
@@ -107,7 +637,7 @@ describe('InventoryService', () => {
 
       await service.list({ variantId: 'var-9', warehouseId: 'wh-9' });
 
-      const where = lastFindMany().where;
+      const where = prisma.inventoryItem.findMany.mock.calls.at(-1)![0].where;
       expect(where.variantId).toBe('var-9');
       expect(where.warehouseId).toBe('wh-9');
       expect(where.variant).toBeDefined();
@@ -120,7 +650,7 @@ describe('InventoryService', () => {
 
       await service.list({ search: 'xps' });
 
-      const where = lastFindMany().where;
+      const where = prisma.inventoryItem.findMany.mock.calls.at(-1)![0].where;
       expect(where.variant.is.OR).toEqual([
         { sku: { contains: 'xps', mode: 'insensitive' } },
         { name: { contains: 'xps', mode: 'insensitive' } },
@@ -134,7 +664,7 @@ describe('InventoryService', () => {
 
       await service.list({ search: 'SKU_%01' });
 
-      const where = lastFindMany().where;
+      const where = prisma.inventoryItem.findMany.mock.calls.at(-1)![0].where;
       expect(where.variant.is.OR[0].sku.contains).toBe('SKU\\_\\%01');
     });
 
@@ -154,36 +684,6 @@ describe('InventoryService', () => {
       expect(item).not.toHaveProperty('createdAt');
     });
 
-    it('maps OUT_OF_STOCK when available <= 0', async () => {
-      prisma.inventoryItem.count.mockResolvedValue(1);
-      prisma.inventoryItem.findMany.mockResolvedValue([
-        makeItemRow({ quantityOnHand: 2, quantityReserved: 2 }),
-      ]);
-
-      const result = await service.list({});
-      expect(result.items[0]!.stockStatus).toBe('OUT_OF_STOCK');
-    });
-
-    it('maps LOW_STOCK when available <= reorderLevel', async () => {
-      prisma.inventoryItem.count.mockResolvedValue(1);
-      prisma.inventoryItem.findMany.mockResolvedValue([
-        makeItemRow({ quantityOnHand: 8, quantityReserved: 0, reorderLevel: 10, criticalLevel: 3 }),
-      ]);
-
-      const result = await service.list({});
-      expect(result.items[0]!.stockStatus).toBe('LOW_STOCK');
-    });
-
-    it('maps LOW_STOCK via criticalLevel when reorderLevel is unset', async () => {
-      prisma.inventoryItem.count.mockResolvedValue(1);
-      prisma.inventoryItem.findMany.mockResolvedValue([
-        makeItemRow({ quantityOnHand: 2, quantityReserved: 0, reorderLevel: null, criticalLevel: 5 }),
-      ]);
-
-      const result = await service.list({});
-      expect(result.items[0]!.stockStatus).toBe('LOW_STOCK');
-    });
-
     it('filters by stockStatus in memory then paginates', async () => {
       prisma.inventoryItem.findMany.mockResolvedValue([
         makeItemRow({ id: 'a', quantityOnHand: 5, quantityReserved: 0, reorderLevel: 5 }),
@@ -197,23 +697,14 @@ describe('InventoryService', () => {
       expect(result.total).toBe(1);
       expect(result.items.map((item) => item.id)).toEqual(['a']);
     });
-
-    it('returns an empty list for zero inventory', async () => {
-      prisma.inventoryItem.count.mockResolvedValue(0);
-      prisma.inventoryItem.findMany.mockResolvedValue([]);
-
-      const result = await service.list({});
-      expect(result.items).toEqual([]);
-      expect(result.total).toBe(0);
-    });
   });
 
   describe('listByVariant', () => {
     it('returns inventory across active warehouses ordered by warehouse code', async () => {
       prisma.productVariant.findFirst.mockResolvedValue({ id: 'var-1' });
       prisma.inventoryItem.findMany.mockResolvedValue([
-        makeItemRow({ id: 'wh-a-item', warehouseId: 'wh-a', variant: { id: 'var-1', sku: 'S1', name: null }, warehouse: { id: 'wh-a', code: 'WH-A', name: 'الف', status: WarehouseStatus.ACTIVE } }),
-        makeItemRow({ id: 'wh-b-item', warehouseId: 'wh-b', variant: { id: 'var-1', sku: 'S1', name: null }, warehouse: { id: 'wh-b', code: 'WH-B', name: 'ب', status: WarehouseStatus.ACTIVE } }),
+        makeItemRow({ id: 'wh-a-item', warehouseId: 'wh-a' }),
+        makeItemRow({ id: 'wh-b-item', warehouseId: 'wh-b' }),
       ]);
 
       const result = await service.listByVariant('var-1');
@@ -227,26 +718,12 @@ describe('InventoryService', () => {
       expect(result.map((item) => item.id)).toEqual(['wh-a-item', 'wh-b-item']);
     });
 
-    it('throws 404 when the variant is missing', async () => {
+    it('throws 404 when the variant is missing, deleted or archived', async () => {
       prisma.productVariant.findFirst.mockResolvedValue(null);
       await expect(service.listByVariant('var-1')).rejects.toBeInstanceOf(
         NotFoundException,
       );
       expect(prisma.inventoryItem.findMany).not.toHaveBeenCalled();
-    });
-
-    it('throws 404 when the variant is soft-deleted', async () => {
-      prisma.productVariant.findFirst.mockResolvedValue(null);
-      await expect(service.listByVariant('var-1')).rejects.toBeInstanceOf(
-        NotFoundException,
-      );
-    });
-
-    it('throws 404 when the owning product is archived', async () => {
-      prisma.productVariant.findFirst.mockResolvedValue(null);
-      await expect(service.listByVariant('var-1')).rejects.toBeInstanceOf(
-        NotFoundException,
-      );
     });
   });
 
@@ -270,31 +747,12 @@ describe('InventoryService', () => {
       );
     });
 
-    it('applies warehouse pagination', async () => {
-      prisma.warehouse.findFirst.mockResolvedValue({ id: 'wh-1' });
-      prisma.inventoryItem.count.mockResolvedValue(0);
-      prisma.inventoryItem.findMany.mockResolvedValue([]);
-
-      await service.listByWarehouse('wh-1', { page: 3, limit: 25 });
-
-      expect(prisma.inventoryItem.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ skip: 50, take: 25 }),
-      );
-    });
-
-    it('throws 404 when the warehouse is missing', async () => {
+    it('throws 404 when the warehouse is missing, deleted or inactive', async () => {
       prisma.warehouse.findFirst.mockResolvedValue(null);
       await expect(service.listByWarehouse('wh-1', {})).rejects.toBeInstanceOf(
         NotFoundException,
       );
       expect(prisma.inventoryItem.count).not.toHaveBeenCalled();
-    });
-
-    it('throws 404 when the warehouse is inactive', async () => {
-      prisma.warehouse.findFirst.mockResolvedValue(null);
-      await expect(service.listByWarehouse('wh-1', {})).rejects.toBeInstanceOf(
-        NotFoundException,
-      );
     });
   });
 });

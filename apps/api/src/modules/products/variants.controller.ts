@@ -136,7 +136,7 @@ export class AdminVariantsController {
   @Patch(':id/inventory')
   @ApiOperation({
     summary:
-      'Set the absolute stockQuantity (M1 inventory boundary, EPIC-005).',
+      'DEPRECATED (SS-113). Set the absolute stockQuantity on the default warehouse through the inventory write path.',
   })
   @ApiParam({ name: 'id', type: 'string', format: 'uuid' })
   @ApiResponse({ status: 200, description: 'Stock quantity set.' })
