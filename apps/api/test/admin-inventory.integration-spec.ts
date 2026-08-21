@@ -6,7 +6,6 @@ import {
 import { PrismaService } from '../src/common/database/prisma.service';
 import { InventoryService } from '../src/modules/inventory/inventory.service';
 import { aggregateVariantStock } from '../src/modules/inventory/inventory-aggregate';
-import { bootstrap } from '../prisma/bootstrap';
 
 jest.setTimeout(30_000);
 
@@ -116,7 +115,6 @@ describe('Admin inventory read API database integration (SS-112)', () => {
   beforeAll(async () => {
     prisma = new PrismaService();
     await prisma.$connect();
-    await bootstrap(prisma);
     service = new InventoryService(prisma);
   });
 

@@ -10,7 +10,6 @@ import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/app.setup';
 import { PrismaService } from '../src/common/database/prisma.service';
 import { TokenService } from '../src/modules/auth/services/token.service';
-import { bootstrap, DEFAULT_WAREHOUSE_CODE } from '../prisma/bootstrap';
 
 jest.setTimeout(60_000);
 
@@ -204,7 +203,6 @@ describe('Admin inventory read API (SS-112) (e2e)', () => {
 
     prisma = app.get(PrismaService);
     tokenService = app.get(TokenService);
-    await bootstrap(prisma);
 
     for (const role of ['CUSTOMER', 'PARTNER', 'OPERATOR', 'ADMIN']) {
       roleIds[role] = await seedRole(role);
@@ -237,15 +235,6 @@ describe('Admin inventory read API (SS-112) (e2e)', () => {
       where: { user: { mobile: { in: mobiles } } },
     });
     await prisma.user.deleteMany({ where: { mobile: { in: mobiles } } });
-    const def = await prisma.warehouse.findUnique({
-      where: { code: DEFAULT_WAREHOUSE_CODE },
-    });
-    if (def) {
-      await prisma.warehouse.update({
-        where: { id: def.id },
-        data: { status: 'ACTIVE' },
-      });
-    }
     await app.close();
   });
 
