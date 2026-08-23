@@ -16,6 +16,7 @@ import { ProductsPage } from '../pages/products-page'
 import { RolesPage } from '../pages/roles-page'
 import { UserDetailPage } from '../pages/user-detail-page'
 import { UsersPage } from '../pages/users-page'
+import { WarehousesPage } from '../pages/warehouses-page'
 
 export default function App() {
   return (
@@ -118,6 +119,14 @@ export default function App() {
               element={
                 <RequireRole roles={ADMIN_ROLES}>
                   <BrandsPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="warehouses"
+              element={
+                <RequireRole roles={['ADMIN']}>
+                  <WarehousesPage />
                 </RequireRole>
               }
             />

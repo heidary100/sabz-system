@@ -467,6 +467,76 @@ RTL/Persian/Vazirmatn, loading/empty/error states, refresh reload).
 
 ---
 
+# SS-116 — Admin Warehouse UI
+
+Access: ADMIN only (`RequireRole roles={['ADMIN']}`). No `SUPER_ADMIN`, no
+`@Permissions`. As with all admin frontend, role gating is UX only — the SS-111
+API remains the authorization and data-access boundary.
+
+Route (sidebar: انبارها):
+
+- `/warehouses` (`WarehousesPage`): paginated warehouse list with search
+  (name/code, debounced ~300ms, max 100 chars) and status filter
+  (همه / فعال / غیرفعال), loading / empty / error+retry states, and
+  create/edit/activate/deactivate dialogs. The «انبارها» sidebar item is hidden
+  for `OPERATOR`, but the route remains server- and route-gated for `ADMIN`.
+
+Table columns are intentionally `کد / نام / وضعیت / عملیات` only:
+`WarehouseSummary` (SS-111 list contract) deliberately excludes address/contact
+fields. The backend is NOT modified to enrich the summary. On edit-open the UI
+calls `GET /admin/warehouses/:id` and populates address/contact fields from
+`WarehouseDetail`; the dialog shows a compact loading state during the fetch and
+an error + «تلاش مجدد» on failure. No row navigation, no delete UI (SS-111 has
+no delete endpoint).
+
+Lifecycle (backend-authoritative, never optimistic):
+
+- `WarehouseForm` (single reusable dialog) handles create and edit: کد
+  (required, `ltr`, max 100), نام (required, max 255), آدرس (max 1000),
+  نام مسئول (max 255), تلفن تماس (`ltr`, max 100). Create omits empty optional
+  fields; edit sends `null` for cleared optionals per `UpdateWarehouseInput`.
+  On duplicate-code 409 the Persian backend message is shown inside the dialog
+  and the form input is preserved; the page refetches the authoritative list.
+- `WarehouseStatusDialog` (single reusable Alert dialog) handles
+  activate/deactivate with confirmation and submitting states
+  («در حال فعالسازی…» / «در حال غیرفعالسازی…»). On 409 (non-ACTIVE/non-INACTIVE
+  state change, or last-active-warehouse deactivation) the Persian backend
+  message is shown via `translateApiError()` and the list is refetched. The
+  last-active-warehouse invariant is entirely backend-owned — the UI never
+  predicts or enforces it.
+- After every successful mutation the list is refetched from the API. No
+  optimistic badge/status changes.
+- Warehouse data lives in React memory only — never persisted to
+  localStorage/sessionStorage/IndexedDB, and never logged to the console. Only
+  shared-contract fields (`WarehouseSummary`/`WarehouseDetail`) are rendered —
+  never `deletedAt`/`createdBy`/`updatedBy`/internal DB fields. No stock,
+  inventory, reservation, or movement UI in this issue.
+
+Implementation notes:
+
+- New `services/warehouses.ts` (`listWarehouses`, `getWarehouse`,
+  `createWarehouse`, `updateWarehouse`, `activateWarehouse`,
+  `deactivateWarehouse`) maps 1:1 to the SS-111 endpoints using the existing
+  `request()` wrapper. No `@sabz/types` change and no new dependencies: the
+  SS-110 contracts cover every request/response.
+- `use-warehouse-list.ts` follows the existing `requestSeq` stale-response
+  protection, page-reset-on-filter, and page-clamp conventions.
+- Labels live in `lib/warehouse-labels.ts`; `WarehouseStatusBadge` (ACTIVE →
+  green, INACTIVE → zinc) follows the existing badge convention. Errors reuse
+  `translateApiError()`/`isConflictError()`; no new mappings were needed
+  because SS-111 messages are already Persian and pass through verbatim.
+
+Manual acceptance is the established convention (no React test harness); see
+the SS-116 checklist in the issue (ADMIN access, OPERATOR/CUSTOMER/PARTNER
+denied, list/search name/code/status filter/pagination, empty state, create,
+duplicate-code 409 with preserved input, edit detail fetch + populate,
+nullable-clear edit, activate, deactivate, last-active-warehouse 409 + refetch,
+stale-status 409 + refetch, loading, error+retry, 401 refresh, RTL/Persian,
+no persistence, no sensitive fields, no stock/reservation/movement UI,
+refresh reload).
+
+---
+
 # Available Scripts
 
 ```bash
