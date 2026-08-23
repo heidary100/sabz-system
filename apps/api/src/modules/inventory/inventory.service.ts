@@ -8,6 +8,7 @@ import {
   InventoryMovementType,
   Prisma,
   ProductStatus,
+  ReservationStatus,
   WarehouseStatus,
 } from '@prisma/client';
 import type {
@@ -15,6 +16,7 @@ import type {
   InventoryItemSummary,
   InventoryMovementSummary,
   PaginatedResult,
+  ReservationSummary,
 } from '@sabz/types';
 import { PrismaService } from '../../common/database/prisma.service';
 import { AuditService } from '../audit/audit.service';
@@ -28,12 +30,21 @@ import {
   AdjustInventoryDto,
   ListInventoryQueryDto,
   ListMovementsQueryDto,
+  ListReservationsQueryDto,
   ListWarehouseInventoryQueryDto,
   ReceiveStockDto,
+  ReserveInventoryDto,
 } from './dto';
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 20;
+
+/**
+ * Fixed ledger/audit reason recorded for lazy-expiration transitions. The
+ * expiration is triggered by the request that runs it, but the reason marks
+ * the row as a system-driven expiry rather than a manual release.
+ */
+const EXPIRATION_REASON = 'انقضای خودکار رزرو';
 
 /**
  * Default warehouse is infrastructure reference data (code `DEFAULT`, ensured
@@ -107,14 +118,57 @@ type MovementSummaryRow = Prisma.InventoryMovementGetPayload<{
 }>;
 
 /**
+ * Reservation projection (SS-115). Maps onto the shared `ReservationSummary`
+ * contract; the variant/warehouse refs are resolved through the owning
+ * InventoryItem relation. Deliberately omits `createdBy`/`updatedBy` so the
+ * raw actor ids are structurally unexposable.
+ */
+const reservationSummarySelect = {
+  id: true,
+  inventoryItemId: true,
+  quantity: true,
+  status: true,
+  expiresAt: true,
+  releasedAt: true,
+  consumedAt: true,
+  expiredAt: true,
+  createdAt: true,
+  inventoryItem: {
+    select: {
+      variant: {
+        select: {
+          id: true,
+          sku: true,
+          name: true,
+        },
+      },
+      warehouse: {
+        select: {
+          id: true,
+          code: true,
+          name: true,
+          status: true,
+        },
+      },
+    },
+  },
+} satisfies Prisma.ReservationSelect;
+
+type ReservationSummaryRow = Prisma.ReservationGetPayload<{
+  select: typeof reservationSummarySelect;
+}>;
+
+/**
  * Admin inventory API. SS-112 owns the read-only inventory queries; SS-113 owns
  * the mutation API (receive + absolute adjust) plus the SS-104 compatibility
- * write path (`setVariantStockCompat`). Every mutation is one interactive
- * transaction that writes exactly one InventoryMovement and exactly one
- * AuditLog and refreshes `ProductVariant.stockQuantity` from the authoritative
- * `InventoryItem` rows before committing, so the four writes commit or roll
- * back atomically. `InventoryItem` is authoritative; `ProductVariant
- * .stockQuantity` is always a denormalized aggregate.
+ * write path (`setVariantStockCompat`); SS-115 owns the reservation API
+ * (reserve, release, consume, list) with lazy transactional expiration. Every
+ * mutation is one interactive transaction that writes exactly one
+ * InventoryMovement and exactly one AuditLog and refreshes
+ * `ProductVariant.stockQuantity` from the authoritative `InventoryItem` rows
+ * before committing, so the writes commit or roll back atomically.
+ * `InventoryItem` is authoritative; `ProductVariant.stockQuantity` is always a
+ * denormalized aggregate (refreshed only when `quantityOnHand` changes).
  */
 @Injectable()
 export class InventoryService {
@@ -596,6 +650,239 @@ export class InventoryService {
   }
 
   // ---------------------------------------------------------------------------
+  // SS-115 reservation API
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Reserve stock against an existing InventoryItem (SS-115). The reservation
+   * is created only if `available = quantityOnHand − quantityReserved` covers
+   * the requested quantity; the item row is locked (SELECT ... FOR UPDATE) so
+   * concurrent reservations serialize and each re-reads the committed reserved
+   * value before the availability check — overselling is impossible. Expired
+   * ACTIVE reservations are lazily transitioned first so their units re-enter
+   * availability. Writes exactly one RESERVATION movement and one
+   * INVENTORY_RESERVED audit; `quantityOnHand` and the variant aggregate are
+   * untouched (reservation-only change).
+   */
+  async reserve(
+    dto: ReserveInventoryDto,
+    actorId: string,
+    ipAddress?: string,
+  ): Promise<ReservationSummary> {
+    await this.runLazyExpiration(actorId);
+
+    const reservationId = await this.withInventoryRetry(() =>
+      this.prisma.$transaction(async (tx) => {
+        const now = new Date();
+
+        await this.assertVariantForMutation(tx, dto.variantId);
+        await this.assertWarehouseForMutation(tx, dto.warehouseId);
+
+        const rows = await tx.$queryRaw<
+          Array<{
+            id: string;
+            variantId: string;
+            warehouseId: string;
+            quantityOnHand: number;
+            quantityReserved: number;
+          }>
+        >`
+          SELECT "id", "variantId", "warehouseId", "quantityOnHand", "quantityReserved"
+          FROM "InventoryItem"
+          WHERE "variantId" = ${dto.variantId}
+            AND "warehouseId" = ${dto.warehouseId}
+          FOR UPDATE
+        `;
+
+        if (rows.length !== 1) {
+          throw new NotFoundException('موجودی این واریانت در انبار یافت نشد.');
+        }
+        const item = rows[0]!;
+
+        if (item.quantityOnHand - item.quantityReserved < dto.quantity) {
+          throw new ConflictException('موجودی کافی برای رزرو در دسترس نیست.');
+        }
+
+        const updated = await tx.inventoryItem.updateMany({
+          where: { id: item.id, ...activeInventoryWhere() },
+          data: {
+            quantityReserved: { increment: dto.quantity },
+            updatedBy: actorId,
+          },
+        });
+        if (updated.count === 0) {
+          await this.throwInventoryConflict(tx, dto.variantId, dto.warehouseId);
+        }
+
+        const expiresAt =
+          dto.expiresIn !== undefined
+            ? new Date(now.getTime() + dto.expiresIn * 1000)
+            : null;
+
+        const reservation = await tx.reservation.create({
+          data: {
+            inventoryItemId: item.id,
+            quantity: dto.quantity,
+            status: ReservationStatus.ACTIVE,
+            expiresAt,
+            createdBy: actorId,
+          },
+          select: { id: true },
+        });
+
+        await this.writeReservationMovement(tx, {
+          inventoryItemId: item.id,
+          variantId: item.variantId,
+          warehouseId: item.warehouseId,
+          type: InventoryMovementType.RESERVATION,
+          quantity: 0,
+          reservedDelta: dto.quantity,
+          onHandBefore: item.quantityOnHand,
+          onHandAfter: item.quantityOnHand,
+          reservedBefore: item.quantityReserved,
+          reservedAfter: item.quantityReserved + dto.quantity,
+          reason: null,
+          createdBy: actorId,
+        });
+
+        await this.auditReservationMutation(tx, {
+          reservationId: reservation.id,
+          action: 'INVENTORY_RESERVED',
+          variantId: item.variantId,
+          warehouseId: item.warehouseId,
+          quantity: dto.quantity,
+          onHandBefore: item.quantityOnHand,
+          onHandAfter: item.quantityOnHand,
+          reservedBefore: item.quantityReserved,
+          reservedAfter: item.quantityReserved + dto.quantity,
+          expiresAt,
+          reason: null,
+          actorId,
+          ipAddress,
+        });
+
+        return reservation.id;
+      }),
+    );
+
+    return this.readReservationSummary(reservationId);
+  }
+
+  /**
+   * Release an ACTIVE reservation (SS-115). The transition is a conditional
+   * `updateMany` on `id + status = ACTIVE` (the database is the state-gate
+   * arbiter): a concurrent release/consume/expiration wins and this requester
+   * receives 409. `quantityReserved` is decremented, `quantityOnHand` is
+   * untouched and the variant aggregate is not refreshed. Writes exactly one
+   * RESERVATION_RELEASE movement and one INVENTORY_RELEASED audit. The owning
+   * product/variant/warehouse lifecycle is deliberately NOT re-validated so
+   * reserved stock can always be unwound.
+   */
+  async releaseReservation(
+    id: string,
+    actorId: string,
+    ipAddress?: string,
+  ): Promise<ReservationSummary> {
+    await this.runLazyExpiration(actorId);
+
+    await this.withInventoryRetry(() =>
+      this.prisma.$transaction(async (tx) => {
+        await this.applyTerminalTransition(tx, {
+          reservationId: id,
+          consume: false,
+          now: new Date(),
+          actorId,
+          ipAddress,
+        });
+      }),
+    );
+
+    return this.readReservationSummary(id);
+  }
+
+  /**
+   * Consume an ACTIVE reservation (SS-115). Transitions ACTIVE → CONSUMED
+   * (conditional state gate, single winner), decrements both
+   * `quantityReserved` and `quantityOnHand`, writes exactly one SALE movement
+   * and one INVENTORY_CONSUMED audit, and refreshes
+   * `ProductVariant.stockQuantity` in the same transaction. `quantityOnHand`
+   * is re-checked under the item lock so stock can never go negative.
+   */
+  async consumeReservation(
+    id: string,
+    actorId: string,
+    ipAddress?: string,
+  ): Promise<ReservationSummary> {
+    await this.runLazyExpiration(actorId);
+
+    await this.withInventoryRetry(() =>
+      this.prisma.$transaction(async (tx) => {
+        await this.applyTerminalTransition(tx, {
+          reservationId: id,
+          consume: true,
+          now: new Date(),
+          actorId,
+          ipAddress,
+        });
+      }),
+    );
+
+    return this.readReservationSummary(id);
+  }
+
+  /**
+   * Read-only paginated reservation view (SS-115). Filters are predicates and
+   * combine with AND: a valid but nonexistent `variantId`/`warehouseId`
+   * returns an empty page (never 404); `variantId`/`warehouseId` filter
+   * through the owning InventoryItem relation. Ordering is deterministic:
+   * `createdAt DESC`, then `id DESC`. This path is strictly read-only: it
+   * never triggers lazy expiration and never writes.
+   */
+  async listReservations(
+    query: ListReservationsQueryDto,
+  ): Promise<PaginatedResult<ReservationSummary>> {
+    const page = query.page ?? DEFAULT_PAGE;
+    const limit = query.limit ?? DEFAULT_LIMIT;
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.ReservationWhereInput = {
+      ...(query.status !== undefined ? { status: query.status } : {}),
+      ...(query.variantId !== undefined || query.warehouseId !== undefined
+        ? {
+            inventoryItem: {
+              is: {
+                ...(query.variantId !== undefined
+                  ? { variantId: query.variantId }
+                  : {}),
+                ...(query.warehouseId !== undefined
+                  ? { warehouseId: query.warehouseId }
+                  : {}),
+              },
+            },
+          }
+        : {}),
+    };
+
+    const [total, rows] = await this.prisma.$transaction([
+      this.prisma.reservation.count({ where }),
+      this.prisma.reservation.findMany({
+        where,
+        select: reservationSummarySelect,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        skip,
+        take: limit,
+      }),
+    ]);
+
+    return {
+      items: rows.map((row) => this.toReservationSummary(row)),
+      total,
+      page,
+      limit,
+    };
+  }
+
+  // ---------------------------------------------------------------------------
   // Mutation internals
   // ---------------------------------------------------------------------------
 
@@ -938,6 +1225,430 @@ export class InventoryService {
       throw new NotFoundException('موجودی یافت نشد.');
     }
     return this.toSummary(row);
+  }
+
+  // ---------------------------------------------------------------------------
+  // SS-115 reservation internals
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Commits lazy expiration in its own bounded-retry transaction, called at
+   * the start of every reservation mutation (reserve/release/consume). Running
+   * the expiration as an independently committed transaction (instead of
+   * inside the mutation transaction) guarantees the EXPIRED transitions
+   * persist even when the triggering mutation itself fails with a domain error
+   * (for example a 409 state-gate loss on the release of an already-expired
+   * reservation), so expired ACTIVE reservations always become EXPIRED and
+   * stop reducing availability once any reservation mutation is attempted.
+   */
+  private async runLazyExpiration(actorId: string): Promise<void> {
+    await this.withInventoryRetry(() =>
+      this.prisma.$transaction(async (tx) => {
+        await this.expireReservationsInTransaction(tx, new Date(), actorId);
+      }),
+    );
+  }
+
+  /**
+   * Lazy expiration core (SS-115), invoked through `runLazyExpiration` in its
+   * own committed transaction. Finds ACTIVE reservations whose `expiresAt` has
+   * passed (served by the `(status, expiresAt)` index; `expiresAt = null` rows
+   * never match), groups them by owning item, locks each item row
+   * (SELECT ... FOR UPDATE) so concurrent expirations serialize with exact
+   * snapshots, and transitions each reservation with a conditional
+   * `updateMany` on `id + status = ACTIVE`. Only the winner (count 1)
+   * decrements `quantityReserved`, writes exactly one RESERVATION_RELEASE
+   * movement and one INVENTORY_RELEASED audit; losers (count 0 — a concurrent
+   * release/consume/expiration already won) do nothing, so there is never a
+   * double-release, duplicate movement or duplicate audit. `quantityOnHand`
+   * is untouched and the variant aggregate is not refreshed.
+   */
+  private async expireReservationsInTransaction(
+    tx: Prisma.TransactionClient,
+    now: Date,
+    actorId: string,
+  ): Promise<void> {
+    const expired = await tx.reservation.findMany({
+      where: {
+        status: ReservationStatus.ACTIVE,
+        expiresAt: { lte: now },
+      },
+      select: { id: true, inventoryItemId: true, quantity: true },
+      orderBy: [{ id: 'asc' }],
+    });
+    if (expired.length === 0) {
+      return;
+    }
+
+    const byItem = new Map<string, typeof expired>();
+    for (const reservation of expired) {
+      const group = byItem.get(reservation.inventoryItemId);
+      if (group) {
+        group.push(reservation);
+      } else {
+        byItem.set(reservation.inventoryItemId, [reservation]);
+      }
+    }
+
+    for (const [itemId, reservations] of byItem) {
+      const rows = await tx.$queryRaw<
+        Array<{
+          id: string;
+          variantId: string;
+          warehouseId: string;
+          quantityOnHand: number;
+          quantityReserved: number;
+        }>
+      >`
+        SELECT "id", "variantId", "warehouseId", "quantityOnHand", "quantityReserved"
+        FROM "InventoryItem"
+        WHERE "id" = ${itemId}
+        FOR UPDATE
+      `;
+      if (rows.length !== 1) {
+        continue;
+      }
+      const item = rows[0]!;
+      let reserved = item.quantityReserved;
+
+      for (const reservation of reservations) {
+        const updated = await tx.reservation.updateMany({
+          where: { id: reservation.id, status: ReservationStatus.ACTIVE },
+          data: {
+            status: ReservationStatus.EXPIRED,
+            expiredAt: now,
+            updatedBy: actorId,
+          },
+        });
+        if (updated.count !== 1) {
+          continue;
+        }
+
+        const reservedBefore = reserved;
+        reserved -= reservation.quantity;
+
+        await tx.inventoryItem.updateMany({
+          where: { id: item.id },
+          data: {
+            quantityReserved: { increment: -reservation.quantity },
+            updatedBy: actorId,
+          },
+        });
+
+        await this.writeReservationMovement(tx, {
+          inventoryItemId: item.id,
+          variantId: item.variantId,
+          warehouseId: item.warehouseId,
+          type: InventoryMovementType.RESERVATION_RELEASE,
+          quantity: 0,
+          reservedDelta: -reservation.quantity,
+          onHandBefore: item.quantityOnHand,
+          onHandAfter: item.quantityOnHand,
+          reservedBefore,
+          reservedAfter: reserved,
+          reason: EXPIRATION_REASON,
+          createdBy: actorId,
+        });
+
+        await this.auditReservationMutation(tx, {
+          reservationId: reservation.id,
+          action: 'INVENTORY_RELEASED',
+          variantId: item.variantId,
+          warehouseId: item.warehouseId,
+          quantity: reservation.quantity,
+          onHandBefore: item.quantityOnHand,
+          onHandAfter: item.quantityOnHand,
+          reservedBefore,
+          reservedAfter: reserved,
+          reason: EXPIRATION_REASON,
+          actorId,
+        });
+      }
+    }
+  }
+
+  /**
+   * Resolves the reservation targeted by release/consume. Missing rows are
+   * non-disclosure 404s; a reservation that is not ACTIVE (already released,
+   * consumed or expired) is 409 — the state gate is the source of truth.
+   */
+  private async assertReservationForTransition(
+    tx: Prisma.TransactionClient,
+    reservationId: string,
+  ): Promise<{
+    id: string;
+    inventoryItemId: string;
+    quantity: number;
+    status: ReservationStatus;
+  }> {
+    const reservation = await tx.reservation.findFirst({
+      where: { id: reservationId },
+      select: { id: true, inventoryItemId: true, quantity: true, status: true },
+    });
+    if (!reservation) {
+      throw new NotFoundException('رزرو یافت نشد.');
+    }
+    if (reservation.status !== ReservationStatus.ACTIVE) {
+      throw new ConflictException('وضعیت رزرو برای این عملیات معتبر نیست.');
+    }
+    return reservation;
+  }
+
+  /**
+   * Shared release/consume core (SS-115). The item row is locked before the
+   * on-hand check (consume) and the conditional ACTIVE transition, so a
+   * concurrent transition on the same reservation resolves to exactly one
+   * winner and consume can never drive stock negative. Consume decrements
+   * `quantityOnHand` and refreshes the variant aggregate in the same
+   * transaction; release touches only `quantityReserved`.
+   */
+  private async applyTerminalTransition(
+    tx: Prisma.TransactionClient,
+    params: {
+      reservationId: string;
+      consume: boolean;
+      now: Date;
+      actorId: string;
+      ipAddress?: string;
+    },
+  ): Promise<void> {
+    const reservation = await this.assertReservationForTransition(
+      tx,
+      params.reservationId,
+    );
+
+    const rows = await tx.$queryRaw<
+      Array<{
+        id: string;
+        variantId: string;
+        warehouseId: string;
+        quantityOnHand: number;
+        quantityReserved: number;
+      }>
+    >`
+      SELECT "id", "variantId", "warehouseId", "quantityOnHand", "quantityReserved"
+      FROM "InventoryItem"
+      WHERE "id" = ${reservation.inventoryItemId}
+      FOR UPDATE
+    `;
+    if (rows.length !== 1) {
+      throw new NotFoundException('موجودی یافت نشد.');
+    }
+    const item = rows[0]!;
+
+    if (params.consume && item.quantityOnHand < reservation.quantity) {
+      throw new ConflictException('موجودی انبار برای مصرف رزرو کافی نیست.');
+    }
+
+    const updated = await tx.reservation.updateMany({
+      where: { id: reservation.id, status: ReservationStatus.ACTIVE },
+      data: params.consume
+        ? {
+            status: ReservationStatus.CONSUMED,
+            consumedAt: params.now,
+            updatedBy: params.actorId,
+          }
+        : {
+            status: ReservationStatus.RELEASED,
+            releasedAt: params.now,
+            updatedBy: params.actorId,
+          },
+    });
+    if (updated.count !== 1) {
+      throw new ConflictException(
+        'وضعیت رزرو تغییر کرده است؛ مجدد تلاش کنید.',
+      );
+    }
+
+    const onHandAfter = params.consume
+      ? item.quantityOnHand - reservation.quantity
+      : item.quantityOnHand;
+    const reservedAfter = item.quantityReserved - reservation.quantity;
+
+    await tx.inventoryItem.updateMany({
+      where: { id: item.id },
+      data: {
+        quantityReserved: { increment: -reservation.quantity },
+        ...(params.consume
+          ? { quantityOnHand: { increment: -reservation.quantity } }
+          : {}),
+        updatedBy: params.actorId,
+      },
+    });
+
+    await this.writeReservationMovement(tx, {
+      inventoryItemId: item.id,
+      variantId: item.variantId,
+      warehouseId: item.warehouseId,
+      type: params.consume
+        ? InventoryMovementType.SALE
+        : InventoryMovementType.RESERVATION_RELEASE,
+      quantity: params.consume ? -reservation.quantity : 0,
+      reservedDelta: -reservation.quantity,
+      onHandBefore: item.quantityOnHand,
+      onHandAfter,
+      reservedBefore: item.quantityReserved,
+      reservedAfter,
+      reason: null,
+      createdBy: params.actorId,
+    });
+
+    await this.auditReservationMutation(tx, {
+      reservationId: reservation.id,
+      action: params.consume ? 'INVENTORY_CONSUMED' : 'INVENTORY_RELEASED',
+      variantId: item.variantId,
+      warehouseId: item.warehouseId,
+      quantity: reservation.quantity,
+      onHandBefore: item.quantityOnHand,
+      onHandAfter,
+      reservedBefore: item.quantityReserved,
+      reservedAfter,
+      actorId: params.actorId,
+      ipAddress: params.ipAddress,
+    });
+
+    if (params.consume) {
+      await this.refreshVariantStock(tx, item.variantId, params.actorId);
+    }
+  }
+
+  /**
+   * Thin movement writer shared by all four reservation mutations. `reference`
+   * is never written (and the projection never selects it), so the ledger
+   * reference column stays structurally unexposable.
+   */
+  private async writeReservationMovement(
+    tx: Prisma.TransactionClient,
+    params: {
+      inventoryItemId: string;
+      variantId: string;
+      warehouseId: string;
+      type: InventoryMovementType;
+      quantity: number;
+      reservedDelta: number;
+      onHandBefore: number;
+      onHandAfter: number;
+      reservedBefore: number;
+      reservedAfter: number;
+      reason: string | null;
+      createdBy: string;
+    },
+  ): Promise<void> {
+    await tx.inventoryMovement.create({
+      data: {
+        inventoryItemId: params.inventoryItemId,
+        variantId: params.variantId,
+        warehouseId: params.warehouseId,
+        type: params.type,
+        quantity: params.quantity,
+        reservedDelta: params.reservedDelta,
+        reason: params.reason,
+        notes: null,
+        onHandBefore: params.onHandBefore,
+        onHandAfter: params.onHandAfter,
+        reservedBefore: params.reservedBefore,
+        reservedAfter: params.reservedAfter,
+        createdBy: params.createdBy,
+      },
+    });
+  }
+
+  /**
+   * Transactional audit writer for reservation mutations. `entity` is
+   * "Reservation" and `entityId` is the reservation id, so the full lifecycle
+   * of one reservation (reserve → release/consume/expire) is traceable by
+   * entityId. Payloads carry only safe business deltas: ids, quantities and
+   * exact before/after snapshots, plus `expiresAt` (reserve) and `reason`
+   * (expiration) where applicable.
+   */
+  private async auditReservationMutation(
+    tx: Prisma.TransactionClient,
+    params: {
+      reservationId: string;
+      action: string;
+      variantId: string;
+      warehouseId: string;
+      quantity: number;
+      onHandBefore: number;
+      onHandAfter: number;
+      reservedBefore: number;
+      reservedAfter: number;
+      expiresAt?: Date | null;
+      reason?: string | null;
+      actorId: string;
+      ipAddress?: string;
+    },
+  ): Promise<void> {
+    const after: Prisma.InputJsonValue = {
+      variantId: params.variantId,
+      warehouseId: params.warehouseId,
+      quantity: params.quantity,
+      onHandBefore: params.onHandBefore,
+      onHandAfter: params.onHandAfter,
+      reservedBefore: params.reservedBefore,
+      reservedAfter: params.reservedAfter,
+      ...(params.expiresAt !== undefined
+        ? {
+            expiresAt: params.expiresAt
+              ? params.expiresAt.toISOString()
+              : null,
+          }
+        : {}),
+      ...(params.reason !== undefined && params.reason !== null
+        ? { reason: params.reason }
+        : {}),
+    };
+
+    await this.auditService.log(
+      {
+        userId: params.actorId,
+        action: params.action,
+        entity: 'Reservation',
+        entityId: params.reservationId,
+        before: null,
+        after,
+        ipAddress: params.ipAddress,
+      },
+      tx,
+    );
+  }
+
+  private async readReservationSummary(
+    reservationId: string,
+  ): Promise<ReservationSummary> {
+    const row = await this.prisma.reservation.findUnique({
+      where: { id: reservationId },
+      select: reservationSummarySelect,
+    });
+    if (!row) {
+      throw new NotFoundException('رزرو یافت نشد.');
+    }
+    return this.toReservationSummary(row);
+  }
+
+  private toReservationSummary(row: ReservationSummaryRow): ReservationSummary {
+    return {
+      id: row.id,
+      inventoryItemId: row.inventoryItemId,
+      quantity: row.quantity,
+      status: row.status,
+      expiresAt: row.expiresAt ? row.expiresAt.toISOString() : null,
+      releasedAt: row.releasedAt ? row.releasedAt.toISOString() : null,
+      consumedAt: row.consumedAt ? row.consumedAt.toISOString() : null,
+      expiredAt: row.expiredAt ? row.expiredAt.toISOString() : null,
+      createdAt: row.createdAt.toISOString(),
+      variant: {
+        id: row.inventoryItem.variant.id,
+        sku: row.inventoryItem.variant.sku,
+        name: row.inventoryItem.variant.name,
+      },
+      warehouse: {
+        id: row.inventoryItem.warehouse.id,
+        code: row.inventoryItem.warehouse.code,
+        name: row.inventoryItem.warehouse.name,
+        status: row.inventoryItem.warehouse.status,
+      },
+    };
   }
 
   private toSummary(row: SummaryRow): InventoryItemSummary {

@@ -6,3 +6,5 @@ export { ListWarehouseInventoryQueryDto } from './list-warehouse-inventory-query
 export { ReceiveStockDto } from './receive-stock.dto';
 export { AdjustInventoryDto } from './adjust-inventory.dto';
 export { ListMovementsQueryDto } from './list-movements-query.dto';
+export { ReserveInventoryDto } from './reserve-inventory.dto';
+export { ListReservationsQueryDto } from './list-reservations-query.dto';

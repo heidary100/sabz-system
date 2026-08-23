@@ -2,6 +2,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import {
   InventoryMovementType,
   ProductStatus,
+  ReservationStatus,
   WarehouseStatus,
 } from '@prisma/client';
 import { PrismaService } from '../../common/database/prisma.service';
@@ -67,6 +68,30 @@ function makeMovementRow(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function makeReservationRow(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'res-1',
+    inventoryItemId: 'item-1',
+    quantity: 3,
+    status: ReservationStatus.ACTIVE,
+    expiresAt: null,
+    releasedAt: null,
+    consumedAt: null,
+    expiredAt: null,
+    createdAt: now,
+    inventoryItem: {
+      variant: { id: 'var-1', sku: 'SKU-1', name: 'واریانت ۱' },
+      warehouse: {
+        id: 'wh-1',
+        code: 'WH-01',
+        name: 'انبار ۱',
+        status: WarehouseStatus.ACTIVE,
+      },
+    },
+    ...overrides,
+  };
+}
+
 describe('InventoryService', () => {
   let service: InventoryService;
   let prisma: {
@@ -83,6 +108,11 @@ describe('InventoryService', () => {
     productVariant: { findFirst: jest.Mock };
     warehouse: { findFirst: jest.Mock };
     user: { findMany: jest.Mock };
+    reservation: {
+      count: jest.Mock;
+      findMany: jest.Mock;
+      findUnique: jest.Mock;
+    };
     $transaction: jest.Mock;
   };
   let audit: { log: jest.Mock };
@@ -98,6 +128,12 @@ describe('InventoryService', () => {
       groupBy: jest.Mock;
     };
     inventoryMovement: { create: jest.Mock };
+    reservation: {
+      findMany: jest.Mock;
+      create: jest.Mock;
+      updateMany: jest.Mock;
+      findFirst: jest.Mock;
+    };
     $queryRaw: jest.Mock;
   };
 
@@ -114,9 +150,16 @@ describe('InventoryService', () => {
         groupBy: jest.fn(),
       },
       inventoryMovement: { create: jest.fn() },
+      reservation: {
+        findMany: jest.fn(),
+        create: jest.fn(),
+        updateMany: jest.fn(),
+        findFirst: jest.fn(),
+      },
       $queryRaw: jest.fn(),
     };
     tx.inventoryItem.groupBy.mockResolvedValue([]);
+    tx.reservation.findMany.mockResolvedValue([]);
     prisma = {
       inventoryItem: {
         count: jest.fn(),
@@ -131,6 +174,11 @@ describe('InventoryService', () => {
       productVariant: { findFirst: jest.fn() },
       warehouse: { findFirst: jest.fn() },
       user: { findMany: jest.fn() },
+      reservation: {
+        count: jest.fn(),
+        findMany: jest.fn(),
+        findUnique: jest.fn(),
+      },
       $transaction: jest.fn(),
     };
     audit = { log: jest.fn().mockResolvedValue(undefined) };
@@ -1124,6 +1172,750 @@ describe('InventoryService', () => {
         expect.objectContaining({ where: {} }),
       );
       expect(tx.inventoryMovement.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('reserve', () => {
+    function seedItemRow() {
+      tx.$queryRaw.mockResolvedValueOnce([
+        {
+          id: 'item-1',
+          variantId: 'var-1',
+          warehouseId: 'wh-1',
+          quantityOnHand: 10,
+          quantityReserved: 2,
+        },
+      ]);
+      tx.inventoryItem.updateMany.mockResolvedValue({ count: 1 });
+      tx.reservation.create.mockResolvedValue({ id: 'res-1' });
+      prisma.reservation.findUnique.mockResolvedValue(
+        makeReservationRow({ status: ReservationStatus.ACTIVE }),
+      );
+    }
+
+    it('creates an ACTIVE reservation with a RESERVATION movement and INVENTORY_RESERVED audit', async () => {
+      seedActiveVariant();
+      seedActiveWarehouse();
+      seedItemRow();
+
+      const result = await service.reserve(
+        { variantId: 'var-1', warehouseId: 'wh-1', quantity: 3 },
+        actorId,
+      );
+
+      expect(tx.inventoryItem.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: { quantityReserved: { increment: 3 }, updatedBy: actorId },
+        }),
+      );
+      expect(tx.reservation.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            inventoryItemId: 'item-1',
+            quantity: 3,
+            status: ReservationStatus.ACTIVE,
+            expiresAt: null,
+            createdBy: actorId,
+          }),
+        }),
+      );
+      expect(tx.inventoryMovement.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            type: InventoryMovementType.RESERVATION,
+            quantity: 0,
+            reservedDelta: 3,
+            onHandBefore: 10,
+            onHandAfter: 10,
+            reservedBefore: 2,
+            reservedAfter: 5,
+            reason: null,
+          }),
+        }),
+      );
+      expect(audit.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'INVENTORY_RESERVED',
+          entity: 'Reservation',
+          entityId: 'res-1',
+          after: expect.objectContaining({
+            variantId: 'var-1',
+            warehouseId: 'wh-1',
+            quantity: 3,
+            onHandBefore: 10,
+            onHandAfter: 10,
+            reservedBefore: 2,
+            reservedAfter: 5,
+            expiresAt: null,
+          }),
+        }),
+        tx,
+      );
+      expect(result.id).toBe('res-1');
+      expect(result.quantity).toBe(3);
+      expect(result.status).toBe('ACTIVE');
+      expect(result.variant.id).toBe('var-1');
+      expect(result.warehouse.id).toBe('wh-1');
+      expect(tx.productVariant.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('derives expiresAt from expiresIn as now plus seconds', async () => {
+      jest.useFakeTimers();
+      jest.setSystemTime(now);
+      try {
+        seedActiveVariant();
+        seedActiveWarehouse();
+        seedItemRow();
+
+        await service.reserve(
+          { variantId: 'var-1', warehouseId: 'wh-1', quantity: 1, expiresIn: 3600 },
+          actorId,
+        );
+
+        const expected = new Date('2026-08-21T01:00:00.000Z');
+        expect(tx.reservation.create).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({ expiresAt: expected }),
+          }),
+        );
+        expect(audit.log).toHaveBeenCalledWith(
+          expect.objectContaining({
+            after: expect.objectContaining({
+              expiresAt: '2026-08-21T01:00:00.000Z',
+            }),
+          }),
+          tx,
+        );
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it('throws 409 when availability is insufficient', async () => {
+      seedActiveVariant();
+      seedActiveWarehouse();
+      tx.$queryRaw.mockResolvedValueOnce([
+        {
+          id: 'item-1',
+          variantId: 'var-1',
+          warehouseId: 'wh-1',
+          quantityOnHand: 10,
+          quantityReserved: 8,
+        },
+      ]);
+
+      await expect(
+        service.reserve(
+          { variantId: 'var-1', warehouseId: 'wh-1', quantity: 3 },
+          actorId,
+        ),
+      ).rejects.toMatchObject({ status: 409 });
+      expect(tx.reservation.create).not.toHaveBeenCalled();
+      expect(tx.inventoryMovement.create).not.toHaveBeenCalled();
+      expect(audit.log).not.toHaveBeenCalled();
+    });
+
+    it('throws 404 when no InventoryItem exists for the pair and never creates one', async () => {
+      seedActiveVariant();
+      seedActiveWarehouse();
+      tx.$queryRaw.mockResolvedValueOnce([]);
+
+      await expect(
+        service.reserve(
+          { variantId: 'var-1', warehouseId: 'wh-1', quantity: 1 },
+          actorId,
+        ),
+      ).rejects.toMatchObject({ status: 404 });
+      expect(tx.inventoryItem.create).not.toHaveBeenCalled();
+      expect(tx.reservation.create).not.toHaveBeenCalled();
+    });
+
+    it('throws 404 for a missing/deleted warehouse and 409 for an inactive warehouse', async () => {
+      seedActiveVariant();
+
+      tx.warehouse.findFirst.mockResolvedValue(null);
+      await expect(
+        service.reserve(
+          { variantId: 'var-1', warehouseId: 'wh-1', quantity: 1 },
+          actorId,
+        ),
+      ).rejects.toMatchObject({ status: 404 });
+
+      tx.warehouse.findFirst.mockResolvedValue({
+        id: 'wh-1',
+        status: WarehouseStatus.INACTIVE,
+      });
+      await expect(
+        service.reserve(
+          { variantId: 'var-1', warehouseId: 'wh-1', quantity: 1 },
+          actorId,
+        ),
+      ).rejects.toMatchObject({ status: 409 });
+      expect(tx.reservation.create).not.toHaveBeenCalled();
+    });
+
+    it('throws 404 for a deleted variant and 409 for an archived product', async () => {
+      tx.productVariant.findUnique.mockResolvedValue(
+        makeVariantRow({ deletedAt: new Date() }),
+      );
+      seedActiveWarehouse();
+      await expect(
+        service.reserve(
+          { variantId: 'var-1', warehouseId: 'wh-1', quantity: 1 },
+          actorId,
+        ),
+      ).rejects.toMatchObject({ status: 404 });
+
+      tx.productVariant.findUnique.mockResolvedValue(makeVariantRow());
+      tx.product.findUnique.mockResolvedValue(
+        makeProductRow({ status: ProductStatus.ARCHIVED }),
+      );
+      await expect(
+        service.reserve(
+          { variantId: 'var-1', warehouseId: 'wh-1', quantity: 1 },
+          actorId,
+        ),
+      ).rejects.toMatchObject({ status: 409 });
+    });
+
+    it('lazily expires overdue reservations first and restores their availability', async () => {
+      seedActiveVariant();
+      seedActiveWarehouse();
+      tx.reservation.findMany.mockResolvedValue([
+        { id: 'res-old', inventoryItemId: 'item-1', quantity: 2 },
+      ]);
+      tx.reservation.updateMany.mockResolvedValue({ count: 1 });
+      tx.$queryRaw
+        .mockResolvedValueOnce([
+          {
+            id: 'item-1',
+            variantId: 'var-1',
+            warehouseId: 'wh-1',
+            quantityOnHand: 10,
+            quantityReserved: 2,
+          },
+        ])
+        .mockResolvedValueOnce([
+          {
+            id: 'item-1',
+            variantId: 'var-1',
+            warehouseId: 'wh-1',
+            quantityOnHand: 10,
+            quantityReserved: 0,
+          },
+        ]);
+      tx.inventoryItem.updateMany.mockResolvedValue({ count: 1 });
+      tx.reservation.create.mockResolvedValue({ id: 'res-1' });
+      prisma.reservation.findUnique.mockResolvedValue(makeReservationRow());
+
+      await service.reserve(
+        { variantId: 'var-1', warehouseId: 'wh-1', quantity: 3 },
+        actorId,
+      );
+
+      expect(tx.reservation.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'res-old', status: ReservationStatus.ACTIVE },
+          data: {
+            status: ReservationStatus.EXPIRED,
+            expiredAt: expect.any(Date),
+            updatedBy: actorId,
+          },
+        }),
+      );
+      expect(tx.inventoryMovement.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            type: InventoryMovementType.RESERVATION_RELEASE,
+            quantity: 0,
+            reservedDelta: -2,
+            reservedBefore: 2,
+            reservedAfter: 0,
+            reason: 'انقضای خودکار رزرو',
+          }),
+        }),
+      );
+      expect(tx.inventoryMovement.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            type: InventoryMovementType.RESERVATION,
+            reservedBefore: 0,
+            reservedAfter: 3,
+          }),
+        }),
+      );
+      expect(audit.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'INVENTORY_RELEASED',
+          entity: 'Reservation',
+          entityId: 'res-old',
+          after: expect.objectContaining({
+            quantity: 2,
+            reservedBefore: 2,
+            reservedAfter: 0,
+            reason: 'انقضای خودکار رزرو',
+          }),
+        }),
+        tx,
+      );
+      expect(tx.productVariant.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('does not write a movement or audit when a concurrent expiration loses the transition', async () => {
+      seedActiveVariant();
+      seedActiveWarehouse();
+      tx.reservation.findMany.mockResolvedValue([
+        { id: 'res-old', inventoryItemId: 'item-1', quantity: 2 },
+      ]);
+      tx.reservation.updateMany
+        .mockResolvedValueOnce({ count: 0 })
+        .mockResolvedValueOnce({ count: 1 });
+      tx.$queryRaw
+        .mockResolvedValueOnce([
+          {
+            id: 'item-1',
+            variantId: 'var-1',
+            warehouseId: 'wh-1',
+            quantityOnHand: 10,
+            quantityReserved: 2,
+          },
+        ])
+        .mockResolvedValueOnce([
+          {
+            id: 'item-1',
+            variantId: 'var-1',
+            warehouseId: 'wh-1',
+            quantityOnHand: 10,
+            quantityReserved: 0,
+          },
+        ]);
+      tx.inventoryItem.updateMany.mockResolvedValue({ count: 1 });
+      tx.reservation.create.mockResolvedValue({ id: 'res-1' });
+      prisma.reservation.findUnique.mockResolvedValue(makeReservationRow());
+
+      await service.reserve(
+        { variantId: 'var-1', warehouseId: 'wh-1', quantity: 3 },
+        actorId,
+      );
+
+      const movements = tx.inventoryMovement.create.mock.calls.map(
+        (call) => (call[0] as { data: { type: string } }).data.type,
+      );
+      expect(movements).toEqual([InventoryMovementType.RESERVATION]);
+      const actions = audit.log.mock.calls.map(
+        (call) => (call[0] as { action: string }).action,
+      );
+      expect(actions).toEqual(['INVENTORY_RESERVED']);
+    });
+
+    it('rolls back the mutation when the audit write fails', async () => {
+      seedActiveVariant();
+      seedActiveWarehouse();
+      seedItemRow();
+      audit.log.mockRejectedValueOnce(new Error('audit down'));
+
+      await expect(
+        service.reserve(
+          { variantId: 'var-1', warehouseId: 'wh-1', quantity: 1 },
+          actorId,
+        ),
+      ).rejects.toThrow('audit down');
+      expect(prisma.reservation.findUnique).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('releaseReservation', () => {
+    it('transitions ACTIVE to RELEASED and restores availability without touching on-hand', async () => {
+      tx.reservation.findFirst.mockResolvedValue({
+        id: 'res-1',
+        inventoryItemId: 'item-1',
+        quantity: 3,
+        status: ReservationStatus.ACTIVE,
+      });
+      tx.$queryRaw.mockResolvedValueOnce([
+        {
+          id: 'item-1',
+          variantId: 'var-1',
+          warehouseId: 'wh-1',
+          quantityOnHand: 10,
+          quantityReserved: 5,
+        },
+      ]);
+      tx.reservation.updateMany.mockResolvedValue({ count: 1 });
+      tx.inventoryItem.updateMany.mockResolvedValue({ count: 1 });
+      prisma.reservation.findUnique.mockResolvedValue(
+        makeReservationRow({ status: ReservationStatus.RELEASED, releasedAt: now }),
+      );
+
+      const result = await service.releaseReservation('res-1', actorId);
+
+      expect(tx.reservation.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'res-1', status: ReservationStatus.ACTIVE },
+          data: {
+            status: ReservationStatus.RELEASED,
+            releasedAt: expect.any(Date),
+            updatedBy: actorId,
+          },
+        }),
+      );
+      expect(tx.inventoryItem.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'item-1' },
+          data: { quantityReserved: { increment: -3 }, updatedBy: actorId },
+        }),
+      );
+      expect(tx.inventoryMovement.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            type: InventoryMovementType.RESERVATION_RELEASE,
+            quantity: 0,
+            reservedDelta: -3,
+            onHandBefore: 10,
+            onHandAfter: 10,
+            reservedBefore: 5,
+            reservedAfter: 2,
+            reason: null,
+          }),
+        }),
+      );
+      expect(audit.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'INVENTORY_RELEASED',
+          entity: 'Reservation',
+          entityId: 'res-1',
+          after: expect.objectContaining({
+            quantity: 3,
+            onHandBefore: 10,
+            onHandAfter: 10,
+            reservedBefore: 5,
+            reservedAfter: 2,
+          }),
+        }),
+        tx,
+      );
+      expect(result.status).toBe('RELEASED');
+      expect(tx.productVariant.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('throws 404 for a missing reservation', async () => {
+      tx.reservation.findFirst.mockResolvedValue(null);
+
+      await expect(service.releaseReservation('res-1', actorId)).rejects.toMatchObject(
+        { status: 404 },
+      );
+      expect(tx.inventoryMovement.create).not.toHaveBeenCalled();
+      expect(audit.log).not.toHaveBeenCalled();
+    });
+
+    it('throws 409 for a terminal reservation state', async () => {
+      for (const status of [
+        ReservationStatus.RELEASED,
+        ReservationStatus.CONSUMED,
+        ReservationStatus.EXPIRED,
+      ]) {
+        tx.reservation.findFirst.mockResolvedValue({
+          id: 'res-1',
+          inventoryItemId: 'item-1',
+          quantity: 3,
+          status,
+        });
+        await expect(
+          service.releaseReservation('res-1', actorId),
+        ).rejects.toMatchObject({ status: 409 });
+      }
+      expect(tx.inventoryMovement.create).not.toHaveBeenCalled();
+    });
+
+    it('throws 409 when a concurrent transition wins the state gate', async () => {
+      tx.reservation.findFirst.mockResolvedValue({
+        id: 'res-1',
+        inventoryItemId: 'item-1',
+        quantity: 3,
+        status: ReservationStatus.ACTIVE,
+      });
+      tx.$queryRaw.mockResolvedValueOnce([
+        {
+          id: 'item-1',
+          variantId: 'var-1',
+          warehouseId: 'wh-1',
+          quantityOnHand: 10,
+          quantityReserved: 5,
+        },
+      ]);
+      tx.reservation.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(service.releaseReservation('res-1', actorId)).rejects.toMatchObject(
+        { status: 409 },
+      );
+      expect(tx.inventoryMovement.create).not.toHaveBeenCalled();
+      expect(audit.log).not.toHaveBeenCalled();
+    });
+
+    it('rolls back when the audit write fails', async () => {
+      tx.reservation.findFirst.mockResolvedValue({
+        id: 'res-1',
+        inventoryItemId: 'item-1',
+        quantity: 3,
+        status: ReservationStatus.ACTIVE,
+      });
+      tx.$queryRaw.mockResolvedValueOnce([
+        {
+          id: 'item-1',
+          variantId: 'var-1',
+          warehouseId: 'wh-1',
+          quantityOnHand: 10,
+          quantityReserved: 5,
+        },
+      ]);
+      tx.reservation.updateMany.mockResolvedValue({ count: 1 });
+      tx.inventoryItem.updateMany.mockResolvedValue({ count: 1 });
+      audit.log.mockRejectedValueOnce(new Error('audit down'));
+
+      await expect(service.releaseReservation('res-1', actorId)).rejects.toThrow(
+        'audit down',
+      );
+      expect(prisma.reservation.findUnique).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('consumeReservation', () => {
+    it('transitions ACTIVE to CONSUMED, decrements on-hand and refreshes the aggregate', async () => {
+      tx.reservation.findFirst.mockResolvedValue({
+        id: 'res-1',
+        inventoryItemId: 'item-1',
+        quantity: 3,
+        status: ReservationStatus.ACTIVE,
+      });
+      tx.$queryRaw
+        .mockResolvedValueOnce([
+          {
+            id: 'item-1',
+            variantId: 'var-1',
+            warehouseId: 'wh-1',
+            quantityOnHand: 10,
+            quantityReserved: 5,
+          },
+        ])
+        .mockResolvedValueOnce([]);
+      tx.reservation.updateMany.mockResolvedValue({ count: 1 });
+      tx.inventoryItem.updateMany.mockResolvedValue({ count: 1 });
+      tx.inventoryItem.groupBy.mockResolvedValue([
+        { variantId: 'var-1', _sum: { quantityOnHand: 7 } },
+      ]);
+      tx.productVariant.updateMany.mockResolvedValue({ count: 1 });
+      prisma.reservation.findUnique.mockResolvedValue(
+        makeReservationRow({ status: ReservationStatus.CONSUMED, consumedAt: now }),
+      );
+
+      const result = await service.consumeReservation('res-1', actorId);
+
+      expect(tx.reservation.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'res-1', status: ReservationStatus.ACTIVE },
+          data: {
+            status: ReservationStatus.CONSUMED,
+            consumedAt: expect.any(Date),
+            updatedBy: actorId,
+          },
+        }),
+      );
+      expect(tx.inventoryItem.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'item-1' },
+          data: {
+            quantityReserved: { increment: -3 },
+            quantityOnHand: { increment: -3 },
+            updatedBy: actorId,
+          },
+        }),
+      );
+      expect(tx.inventoryMovement.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            type: InventoryMovementType.SALE,
+            quantity: -3,
+            reservedDelta: -3,
+            onHandBefore: 10,
+            onHandAfter: 7,
+            reservedBefore: 5,
+            reservedAfter: 2,
+          }),
+        }),
+      );
+      expect(audit.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'INVENTORY_CONSUMED',
+          entity: 'Reservation',
+          entityId: 'res-1',
+          after: expect.objectContaining({
+            quantity: 3,
+            onHandBefore: 10,
+            onHandAfter: 7,
+            reservedBefore: 5,
+            reservedAfter: 2,
+          }),
+        }),
+        tx,
+      );
+      expect(tx.productVariant.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'var-1', deletedAt: null },
+          data: { stockQuantity: 7, updatedBy: actorId },
+        }),
+      );
+      expect(result.status).toBe('CONSUMED');
+    });
+
+    it('throws 409 when on-hand is insufficient under the lock', async () => {
+      tx.reservation.findFirst.mockResolvedValue({
+        id: 'res-1',
+        inventoryItemId: 'item-1',
+        quantity: 3,
+        status: ReservationStatus.ACTIVE,
+      });
+      tx.$queryRaw.mockResolvedValueOnce([
+        {
+          id: 'item-1',
+          variantId: 'var-1',
+          warehouseId: 'wh-1',
+          quantityOnHand: 2,
+          quantityReserved: 3,
+        },
+      ]);
+
+      await expect(service.consumeReservation('res-1', actorId)).rejects.toMatchObject(
+        { status: 409 },
+      );
+      expect(tx.reservation.updateMany).not.toHaveBeenCalled();
+      expect(tx.inventoryMovement.create).not.toHaveBeenCalled();
+      expect(audit.log).not.toHaveBeenCalled();
+    });
+
+    it('throws 409 for a terminal reservation state', async () => {
+      tx.reservation.findFirst.mockResolvedValue({
+        id: 'res-1',
+        inventoryItemId: 'item-1',
+        quantity: 3,
+        status: ReservationStatus.CONSUMED,
+      });
+
+      await expect(service.consumeReservation('res-1', actorId)).rejects.toMatchObject(
+        { status: 409 },
+      );
+    });
+
+    it('rolls back the transition, on-hand decrement and aggregate when the audit fails', async () => {
+      tx.reservation.findFirst.mockResolvedValue({
+        id: 'res-1',
+        inventoryItemId: 'item-1',
+        quantity: 3,
+        status: ReservationStatus.ACTIVE,
+      });
+      tx.$queryRaw
+        .mockResolvedValueOnce([
+          {
+            id: 'item-1',
+            variantId: 'var-1',
+            warehouseId: 'wh-1',
+            quantityOnHand: 10,
+            quantityReserved: 5,
+          },
+        ])
+        .mockResolvedValueOnce([]);
+      tx.reservation.updateMany.mockResolvedValue({ count: 1 });
+      tx.inventoryItem.updateMany.mockResolvedValue({ count: 1 });
+      audit.log.mockRejectedValueOnce(new Error('audit down'));
+
+      await expect(service.consumeReservation('res-1', actorId)).rejects.toThrow(
+        'audit down',
+      );
+      expect(prisma.reservation.findUnique).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('listReservations', () => {
+    it('defaults to page 1 and limit 20 with count and findMany in one array transaction', async () => {
+      prisma.reservation.count.mockResolvedValue(0);
+      prisma.reservation.findMany.mockResolvedValue([]);
+
+      const result = await service.listReservations({});
+
+      expect(result).toEqual({ items: [], total: 0, page: 1, limit: 20 });
+      expect(prisma.$transaction).toHaveBeenCalledWith(
+        expect.any(Array),
+      );
+      expect(prisma.reservation.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {},
+          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+          skip: 0,
+          take: 20,
+        }),
+      );
+      expect(tx.reservation.updateMany).not.toHaveBeenCalled();
+      expect(tx.inventoryMovement.create).not.toHaveBeenCalled();
+    });
+
+    it('honors explicit page and limit with the correct skip/take math', async () => {
+      prisma.reservation.count.mockResolvedValue(1);
+      prisma.reservation.findMany.mockResolvedValue([]);
+
+      await service.listReservations({ page: 3, limit: 25 });
+
+      expect(prisma.reservation.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ skip: 50, take: 25 }),
+      );
+    });
+
+    it('filters by status, variantId and warehouseId through the owning item', async () => {
+      prisma.reservation.count.mockResolvedValue(0);
+      prisma.reservation.findMany.mockResolvedValue([]);
+
+      await service.listReservations({
+        status: ReservationStatus.ACTIVE,
+        variantId: 'var-9',
+        warehouseId: 'wh-9',
+      });
+
+      const where = prisma.reservation.findMany.mock.calls.at(-1)![0].where;
+      expect(where.status).toBe(ReservationStatus.ACTIVE);
+      expect(where.inventoryItem.is.variantId).toBe('var-9');
+      expect(where.inventoryItem.is.warehouseId).toBe('wh-9');
+    });
+
+    it('maps rows to ReservationSummary with ISO timestamps and nested refs', async () => {
+      prisma.reservation.count.mockResolvedValue(1);
+      prisma.reservation.findMany.mockResolvedValue([
+        makeReservationRow({
+          expiresAt: new Date('2026-08-22T00:00:00.000Z'),
+        }),
+      ]);
+
+      const result = await service.listReservations({});
+
+      expect(result.total).toBe(1);
+      expect(result.items[0]).toEqual({
+        id: 'res-1',
+        inventoryItemId: 'item-1',
+        quantity: 3,
+        status: 'ACTIVE',
+        expiresAt: '2026-08-22T00:00:00.000Z',
+        releasedAt: null,
+        consumedAt: null,
+        expiredAt: null,
+        createdAt: '2026-08-21T00:00:00.000Z',
+        variant: { id: 'var-1', sku: 'SKU-1', name: 'واریانت ۱' },
+        warehouse: {
+          id: 'wh-1',
+          code: 'WH-01',
+          name: 'انبار ۱',
+          status: 'ACTIVE',
+        },
+      });
+      expect(JSON.stringify(result)).not.toContain('createdBy');
+      expect(JSON.stringify(result)).not.toContain('deletedAt');
+      expect(JSON.stringify(result)).not.toContain('reference');
     });
   });
 });

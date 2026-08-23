@@ -13,6 +13,10 @@ describe('InventoryController', () => {
     listMovements: jest.Mock;
     receive: jest.Mock;
     adjust: jest.Mock;
+    reserve: jest.Mock;
+    releaseReservation: jest.Mock;
+    consumeReservation: jest.Mock;
+    listReservations: jest.Mock;
   };
 
   beforeEach(() => {
@@ -23,6 +27,10 @@ describe('InventoryController', () => {
       listMovements: jest.fn(),
       receive: jest.fn(),
       adjust: jest.fn(),
+      reserve: jest.fn(),
+      releaseReservation: jest.fn(),
+      consumeReservation: jest.fn(),
+      listReservations: jest.fn(),
     };
     controller = new InventoryController(service as unknown as InventoryService);
   });
@@ -32,6 +40,10 @@ describe('InventoryController', () => {
     const handlers = [
       InventoryController.prototype.receive,
       InventoryController.prototype.adjust,
+      InventoryController.prototype.reserve,
+      InventoryController.prototype.releaseReservation,
+      InventoryController.prototype.consumeReservation,
+      InventoryController.prototype.listReservations,
       InventoryController.prototype.list,
       InventoryController.prototype.listMovements,
       InventoryController.prototype.listByVariant,
@@ -65,6 +77,31 @@ describe('InventoryController', () => {
     const query = { page: 1 };
     await controller.list(query as never);
     expect(service.list).toHaveBeenCalledWith(query);
+  });
+
+  it('delegates reserve to the service with dto, actor id and ip', async () => {
+    const dto = { variantId: 'v', warehouseId: 'w', quantity: 3 };
+    const user = { userId: 'user-1', sessionId: 's', mobile: 'm' };
+    await controller.reserve(dto as never, user as never, '1.2.3.4');
+    expect(service.reserve).toHaveBeenCalledWith(dto, 'user-1', '1.2.3.4');
+  });
+
+  it('delegates releaseReservation to the service with id, actor id and ip', async () => {
+    const user = { userId: 'user-1', sessionId: 's', mobile: 'm' };
+    await controller.releaseReservation('res-1', user as never, '1.2.3.4');
+    expect(service.releaseReservation).toHaveBeenCalledWith('res-1', 'user-1', '1.2.3.4');
+  });
+
+  it('delegates consumeReservation to the service with id, actor id and ip', async () => {
+    const user = { userId: 'user-1', sessionId: 's', mobile: 'm' };
+    await controller.consumeReservation('res-1', user as never, '1.2.3.4');
+    expect(service.consumeReservation).toHaveBeenCalledWith('res-1', 'user-1', '1.2.3.4');
+  });
+
+  it('delegates listReservations to the service with the query', async () => {
+    const query = { page: 2, limit: 10, status: 'ACTIVE' };
+    await controller.listReservations(query as never);
+    expect(service.listReservations).toHaveBeenCalledWith(query);
   });
 
   it('delegates listMovements to the service with the query', async () => {
