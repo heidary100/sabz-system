@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import {
   InventoryMovementType,
   ProductStatus,
@@ -46,6 +46,27 @@ function makeProductRow(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function makeMovementRow(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'mov-1',
+    inventoryItemId: 'item-1',
+    variantId: 'var-1',
+    warehouseId: 'wh-1',
+    type: InventoryMovementType.INITIAL_STOCK,
+    quantity: 10,
+    reservedDelta: 0,
+    reason: null,
+    notes: null,
+    onHandBefore: 0,
+    onHandAfter: 10,
+    reservedBefore: 0,
+    reservedAfter: 0,
+    createdAt: now,
+    createdBy: actorId,
+    ...overrides,
+  };
+}
+
 describe('InventoryService', () => {
   let service: InventoryService;
   let prisma: {
@@ -55,8 +76,13 @@ describe('InventoryService', () => {
       groupBy: jest.Mock;
       findUnique: jest.Mock;
     };
+    inventoryMovement: {
+      count: jest.Mock;
+      findMany: jest.Mock;
+    };
     productVariant: { findFirst: jest.Mock };
     warehouse: { findFirst: jest.Mock };
+    user: { findMany: jest.Mock };
     $transaction: jest.Mock;
   };
   let audit: { log: jest.Mock };
@@ -98,8 +124,13 @@ describe('InventoryService', () => {
         groupBy: jest.fn(),
         findUnique: jest.fn(),
       },
+      inventoryMovement: {
+        count: jest.fn(),
+        findMany: jest.fn(),
+      },
       productVariant: { findFirst: jest.fn() },
       warehouse: { findFirst: jest.fn() },
+      user: { findMany: jest.fn() },
       $transaction: jest.fn(),
     };
     audit = { log: jest.fn().mockResolvedValue(undefined) };
@@ -753,6 +784,346 @@ describe('InventoryService', () => {
         NotFoundException,
       );
       expect(prisma.inventoryItem.count).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('listMovements', () => {
+    beforeEach(() => {
+      prisma.user.findMany.mockResolvedValue([]);
+    });
+
+    it('defaults to page 1 and limit 20 with skip 0', async () => {
+      prisma.inventoryMovement.count.mockResolvedValue(0);
+      prisma.inventoryMovement.findMany.mockResolvedValue([]);
+
+      const result = await service.listMovements({});
+
+      expect(result).toEqual({ items: [], total: 0, page: 1, limit: 20 });
+      expect(prisma.inventoryMovement.count).toHaveBeenCalledWith({ where: {} });
+      expect(prisma.inventoryMovement.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ skip: 0, take: 20 }),
+      );
+    });
+
+    it('honors explicit page and limit with the correct skip/take math', async () => {
+      prisma.inventoryMovement.count.mockResolvedValue(1);
+      prisma.inventoryMovement.findMany.mockResolvedValue([]);
+
+      const result = await service.listMovements({ page: 3, limit: 25 });
+
+      expect(result.page).toBe(3);
+      expect(result.limit).toBe(25);
+      expect(prisma.inventoryMovement.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ skip: 50, take: 25 }),
+      );
+    });
+
+    it('filters by variantId with exact equality', async () => {
+      prisma.inventoryMovement.count.mockResolvedValue(0);
+      prisma.inventoryMovement.findMany.mockResolvedValue([]);
+
+      await service.listMovements({ variantId: 'var-1' });
+
+      expect(prisma.inventoryMovement.count).toHaveBeenCalledWith({
+        where: { variantId: 'var-1' },
+      });
+    });
+
+    it('filters by warehouseId with exact equality', async () => {
+      prisma.inventoryMovement.count.mockResolvedValue(0);
+      prisma.inventoryMovement.findMany.mockResolvedValue([]);
+
+      await service.listMovements({ warehouseId: 'wh-1' });
+
+      expect(prisma.inventoryMovement.count).toHaveBeenCalledWith({
+        where: { warehouseId: 'wh-1' },
+      });
+    });
+
+    it('filters by movement type with exact equality', async () => {
+      prisma.inventoryMovement.count.mockResolvedValue(0);
+      prisma.inventoryMovement.findMany.mockResolvedValue([]);
+
+      await service.listMovements({ type: InventoryMovementType.MANUAL_ADJUSTMENT });
+
+      expect(prisma.inventoryMovement.count).toHaveBeenCalledWith({
+        where: { type: InventoryMovementType.MANUAL_ADJUSTMENT },
+      });
+    });
+
+    it('filters from as an inclusive lower bound on createdAt', async () => {
+      prisma.inventoryMovement.count.mockResolvedValue(0);
+      prisma.inventoryMovement.findMany.mockResolvedValue([]);
+
+      await service.listMovements({ from: '2026-08-01T00:00:00.000Z' });
+
+      expect(prisma.inventoryMovement.count).toHaveBeenCalledWith({
+        where: { createdAt: { gte: new Date('2026-08-01T00:00:00.000Z') } },
+      });
+    });
+
+    it('filters to as an inclusive upper bound on createdAt', async () => {
+      prisma.inventoryMovement.count.mockResolvedValue(0);
+      prisma.inventoryMovement.findMany.mockResolvedValue([]);
+
+      await service.listMovements({ to: '2026-08-31T00:00:00.000Z' });
+
+      expect(prisma.inventoryMovement.count).toHaveBeenCalledWith({
+        where: { createdAt: { lte: new Date('2026-08-31T00:00:00.000Z') } },
+      });
+    });
+
+    it('combines from and to into an inclusive window', async () => {
+      prisma.inventoryMovement.count.mockResolvedValue(0);
+      prisma.inventoryMovement.findMany.mockResolvedValue([]);
+
+      await service.listMovements({
+        from: '2026-08-01T00:00:00.000Z',
+        to: '2026-08-31T00:00:00.000Z',
+      });
+
+      expect(prisma.inventoryMovement.count).toHaveBeenCalledWith({
+        where: {
+          createdAt: {
+            gte: new Date('2026-08-01T00:00:00.000Z'),
+            lte: new Date('2026-08-31T00:00:00.000Z'),
+          },
+        },
+      });
+    });
+
+    it('combines all filters with AND', async () => {
+      prisma.inventoryMovement.count.mockResolvedValue(0);
+      prisma.inventoryMovement.findMany.mockResolvedValue([]);
+
+      await service.listMovements({
+        variantId: 'var-1',
+        warehouseId: 'wh-1',
+        type: InventoryMovementType.PURCHASE_RECEIPT,
+        from: '2026-08-01T00:00:00.000Z',
+        to: '2026-08-31T00:00:00.000Z',
+      });
+
+      expect(prisma.inventoryMovement.count).toHaveBeenCalledWith({
+        where: {
+          variantId: 'var-1',
+          warehouseId: 'wh-1',
+          type: InventoryMovementType.PURCHASE_RECEIPT,
+          createdAt: {
+            gte: new Date('2026-08-01T00:00:00.000Z'),
+            lte: new Date('2026-08-31T00:00:00.000Z'),
+          },
+        },
+      });
+    });
+
+    it('builds an empty where when no filter is provided', async () => {
+      prisma.inventoryMovement.count.mockResolvedValue(0);
+      prisma.inventoryMovement.findMany.mockResolvedValue([]);
+
+      await service.listMovements({});
+
+      expect(prisma.inventoryMovement.count).toHaveBeenCalledWith({ where: {} });
+    });
+
+    it('rejects a from date later than the to date', async () => {
+      await expect(
+        service.listMovements({
+          from: '2026-08-31T00:00:00.000Z',
+          to: '2026-08-01T00:00:00.000Z',
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('rejects ISO dates that do not parse into a finite instant', async () => {
+      await expect(
+        service.listMovements({ from: '2026-W07' }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      await expect(
+        service.listMovements({ to: '2026-127' }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('orders deterministically by createdAt DESC then id DESC', async () => {
+      prisma.inventoryMovement.count.mockResolvedValue(0);
+      prisma.inventoryMovement.findMany.mockResolvedValue([]);
+
+      await service.listMovements({});
+
+      expect(prisma.inventoryMovement.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        }),
+      );
+    });
+
+    it('returns the total from the count', async () => {
+      prisma.inventoryMovement.count.mockResolvedValue(3);
+      prisma.inventoryMovement.findMany.mockResolvedValue([]);
+
+      const result = await service.listMovements({});
+
+      expect(result.total).toBe(3);
+    });
+
+    it('maps rows to InventoryMovementSummary with ISO createdAt', async () => {
+      prisma.inventoryMovement.count.mockResolvedValue(1);
+      prisma.inventoryMovement.findMany.mockResolvedValue([makeMovementRow()]);
+      prisma.user.findMany.mockResolvedValue([]);
+
+      const result = await service.listMovements({});
+
+      expect(result.items[0]).toEqual({
+        id: 'mov-1',
+        inventoryItemId: 'item-1',
+        variantId: 'var-1',
+        warehouseId: 'wh-1',
+        type: InventoryMovementType.INITIAL_STOCK,
+        quantity: 10,
+        reservedDelta: 0,
+        reason: null,
+        notes: null,
+        onHandBefore: 0,
+        onHandAfter: 10,
+        reservedBefore: 0,
+        reservedAfter: 0,
+        actor: null,
+        createdAt: '2026-08-21T00:00:00.000Z',
+      });
+    });
+
+    it('resolves the actor for an existing user', async () => {
+      prisma.inventoryMovement.count.mockResolvedValue(1);
+      prisma.inventoryMovement.findMany.mockResolvedValue([makeMovementRow()]);
+      prisma.user.findMany.mockResolvedValue([
+        {
+          id: actorId,
+          mobile: '+989123456789',
+          profile: { firstName: 'علی', lastName: 'احمدی' },
+        },
+      ]);
+
+      const result = await service.listMovements({});
+
+      expect(result.items[0]!.actor).toEqual({
+        id: actorId,
+        mobile: '+989123456789',
+        firstName: 'علی',
+        lastName: 'احمدی',
+      });
+      expect(prisma.user.findMany).toHaveBeenCalledWith({
+        where: { id: { in: [actorId] } },
+        select: {
+          id: true,
+          mobile: true,
+          profile: { select: { firstName: true, lastName: true } },
+        },
+      });
+    });
+
+    it('keeps the movement and sets actor null when the actor row is missing', async () => {
+      prisma.inventoryMovement.count.mockResolvedValue(1);
+      prisma.inventoryMovement.findMany.mockResolvedValue([makeMovementRow()]);
+      prisma.user.findMany.mockResolvedValue([]);
+
+      const result = await service.listMovements({});
+
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0]!.actor).toBeNull();
+    });
+
+    it('resolves a soft-deleted actor normally', async () => {
+      prisma.inventoryMovement.count.mockResolvedValue(1);
+      prisma.inventoryMovement.findMany.mockResolvedValue([makeMovementRow()]);
+      prisma.user.findMany.mockResolvedValue([
+        {
+          id: actorId,
+          mobile: '+989123456789',
+          profile: null,
+        },
+      ]);
+
+      const result = await service.listMovements({});
+
+      expect(result.items[0]!.actor).toEqual({
+        id: actorId,
+        mobile: '+989123456789',
+        firstName: null,
+        lastName: null,
+      });
+    });
+
+    it('does not look up users when createdBy is null', async () => {
+      prisma.inventoryMovement.count.mockResolvedValue(1);
+      prisma.inventoryMovement.findMany.mockResolvedValue([
+        makeMovementRow({ createdBy: null }),
+      ]);
+
+      const result = await service.listMovements({});
+
+      expect(result.items[0]!.actor).toBeNull();
+      expect(prisma.user.findMany).not.toHaveBeenCalled();
+    });
+
+    it('deduplicates repeated actor ids into a single lookup', async () => {
+      prisma.inventoryMovement.count.mockResolvedValue(3);
+      prisma.inventoryMovement.findMany.mockResolvedValue([
+        makeMovementRow({ id: 'mov-1' }),
+        makeMovementRow({ id: 'mov-2' }),
+        makeMovementRow({ id: 'mov-3', createdBy: null }),
+      ]);
+
+      await service.listMovements({});
+
+      expect(prisma.user.findMany).toHaveBeenCalledTimes(1);
+      expect(prisma.user.findMany).toHaveBeenCalledWith({
+        where: { id: { in: [actorId] } },
+        select: {
+          id: true,
+          mobile: true,
+          profile: { select: { firstName: true, lastName: true } },
+        },
+      });
+    });
+
+    it('selects createdBy for actor resolution but never reference', async () => {
+      prisma.inventoryMovement.count.mockResolvedValue(0);
+      prisma.inventoryMovement.findMany.mockResolvedValue([]);
+
+      await service.listMovements({});
+
+      const call = prisma.inventoryMovement.findMany.mock.calls[0]![0] as {
+        select: Record<string, unknown>;
+      };
+      expect(call.select.createdBy).toBe(true);
+      expect(call.select).not.toHaveProperty('reference');
+    });
+
+    it('never returns reference or createdBy in the response', async () => {
+      prisma.inventoryMovement.count.mockResolvedValue(1);
+      prisma.inventoryMovement.findMany.mockResolvedValue([makeMovementRow()]);
+
+      const result = await service.listMovements({});
+
+      expect(JSON.stringify(result)).not.toContain('reference');
+      expect(JSON.stringify(result)).not.toContain('createdBy');
+    });
+
+    it('is a read-only path that invokes no mutation methods', async () => {
+      prisma.inventoryMovement.count.mockResolvedValue(0);
+      prisma.inventoryMovement.findMany.mockResolvedValue([]);
+
+      await service.listMovements({});
+
+      expect(prisma.$transaction).toHaveBeenCalledWith(
+        expect.any(Array),
+      );
+      expect(prisma.inventoryMovement.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: {} }),
+      );
+      expect(tx.inventoryMovement.create).not.toHaveBeenCalled();
     });
   });
 });

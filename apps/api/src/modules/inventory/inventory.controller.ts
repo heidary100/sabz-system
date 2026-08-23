@@ -28,6 +28,7 @@ import { InventoryService } from './inventory.service';
 import {
   AdjustInventoryDto,
   ListInventoryQueryDto,
+  ListMovementsQueryDto,
   ListWarehouseInventoryQueryDto,
   ReceiveStockDto,
 } from './dto';
@@ -37,8 +38,9 @@ const UUID_PARAM = new ParseUUIDPipe({ errorHttpStatusCode: HttpStatus.NOT_FOUND
 /**
  * Admin inventory endpoints. SS-112 owns the read-only routes (overview,
  * per-variant stock across active warehouses, and per-warehouse stock); SS-113
- * adds the receive and absolute-adjust mutation routes. Controllers are thin:
- * all transaction and business logic lives in InventoryService.
+ * adds the receive and absolute-adjust mutation routes; SS-114 adds the
+ * read-only movement-history route over the immutable ledger. Controllers are
+ * thin: all transaction and business logic lives in InventoryService.
  */
 @ApiTags('admin-inventory')
 @ApiBearerAuth()
@@ -99,6 +101,19 @@ export class InventoryController {
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   async list(@Query() query: ListInventoryQueryDto) {
     return this.inventoryService.list(query);
+  }
+
+  @Get('inventory/movements')
+  @ApiOperation({
+    summary:
+      'Paginated read-only view of the immutable inventory-movement ledger with variant/warehouse/type/date filters',
+  })
+  @ApiResponse({ status: 200, description: 'Paginated movement summaries.' })
+  @ApiResponse({ status: 400, description: 'Invalid query parameters.' })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  async listMovements(@Query() query: ListMovementsQueryDto) {
+    return this.inventoryService.listMovements(query);
   }
 
   @Get('inventory/variants/:variantId')

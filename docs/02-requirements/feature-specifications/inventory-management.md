@@ -182,6 +182,35 @@ It ensures inventory accuracy across purchasing, sales, returns, and future acco
 > - `InventoryItem` rows are permanent (no `deletedAt`); mutations never
 >   resurrect deleted variants/products or mutate inactive warehouses
 >   (missing/deleted → 404, archived product or inactive warehouse → 409).
+>
+> **SS-114 applied decisions (inventory history API).** SS-114 implements the
+> read-only admin movement-history API over the immutable ledger — no
+> mutations, no reversal, no edit/delete:
+>
+> - Route: `GET /admin/inventory/movements` (`OPERATOR` + `ADMIN`,
+>   `JwtAuthGuard` + `RolesGuard`; no SUPER_ADMIN, no permission RBAC),
+>   returning `PaginatedResult<InventoryMovementSummary>` with `page`
+>   (default 1), `limit` (default 20, max 100).
+> - **Exact filters (AND-combined):** `variantId` (UUID, exact), `warehouseId`
+>   (UUID, exact), `type` (all eleven enum members valid, including
+>   forward-declared types not produced in M1), and `from`/`to` bounding
+>   `createdAt` **inclusively** (ISO 8601 UTC; date-only values interpreted as
+>   UTC midnight, matching SS-064; `from > to` → 400).
+> - **Deterministic ordering:** `createdAt DESC`, then `id DESC`.
+> - **Historical soft-delete semantics:** the movement row itself determines
+>   visibility. No active-resource lifecycle filter is applied — movements for
+>   soft-deleted variants/products and soft-deleted or deactivated warehouses
+>   remain queryable, and filter values are predicates (a valid but nonexistent
+>   UUID returns an empty page, never 404).
+> - **Actor resolution:** batched lookup from `InventoryMovement.createdBy`
+>   (no N+1, deduplicated). Missing actor rows resolve to `actor: null`
+>   without dropping the movement; soft-deleted actors resolve normally.
+> - **Data minimization:** `reference` is never selected or exposed; responses
+>   never contain `createdBy`, `updatedBy`, `deletedAt`, `updatedAt` or
+>   internal/secret fields.
+> - **Immutability:** SS-114 adds no mutation surface — no movement
+>   edit/delete/reversal endpoints exist in M1 and no application path can
+>   update or delete ledger rows.
 
 ---
 
