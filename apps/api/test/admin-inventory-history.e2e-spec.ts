@@ -146,6 +146,11 @@ describe('Admin inventory history API (SS-114) (e2e)', () => {
     return `${BASE}/movements?${query}`;
   }
 
+  /** Distinguishes sequential createdAt values (repository convention). */
+  async function tick(): Promise<void> {
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -264,6 +269,7 @@ describe('Admin inventory history API (SS-114) (e2e)', () => {
         .send({ variantId: seededVariantId, warehouseId: seededWarehouseId, quantity: 10, notes: 'رسید' })
         .expect(200);
       await trackItem(seededVariantId, seededWarehouseId);
+      await tick();
 
       await request(app.getHttpServer())
         .post(`${BASE}/adjust`)
@@ -340,8 +346,14 @@ describe('Admin inventory history API (SS-114) (e2e)', () => {
     });
 
     it('filters by an inclusive from/to window covering the seeds', async () => {
-      const from = new Date(Date.now() - 60_000).toISOString();
-      const to = new Date(Date.now() + 60_000).toISOString();
+      const rows = await prisma.inventoryMovement.findMany({
+        where: { variantId: seededVariantId },
+        select: { createdAt: true },
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      });
+      expect(rows).toHaveLength(2);
+      const from = rows[0]!.createdAt.toISOString();
+      const to = rows[1]!.createdAt.toISOString();
 
       const res = await request(app.getHttpServer())
         .get(movementsUrl(`variantId=${seededVariantId}&from=${from}&to=${to}`))
