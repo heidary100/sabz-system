@@ -10,6 +10,7 @@ describe('InventoryController', () => {
     list: jest.Mock;
     listByVariant: jest.Mock;
     listByWarehouse: jest.Mock;
+    listMovements: jest.Mock;
     receive: jest.Mock;
     adjust: jest.Mock;
   };
@@ -19,6 +20,7 @@ describe('InventoryController', () => {
       list: jest.fn(),
       listByVariant: jest.fn(),
       listByWarehouse: jest.fn(),
+      listMovements: jest.fn(),
       receive: jest.fn(),
       adjust: jest.fn(),
     };
@@ -31,6 +33,7 @@ describe('InventoryController', () => {
       InventoryController.prototype.receive,
       InventoryController.prototype.adjust,
       InventoryController.prototype.list,
+      InventoryController.prototype.listMovements,
       InventoryController.prototype.listByVariant,
       InventoryController.prototype.listByWarehouse,
     ];
@@ -62,6 +65,12 @@ describe('InventoryController', () => {
     const query = { page: 1 };
     await controller.list(query as never);
     expect(service.list).toHaveBeenCalledWith(query);
+  });
+
+  it('delegates listMovements to the service with the query', async () => {
+    const query = { page: 2, limit: 10 };
+    await controller.listMovements(query as never);
+    expect(service.listMovements).toHaveBeenCalledWith(query);
   });
 
   it('delegates listByVariant to the service', async () => {

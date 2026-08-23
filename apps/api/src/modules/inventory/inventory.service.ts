@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -9,7 +10,12 @@ import {
   ProductStatus,
   WarehouseStatus,
 } from '@prisma/client';
-import type { InventoryItemSummary, PaginatedResult } from '@sabz/types';
+import type {
+  AuditActor,
+  InventoryItemSummary,
+  InventoryMovementSummary,
+  PaginatedResult,
+} from '@sabz/types';
 import { PrismaService } from '../../common/database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import {
@@ -21,6 +27,7 @@ import {
 import {
   AdjustInventoryDto,
   ListInventoryQueryDto,
+  ListMovementsQueryDto,
   ListWarehouseInventoryQueryDto,
   ReceiveStockDto,
 } from './dto';
@@ -69,6 +76,34 @@ const summarySelect = {
 
 type SummaryRow = Prisma.InventoryItemGetPayload<{
   select: typeof summarySelect;
+}>;
+
+/**
+ * Explicit movement-history projection (SS-114). Deliberately omits
+ * `reference` so the ledger reference column is structurally unexposable.
+ * `createdBy` is selected only to resolve the actor map; it is never
+ * serialized raw.
+ */
+const movementSummarySelect = {
+  id: true,
+  inventoryItemId: true,
+  variantId: true,
+  warehouseId: true,
+  type: true,
+  quantity: true,
+  reservedDelta: true,
+  reason: true,
+  notes: true,
+  onHandBefore: true,
+  onHandAfter: true,
+  reservedBefore: true,
+  reservedAfter: true,
+  createdAt: true,
+  createdBy: true,
+} satisfies Prisma.InventoryMovementSelect;
+
+type MovementSummaryRow = Prisma.InventoryMovementGetPayload<{
+  select: typeof movementSummarySelect;
 }>;
 
 /**
@@ -418,6 +453,145 @@ export class InventoryService {
       total,
       page,
       limit,
+    };
+  }
+
+  // ---------------------------------------------------------------------------
+  // SS-114 movement history
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Read-only paginated view of the immutable InventoryMovement ledger
+   * (SS-114). Filters combine with AND and match exact stored values;
+   * `from`/`to` bound `createdAt` inclusively (ISO UTC). Ordering is
+   * deterministic: `createdAt DESC`, then `id DESC`.
+   *
+   * Historical semantics: the movement row itself determines visibility. No
+   * active-resource lifecycle filter is applied, so movements for
+   * soft-deleted variants/products and soft-deleted or deactivated warehouses
+   * remain queryable, and filter values are predicates rather than resource
+   * lookups (a valid but nonexistent UUID returns an empty page, never 404).
+   *
+   * Actors are resolved in a second batch query (no N+1). A missing actor row
+   * never 404s or drops the movement: `actor` is `null` only when the user row
+   * is absent. Soft-deleted actors resolve normally so attribution is kept.
+   * `reference` is never selected and never exposed.
+   */
+  async listMovements(
+    query: ListMovementsQueryDto,
+  ): Promise<PaginatedResult<InventoryMovementSummary>> {
+    const page = query.page ?? DEFAULT_PAGE;
+    const limit = query.limit ?? DEFAULT_LIMIT;
+    const skip = (page - 1) * limit;
+
+    const from = query.from ? new Date(query.from) : undefined;
+    const to = query.to ? new Date(query.to) : undefined;
+    if (
+      (from !== undefined && Number.isNaN(from.getTime())) ||
+      (to !== undefined && Number.isNaN(to.getTime()))
+    ) {
+      throw new BadRequestException('from/to باید یک زمان ISO 8601 معتبر باشد.');
+    }
+    if (from !== undefined && to !== undefined && from.getTime() > to.getTime()) {
+      throw new BadRequestException('from نباید دیرتر از to باشد.');
+    }
+
+    const where: Prisma.InventoryMovementWhereInput = {
+      ...(query.variantId !== undefined ? { variantId: query.variantId } : {}),
+      ...(query.warehouseId !== undefined
+        ? { warehouseId: query.warehouseId }
+        : {}),
+      ...(query.type !== undefined ? { type: query.type } : {}),
+      ...(from !== undefined || to !== undefined
+        ? {
+            createdAt: {
+              ...(from !== undefined ? { gte: from } : {}),
+              ...(to !== undefined ? { lte: to } : {}),
+            },
+          }
+        : {}),
+    };
+
+    const [total, rows] = await this.prisma.$transaction([
+      this.prisma.inventoryMovement.count({ where }),
+      this.prisma.inventoryMovement.findMany({
+        where,
+        select: movementSummarySelect,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        skip,
+        take: limit,
+      }),
+    ]);
+
+    const actors = await this.resolveMovementActors(
+      rows.map((row) => row.createdBy),
+    );
+
+    return {
+      items: rows.map((row) => this.toMovementSummary(row, actors)),
+      total,
+      page,
+      limit,
+    };
+  }
+
+  /**
+   * Batch actor resolution for movement rows (SS-114), mirroring the SS-064
+   * audit actor policy: duplicate IDs are deduplicated into a single IN query,
+   * soft-deleted users resolve normally (no deletedAt filter), and absent user
+   * rows simply produce no map entry (actor becomes null downstream).
+   */
+  private async resolveMovementActors(
+    createdBy: Array<string | null>,
+  ): Promise<Map<string, AuditActor>> {
+    const ids = [
+      ...new Set(createdBy.filter((id): id is string => id !== null)),
+    ];
+    if (ids.length === 0) {
+      return new Map();
+    }
+
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: ids } },
+      select: {
+        id: true,
+        mobile: true,
+        profile: { select: { firstName: true, lastName: true } },
+      },
+    });
+
+    const actors = new Map<string, AuditActor>();
+    for (const user of users) {
+      actors.set(user.id, {
+        id: user.id,
+        mobile: user.mobile,
+        firstName: user.profile?.firstName ?? null,
+        lastName: user.profile?.lastName ?? null,
+      });
+    }
+    return actors;
+  }
+
+  private toMovementSummary(
+    row: MovementSummaryRow,
+    actors: Map<string, AuditActor>,
+  ): InventoryMovementSummary {
+    return {
+      id: row.id,
+      inventoryItemId: row.inventoryItemId,
+      variantId: row.variantId,
+      warehouseId: row.warehouseId,
+      type: row.type,
+      quantity: row.quantity,
+      reservedDelta: row.reservedDelta,
+      reason: row.reason,
+      notes: row.notes,
+      onHandBefore: row.onHandBefore,
+      onHandAfter: row.onHandAfter,
+      reservedBefore: row.reservedBefore,
+      reservedAfter: row.reservedAfter,
+      actor: row.createdBy ? (actors.get(row.createdBy) ?? null) : null,
+      createdAt: row.createdAt.toISOString(),
     };
   }
 

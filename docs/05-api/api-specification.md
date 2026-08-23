@@ -1378,6 +1378,61 @@ Reservations, release/consume, transfers, returns, Holo import, low-stock
 notifications, reporting, movement-history reads, and storefront availability
 are later EPIC-006 issues, not SS-113.
 
+## 17.4 Inventory History API (SS-114)
+
+The SS-114 history API is a read-only, paginated view of the immutable
+`InventoryMovement` ledger. It requires `OPERATOR` or `ADMIN` (`JwtAuthGuard` +
+`RolesGuard`); `CUSTOMER`/`PARTNER` are denied with 403, unauthenticated
+requests with 401. There is no SUPER_ADMIN role and no permission-based RBAC.
+
+The ledger is **append-only and immutable**: movements are never edited,
+deleted or reversed by any application path. M1 exposes no edit/delete/reversal
+endpoints for movements.
+
+### GET /admin/inventory/movements
+
+Query parameters:
+
+- `page` — page number, starting at 1 (default 1)
+- `limit` — page size, 1–100 (default 20)
+- `variantId` — UUID filter for one variant (exact match)
+- `warehouseId` — UUID filter for one warehouse (exact match)
+- `type` — movement-type filter; **all eleven enum values are valid**, including
+  forward-declared types not produced in M1 (`SALE`, `RESERVATION`,
+  `RESERVATION_RELEASE`, `DAMAGE`, `RETURN_RECEIVED`, `RETURN_REJECTED`,
+  `STOCK_TRANSFER`, `HOLO_IMPORT`)
+- `from` — lower bound of the `createdAt` window (ISO 8601 UTC), **inclusive**
+- `to` — upper bound of the `createdAt` window (ISO 8601 UTC), **inclusive**
+
+All filters combine with AND and are exact-match predicates. A valid but
+nonexistent `variantId`/`warehouseId` is a query predicate, not a resource
+lookup: it returns an empty page, never 404. `from > to` returns 400.
+Date-only values (e.g. `2026-01-01`) are accepted and interpreted as UTC
+midnight, matching the SS-064 audit query convention.
+
+Ordering is deterministic: `createdAt DESC`, then `id DESC`.
+
+Response: `PaginatedResult<InventoryMovementSummary>` (`{ items, total, page,
+limit }`). Each item exposes `id`, `inventoryItemId`, `variantId`,
+`warehouseId`, `type`, `quantity`, `reservedDelta`, `reason`, `notes`,
+`onHandBefore`, `onHandAfter`, `reservedBefore`, `reservedAfter`,
+`actor` (`{ id, mobile, firstName, lastName }` or `null`), `createdAt`.
+
+**Historical visibility:** the movement row itself determines visibility. No
+active-resource lifecycle filter is applied — movements remain queryable after
+their variant/product is soft-deleted or archived and after their warehouse is
+soft-deleted or deactivated. Historical rows are preserved.
+
+**Actor resolution:** actors are resolved in one batched lookup (no N+1) from
+`createdBy`. Missing actor rows resolve to `actor: null` without dropping the
+movement; soft-deleted actors resolve normally.
+
+**Data minimization:** `InventoryMovement.reference` is never selected and
+never exposed. Responses never expose `createdBy`, `updatedBy`, `deletedAt`,
+`updatedAt`, or any internal/secret fields.
+
+Errors: 400 (invalid query), 401, 403.
+
 ---
 
 # 18. Blog API
