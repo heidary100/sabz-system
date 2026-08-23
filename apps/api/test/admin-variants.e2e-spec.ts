@@ -67,16 +67,6 @@ describe('Admin variant API (SS-104) (e2e)', () => {
     await prisma.auditLog.deleteMany({
       where: { entityId: { in: variantIds } },
     });
-    await prisma.inventoryMovement.deleteMany({
-      where: { inventoryItem: { variantId: { in: variantIds } } },
-    });
-    await prisma.reservation.deleteMany({
-      where: { inventoryItem: { variantId: { in: variantIds } } },
-    });
-    await prisma.inventoryItem.deleteMany({
-      where: { variantId: { in: variantIds } },
-    });
-    await prisma.productVariant.deleteMany({ where: { id: { in: variantIds } } });
     const orphanProducts = await prisma.product.findMany({
       where: {
         OR: [
@@ -87,6 +77,24 @@ describe('Admin variant API (SS-104) (e2e)', () => {
       select: { id: true },
     });
     const orphanIds = orphanProducts.map((row) => row.id);
+    const orphanVariantRows = await prisma.productVariant.findMany({
+      where: { productId: { in: orphanIds } },
+      select: { id: true },
+    });
+    const allVariantIds = [
+      ...variantIds,
+      ...orphanVariantRows.map((row) => row.id),
+    ];
+    await prisma.inventoryMovement.deleteMany({
+      where: { inventoryItem: { variantId: { in: allVariantIds } } },
+    });
+    await prisma.reservation.deleteMany({
+      where: { inventoryItem: { variantId: { in: allVariantIds } } },
+    });
+    await prisma.inventoryItem.deleteMany({
+      where: { variantId: { in: allVariantIds } },
+    });
+    await prisma.productVariant.deleteMany({ where: { id: { in: variantIds } } });
     await prisma.productVariant.deleteMany({ where: { productId: { in: orphanIds } } });
     await prisma.product.deleteMany({ where: { id: { in: orphanIds } } });
     await prisma.product.deleteMany({ where: { id: { in: productIds } } });
