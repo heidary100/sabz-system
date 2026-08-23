@@ -1435,6 +1435,157 @@ Errors: 400 (invalid query), 401, 403.
 
 ---
 
+## 17.5 Reservation API (SS-115)
+
+The SS-115 reservation API manages admin-created stock reservations on top of
+the authoritative `InventoryItem` rows. All endpoints require `OPERATOR` or
+`ADMIN` (`JwtAuthGuard` + `RolesGuard`); `CUSTOMER`/`PARTNER` are denied with
+403, unauthenticated requests with 401. There is no SUPER_ADMIN role and no
+permission-based RBAC.
+
+**M1 ownership:** reservations are created by OPERATOR/ADMIN only. There is no
+customer ownership, no order/payment/checkout integration and no external
+reservation owner model in M1.
+
+**Availability:** `available = quantityOnHand − quantityReserved` (derived, as
+always). A reservation is only created when `available` covers the requested
+quantity, otherwise 409. Reserving increments `quantityReserved` and never
+touches `quantityOnHand`.
+
+**State machine:** only `ACTIVE → RELEASED | CONSUMED | EXPIRED` transitions
+exist; `RELEASED`/`CONSUMED`/`EXPIRED` are terminal (no resurrection). State
+transitions are conditional database updates (`WHERE status = ACTIVE`) — a
+concurrent transition on the same reservation has exactly one winner; the
+loser receives 409. The requested state is never accepted from the client.
+
+**Concurrency:** the `InventoryItem` row is locked (`SELECT ... FOR UPDATE`)
+inside one interactive transaction for every reservation mutation, so
+concurrent reservations serialize and re-read the committed reserved value
+before the availability check (overselling is impossible), and release,
+consume and expiration resolve to a single winner through the conditional
+state gate. No `SERIALIZABLE`, no advisory locks, no distributed locking.
+
+**Movement/audit guarantees:** every successful mutation writes exactly one
+immutable `InventoryMovement` and exactly one transactional `AuditLog` row in
+the same transaction (`entity = "Reservation"`, `entityId = reservation.id`);
+an audit failure rolls back the reservation state, the inventory quantities,
+the movement and (for consume) the aggregate refresh. `reference` is never
+written or exposed.
+
+**Lazy expiration:** reservations with a past `expiresAt` are transitioned to
+`EXPIRED` lazily — inside the transaction of the next reservation mutation
+(reserve, release or consume) that touches the same data. There is **no
+worker, cron, scheduler or polling infrastructure** and `GET
+/admin/inventory/reservations` is strictly read-only (it never expires rows).
+Each expired reservation produces exactly one `RESERVATION_RELEASE` movement
+(reason `انقضای خودکار رزرو`) and one `INVENTORY_RELEASED` audit; concurrent
+expiration triggers cannot double-release (single conditional-transition
+winner). Expiration does not change `quantityOnHand`, so it never refreshes
+`ProductVariant.stockQuantity`.
+
+### POST /admin/inventory/reserve
+
+Reserve stock against an existing `InventoryItem`. Body:
+
+- `variantId` — required UUID
+- `warehouseId` — required UUID
+- `quantity` — required integer > 0
+- `expiresIn` — optional positive integer (seconds, max 10 years =
+  315,360,000); `expiresAt = now + expiresIn * 1000` is derived server-side.
+  Absent `expiresIn` means the reservation never expires (M1 admin choice;
+  there is no platform TTL configuration).
+
+Semantics: `expiresAt` is server-owned; the item row is locked before the
+availability check (`available = quantityOnHand − quantityReserved`); a 409 is
+returned when availability is insufficient. The `InventoryItem` for the exact
+`(variantId, warehouseId)` pair must already exist (404 otherwise — reserve
+never creates items). `quantityOnHand` and `ProductVariant.stockQuantity` are
+unchanged.
+
+Response: 200 `ReservationSummary`.
+
+Movement: `RESERVATION` (`quantity = 0`, `reservedDelta = +quantity`, exact
+reserved before/after snapshots).
+
+Audit: `INVENTORY_RESERVED`, `after: { variantId, warehouseId, quantity,
+onHandBefore, onHandAfter, reservedBefore, reservedAfter, expiresAt }`.
+
+Errors: 400, 401, 403, 404 (missing/deleted variant, product, warehouse or
+missing item — non-disclosure), 409 (archived product, inactive warehouse or
+insufficient availability).
+
+### POST /admin/inventory/reservations/{id}/release
+
+Transition an `ACTIVE` reservation to `RELEASED` (no request body). The
+transition is a conditional `WHERE status = ACTIVE` update; a non-ACTIVE
+reservation is 409 and a missing reservation is 404. Decrements
+`quantityReserved` (availability is restored); `quantityOnHand` and the
+aggregate are unchanged. Release/consume deliberately do **not** re-validate
+the current product/variant/warehouse lifecycle, so reserved stock can always
+be unwound even after a warehouse is deactivated or a product is archived.
+
+Response: 200 `ReservationSummary`.
+
+Movement: `RESERVATION_RELEASE` (`quantity = 0`, `reservedDelta =
+−quantity`).
+
+Audit: `INVENTORY_RELEASED`, `after: { variantId, warehouseId, quantity,
+onHandBefore, onHandAfter, reservedBefore, reservedAfter }`.
+
+Errors: 401, 403, 404 (missing reservation or malformed id), 409 (not ACTIVE
+or a concurrent transition won).
+
+### POST /admin/inventory/reservations/{id}/consume
+
+Transition an `ACTIVE` reservation to `CONSUMED` (no request body) and record
+the sale. Decrements both `quantityReserved` and `quantityOnHand` (on-hand is
+re-checked under the item lock — stock can never go negative), and refreshes
+`ProductVariant.stockQuantity` to the authoritative aggregate **in the same
+transaction**.
+
+Response: 200 `ReservationSummary`.
+
+Movement: `SALE` (`quantity = −quantity`, `reservedDelta = −quantity`, exact
+on-hand/reserved before/after snapshots).
+
+Audit: `INVENTORY_CONSUMED`, `after: { variantId, warehouseId, quantity,
+onHandBefore, onHandAfter, reservedBefore, reservedAfter }`.
+
+Errors: 401, 403, 404 (missing reservation or malformed id), 409 (not ACTIVE,
+insufficient on-hand, or a concurrent transition won).
+
+### GET /admin/inventory/reservations
+
+Read-only paginated reservation list. Query parameters:
+
+- `page` — page number, starting at 1 (default 1)
+- `limit` — page size, 1–100 (default 20)
+- `status` — `ReservationStatus` filter (`ACTIVE`, `RELEASED`, `CONSUMED`,
+  `EXPIRED`)
+- `variantId` — UUID filter (through the owning item)
+- `warehouseId` — UUID filter (through the owning item)
+
+All filters combine with AND and are exact-match **predicates**: a valid but
+nonexistent UUID returns an empty page, never 404; a malformed UUID returns
+400. Ordering is deterministic: `createdAt DESC`, then `id DESC`. The list
+never triggers lazy expiration and never writes.
+
+Response: `PaginatedResult<ReservationSummary>` (`{ items, total, page,
+limit }`). Items expose `id`, `inventoryItemId`, `quantity`, `status`,
+`expiresAt`, `releasedAt`, `consumedAt`, `expiredAt`, `createdAt`, `variant`
+(`{ id, sku, name }`), `warehouse` (`{ id, code, name, status }`). Never
+exposes `createdBy`, `updatedBy`, `deletedAt` or movement internals.
+
+Errors: 400 (invalid query), 401, 403.
+
+### Out of scope
+
+Transfers, returns, Holo import, checkout/order integration, storefront
+reservation behavior, notifications, reporting and customer-owned
+reservations are later EPIC-006 issues, not SS-115.
+
+---
+
 # 18. Blog API
 
 GET /blog

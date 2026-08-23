@@ -29,8 +29,10 @@ import {
   AdjustInventoryDto,
   ListInventoryQueryDto,
   ListMovementsQueryDto,
+  ListReservationsQueryDto,
   ListWarehouseInventoryQueryDto,
   ReceiveStockDto,
+  ReserveInventoryDto,
 } from './dto';
 
 const UUID_PARAM = new ParseUUIDPipe({ errorHttpStatusCode: HttpStatus.NOT_FOUND });
@@ -39,8 +41,9 @@ const UUID_PARAM = new ParseUUIDPipe({ errorHttpStatusCode: HttpStatus.NOT_FOUND
  * Admin inventory endpoints. SS-112 owns the read-only routes (overview,
  * per-variant stock across active warehouses, and per-warehouse stock); SS-113
  * adds the receive and absolute-adjust mutation routes; SS-114 adds the
- * read-only movement-history route over the immutable ledger. Controllers are
- * thin: all transaction and business logic lives in InventoryService.
+ * read-only movement-history route over the immutable ledger; SS-115 adds the
+ * reservation routes (reserve, release, consume, list). Controllers are thin:
+ * all transaction and business logic lives in InventoryService.
  */
 @ApiTags('admin-inventory')
 @ApiBearerAuth()
@@ -114,6 +117,78 @@ export class InventoryController {
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   async listMovements(@Query() query: ListMovementsQueryDto) {
     return this.inventoryService.listMovements(query);
+  }
+
+  @Post('inventory/reserve')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Reserve stock against an existing InventoryItem; only succeeds while available = quantityOnHand - quantityReserved covers the quantity',
+  })
+  @ApiResponse({ status: 200, description: 'ReservationSummary of the created reservation.' })
+  @ApiResponse({ status: 400, description: 'Invalid body.' })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  @ApiResponse({ status: 404, description: 'Variant, product, warehouse or item not found.' })
+  @ApiResponse({ status: 409, description: 'Archived product, inactive warehouse or insufficient availability.' })
+  async reserve(
+    @Body() dto: ReserveInventoryDto,
+    @CurrentUser() user: AuthUser,
+    @Ip() ipAddress?: string,
+  ) {
+    return this.inventoryService.reserve(dto, user.userId, ipAddress);
+  }
+
+  @Post('inventory/reservations/:id/release')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Release an ACTIVE reservation; decrements quantityReserved and restores availability',
+  })
+  @ApiParam({ name: 'id', type: 'string', format: 'uuid' })
+  @ApiResponse({ status: 200, description: 'ReservationSummary after release.' })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  @ApiResponse({ status: 404, description: 'Reservation not found.' })
+  @ApiResponse({ status: 409, description: 'Reservation is not ACTIVE or a concurrent transition won.' })
+  async releaseReservation(
+    @Param('id', UUID_PARAM) id: string,
+    @CurrentUser() user: AuthUser,
+    @Ip() ipAddress?: string,
+  ) {
+    return this.inventoryService.releaseReservation(id, user.userId, ipAddress);
+  }
+
+  @Post('inventory/reservations/:id/consume')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Consume an ACTIVE reservation; decrements quantityReserved and quantityOnHand and refreshes the variant aggregate',
+  })
+  @ApiParam({ name: 'id', type: 'string', format: 'uuid' })
+  @ApiResponse({ status: 200, description: 'ReservationSummary after consumption.' })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  @ApiResponse({ status: 404, description: 'Reservation not found.' })
+  @ApiResponse({ status: 409, description: 'Reservation is not ACTIVE, insufficient on-hand or a concurrent transition won.' })
+  async consumeReservation(
+    @Param('id', UUID_PARAM) id: string,
+    @CurrentUser() user: AuthUser,
+    @Ip() ipAddress?: string,
+  ) {
+    return this.inventoryService.consumeReservation(id, user.userId, ipAddress);
+  }
+
+  @Get('inventory/reservations')
+  @ApiOperation({
+    summary:
+      'Paginated reservation list with status/variant/warehouse filters and deterministic ordering; read-only, never expires rows',
+  })
+  @ApiResponse({ status: 200, description: 'Paginated reservation summaries.' })
+  @ApiResponse({ status: 400, description: 'Invalid query parameters.' })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  async listReservations(@Query() query: ListReservationsQueryDto) {
+    return this.inventoryService.listReservations(query);
   }
 
   @Get('inventory/variants/:variantId')

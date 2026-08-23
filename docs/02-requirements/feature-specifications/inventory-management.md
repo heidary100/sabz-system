@@ -211,6 +211,73 @@ It ensures inventory accuracy across purchasing, sales, returns, and future acco
 > - **Immutability:** SS-114 adds no mutation surface — no movement
 >   edit/delete/reversal endpoints exist in M1 and no application path can
 >   update or delete ledger rows.
+>
+> **SS-115 applied decisions (reservation API).** SS-115 implements the
+> admin reservation lifecycle — reserve, release, consume, list — with lazy
+> transactional expiration. No transfers, returns, Holo import, checkout
+> integration or customer-owned reservations:
+>
+> - Routes (all `OPERATOR` + `ADMIN`, `JwtAuthGuard` + `RolesGuard`; no
+>   SUPER_ADMIN, no permission RBAC): `POST /admin/inventory/reserve`,
+>   `POST /admin/inventory/reservations/{id}/release`,
+>   `POST /admin/inventory/reservations/{id}/consume` and
+>   `GET /admin/inventory/reservations`. (The requirement-level
+>   `POST /admin/inventory/release` from §12 is implemented as the
+>   reservation-scoped route above; this block is authoritative.)
+> - **M1 ownership:** reservations are created by OPERATOR/ADMIN only. No
+>   customer ownership, no order/payment/checkout integration and no external
+>   reservation owner model.
+> - **Availability = quantityOnHand − quantityReserved** (derived, never
+>   stored). `POST /admin/inventory/reserve` succeeds only when availability
+>   covers the requested `quantity` (integer > 0), otherwise 409; the item row
+>   is locked (`SELECT ... FOR UPDATE`) so concurrent reservations cannot
+>   oversell. Reserve increments `quantityReserved` only — `quantityOnHand`
+>   and `ProductVariant.stockQuantity` are untouched. The `InventoryItem` for
+>   the exact pair must already exist (404 otherwise; reserve never creates
+>   items) and the SS-113 lifecycle gates apply (missing/deleted → 404,
+>   archived product or inactive warehouse → 409).
+> - **`expiresIn` (optional positive seconds, max 10 years)** derives
+>   `expiresAt = now + expiresIn * 1000` server-side; an absent `expiresIn`
+>   means the reservation never expires. There is no platform TTL environment
+>   variable — expiration is caller-configured (matches the shared contract)
+>   and is not part of the future checkout flow.
+> - **State machine:** only `ACTIVE → RELEASED | CONSUMED | EXPIRED`; terminal
+>   states never resurrect. Transitions are conditional updates
+>   (`WHERE status = ACTIVE`): exactly one winner per transition; the losing
+>   release/consume receives 409 and the losing expiration skips silently
+>   (no movement, no audit, no decrement).
+> - **Release** restores availability (decrements `quantityReserved` only;
+>   `RESERVATION_RELEASE` movement, `INVENTORY_RELEASED` audit). **Consume**
+>   decrements both `quantityReserved` and `quantityOnHand` (on-hand
+>   re-checked under the lock — never negative; `SALE` movement,
+>   `INVENTORY_CONSUMED` audit) and refreshes `ProductVariant.stockQuantity`
+>   in the same transaction. **Release/consume do not re-validate the current
+>   product/variant/warehouse lifecycle** so reserved stock can always be
+>   unwound after a warehouse is deactivated or a product is archived.
+> - **Lazy expiration:** ACTIVE reservations with `expiresAt <= now` are
+>   transitioned to `EXPIRED` at the start of the next reservation mutation
+>   transaction (reserve/release/consume) — transactionally, per
+>   `InventoryItem` lock, with one `RESERVATION_RELEASE` movement (reason
+>   `انقضای خودکار رزرو`) and one `INVENTORY_RELEASED` audit per expired
+>   reservation, and no double-release under concurrent triggers. There is
+>   **no worker, cron, scheduler or polling infrastructure**; the list route
+>   is strictly read-only and never expires rows. Expiration never changes
+>   `quantityOnHand` and never refreshes the aggregate.
+> - **Aggregate boundary:** `ProductVariant.stockQuantity` is refreshed only
+>   when `quantityOnHand` changes — consume only. Reserve, release and expire
+>   are reservation-only changes and never refresh it. The refresh reuses the
+>   shared `aggregateVariantStock` helper unchanged.
+> - **Movement/audit guarantees:** exactly one `InventoryMovement` + exactly
+>   one `AuditLog` (`entity = "Reservation"`, `entityId = reservation.id`)
+>   per successful mutation in the same transaction; audit failure rolls back
+>   everything. `reference` is never written or exposed; responses expose the
+>   shared `ReservationSummary` contract only.
+> - **List:** `PaginatedResult<ReservationSummary>`, `page` (default 1),
+>   `limit` (default 20, max 100), `status`/`variantId`/`warehouseId` filters
+>   as AND-combined predicates (nonexistent UUID → empty page, malformed →
+>   400), ordering `createdAt DESC`, then `id DESC`.
+> - **No schema change:** the SS-109 `Reservation` model, `(status, expiresAt)`
+>   and `(inventoryItemId)` indexes fully cover SS-115.
 
 ---
 
