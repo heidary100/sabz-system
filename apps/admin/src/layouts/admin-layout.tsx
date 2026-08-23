@@ -7,6 +7,7 @@ const NAV_ITEMS = [
   { to: '/products', label: 'محصولات' },
   { to: '/categories', label: 'دسته‌بندی‌ها' },
   { to: '/brands', label: 'برندها' },
+  { to: '/warehouses', label: 'انبارها' },
   { to: '/partners', label: 'درخواست‌های همکاری' },
   { to: '/users', label: 'کاربران' },
   { to: '/roles', label: 'نقش‌ها' },
@@ -30,7 +31,9 @@ export function AdminLayout() {
           <span className="text-sm font-bold text-foreground">پنل مدیریت سبز</span>
         </div>
         <nav className="flex flex-col gap-1 p-4">
-          {NAV_ITEMS.filter((item) => isAdmin || item.to !== '/roles').map((item) => (
+          {NAV_ITEMS.filter(
+            (item) => isAdmin || (item.to !== '/roles' && item.to !== '/warehouses'),
+          ).map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
