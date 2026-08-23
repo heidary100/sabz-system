@@ -1490,10 +1490,10 @@ Reserve stock against an existing `InventoryItem`. Body:
 - `variantId` — required UUID
 - `warehouseId` — required UUID
 - `quantity` — required integer > 0
-- `expiresIn` — optional positive integer (seconds); `expiresAt =
-  now + expiresIn * 1000` is derived server-side. Absent `expiresIn` means the
-  reservation never expires (M1 admin choice; there is no platform TTL
-  configuration).
+- `expiresIn` — optional positive integer (seconds, max 10 years =
+  315,360,000); `expiresAt = now + expiresIn * 1000` is derived server-side.
+  Absent `expiresIn` means the reservation never expires (M1 admin choice;
+  there is no platform TTL configuration).
 
 Semantics: `expiresAt` is server-owned; the item row is locked before the
 availability check (`available = quantityOnHand − quantityReserved`); a 409 is

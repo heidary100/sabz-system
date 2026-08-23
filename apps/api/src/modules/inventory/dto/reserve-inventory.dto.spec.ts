@@ -154,4 +154,27 @@ describe('ReserveInventoryDto', () => {
       'expiresIn',
     );
   });
+
+  it('rejects an expiresIn above the 10-year bound', async () => {
+    await expectInvalid(
+      plainToInstance(ReserveInventoryDto, {
+        variantId: VARIANT,
+        warehouseId: WAREHOUSE,
+        quantity: 1,
+        expiresIn: 315_360_001,
+      }),
+      'expiresIn',
+    );
+  });
+
+  it('accepts an expiresIn at the 10-year bound', async () => {
+    await expectValid(
+      plainToInstance(ReserveInventoryDto, {
+        variantId: VARIANT,
+        warehouseId: WAREHOUSE,
+        quantity: 1,
+        expiresIn: 315_360_000,
+      }),
+    );
+  });
 });

@@ -236,11 +236,11 @@ It ensures inventory accuracy across purchasing, sales, returns, and future acco
 >   the exact pair must already exist (404 otherwise; reserve never creates
 >   items) and the SS-113 lifecycle gates apply (missing/deleted → 404,
 >   archived product or inactive warehouse → 409).
-> - **`expiresIn` (optional positive seconds)** derives `expiresAt = now +
->   expiresIn * 1000` server-side; an absent `expiresIn` means the reservation
->   never expires. There is no platform TTL environment variable — expiration
->   is caller-configured (matches the shared contract) and is not part of the
->   future checkout flow.
+> - **`expiresIn` (optional positive seconds, max 10 years)** derives
+>   `expiresAt = now + expiresIn * 1000` server-side; an absent `expiresIn`
+>   means the reservation never expires. There is no platform TTL environment
+>   variable — expiration is caller-configured (matches the shared contract)
+>   and is not part of the future checkout flow.
 > - **State machine:** only `ACTIVE → RELEASED | CONSUMED | EXPIRED`; terminal
 >   states never resurrect. Transitions are conditional updates
 >   (`WHERE status = ACTIVE`): exactly one winner per transition; the losing

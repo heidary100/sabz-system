@@ -1,5 +1,10 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsInt, IsOptional, IsUUID, Min } from 'class-validator';
+import { IsInt, IsOptional, IsUUID, Max, Min } from 'class-validator';
+
+/** Upper bound for `expiresIn`: 10 years in seconds. Keeps the derived
+ * `expiresAt` well inside JavaScript's safe Date range (overflow would
+ * otherwise surface as a 500 instead of a validation 400). */
+const EXPIRES_IN_MAX_SECONDS = 315_360_000;
 
 /**
  * Reserve-stock input (SS-115). `quantity` is the number of units to hold as
@@ -31,11 +36,15 @@ export class ReserveInventoryDto {
   @ApiPropertyOptional({
     example: 3600,
     description:
-      'Optional reservation lifetime in seconds; expiresAt is derived server-side. Absent means the reservation never expires.',
+      'Optional reservation lifetime in seconds (max 10 years); expiresAt is derived server-side. Absent means the reservation never expires.',
     minimum: 1,
+    maximum: EXPIRES_IN_MAX_SECONDS,
   })
   @IsOptional()
   @IsInt({ message: 'expiresIn باید عدد صحیح باشد.' })
   @Min(1, { message: 'expiresIn باید بزرگتر از صفر باشد.' })
+  @Max(EXPIRES_IN_MAX_SECONDS, {
+    message: `expiresIn باید حداکثر ${EXPIRES_IN_MAX_SECONDS} ثانیه باشد.`,
+  })
   expiresIn?: number;
 }
