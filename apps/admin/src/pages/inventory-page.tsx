@@ -1,0 +1,325 @@
+import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+import type { InventoryItemSummary, InventoryStockStatus } from '@sabz/types'
+import { useInventoryList } from '../hooks/use-inventory-list'
+import { useWarehouseOptions } from '../hooks/use-warehouse-options'
+import { translateApiError } from '../lib/error-messages'
+import {
+  INVENTORY_STOCK_STATUS_LABELS,
+  INVENTORY_STOCK_STATUS_ORDER,
+} from '../lib/inventory-labels'
+import { Button } from '../components/catalyst/button'
+import { Field, Label } from '../components/catalyst/fieldset'
+import { Heading } from '../components/catalyst/heading'
+import { Input } from '../components/catalyst/input'
+import { Select } from '../components/catalyst/select'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '../components/catalyst/table'
+import { EmptyState } from '../components/ui/empty-state'
+import { Loading } from '../components/ui/loading'
+import {
+  Pagination,
+  PaginationGap,
+  PaginationList,
+  PaginationNext,
+  PaginationPage,
+  PaginationPrevious,
+} from '../components/ui/pagination'
+import { Text } from '../components/catalyst/text'
+import { InventoryStockStatusBadge } from '../components/inventory/inventory-stock-status-badge'
+import { ReceiveStockDialog } from '../components/inventory/receive-stock-dialog'
+import { AdjustInventoryDialog } from '../components/inventory/adjust-inventory-dialog'
+
+const SEARCH_DEBOUNCE_MS = 300
+
+type MutationTarget = { mode: 'receive' | 'adjust'; item: InventoryItemSummary }
+
+function pageNumbers(current: number, totalPages: number): (number | 'gap')[] {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1)
+  }
+
+  const pages: (number | 'gap')[] = [1]
+  if (current > 3) {
+    pages.push('gap')
+  }
+  for (let page = Math.max(2, current - 1); page <= Math.min(totalPages - 1, current + 1); page++) {
+    pages.push(page)
+  }
+  if (current < totalPages - 2) {
+    pages.push('gap')
+  }
+  pages.push(totalPages)
+  return pages
+}
+
+export function InventoryPage() {
+  const {
+    search,
+    warehouseId,
+    stockStatus,
+    page,
+    limit,
+    result,
+    loading,
+    error,
+    setSearch,
+    setWarehouseId,
+    setStockStatus,
+    setPage,
+    clearFilters,
+    refetch,
+  } = useInventoryList()
+
+  const { warehouses } = useWarehouseOptions()
+  const [searchInput, setSearchInput] = useState(search)
+
+  useEffect(() => {
+    const timer = setTimeout(() => setSearch(searchInput), SEARCH_DEBOUNCE_MS)
+    return () => clearTimeout(timer)
+  }, [searchInput, setSearch])
+
+  const [target, setTarget] = useState<MutationTarget | null>(null)
+
+  const totalPages = result ? Math.max(1, Math.ceil(result.total / result.limit)) : 1
+
+  const hasActiveFilter = search.trim() !== '' || warehouseId !== '' || stockStatus !== ''
+
+  const handleMutationSuccess = (): void => {
+    setTarget(null)
+    void refetch()
+  }
+
+  const handleMutationConflict = (): void => {
+    void refetch()
+  }
+
+  const handleClearFilters = (): void => {
+    setSearchInput('')
+    clearFilters()
+  }
+
+  return (
+    <div className="mx-auto max-w-6xl space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Heading level={1}>موجودی</Heading>
+        <div className="flex items-center gap-3">
+          <Link
+            to="/inventory/movements"
+            className="text-sm font-medium text-primary hover:underline"
+          >
+            تاریخچه موجودی
+          </Link>
+          <Button outline onClick={() => void refetch()} disabled={loading}>
+            به‌روزرسانی
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid w-full max-w-4xl gap-4 sm:grid-cols-2">
+        <Field className="sm:col-span-2">
+          <Label>جستجو</Label>
+          <Input
+            type="search"
+            name="search"
+            placeholder="جستجو با SKU یا نام واریانت…"
+            maxLength={64}
+            value={searchInput}
+            onChange={(event) => setSearchInput(event.target.value)}
+          />
+        </Field>
+        <Field>
+          <Label>انبار</Label>
+          <Select
+            name="warehouseId"
+            value={warehouseId}
+            onChange={(event) => setWarehouseId(event.target.value)}
+          >
+            <option value="">همه</option>
+            {warehouses.map((warehouse) => (
+              <option key={warehouse.id} value={warehouse.id}>
+                {warehouse.name}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field>
+          <Label>وضعیت موجودی</Label>
+          <Select
+            name="stockStatus"
+            value={stockStatus}
+            onChange={(event) =>
+              setStockStatus(event.target.value as InventoryStockStatus | '')
+            }
+          >
+            <option value="">همه</option>
+            {INVENTORY_STOCK_STATUS_ORDER.map((value) => (
+              <option key={value} value={value}>
+                {INVENTORY_STOCK_STATUS_LABELS[value]}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      </div>
+
+      {loading && !result ? (
+        <Loading compact label="در حال بارگذاری…" />
+      ) : error ? (
+        <div className="flex flex-col items-center gap-4 rounded-lg border border-border bg-white px-6 py-16 text-center">
+          <p className="text-sm/6 text-dust-200">{translateApiError(error)}</p>
+          <Button color="primary" onClick={() => void refetch()}>
+            تلاش مجدد
+          </Button>
+        </div>
+      ) : !result || result.items.length === 0 ? (
+        <EmptyState
+          title="موجودی یافت نشد"
+          description={
+            hasActiveFilter
+              ? 'با این فیلترها موجودی ثبت نشده است.'
+              : 'هنوز موجودی برای هیچ واریانتی ثبت نشده است.'
+          }
+          actions={
+            hasActiveFilter ? (
+              <Button outline onClick={handleClearFilters}>
+                حذف فیلترها
+              </Button>
+            ) : undefined
+          }
+        />
+      ) : (
+        <div className="rounded-lg border border-border bg-white p-4">
+          <Table striped>
+            <TableHead>
+              <TableRow>
+                <TableHeader>SKU</TableHeader>
+                <TableHeader>نام واریانت</TableHeader>
+                <TableHeader>انبار</TableHeader>
+                <TableHeader>موجودی در دست</TableHeader>
+                <TableHeader>رزرو شده</TableHeader>
+                <TableHeader>قابل عرضه</TableHeader>
+                <TableHeader>وضعیت</TableHeader>
+                <TableHeader>عملیات</TableHeader>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {result.items.map((item) => (
+                <TableRow key={item.id}>
+                  <TableCell dir="ltr" className="font-medium text-zinc-950">
+                    {item.variant.sku}
+                  </TableCell>
+                  <TableCell className="text-zinc-500">
+                    <Link
+                      to={`/inventory/variants/${item.variant.id}`}
+                      className="font-medium text-primary hover:underline"
+                    >
+                      {item.variant.name ?? '—'}
+                    </Link>
+                  </TableCell>
+                  <TableCell className="text-zinc-500">
+                    <Link
+                      to={`/inventory/warehouses/${item.warehouse.id}`}
+                      className="font-medium text-primary hover:underline"
+                    >
+                      {item.warehouse.name}
+                    </Link>
+                  </TableCell>
+                  <TableCell dir="ltr" className="tabular-nums text-zinc-500">
+                    {item.quantityOnHand}
+                  </TableCell>
+                  <TableCell dir="ltr" className="tabular-nums text-zinc-500">
+                    {item.quantityReserved}
+                  </TableCell>
+                  <TableCell dir="ltr" className="tabular-nums text-zinc-500">
+                    {item.available}
+                  </TableCell>
+                  <TableCell>
+                    <InventoryStockStatusBadge status={item.stockStatus} />
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Button outline onClick={() => setTarget({ mode: 'receive', item })}>
+                        دریافت موجودی
+                      </Button>
+                      <Button outline onClick={() => setTarget({ mode: 'adjust', item })}>
+                        اصلاح موجودی
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+
+          <div className="mt-4 border-t border-border pt-4">
+            <Pagination aria-label="صفحه‌بندی موجودی">
+              <PaginationPrevious
+                disabled={page <= 1 || loading}
+                onClick={() => setPage(page - 1)}
+              />
+              <PaginationList>
+                {pageNumbers(page, totalPages).map((item, index) =>
+                  item === 'gap' ? (
+                    <PaginationGap key={`gap-${index}`} />
+                  ) : (
+                    <PaginationPage
+                      key={item}
+                      current={item === page}
+                      disabled={loading}
+                      onClick={() => setPage(item)}
+                    >
+                      {item}
+                    </PaginationPage>
+                  ),
+                )}
+              </PaginationList>
+              <PaginationNext
+                disabled={page >= totalPages || loading}
+                onClick={() => setPage(page + 1)}
+              />
+            </Pagination>
+          </div>
+        </div>
+      )}
+
+      {loading && result && (
+        <div className="flex items-center justify-center gap-3 py-4" role="status">
+          <span
+            aria-hidden="true"
+            className="size-5 animate-spin rounded-full border-2 border-hunter-800 border-t-primary"
+          />
+          <span className="text-sm font-medium text-dust-200">در حال بارگذاری…</span>
+        </div>
+      )}
+
+      <Text className="text-xs text-dust-200">
+        {result ? `مجموع: ${result.total} مورد · ${limit} مورد در هر صفحه` : ''}
+      </Text>
+
+      <ReceiveStockDialog
+        open={target?.mode === 'receive'}
+        variant={target?.mode === 'receive' ? target.item.variant : null}
+        warehouse={target?.mode === 'receive' ? target.item.warehouse : null}
+        onClose={() => setTarget(null)}
+        onSuccess={handleMutationSuccess}
+        onConflict={handleMutationConflict}
+      />
+
+      <AdjustInventoryDialog
+        open={target?.mode === 'adjust'}
+        variant={target?.mode === 'adjust' ? target.item.variant : null}
+        warehouse={target?.mode === 'adjust' ? target.item.warehouse : null}
+        currentQuantity={target?.mode === 'adjust' ? target.item.quantityOnHand : null}
+        onClose={() => setTarget(null)}
+        onSuccess={handleMutationSuccess}
+        onConflict={handleMutationConflict}
+      />
+    </div>
+  )
+}

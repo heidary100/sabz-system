@@ -7,6 +7,7 @@ const NAV_ITEMS = [
   { to: '/products', label: 'محصولات' },
   { to: '/categories', label: 'دسته‌بندی‌ها' },
   { to: '/brands', label: 'برندها' },
+  { to: '/inventory', label: 'موجودی' },
   { to: '/warehouses', label: 'انبارها' },
   { to: '/partners', label: 'درخواست‌های همکاری' },
   { to: '/users', label: 'کاربران' },

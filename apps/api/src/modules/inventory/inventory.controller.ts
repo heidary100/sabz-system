@@ -204,6 +204,18 @@ export class InventoryController {
     return this.inventoryService.listByVariant(variantId);
   }
 
+  @Get('inventory/warehouses')
+  @ApiOperation({
+    summary:
+      'Return active warehouses as inventory filter options (read-only; the SS-111 warehouse list stays ADMIN-only)',
+  })
+  @ApiResponse({ status: 200, description: 'Active warehouse summaries.' })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  async listWarehouseOptions() {
+    return this.inventoryService.listWarehouseOptions();
+  }
+
   @Get('warehouses/:warehouseId/inventory')
   @ApiOperation({
     summary: 'Return inventory for one active warehouse with pagination',

@@ -19,14 +19,13 @@ import { LifecycleConfirmDialog } from '../components/products/lifecycle-confirm
 import { ProductVariantsSection } from '../components/products/product-variants-section'
 import { ProductMediaSection } from '../components/products/product-media-section'
 import { VariantForm } from '../components/variants/variant-form'
-import { VariantInventoryDialog } from '../components/variants/variant-inventory-dialog'
 import type { ProductDetail, VariantSummary } from '@sabz/types'
 
 type DialogName = 'edit' | 'publish' | 'archive' | 'delete' | null
 
 type VariantDialogState =
   | { mode: 'create' }
-  | { mode: 'edit' | 'delete' | 'stock'; variant: VariantSummary }
+  | { mode: 'edit' | 'delete'; variant: VariantSummary }
   | null
 
 function InfoItem({ label, value }: { label: string; value: string | null }) {
@@ -249,7 +248,6 @@ export function ProductDetailPage() {
         manageable={manageable}
         onCreate={() => setVariantDialog({ mode: 'create' })}
         onEdit={(variant) => setVariantDialog({ mode: 'edit', variant })}
-        onStock={(variant) => setVariantDialog({ mode: 'stock', variant })}
         onDelete={(variant) => setVariantDialog({ mode: 'delete', variant })}
       />
       <ProductMediaSection
@@ -307,14 +305,6 @@ export function ProductDetailPage() {
         }
         productId={product.id}
         variant={variantDialog?.mode === 'edit' ? variantDialog.variant : null}
-        onClose={() => setVariantDialog(null)}
-        onSuccess={handleVariantSuccess}
-        onConflict={handleVariantConflict}
-      />
-
-      <VariantInventoryDialog
-        open={variantDialog?.mode === 'stock'}
-        variant={variantDialog?.mode === 'stock' ? variantDialog.variant : null}
         onClose={() => setVariantDialog(null)}
         onSuccess={handleVariantSuccess}
         onConflict={handleVariantConflict}

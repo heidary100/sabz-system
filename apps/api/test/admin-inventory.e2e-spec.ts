@@ -15,6 +15,7 @@ jest.setTimeout(60_000);
 
 const BASE = '/api/v1/admin/inventory';
 const WH_INVENTORY = '/api/v1/admin/warehouses';
+const WH_OPTIONS = '/api/v1/admin/inventory/warehouses';
 const INVALID_UUID = '00000000-0000-0000-0000-000000000000';
 
 function uniqueMobile(): string {
@@ -247,6 +248,7 @@ describe('Admin inventory read API (SS-112) (e2e)', () => {
       await request(app.getHttpServer())
         .get(`${WH_INVENTORY}/${INVALID_UUID}/inventory`)
         .expect(401);
+      await request(app.getHttpServer()).get(WH_OPTIONS).expect(401);
     });
 
     it('rejects CUSTOMER and PARTNER with 403 on every endpoint', async () => {
@@ -264,6 +266,10 @@ describe('Admin inventory read API (SS-112) (e2e)', () => {
           .expect(403);
         await request(app.getHttpServer())
           .get(`${WH_INVENTORY}/${seededWarehouseId}/inventory`)
+          .set('Authorization', `Bearer ${token}`)
+          .expect(403);
+        await request(app.getHttpServer())
+          .get(WH_OPTIONS)
           .set('Authorization', `Bearer ${token}`)
           .expect(403);
       }
@@ -285,6 +291,10 @@ describe('Admin inventory read API (SS-112) (e2e)', () => {
           .expect(200);
         await request(app.getHttpServer())
           .get(`${WH_INVENTORY}/${seededWarehouseId}/inventory`)
+          .set('Authorization', `Bearer ${token}`)
+          .expect(200);
+        await request(app.getHttpServer())
+          .get(WH_OPTIONS)
           .set('Authorization', `Bearer ${token}`)
           .expect(200);
       }
@@ -503,6 +513,61 @@ describe('Admin inventory read API (SS-112) (e2e)', () => {
       });
       expect(total).toBe(14);
       expect(variant.stockQuantity).toBe(total);
+    });
+  });
+
+  describe('warehouse options (SS-117)', () => {
+    it('returns only active, non-deleted warehouses in deterministic code order', async () => {
+      const operator = await createUser('OPERATOR');
+      const suffix = Date.now();
+
+      const codeA = `OPT-A-${suffix}`;
+      const codeB = `OPT-B-${suffix}`;
+      const inactiveCode = `OPT-I-${suffix}`;
+      const deletedCode = `OPT-D-${suffix}`;
+
+      const activeA = await prisma.warehouse.create({
+        data: { code: codeA, name: 'گزینه اول', status: WarehouseStatus.ACTIVE },
+      });
+      warehouseIds.push(activeA.id);
+      const activeB = await prisma.warehouse.create({
+        data: { code: codeB, name: 'گزینه دوم', status: WarehouseStatus.ACTIVE },
+      });
+      warehouseIds.push(activeB.id);
+      const inactive = await prisma.warehouse.create({
+        data: { code: inactiveCode, name: 'غیرفعال', status: WarehouseStatus.INACTIVE },
+      });
+      warehouseIds.push(inactive.id);
+      const deleted = await prisma.warehouse.create({
+        data: { code: deletedCode, name: 'حذف شده', deletedAt: new Date() },
+      });
+      warehouseIds.push(deleted.id);
+
+      const res = await request(app.getHttpServer())
+        .get(WH_OPTIONS)
+        .set('Authorization', `Bearer ${operator.accessToken}`)
+        .expect(200);
+
+      expect(Array.isArray(res.body)).toBe(true);
+      const codes = res.body
+        .map((row: { code: string }) => row.code)
+        .filter((code: string) => code.endsWith(`-${suffix}`));
+      expect(codes).toEqual([codeA, codeB]);
+      expect(codes).not.toContain(inactiveCode);
+      expect(codes).not.toContain(deletedCode);
+
+      const first = res.body.find(
+        (row: { code: string }) => row.code === codeA,
+      );
+      expect(first).toEqual({
+        id: activeA.id,
+        code: codeA,
+        name: 'گزینه اول',
+        status: WarehouseStatus.ACTIVE,
+      });
+      expect(JSON.stringify(first)).not.toContain('deletedAt');
+      expect(JSON.stringify(first)).not.toContain('createdBy');
+      expect(JSON.stringify(first)).not.toContain('updatedBy');
     });
   });
 });

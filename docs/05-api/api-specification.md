@@ -1165,6 +1165,20 @@ or INACTIVE warehouses return 404.
 
 Errors: 400 (invalid query), 401, 403, 404.
 
+### GET /admin/inventory/warehouses
+
+Return the active, non-deleted warehouses as inventory filter options (SS-117).
+This endpoint is OPERATOR-accessible because the SS-111 warehouse list is
+ADMIN-only and the inventory UI filter dropdown must work for OPERATOR +
+ADMIN. It is strictly read-only: no mutation and no audit event.
+
+Response: array of `WarehouseSummary` (`{ id, code, name, status }`). Only
+warehouses with `status = ACTIVE` and `deletedAt IS NULL` are returned.
+Ordering is deterministic: `code ASC`, then `id ASC`. Responses never expose
+`deletedAt`, `createdBy` or `updatedBy`.
+
+Errors: 401, 403.
+
 ### stockQuantity compatibility
 
 `ProductVariant.stockQuantity` remains the **denormalized aggregate** of
