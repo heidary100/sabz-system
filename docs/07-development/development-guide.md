@@ -668,6 +668,106 @@ returns UI, no N+1 inventory fetches on product detail).
 
 ---
 
+# SS-118 — Admin Reservation UI
+
+Access: OPERATOR + ADMIN (`RequireRole roles={ADMIN_ROLES}`). No
+`SUPER_ADMIN`, no `@Permissions`. As with all admin frontend, role gating is UX
+only — the SS-115 API remains the authorization and data-access boundary
+(backend 401/403 are still handled via the centralized `request()` refresh flow
+and `translateApiError()`).
+
+Route (no new sidebar item; the «موجودی» prefix match covers the title):
+
+- `/inventory/reservations` (`InventoryReservationsPage`): paginated
+  reservation list with status / warehouse / variant-UUID filters, explicit
+  apply + reset, `?variantId=` deep-link support with a removable filter chip,
+  pagination, and loading / empty / filtered-empty / error+retry states. Entry
+  links: «رزروها» on the inventory overview header, «رزروهای این واریانت» on
+  `/inventory/variants/:variantId` (deep link to
+  `/inventory/reservations?variantId=…`).
+
+Row-launched reserve (no global variant picker — variants are only available
+per-product, so reserve originates from inventory rows where
+variantId/warehouseId are already known):
+
+- «رزرو» row action on `/inventory`, `/inventory/variants/:variantId` and
+  `/inventory/warehouses/:warehouseId` opens `ReserveInventoryDialog` with the
+  row's variant/warehouse preselected and the row's `available` shown as
+  display-only guidance (the backend availability check stays authoritative).
+- Dialog fields: quantity (integer ≥ 1) and optional expiry (checkbox «دارای
+  تاریخ انقضا» + integer hours input, max 87,600 hours = the backend's 10-year
+  maximum; `expiresIn = hours * 3600` seconds is sent only when enabled).
+  Unchecked expiry means `expiresIn` is omitted — a non-expiring reservation.
+- `POST /admin/inventory/reserve` returns `ReservationSummary`; on success the
+  dialog closes and the owner page refetches. On 409 (insufficient
+  availability, archived product, inactive warehouse) the Persian backend
+  message is shown inline and the page refetches the authoritative state. No
+  optimistic quantity changes; entered values are preserved on failure.
+
+Reservation list semantics (SS-115, backend-authoritative):
+
+- Table renders only shared-contract fields: SKU, variant name, warehouse,
+  quantity, status badge, expiry, createdAt, actions. `inventoryItemId`,
+  actor ids and internal fields are never rendered.
+- Status badge renders the server-provided status only: ACTIVE → green,
+  RELEASED → zinc, CONSUMED → blue, EXPIRED → red. Terminal timestamps
+  (`releasedAt`/`consumedAt`/`expiredAt`) are shown below the badge for
+  terminal states.
+- Expiry column shows `expiresAt` via `formatDateTime()` (fa-IR Persian
+  calendar) or «بدون انقضا» for null. An ACTIVE reservation with a past
+  `expiresAt` keeps the «فعال» badge — the status is never derived client-side —
+  and shows only the passive note «زمان انقضا گذشته است؛ پس از یک عملیات
+  وضعیت بهروزرسانی میشود». No timers, no polling, no mutations from rendering:
+  the list endpoint is read-only and lazy expiration happens server-side on the
+  next reservation mutation.
+- Actions: only ACTIVE rows offer «آزادسازی» (`POST
+  /admin/inventory/reservations/:id/release`) and «مصرف» (`POST
+  /admin/inventory/reservations/:id/consume`); terminal rows render no action
+  buttons. Both are confirmation dialogs; consume communicates its irreversible
+  semantics in Persian («مصرف رزرو یک عملیات قطعی است؛ مقدار از موجودی در دست
+  کسر میشود و امکان بازگردانی ندارد. در M1 این عملیات سفارشی ایجاد نمیکند.»).
+  On 409 (not ACTIVE, insufficient on-hand, concurrent transition won) the
+  Persian backend message is shown and the list refetches. No optimistic
+  transitions.
+
+M1 ownership and scope:
+
+- Reservations are admin-created operational reservations. There is no
+  customer/order ownership UI, no checkout/order integration, and no
+  reservation transfer/return/reporting UI in this issue.
+- Reservation data lives in React memory only — never persisted to
+  localStorage/sessionStorage/IndexedDB and never logged to the console.
+- Product detail (SS-107) is untouched; reservation UI belongs to the EPIC-006
+  inventory surface.
+
+Implementation notes:
+
+- `services/inventory.ts` gains `listReservations`, `reserveInventory`,
+  `releaseReservation`, `consumeReservation` plus the
+  `buildReservationListQuery` `URLSearchParams` builder — 1:1 to the SS-115
+  endpoints via the existing `request()` wrapper. No `services/reservations.ts`.
+- `hooks/use-reservation-list.ts` follows the existing `requestSeq`
+  stale-response protection, page-reset-on-filter and page-clamp conventions,
+  with explicit apply semantics and read-once `?variantId=` deep links.
+- `lib/inventory-labels.ts` gains `RESERVATION_STATUS_LABELS` /
+  `RESERVATION_STATUS_ORDER`; `ReservationStatusBadge` follows the existing
+  badge convention. No `@sabz/types` change: the SS-110 contracts cover every
+  request/response.
+
+Manual acceptance is the established convention (no React test harness); see
+the SS-118 checklist in the issue (ADMIN and OPERATOR access, CUSTOMER/PARTNER
+denied, list + status/warehouse/variant-UUID filters + deep link + pagination +
+empty states, row-launched reserve from all three inventory surfaces, positive
+quantity, zero/negative/fractional blocked, expiry seconds conversion + 10-year
+max + «بدون انقضا», overdue ACTIVE stays ACTIVE with passive note, release,
+consume with irreversible message, terminal rows offer no actions, 409 Persian
+message + authoritative refetch, no optimistic UI, 401 refresh, badges and
+terminal timestamps, Jalali dates, loading/error/retry/refetch spinner, no
+customer/order UI, no internal-field exposure, no persistence, RTL/Persian/
+Vazirmatn, movement history unchanged, browser refresh reloads from the API).
+
+---
+
 # Available Scripts
 
 ```bash

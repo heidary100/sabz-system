@@ -35,10 +35,11 @@ import { Text } from '../components/catalyst/text'
 import { InventoryStockStatusBadge } from '../components/inventory/inventory-stock-status-badge'
 import { ReceiveStockDialog } from '../components/inventory/receive-stock-dialog'
 import { AdjustInventoryDialog } from '../components/inventory/adjust-inventory-dialog'
+import { ReserveInventoryDialog } from '../components/inventory/reserve-inventory-dialog'
 
 const SEARCH_DEBOUNCE_MS = 300
 
-type MutationTarget = { mode: 'receive' | 'adjust'; item: InventoryItemSummary }
+type MutationTarget = { mode: 'receive' | 'adjust' | 'reserve'; item: InventoryItemSummary }
 
 function pageNumbers(current: number, totalPages: number): (number | 'gap')[] {
   if (totalPages <= 7) {
@@ -115,6 +116,12 @@ export function InventoryPage() {
             className="text-sm font-medium text-primary hover:underline"
           >
             تاریخچه موجودی
+          </Link>
+          <Link
+            to="/inventory/reservations"
+            className="text-sm font-medium text-primary hover:underline"
+          >
+            رزروها
           </Link>
           <Button outline onClick={() => void refetch()} disabled={loading}>
             به‌روزرسانی
@@ -250,6 +257,9 @@ export function InventoryPage() {
                       <Button outline onClick={() => setTarget({ mode: 'adjust', item })}>
                         اصلاح موجودی
                       </Button>
+                      <Button outline onClick={() => setTarget({ mode: 'reserve', item })}>
+                        رزرو
+                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -316,6 +326,16 @@ export function InventoryPage() {
         variant={target?.mode === 'adjust' ? target.item.variant : null}
         warehouse={target?.mode === 'adjust' ? target.item.warehouse : null}
         currentQuantity={target?.mode === 'adjust' ? target.item.quantityOnHand : null}
+        onClose={() => setTarget(null)}
+        onSuccess={handleMutationSuccess}
+        onConflict={handleMutationConflict}
+      />
+
+      <ReserveInventoryDialog
+        open={target?.mode === 'reserve'}
+        variant={target?.mode === 'reserve' ? target.item.variant : null}
+        warehouse={target?.mode === 'reserve' ? target.item.warehouse : null}
+        available={target?.mode === 'reserve' ? target.item.available : null}
         onClose={() => setTarget(null)}
         onSuccess={handleMutationSuccess}
         onConflict={handleMutationConflict}

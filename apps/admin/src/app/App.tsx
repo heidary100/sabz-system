@@ -10,6 +10,7 @@ import { CategoriesPage } from '../pages/categories-page'
 import { DashboardPage } from '../pages/dashboard-page'
 import { InventoryMovementsPage } from '../pages/inventory-movements-page'
 import { InventoryPage } from '../pages/inventory-page'
+import { InventoryReservationsPage } from '../pages/inventory-reservations-page'
 import { LoginPage } from '../pages/login-page'
 import { PartnerDetailPage } from '../pages/partner-detail-page'
 import { PartnersPage } from '../pages/partners-page'
@@ -147,6 +148,14 @@ export default function App() {
               element={
                 <RequireRole roles={ADMIN_ROLES}>
                   <InventoryMovementsPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="inventory/reservations"
+              element={
+                <RequireRole roles={ADMIN_ROLES}>
+                  <InventoryReservationsPage />
                 </RequireRole>
               }
             />

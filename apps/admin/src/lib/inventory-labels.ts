@@ -1,4 +1,4 @@
-import type { InventoryMovementType, InventoryStockStatus } from '@sabz/types'
+import type { InventoryMovementType, InventoryStockStatus, ReservationStatus } from '@sabz/types'
 
 export const INVENTORY_STOCK_STATUS_LABELS: Record<InventoryStockStatus, string> = {
   IN_STOCK: 'موجود',
@@ -11,6 +11,24 @@ export const INVENTORY_STOCK_STATUS_ORDER: InventoryStockStatus[] = [
   'LOW_STOCK',
   'OUT_OF_STOCK',
 ]
+
+export const RESERVATION_STATUS_LABELS: Record<ReservationStatus, string> = {
+  ACTIVE: 'فعال',
+  RELEASED: 'آزادشده',
+  CONSUMED: 'مصرف‌شده',
+  EXPIRED: 'منقضی‌شده',
+}
+
+export const RESERVATION_STATUS_ORDER: ReservationStatus[] = [
+  'ACTIVE',
+  'RELEASED',
+  'CONSUMED',
+  'EXPIRED',
+]
+
+export function reservationStatusLabel(status: ReservationStatus): string {
+  return RESERVATION_STATUS_LABELS[status] ?? status
+}
 
 export const INVENTORY_MOVEMENT_TYPE_LABELS: Record<InventoryMovementType, string> = {
   INITIAL_STOCK: 'موجودی اولیه',
