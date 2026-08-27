@@ -6,6 +6,9 @@ import type {
   MovementListQuery,
   PaginatedResult,
   ReceiveStockInput,
+  ReservationListQuery,
+  ReservationSummary,
+  ReserveInventoryInput,
   WarehouseSummary,
 } from '@sabz/types'
 import { request } from './api'
@@ -59,6 +62,27 @@ function buildMovementListQuery(query: MovementListQuery): string {
   }
   const qs = params.toString()
   return qs ? `/admin/inventory/movements?${qs}` : '/admin/inventory/movements'
+}
+
+function buildReservationListQuery(query: ReservationListQuery): string {
+  const params = new URLSearchParams()
+  if (query.page) {
+    params.set('page', String(query.page))
+  }
+  if (query.limit) {
+    params.set('limit', String(query.limit))
+  }
+  if (query.status) {
+    params.set('status', query.status)
+  }
+  if (query.variantId) {
+    params.set('variantId', query.variantId)
+  }
+  if (query.warehouseId) {
+    params.set('warehouseId', query.warehouseId)
+  }
+  const qs = params.toString()
+  return qs ? `/admin/inventory/reservations?${qs}` : '/admin/inventory/reservations'
 }
 
 export function listInventory(
@@ -121,5 +145,36 @@ export function listInventoryMovements(
 ): Promise<PaginatedResult<InventoryMovementSummary>> {
   return request<PaginatedResult<InventoryMovementSummary>>(
     buildMovementListQuery(query),
+  )
+}
+
+export function listReservations(
+  query: ReservationListQuery,
+): Promise<PaginatedResult<ReservationSummary>> {
+  return request<PaginatedResult<ReservationSummary>>(
+    buildReservationListQuery(query),
+  )
+}
+
+export function reserveInventory(
+  input: ReserveInventoryInput,
+): Promise<ReservationSummary> {
+  return request<ReservationSummary>('/admin/inventory/reserve', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
+export function releaseReservation(id: string): Promise<ReservationSummary> {
+  return request<ReservationSummary>(
+    `/admin/inventory/reservations/${id}/release`,
+    { method: 'POST' },
+  )
+}
+
+export function consumeReservation(id: string): Promise<ReservationSummary> {
+  return request<ReservationSummary>(
+    `/admin/inventory/reservations/${id}/consume`,
+    { method: 'POST' },
   )
 }
