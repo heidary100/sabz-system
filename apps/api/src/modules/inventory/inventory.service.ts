@@ -17,6 +17,7 @@ import type {
   InventoryMovementSummary,
   PaginatedResult,
   ReservationSummary,
+  WarehouseSummary,
 } from '@sabz/types';
 import { PrismaService } from '../../common/database/prisma.service';
 import { AuditService } from '../audit/audit.service';
@@ -469,6 +470,33 @@ export class InventoryService {
     });
 
     return rows.map((row) => this.toSummary(row));
+  }
+
+  /**
+   * Read-only warehouse enumeration for the admin inventory UI (SS-117).
+   * `GET /admin/warehouses` is ADMIN-only (SS-111), so the OPERATOR-accessible
+   * inventory filter dropdown needs its own options source: active,
+   * non-deleted warehouses only, deterministic `code ASC, id ASC` ordering,
+   * and the shared `WarehouseSummary` projection. Read-only — no mutation,
+   * no audit event.
+   */
+  async listWarehouseOptions(): Promise<WarehouseSummary[]> {
+    const rows = await this.prisma.warehouse.findMany({
+      where: { deletedAt: null, status: WarehouseStatus.ACTIVE },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        status: true,
+      },
+      orderBy: [{ code: 'asc' }, { id: 'asc' }],
+    });
+    return rows.map((row) => ({
+      id: row.id,
+      code: row.code,
+      name: row.name,
+      status: row.status,
+    }));
   }
 
   async listByWarehouse(

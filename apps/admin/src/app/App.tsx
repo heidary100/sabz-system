@@ -8,6 +8,8 @@ import { AuditPage } from '../pages/audit-page'
 import { BrandsPage } from '../pages/brands-page'
 import { CategoriesPage } from '../pages/categories-page'
 import { DashboardPage } from '../pages/dashboard-page'
+import { InventoryMovementsPage } from '../pages/inventory-movements-page'
+import { InventoryPage } from '../pages/inventory-page'
 import { LoginPage } from '../pages/login-page'
 import { PartnerDetailPage } from '../pages/partner-detail-page'
 import { PartnersPage } from '../pages/partners-page'
@@ -16,6 +18,8 @@ import { ProductsPage } from '../pages/products-page'
 import { RolesPage } from '../pages/roles-page'
 import { UserDetailPage } from '../pages/user-detail-page'
 import { UsersPage } from '../pages/users-page'
+import { VariantInventoryPage } from '../pages/variant-inventory-page'
+import { WarehouseInventoryPage } from '../pages/warehouse-inventory-page'
 import { WarehousesPage } from '../pages/warehouses-page'
 
 export default function App() {
@@ -127,6 +131,38 @@ export default function App() {
               element={
                 <RequireRole roles={['ADMIN']}>
                   <WarehousesPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="inventory"
+              element={
+                <RequireRole roles={ADMIN_ROLES}>
+                  <InventoryPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="inventory/movements"
+              element={
+                <RequireRole roles={ADMIN_ROLES}>
+                  <InventoryMovementsPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="inventory/variants/:variantId"
+              element={
+                <RequireRole roles={ADMIN_ROLES}>
+                  <VariantInventoryPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="inventory/warehouses/:warehouseId"
+              element={
+                <RequireRole roles={ADMIN_ROLES}>
+                  <WarehouseInventoryPage />
                 </RequireRole>
               }
             />

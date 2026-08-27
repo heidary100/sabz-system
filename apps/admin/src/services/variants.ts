@@ -1,7 +1,6 @@
 import type {
   CreateVariantInput,
   UpdateVariantInput,
-  UpdateVariantInventoryInput,
   VariantSummary,
 } from '@sabz/types'
 import { request } from './api'
@@ -33,15 +32,5 @@ export function updateVariant(
 export function deleteVariant(id: string): Promise<VariantSummary> {
   return request<VariantSummary>(`/admin/variants/${id}`, {
     method: 'DELETE',
-  })
-}
-
-export function setVariantInventory(
-  id: string,
-  input: UpdateVariantInventoryInput,
-): Promise<VariantSummary> {
-  return request<VariantSummary>(`/admin/variants/${id}/inventory`, {
-    method: 'PATCH',
-    body: JSON.stringify(input),
   })
 }

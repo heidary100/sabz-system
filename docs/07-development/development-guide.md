@@ -537,6 +537,137 @@ refresh reload).
 
 ---
 
+# SS-117 — Admin Inventory UI
+
+Access: OPERATOR + ADMIN (`RequireRole roles={ADMIN_ROLES}`). No
+`SUPER_ADMIN`, no `@Permissions`. As with all admin frontend, role gating is UX
+only — the SS-112/113/114 API remains the authorization and data-access
+boundary (backend 401/403 are still handled via the centralized `request()`
+refresh flow and `translateApiError()`).
+
+Routes (sidebar: موجودی — one item, placed between برندها and انبارها; the
+layout prefix match shows «موجودی» for every child route):
+
+- `/inventory` (`InventoryPage`): paginated stock overview with search
+  (variant SKU/name, debounced ~300ms, max 64 chars), warehouse filter and
+  stock-status filter, per-row «دریافت موجودی» / «اصلاح موجودی» actions,
+  links from variant name → `/inventory/variants/:variantId` and warehouse
+  name → `/inventory/warehouses/:warehouseId`, plus «تاریخچه موجودی» and
+  «بهروزرسانی» in the header.
+- `/inventory/movements` (`InventoryMovementsPage`): read-only immutable
+  movement-history ledger with type / warehouse / from / to / deep-linked
+  `variantId` filters, explicit apply + reset (audit-page date convention:
+  local date inputs converted to UTC start/end-of-day, inclusive), pagination,
+  actor display (`firstName lastName` || `mobile` || «سیستم/ناشناس»).
+- `/inventory/variants/:variantId` (`VariantInventoryPage`): one variant's
+  stock across its active warehouses (array response, no aggregate totals —
+  the UI never recomputes totals). Header identity comes from the rows'
+  `variant` ref or route context; an empty result shows a generic heading +
+  empty state, no additional per-variant calls. «تاریخچه این واریانت» deep-links
+  to `/inventory/movements?variantId=…`.
+- `/inventory/warehouses/:warehouseId` (`WarehouseInventoryPage`): paginated
+  stock of one active warehouse. The header comes from the rows' `warehouse`
+  ref — `GET /admin/warehouses/:id` is deliberately NOT called because it is
+  ADMIN-only and this page must work for OPERATOR. No warehouse
+  create/edit/activate/deactivate controls here (those belong to SS-116).
+
+Backend addition (the only backend change in SS-117):
+
+- `GET /admin/inventory/warehouses` (OPERATOR + ADMIN) returns active,
+  non-deleted warehouses as `WarehouseSummary[]` (`code ASC, id ASC`). It
+  exists because the SS-111 warehouse list is ADMIN-only, so OPERATOR needs an
+  inventory-scoped options source for the warehouse filter dropdowns. Read-only,
+  no audit event, documented in `docs/05-api/api-specification.md` §17.1.
+
+Mutations (backend-authoritative, never optimistic):
+
+- `ReceiveStockDialog` (reusable from the overview, per-variant and
+  per-warehouse pages; variant/warehouse are preselected from the row):
+  `POST /admin/inventory/receive` with integer `quantity >= 1` and optional
+  `notes` (max 1000). Zero/negative/non-integer values are rejected
+  client-side; the backend stays authoritative.
+- `AdjustInventoryDialog`: `POST /admin/inventory/adjust` — `quantity` is the
+  **absolute** desired `quantityOnHand` (`>= 0`), never a delta, with a
+  **mandatory** `reason` (max 500) and optional `notes` (max 1000). The dialog
+  shows the current quantity and the helper text «این مقدار به صورت مطلق
+  جایگزین موجودی فعلی میشود؛ تغییر افزایشی نیست و مقدار منفی مجاز نیست.»
+  Negative targets are rejected client-side.
+- Both dialogs preserve entered values on failure, show inline Persian errors
+  via `translateApiError()`, and on 409 (stale concurrent adjust, inactive
+  warehouse, archived product) show the Persian backend message and invoke the
+  owner page's refetch so the UI never keeps stale state. The adjust form is
+  never silently overwritten with the refreshed quantity.
+- `available` and `stockStatus` are server-derived (`InventoryItemSummary`):
+  the UI renders them as-is and never recomputes them.
+
+Movement history (SS-114):
+
+- Read-only: no edit/delete/reversal buttons. Table renders only contract
+  fields: date/time, actor, type, quantity, reserved delta, on-hand
+  before/after, reserved before/after, reason, notes. `reference` and internal
+  fields (`createdBy`, `inventoryItemId`, UUIDs, `deletedAt`, `updatedBy`) are
+  never rendered. Historical rows for deleted/archived resources remain
+  visible per the SS-114 historical-visibility semantics.
+
+SS-107 compatibility integration:
+
+- The legacy `VariantInventoryDialog` (SS-104 `PATCH /admin/variants/:id/inventory`
+  write UI) is **removed**. `setVariantInventory()` is removed from
+  `services/variants.ts`. The SS-104 endpoint itself stays on the API
+  (deprecated, repointed through the inventory write path by SS-113) but the
+  admin UI no longer exposes it.
+- `ProductVariant.stockQuantity` remains visible in the product variant table
+  as a **deprecated M1 aggregate** — the column header is «موجودی (نمای قدیمی
+  M1)» and the section description states the authoritative per-warehouse
+  inventory lives in the inventory pages. No per-variant inventory requests are
+  added to `ProductDetailPage` (no N+1); the row action «موجودی انبارها»
+  navigates to `/inventory/variants/:variantId`. Variant price/SKU/name/barcode
+  stay SS-107-owned; `VariantForm`'s create-time initial-stock field is
+  unchanged (SS-104 create contract, documented M1 residual).
+
+Data minimization and persistence:
+
+- Inventory state lives in React memory only — never persisted to
+  localStorage/sessionStorage/IndexedDB and never logged to the console. Only
+  shared-contract fields are rendered. Reservation UI (reserve/release/consume
+  belongs to a later reservation issue), transfer UI and returns UI are
+  explicitly out of scope and are not created.
+
+Implementation notes:
+
+- New `services/inventory.ts` (`listInventory`, `listVariantInventory`,
+  `listWarehouseInventory`, `listWarehouseOptions`, `receiveInventory`,
+  `adjustInventory`, `listInventoryMovements`) maps 1:1 to the SS-112/113/114
+  endpoints and the new options endpoint using the existing `request()`
+  wrapper and the `URLSearchParams` query-building convention.
+- New hooks: `use-inventory-list`, `use-inventory-movements`,
+  `use-variant-inventory`, `use-warehouse-inventory`, `use-warehouse-options`
+  — all follow the existing `requestSeq` stale-response protection,
+  page-reset-on-filter and page-clamp conventions. The movements hook reads a
+  `variantId` search param once for deep links and exposes it as a removable
+  filter chip.
+- New `lib/inventory-labels.ts` (stock-status and movement-type Persian labels
+  + ordering + `movementTypeLabel` fallback); warehouse labels are reused from
+  `lib/warehouse-labels.ts`. Badges: `InventoryStockStatusBadge` (IN_STOCK →
+  green, LOW_STOCK → amber, OUT_OF_STOCK → red) and
+  `InventoryMovementTypeBadge` (zinc). No `@sabz/types` change: the SS-110
+  contracts cover every request/response.
+
+Manual acceptance is the established convention (no React test harness); see
+the SS-117 checklist in the issue (ADMIN and OPERATOR access, CUSTOMER/PARTNER
+denied, overview + SKU/name search + warehouse/status filters + pagination +
+empty states, per-variant and per-warehouse views, receive positive quantity,
+zero/negative receive blocked, absolute adjust + mandatory reason + negative
+rejected, 409 Persian message + authoritative refetch, available/status match
+the API, movement history + type/warehouse/date filters + pagination + actor
+formatting, no `reference`/internal-field exposure, product detail shows the M1
+aggregate as deprecated and navigates to authoritative inventory, old SS-104
+dialog gone, loading/error/retry, 401 refresh, RTL/Persian/Vazirmatn, browser
+refresh reloads from the API, no client persistence, no reservation/transfer/
+returns UI, no N+1 inventory fetches on product detail).
+
+---
+
 # Available Scripts
 
 ```bash

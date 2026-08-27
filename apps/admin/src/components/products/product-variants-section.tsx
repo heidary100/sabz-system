@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import type { VariantSummary } from '@sabz/types'
 import { Subheading } from '../catalyst/heading'
 import { Text } from '../catalyst/text'
@@ -17,14 +18,12 @@ export function ProductVariantsSection({
   manageable,
   onCreate,
   onEdit,
-  onStock,
   onDelete,
 }: {
   variants: VariantSummary[]
   manageable: boolean
   onCreate: () => void
   onEdit: (variant: VariantSummary) => void
-  onStock: (variant: VariantSummary) => void
   onDelete: (variant: VariantSummary) => void
 }) {
   return (
@@ -33,7 +32,8 @@ export function ProductVariantsSection({
         <div>
           <Subheading>واریانت‌ها</Subheading>
           <Text className="mt-1 text-xs text-zinc-500">
-            SKU، قیمت و موجودی به واریانت تعلق دارد. موجودی، نمای کلی (M1) است و به انبار مربوط نمی‌شود.
+            SKU و قیمت به واریانت تعلق دارد. موجودیِ نمایش‌داده‌شده، نمای تجمیعی قدیمی (M1) است؛
+            موجودی معتبر و انبارمحور از مسیر «موجودی انبارها» قابل مشاهده است.
           </Text>
         </div>
         {manageable && (
@@ -54,7 +54,7 @@ export function ProductVariantsSection({
                 <TableHeader>نام واریانت</TableHeader>
                 <TableHeader>بارکد</TableHeader>
                 <TableHeader>قیمت</TableHeader>
-                <TableHeader>موجودی</TableHeader>
+                <TableHeader>موجودی (نمای قدیمی M1)</TableHeader>
                 {manageable && <TableHeader>عملیات</TableHeader>}
               </TableRow>
             </TableHead>
@@ -85,9 +85,12 @@ export function ProductVariantsSection({
                         <Button outline onClick={() => onEdit(variant)}>
                           ویرایش
                         </Button>
-                        <Button outline onClick={() => onStock(variant)}>
-                          موجودی
-                        </Button>
+                        <Link
+                          to={`/inventory/variants/${variant.id}`}
+                          className="text-sm font-medium text-primary hover:underline"
+                        >
+                          موجودی انبارها
+                        </Link>
                         <Button outline onClick={() => onDelete(variant)}>
                           حذف
                         </Button>
