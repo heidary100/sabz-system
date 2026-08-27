@@ -78,16 +78,13 @@ function isOverdue(reservation: ReservationSummary): boolean {
   if (reservation.status !== 'ACTIVE' || !reservation.expiresAt) {
     return false
   }
-  try {
-    return new Date(reservation.expiresAt).getTime() < Date.now()
-  } catch {
-    return false
-  }
+  return new Date(reservation.expiresAt).getTime() < Date.now()
 }
 
 export function InventoryReservationsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
-  const initialVariantId = searchParams.get('variantId') ?? ''
+  const rawVariantId = searchParams.get('variantId') ?? ''
+  const initialVariantId = UUID_PATTERN.test(rawVariantId) ? rawVariantId : ''
 
   const {
     status,
