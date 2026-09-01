@@ -53,8 +53,12 @@ function setupSwagger(app: INestApplication): void {
     .setTitle('Sabz System API')
     .setDescription('REST API for the Sabz System e-commerce platform')
     .setVersion('1.0')
+    .addBearerAuth()
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('docs', app, document, { useGlobalPrefix: true });
+  SwaggerModule.setup('docs', app, document, {
+    useGlobalPrefix: true,
+    swaggerOptions: { persistAuthorization: true },
+  });
 }
