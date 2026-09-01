@@ -29,7 +29,14 @@ export default function App() {
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/access-denied" element={<AccessDeniedPage />} />
+          <Route
+            path="/access-denied"
+            element={
+              <RequireAuth>
+                <AccessDeniedPage />
+              </RequireAuth>
+            }
+          />
           <Route
             path="/"
             element={
