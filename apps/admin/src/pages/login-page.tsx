@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
-import { useAuth } from '../auth/auth-provider'
+import { ADMIN_ROLES, useAuth } from '../auth/auth-provider'
 import { Button } from '../components/catalyst/button'
 import { Field, Label } from '../components/catalyst/fieldset'
 import { Heading } from '../components/catalyst/heading'
@@ -19,10 +19,12 @@ interface LoginLocationState {
 }
 
 export function LoginPage() {
-  const { status, login } = useAuth()
+  const { status, user, login } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const from = (location.state as LoginLocationState | null)?.from ?? '/dashboard'
+  const isAdminUser =
+    user?.roles.some((role) => ADMIN_ROLES.includes(role)) ?? false
 
   const [step, setStep] = useState<Step>('phone')
   const [mobile, setMobile] = useState('')
@@ -39,7 +41,7 @@ export function LoginPage() {
     return () => clearInterval(timer)
   }, [resendIn])
 
-  if (status === 'authenticated') {
+  if (status === 'authenticated' && isAdminUser) {
     return <Navigate to={from} replace />
   }
 
