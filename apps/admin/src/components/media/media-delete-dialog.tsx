@@ -65,7 +65,7 @@ export function MediaDeleteDialog({
         {media?.isPrimary ? ' این تصویر، تصویر اصلی محصول است و پس از حذف، تصویر بعدی بهعنوان اصلی تعیین میشود.' : ''}
       </AlertDescription>
       {error && (
-        <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+        <p className="mt-4 danger-box rounded-lg px-3 py-2 text-sm">
           {error}
         </p>
       )}

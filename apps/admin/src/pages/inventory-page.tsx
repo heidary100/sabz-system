@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { Boxes, RefreshCw } from 'lucide-react'
 import type { InventoryItemSummary, InventoryStockStatus } from '@sabz/types'
 import { useInventoryList } from '../hooks/use-inventory-list'
 import { useWarehouseOptions } from '../hooks/use-warehouse-options'
@@ -8,9 +9,9 @@ import {
   INVENTORY_STOCK_STATUS_LABELS,
   INVENTORY_STOCK_STATUS_ORDER,
 } from '../lib/inventory-labels'
+import { pageNumbers } from '../lib/pagination'
 import { Button } from '../components/catalyst/button'
 import { Field, Label } from '../components/catalyst/fieldset'
-import { Heading } from '../components/catalyst/heading'
 import { Input } from '../components/catalyst/input'
 import { Select } from '../components/catalyst/select'
 import {
@@ -23,6 +24,8 @@ import {
 } from '../components/catalyst/table'
 import { EmptyState } from '../components/ui/empty-state'
 import { Loading } from '../components/ui/loading'
+import { PageHeader } from '../components/ui/page-header'
+import { TableCard } from '../components/ui/table-card'
 import {
   Pagination,
   PaginationGap,
@@ -40,25 +43,6 @@ import { ReserveInventoryDialog } from '../components/inventory/reserve-inventor
 const SEARCH_DEBOUNCE_MS = 300
 
 type MutationTarget = { mode: 'receive' | 'adjust' | 'reserve'; item: InventoryItemSummary }
-
-function pageNumbers(current: number, totalPages: number): (number | 'gap')[] {
-  if (totalPages <= 7) {
-    return Array.from({ length: totalPages }, (_, index) => index + 1)
-  }
-
-  const pages: (number | 'gap')[] = [1]
-  if (current > 3) {
-    pages.push('gap')
-  }
-  for (let page = Math.max(2, current - 1); page <= Math.min(totalPages - 1, current + 1); page++) {
-    pages.push(page)
-  }
-  if (current < totalPages - 2) {
-    pages.push('gap')
-  }
-  pages.push(totalPages)
-  return pages
-}
 
 export function InventoryPage() {
   const {
@@ -108,28 +92,31 @@ export function InventoryPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <Heading level={1}>موجودی</Heading>
-        <div className="flex items-center gap-3">
-          <Link
-            to="/inventory/movements"
-            className="text-sm font-medium text-primary hover:underline"
-          >
-            تاریخچه موجودی
-          </Link>
-          <Link
-            to="/inventory/reservations"
-            className="text-sm font-medium text-primary hover:underline"
-          >
-            رزروها
-          </Link>
-          <Button outline onClick={() => void refetch()} disabled={loading}>
-            به‌روزرسانی
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="موجودی"
+        actions={
+          <>
+            <Link
+              to="/inventory/movements"
+              className="text-sm font-medium text-primary hover:underline"
+            >
+              تاریخچه موجودی
+            </Link>
+            <Link
+              to="/inventory/reservations"
+              className="text-sm font-medium text-primary hover:underline"
+            >
+              رزروها
+            </Link>
+            <Button outline onClick={() => void refetch()} disabled={loading}>
+              <RefreshCw data-slot="icon" />
+              به‌روزرسانی
+            </Button>
+          </>
+        }
+      />
 
-      <div className="grid w-full max-w-4xl gap-4 sm:grid-cols-2">
+      <div className="grid w-full max-w-4xl gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Field className="sm:col-span-2">
           <Label>جستجو</Label>
           <Input
@@ -178,8 +165,8 @@ export function InventoryPage() {
       {loading && !result ? (
         <Loading compact label="در حال بارگذاری…" />
       ) : error ? (
-        <div className="flex flex-col items-center gap-4 rounded-lg border border-border bg-white px-6 py-16 text-center">
-          <p className="text-sm/6 text-dust-200">{translateApiError(error)}</p>
+        <div className="glass flex flex-col items-center gap-4 rounded-xl px-6 py-16 text-center">
+          <p className="text-sm/6 text-muted">{translateApiError(error)}</p>
           <Button color="primary" onClick={() => void refetch()}>
             تلاش مجدد
           </Button>
@@ -192,6 +179,7 @@ export function InventoryPage() {
               ? 'با این فیلترها موجودی ثبت نشده است.'
               : 'هنوز موجودی برای هیچ واریانتی ثبت نشده است.'
           }
+          icon={<Boxes className="size-6" />}
           actions={
             hasActiveFilter ? (
               <Button outline onClick={handleClearFilters}>
@@ -201,7 +189,7 @@ export function InventoryPage() {
           }
         />
       ) : (
-        <div className="rounded-lg border border-border bg-white p-4">
+        <TableCard>
           <Table striped>
             <TableHead>
               <TableRow>
@@ -218,10 +206,10 @@ export function InventoryPage() {
             <TableBody>
               {result.items.map((item) => (
                 <TableRow key={item.id}>
-                  <TableCell dir="ltr" className="font-medium text-zinc-950">
+                  <TableCell dir="ltr" className="font-medium text-foreground">
                     {item.variant.sku}
                   </TableCell>
-                  <TableCell className="text-zinc-500">
+                  <TableCell className="text-muted">
                     <Link
                       to={`/inventory/variants/${item.variant.id}`}
                       className="font-medium text-primary hover:underline"
@@ -229,7 +217,7 @@ export function InventoryPage() {
                       {item.variant.name ?? '—'}
                     </Link>
                   </TableCell>
-                  <TableCell className="text-zinc-500">
+                  <TableCell className="text-muted">
                     <Link
                       to={`/inventory/warehouses/${item.warehouse.id}`}
                       className="font-medium text-primary hover:underline"
@@ -237,13 +225,13 @@ export function InventoryPage() {
                       {item.warehouse.name}
                     </Link>
                   </TableCell>
-                  <TableCell dir="ltr" className="tabular-nums text-zinc-500">
+                  <TableCell dir="ltr" className="tabular-nums text-muted">
                     {item.quantityOnHand}
                   </TableCell>
-                  <TableCell dir="ltr" className="tabular-nums text-zinc-500">
+                  <TableCell dir="ltr" className="tabular-nums text-muted">
                     {item.quantityReserved}
                   </TableCell>
-                  <TableCell dir="ltr" className="tabular-nums text-zinc-500">
+                  <TableCell dir="ltr" className="tabular-nums text-muted">
                     {item.available}
                   </TableCell>
                   <TableCell>
@@ -295,7 +283,7 @@ export function InventoryPage() {
               />
             </Pagination>
           </div>
-        </div>
+        </TableCard>
       )}
 
       {loading && result && (
@@ -304,11 +292,11 @@ export function InventoryPage() {
             aria-hidden="true"
             className="size-5 animate-spin rounded-full border-2 border-hunter-800 border-t-primary"
           />
-          <span className="text-sm font-medium text-dust-200">در حال بارگذاری…</span>
+          <span className="text-sm font-medium text-muted">در حال بارگذاری…</span>
         </div>
       )}
 
-      <Text className="text-xs text-dust-200">
+      <Text className="text-xs text-muted">
         {result ? `مجموع: ${result.total} مورد · ${limit} مورد در هر صفحه` : ''}
       </Text>
 

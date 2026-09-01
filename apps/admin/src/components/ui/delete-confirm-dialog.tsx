@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Alert, AlertActions, AlertDescription, AlertTitle } from '../catalyst/alert'
+import { TriangleAlert } from 'lucide-react'
+import { Alert, AlertActions, AlertBody, AlertDescription, AlertTitle } from '../catalyst/alert'
 import { Button } from '../catalyst/button'
 import { translateApiError } from '../../lib/error-messages'
 
@@ -38,13 +39,19 @@ export function DeleteConfirmDialog({
 
   return (
     <Alert open={open} onClose={onClose} size="sm">
-      <AlertTitle>{title}</AlertTitle>
-      <AlertDescription>{description}</AlertDescription>
-      {error && (
-        <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-          {error}
-        </p>
-      )}
+      <AlertBody>
+        <TriangleAlert
+          className="mx-auto mb-3 size-8 text-red-600 dark:text-red-400"
+          aria-hidden="true"
+        />
+        <AlertTitle>{title}</AlertTitle>
+        <AlertDescription>{description}</AlertDescription>
+        {error && (
+          <p className="mt-4 danger-box rounded-lg px-3 py-2 text-sm">
+            {error}
+          </p>
+        )}
+      </AlertBody>
       <AlertActions>
         <Button outline onClick={onClose} disabled={submitting}>
           انصراف

@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import type { VariantSummary } from '@sabz/types'
+import { Pencil, Plus, Trash2 } from 'lucide-react'
 import { Subheading } from '../catalyst/heading'
 import { Text } from '../catalyst/text'
 import { Button } from '../catalyst/button'
@@ -27,17 +28,18 @@ export function ProductVariantsSection({
   onDelete: (variant: VariantSummary) => void
 }) {
   return (
-    <section className="rounded-lg border border-border bg-white p-6">
+    <section className="rounded-xl border border-border bg-surface p-5 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <Subheading>واریانت‌ها</Subheading>
-          <Text className="mt-1 text-xs text-zinc-500">
+          <Text className="mt-1 text-xs text-muted">
             SKU و قیمت به واریانت تعلق دارد. موجودیِ نمایش‌داده‌شده، نمای تجمیعی قدیمی (M1) است؛
             موجودی معتبر و انبارمحور از مسیر «موجودی انبارها» قابل مشاهده است.
           </Text>
         </div>
         {manageable && (
           <Button color="primary" onClick={onCreate}>
+            <Plus data-slot="icon" />
             افزودن واریانت
           </Button>
         )}
@@ -61,19 +63,19 @@ export function ProductVariantsSection({
             <TableBody>
               {variants.map((variant) => (
                 <TableRow key={variant.id}>
-                  <TableCell dir="ltr" className="font-medium text-zinc-950">
+                  <TableCell dir="ltr" className="font-medium text-foreground">
                     {variant.sku}
                   </TableCell>
-                  <TableCell className="text-zinc-500">{variant.name ?? '—'}</TableCell>
-                  <TableCell dir="ltr" className="text-zinc-500">
+                  <TableCell className="text-muted">{variant.name ?? '—'}</TableCell>
+                  <TableCell dir="ltr" className="text-muted">
                     {variant.barcode ?? '—'}
                   </TableCell>
-                  <TableCell dir="ltr" className="text-zinc-500">
+                  <TableCell dir="ltr" className="text-muted">
                     {variant.price}
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <span dir="ltr" className="text-zinc-500">
+                      <span dir="ltr" className="text-muted">
                         {variant.stockQuantity}
                       </span>
                       <VariantAvailabilityBadge stockQuantity={variant.stockQuantity} />
@@ -83,6 +85,7 @@ export function ProductVariantsSection({
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <Button outline onClick={() => onEdit(variant)}>
+                          <Pencil data-slot="icon" />
                           ویرایش
                         </Button>
                         <Link
@@ -92,6 +95,7 @@ export function ProductVariantsSection({
                           موجودی انبارها
                         </Link>
                         <Button outline onClick={() => onDelete(variant)}>
+                          <Trash2 data-slot="icon" />
                           حذف
                         </Button>
                       </div>

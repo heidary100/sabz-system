@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { BookmarkPlus } from 'lucide-react'
 import type { InventoryVariantRef, WarehouseSummary } from '@sabz/types'
 import { Alert, AlertActions, AlertBody, AlertDescription, AlertTitle } from '../catalyst/alert'
 import { Button } from '../catalyst/button'
@@ -115,7 +116,7 @@ export function ReserveInventoryDialog({
               onChange={(event) => setQuantity(event.target.value)}
               disabled={submitting}
             />
-            <Text className="text-xs text-zinc-500">
+            <Text className="text-xs text-muted">
               {available !== null
                 ? `قابل عرضه فعلی: ${available} — این مقدار هنگام ثبت مجدداً از سمت سرور بررسی میشود.`
                 : 'مقدار قابل عرضه در دسترس نیست.'}
@@ -147,7 +148,7 @@ export function ReserveInventoryDialog({
                 disabled={submitting}
               />
             )}
-            <Text className="text-xs text-zinc-500">
+            <Text className="text-xs text-muted">
               بدون انقضا یعنی رزرو هرگز به‌صورت خودکار بسته نمی‌شود.
             </Text>
           </Field>
@@ -160,6 +161,7 @@ export function ReserveInventoryDialog({
           انصراف
         </Button>
         <Button color="primary" onClick={() => void handleSubmit()} disabled={!canSubmit}>
+          <BookmarkPlus data-slot="icon" />
           {submitting ? 'در حال ثبت…' : 'ثبت رزرو'}
         </Button>
       </AlertActions>

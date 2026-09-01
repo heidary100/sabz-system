@@ -79,7 +79,7 @@ export function ApproveDialog({
             <Label>تایر قیمت‌گذاری</Label>
             {tiersError ? (
               <div className="space-y-2">
-                <Text className="text-sm text-red-700">{translateApiError(tiersError)}</Text>
+                <Text className="text-sm text-red-700 dark:text-red-400">{translateApiError(tiersError)}</Text>
                 <Button outline onClick={onRetryTiers} disabled={submitting}>
                   تلاش مجدد
                 </Button>
@@ -111,7 +111,7 @@ export function ApproveDialog({
               onChange={(event) => setReviewNotes(event.target.value)}
               disabled={submitting}
             />
-            <Text className="text-xs text-zinc-500">
+            <Text className="text-xs text-muted">
               {reviewNotes.length}/{REVIEW_NOTES_MAX} — این یادداشت فقط برای بررسی‌کنندگان نمایش
               داده می‌شود.
             </Text>

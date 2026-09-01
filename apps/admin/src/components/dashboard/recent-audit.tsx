@@ -12,6 +12,7 @@ import {
 import { Badge } from '../catalyst/badge'
 import { auditActionLabel, auditEntityLabel } from '../../lib/audit-labels'
 import { formatDateTime } from '../../lib/format'
+import { TableCard } from '../ui/table-card'
 
 function actorName(
   actor: DashboardRecentAudit['actor'],
@@ -24,7 +25,7 @@ function actorName(
 
 export function RecentAudit({ entries }: { entries: DashboardRecentAudit[] }) {
   return (
-    <section className="rounded-lg border border-border bg-white p-4">
+    <TableCard>
       <div className="mb-4 flex items-center justify-between gap-4">
         <Subheading>فعالیت‌های اخیر</Subheading>
         <Button plain href="/audit">
@@ -32,7 +33,7 @@ export function RecentAudit({ entries }: { entries: DashboardRecentAudit[] }) {
         </Button>
       </div>
       {entries.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-border bg-background px-4 py-10 text-center text-sm/6 text-dust-200">
+        <p className="rounded-lg border border-dashed border-border bg-background px-4 py-10 text-center text-sm/6 text-muted">
           هنوز فعالیتی ثبت نشده است.
         </p>
       ) : (
@@ -48,14 +49,14 @@ export function RecentAudit({ entries }: { entries: DashboardRecentAudit[] }) {
           <TableBody>
             {entries.map((entry) => (
               <TableRow key={entry.id}>
-                <TableCell className="text-zinc-500">
+                <TableCell className="text-muted">
                   {formatDateTime(entry.createdAt)}
                 </TableCell>
-                <TableCell className="text-zinc-500">{actorName(entry.actor)}</TableCell>
+                <TableCell className="text-muted">{actorName(entry.actor)}</TableCell>
                 <TableCell>
                   <Badge>{auditActionLabel(entry.action)}</Badge>
                 </TableCell>
-                <TableCell className="text-zinc-500">
+                <TableCell className="text-muted">
                   {auditEntityLabel(entry.entity)}
                 </TableCell>
               </TableRow>
@@ -63,6 +64,6 @@ export function RecentAudit({ entries }: { entries: DashboardRecentAudit[] }) {
           </TableBody>
         </Table>
       )}
-    </section>
+    </TableCard>
   )
 }

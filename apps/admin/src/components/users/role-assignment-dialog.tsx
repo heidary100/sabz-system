@@ -68,7 +68,7 @@ export function RoleAssignmentDialog({
       <AlertBody>
         <div className="space-y-5">
           <div>
-            <Text className="text-sm font-medium text-zinc-950">نقش‌های فعلی</Text>
+            <Text className="text-sm font-medium text-foreground">نقش‌های فعلی</Text>
             {user.roles.length === 0 ? (
               <Text className="mt-1">هیچ نقشی تخصیص نیافته است.</Text>
             ) : (
@@ -86,12 +86,12 @@ export function RoleAssignmentDialog({
           </div>
 
           {isSelf ? (
-            <Text className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            <Text className="warning-box rounded-lg px-3 py-2 text-sm">
               امکان تغییر نقش خودتان وجود ندارد.
             </Text>
           ) : rolesError ? (
             <div className="space-y-2">
-              <Text className="text-sm text-red-700">{translateApiError(rolesError)}</Text>
+              <Text className="text-sm text-red-700 dark:text-red-400">{translateApiError(rolesError)}</Text>
               <Button outline onClick={onRetryRoles} disabled={submitting}>
                 تلاش مجدد
               </Button>
@@ -100,7 +100,7 @@ export function RoleAssignmentDialog({
             <Text>در حال بارگذاری نقش‌ها…</Text>
           ) : (
             <div>
-              <Text className="text-sm font-medium text-zinc-950">افزودن نقش</Text>
+              <Text className="text-sm font-medium text-foreground">افزودن نقش</Text>
               {assignableRoles.length === 0 ? (
                 <Text className="mt-1">همه نقش‌های موجود قبلاً تخصیص یافته است.</Text>
               ) : (

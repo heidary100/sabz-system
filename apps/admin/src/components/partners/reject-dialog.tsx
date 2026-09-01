@@ -77,7 +77,7 @@ export function RejectDialog({
               onChange={(event) => setReason(event.target.value)}
               disabled={submitting}
             />
-            <Text className="text-xs text-zinc-500">
+            <Text className="text-xs text-muted">
               {reason.length}/{REASON_MAX}
             </Text>
           </Field>
@@ -92,7 +92,7 @@ export function RejectDialog({
               onChange={(event) => setReviewNotes(event.target.value)}
               disabled={submitting}
             />
-            <Text className="text-xs text-zinc-500">
+            <Text className="text-xs text-muted">
               {reviewNotes.length}/{REVIEW_NOTES_MAX} — این یادداشت فقط برای بررسی‌کنندگان نمایش
               داده می‌شود.
             </Text>

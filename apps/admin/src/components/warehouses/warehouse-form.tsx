@@ -135,7 +135,7 @@ export function WarehouseForm({
           <Loading compact label="در حال بارگذاری اطلاعات…" />
         ) : detailError ? (
           <div className="flex flex-col items-center gap-4 rounded-lg border border-border bg-background px-6 py-8 text-center">
-            <p className="text-sm/6 text-dust-200">{detailError}</p>
+            <p className="text-sm/6 text-muted">{detailError}</p>
             <Button outline onClick={() => void loadDetail()}>
               تلاش مجدد
             </Button>
@@ -175,7 +175,7 @@ export function WarehouseForm({
                 onChange={(event) => setAddress(event.target.value)}
                 disabled={submitting}
               />
-              <Text className="text-xs text-zinc-500">{address.length}/1000</Text>
+              <Text className="text-xs text-muted">{address.length}/1000</Text>
             </Field>
 
             <Field>

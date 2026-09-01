@@ -11,6 +11,7 @@ import {
   TableRow,
 } from '../catalyst/table'
 import { StatusBadge } from '../partners/status-badge'
+import { TableCard } from '../ui/table-card'
 import { formatDate } from '../../lib/format'
 
 export function RecentPartners({ partners }: { partners: AdminPartnerListItem[] }) {
@@ -22,7 +23,7 @@ export function RecentPartners({ partners }: { partners: AdminPartnerListItem[] 
   }
 
   return (
-    <section className="rounded-lg border border-border bg-white p-4">
+    <TableCard>
       <div className="mb-4 flex items-center justify-between gap-4">
         <Subheading>درخواست‌های اخیر همکاری</Subheading>
         <Button plain href="/partners">
@@ -30,7 +31,7 @@ export function RecentPartners({ partners }: { partners: AdminPartnerListItem[] 
         </Button>
       </div>
       {partners.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-border bg-background px-4 py-10 text-center text-sm/6 text-dust-200">
+        <p className="rounded-lg border border-dashed border-border bg-background px-4 py-10 text-center text-sm/6 text-muted">
           درخواست جدیدی ثبت نشده است.
         </p>
       ) : (
@@ -51,16 +52,16 @@ export function RecentPartners({ partners }: { partners: AdminPartnerListItem[] 
                 title={`مشاهده ${partner.businessName}`}
                 onNavigate={openPartner(partner.id)}
               >
-                <TableCell className="font-medium text-zinc-950">
+                <TableCell className="font-medium text-foreground">
                   {partner.businessName}
                 </TableCell>
                 <TableCell>
                   <StatusBadge status={partner.approvalStatus} />
                 </TableCell>
-                <TableCell className="text-zinc-500">
+                <TableCell className="text-muted">
                   {[partner.province, partner.city].filter(Boolean).join('، ') || '—'}
                 </TableCell>
-                <TableCell className="text-zinc-500">
+                <TableCell className="text-muted">
                   {formatDate(partner.submittedAt ?? partner.createdAt)}
                 </TableCell>
               </TableRow>
@@ -68,6 +69,6 @@ export function RecentPartners({ partners }: { partners: AdminPartnerListItem[] 
           </TableBody>
         </Table>
       )}
-    </section>
+    </TableCard>
   )
 }

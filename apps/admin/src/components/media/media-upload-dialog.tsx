@@ -117,15 +117,15 @@ export function MediaUploadDialog({
               accept="image/jpeg,image/png,image/webp,video/mp4"
               onChange={handleFileChange}
               disabled={submitting}
-              className="block w-full rounded-lg border border-zinc-950/10 bg-transparent px-3 py-2 text-sm/6 text-zinc-950 data-disabled:opacity-50 dark:border-white/10 dark:text-white"
+              className="block w-full rounded-lg border border-zinc-950/10 bg-transparent px-3 py-2 text-sm/6 text-foreground data-disabled:opacity-50 dark:border-white/15 dark:text-white"
             />
             {file ? (
-              <Text className="text-xs text-zinc-500">
+              <Text className="text-xs text-muted">
                 <span dir="ltr">{file.name}</span> · <span dir="ltr">{file.type || 'نوع نامشخص'}</span> ·{' '}
                 {formatFileSize(file.size)}
               </Text>
             ) : (
-              <Text className="text-xs text-zinc-500">فایلی انتخاب نشده است.</Text>
+              <Text className="text-xs text-muted">فایلی انتخاب نشده است.</Text>
             )}
           </Field>
 
@@ -144,7 +144,7 @@ export function MediaUploadDialog({
                 </option>
               ))}
             </Select>
-            <Text className="text-xs text-zinc-500">
+            <Text className="text-xs text-muted">
               اختیاری؛ رسانه فقط به واریانتهای همین محصول قابل انتساب است.
             </Text>
           </Field>

@@ -56,7 +56,7 @@ export function ReleaseReservationDialog({
           : 'مشخصات رزرو در دسترس نیست.'}
       </AlertDescription>
       <AlertBody>
-        <p className="text-sm/6 text-zinc-500">
+        <p className="text-sm/6 text-muted">
           رزرو آزاد می‌شود و موجودی قابل عرضه بازیابی خواهد شد.
         </p>
         {error && <ErrorMessage>{error}</ErrorMessage>}

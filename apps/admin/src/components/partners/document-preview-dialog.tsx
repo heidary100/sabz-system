@@ -105,20 +105,20 @@ export function DocumentPreviewDialog({
               aria-hidden="true"
               className="size-8 animate-spin rounded-full border-2 border-hunter-800 border-t-primary"
             />
-            <span className="text-sm font-medium text-dust-200">در حال بارگذاری سند…</span>
+            <span className="text-sm font-medium text-muted">در حال بارگذاری سند…</span>
           </div>
         ) : error ? (
-          <Text className="text-red-700">{error}</Text>
+          <Text className="text-red-700 dark:text-red-400">{error}</Text>
         ) : objectUrl ? (
           previewable ? (
             document.mimeType === 'application/pdf' ? (
               <iframe
                 title={document.originalName}
                 src={objectUrl}
-                className="h-[28rem] w-full rounded-lg border border-border bg-white"
+                className="h-[28rem] w-full rounded-lg border border-border bg-surface"
               />
             ) : (
-              <div className="flex justify-center bg-white p-4">
+              <div className="flex justify-center bg-surface p-4">
                 <img
                   src={objectUrl}
                   alt={document.originalName}

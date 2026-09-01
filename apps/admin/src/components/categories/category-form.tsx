@@ -111,7 +111,7 @@ export function CategoryForm({
               onChange={(event) => setSlug(event.target.value)}
               disabled={submitting}
             />
-            <Text className="text-xs text-zinc-500">
+            <Text className="text-xs text-muted">
               فقط حروف انگلیسی کوچک، اعداد و خط تیره.
             </Text>
           </Field>

@@ -1,11 +1,13 @@
 import { useRoles } from '../hooks/use-roles'
 import { translateApiError } from '../lib/error-messages'
 import { ROLE_LABELS } from '../lib/user-labels'
+import { ShieldCheck } from 'lucide-react'
 import { Button } from '../components/catalyst/button'
-import { Heading, Subheading } from '../components/catalyst/heading'
+import { Subheading } from '../components/catalyst/heading'
 import { Text } from '../components/catalyst/text'
 import { EmptyState } from '../components/ui/empty-state'
 import { Loading } from '../components/ui/loading'
+import { PageHeader } from '../components/ui/page-header'
 
 export function RolesPage() {
   const { roles, loading, error, refetch } = useRoles()
@@ -17,8 +19,8 @@ export function RolesPage() {
   if (error) {
     return (
       <div className="mx-auto max-w-6xl space-y-6">
-        <div className="flex flex-col items-center gap-4 rounded-lg border border-border bg-white px-6 py-16 text-center">
-          <p className="text-sm/6 text-dust-200">{translateApiError(error)}</p>
+        <div className="glass flex flex-col items-center gap-4 rounded-xl px-6 py-16 text-center">
+          <p className="text-sm/6 text-muted">{translateApiError(error)}</p>
           <Button color="primary" onClick={() => void refetch()}>
             تلاش مجدد
           </Button>
@@ -30,22 +32,26 @@ export function RolesPage() {
   if (roles.length === 0) {
     return (
       <div className="mx-auto max-w-6xl space-y-6">
-        <Heading level={1}>نقش‌ها</Heading>
-        <EmptyState title="نقشی یافت نشد" description="هیچ نقشی در سامانه تعریف نشده است." />
+        <PageHeader title="نقش‌ها" />
+        <EmptyState
+          title="نقشی یافت نشد"
+          description="هیچ نقشی در سامانه تعریف نشده است."
+          icon={<ShieldCheck className="size-6" aria-hidden="true" />}
+        />
       </div>
     )
   }
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
-      <Heading level={1}>نقش‌ها</Heading>
+      <PageHeader title="نقش‌ها" />
       <div className="grid gap-6 lg:grid-cols-2">
         {roles.map((role) => (
-          <section key={role.id} className="rounded-lg border border-border bg-white p-6">
+          <section key={role.id} className="rounded-xl border border-border bg-surface p-5 sm:p-6">
             <Subheading>{ROLE_LABELS[role.name]}</Subheading>
             <Text className="mt-3">{role.description || '—'}</Text>
             <div className="mt-4">
-              <Text className="text-sm font-medium text-zinc-950">مجوزها</Text>
+              <Text className="text-sm font-medium text-foreground">مجوزها</Text>
               {role.permissions.length === 0 ? (
                 <Text className="mt-1">بدون مجوز</Text>
               ) : (

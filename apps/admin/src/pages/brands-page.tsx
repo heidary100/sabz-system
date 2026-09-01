@@ -2,8 +2,9 @@ import { useState } from 'react'
 import type { BrandSummary } from '@sabz/types'
 import { useBrandList } from '../hooks/use-brand-list'
 import { translateApiError } from '../lib/error-messages'
+import { pageNumbers } from '../lib/pagination'
+import { Pencil, Plus, Tag, Trash2 } from 'lucide-react'
 import { Button } from '../components/catalyst/button'
-import { Heading } from '../components/catalyst/heading'
 import { Text } from '../components/catalyst/text'
 import {
   Table,
@@ -15,6 +16,8 @@ import {
 } from '../components/catalyst/table'
 import { EmptyState } from '../components/ui/empty-state'
 import { Loading } from '../components/ui/loading'
+import { PageHeader } from '../components/ui/page-header'
+import { TableCard } from '../components/ui/table-card'
 import {
   Pagination,
   PaginationGap,
@@ -26,25 +29,6 @@ import {
 import { DeleteConfirmDialog } from '../components/ui/delete-confirm-dialog'
 import { BrandForm } from '../components/brands/brand-form'
 import { deleteBrand } from '../services/brands'
-
-function pageNumbers(current: number, totalPages: number): (number | 'gap')[] {
-  if (totalPages <= 7) {
-    return Array.from({ length: totalPages }, (_, index) => index + 1)
-  }
-
-  const pages: (number | 'gap')[] = [1]
-  if (current > 3) {
-    pages.push('gap')
-  }
-  for (let page = Math.max(2, current - 1); page <= Math.min(totalPages - 1, current + 1); page++) {
-    pages.push(page)
-  }
-  if (current < totalPages - 2) {
-    pages.push('gap')
-  }
-  pages.push(totalPages)
-  return pages
-}
 
 export function BrandsPage() {
   const { page, limit, result, loading, error, setPage, refetch } = useBrandList()
@@ -81,24 +65,28 @@ export function BrandsPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
-      <div className="flex items-center justify-between">
-        <Heading level={1}>برندها</Heading>
-        <Button color="primary" onClick={openCreate}>
-          افزودن برند
-        </Button>
-      </div>
+      <PageHeader
+        title="برندها"
+        actions={
+          <Button color="primary" onClick={openCreate}>
+            <Plus data-slot="icon" />
+            افزودن برند
+          </Button>
+        }
+      />
 
       {loading && !result ? (
         <Loading compact label="در حال بارگذاری…" />
       ) : error ? (
-        <div className="flex flex-col items-center gap-4 rounded-lg border border-border bg-white px-6 py-16 text-center">
-          <p className="text-sm/6 text-dust-200">{translateApiError(error)}</p>
+        <div className="glass flex flex-col items-center gap-4 rounded-xl px-6 py-16 text-center">
+          <p className="text-sm/6 text-muted">{translateApiError(error)}</p>
           <Button color="primary" onClick={() => void refetch()}>
             تلاش مجدد
           </Button>
         </div>
       ) : !result || result.items.length === 0 ? (
         <EmptyState
+          icon={<Tag />}
           title="برندی یافت نشد"
           description="هنوز برندی ثبت نشده است."
           actions={
@@ -108,7 +96,7 @@ export function BrandsPage() {
           }
         />
       ) : (
-        <div className="rounded-lg border border-border bg-white p-4">
+        <TableCard>
           <Table striped>
             <TableHead>
               <TableRow>
@@ -121,19 +109,21 @@ export function BrandsPage() {
             <TableBody>
               {result.items.map((brand) => (
                 <TableRow key={brand.id}>
-                  <TableCell className="font-medium text-zinc-950">
+                  <TableCell className="font-medium text-foreground">
                     {brand.name}
                   </TableCell>
-                  <TableCell dir="ltr" className="text-zinc-500">
+                  <TableCell dir="ltr" className="text-muted">
                     {brand.slug}
                   </TableCell>
-                  <TableCell className="text-zinc-500">{brand.description ?? '—'}</TableCell>
+                  <TableCell className="text-muted">{brand.description ?? '—'}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <Button plain onClick={() => openEdit(brand)}>
+                        <Pencil data-slot="icon" />
                         ویرایش
                       </Button>
                       <Button outline onClick={() => setDeleting(brand)}>
+                        <Trash2 data-slot="icon" />
                         حذف
                       </Button>
                     </div>
@@ -171,7 +161,7 @@ export function BrandsPage() {
               />
             </Pagination>
           </div>
-        </div>
+        </TableCard>
       )}
 
       {loading && result && (
@@ -180,11 +170,11 @@ export function BrandsPage() {
             aria-hidden="true"
             className="size-5 animate-spin rounded-full border-2 border-hunter-800 border-t-primary"
           />
-          <span className="text-sm font-medium text-dust-200">در حال بارگذاری…</span>
+          <span className="text-sm font-medium text-muted">در حال بارگذاری…</span>
         </div>
       )}
 
-      <Text className="text-xs text-dust-200">
+      <Text className="text-xs text-muted">
         {result ? `مجموع: ${result.total} برند · ${limit} مورد در هر صفحه` : ''}
       </Text>
 

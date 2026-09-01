@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { ArrowRight, Boxes } from 'lucide-react'
 import type { InventoryItemSummary } from '@sabz/types'
 import { useVariantInventory } from '../hooks/use-variant-inventory'
 import { translateApiError } from '../lib/error-messages'
@@ -15,6 +16,7 @@ import {
 } from '../components/catalyst/table'
 import { EmptyState } from '../components/ui/empty-state'
 import { Loading } from '../components/ui/loading'
+import { TableCard } from '../components/ui/table-card'
 import { Text } from '../components/catalyst/text'
 import { InventoryStockStatusBadge } from '../components/inventory/inventory-stock-status-badge'
 import { ReceiveStockDialog } from '../components/inventory/receive-stock-dialog'
@@ -39,12 +41,16 @@ export function VariantInventoryPage() {
   if (error && !rows) {
     return (
       <div className="mx-auto max-w-6xl space-y-6">
-        <div className="flex flex-col items-center gap-4 rounded-lg border border-border bg-white px-6 py-16 text-center">
-          <p className="text-sm/6 text-dust-200">{translateApiError(error)}</p>
+        <div className="glass flex flex-col items-center gap-4 rounded-xl px-6 py-16 text-center">
+          <p className="text-sm/6 text-muted">{translateApiError(error)}</p>
           <Button color="primary" onClick={() => void refetch()}>
             تلاش مجدد
           </Button>
-          <Link to="/inventory" className="text-sm font-medium text-primary hover:underline">
+          <Link
+            to="/inventory"
+            className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+          >
+            <ArrowRight className="size-4" data-slot="icon" />
             بازگشت به موجودی
           </Link>
         </div>
@@ -64,15 +70,19 @@ export function VariantInventoryPage() {
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <div className="space-y-2">
-        <Link to="/inventory" className="text-sm font-medium text-primary hover:underline">
+        <Link
+          to="/inventory"
+          className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+        >
+          <ArrowRight className="size-4" data-slot="icon" />
           بازگشت به موجودی
         </Link>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <Heading level={1}>موجودی واریانت</Heading>
             {variantRef && (
-              <Text className="text-sm text-dust-200">
-                <span dir="ltr" className="font-medium text-zinc-950">
+              <Text className="text-sm text-muted">
+                <span dir="ltr" className="font-medium text-foreground">
                   {variantRef.sku}
                 </span>
                 {variantRef.name ? ` · ${variantRef.name}` : ''}
@@ -106,9 +116,10 @@ export function VariantInventoryPage() {
               ? `برای واریانت ${variantRef.sku} در هیچ انبار فعالی موجودی ثبت نشده است.`
               : 'برای این واریانت در هیچ انبار فعالی موجودی ثبت نشده است.'
           }
+          icon={<Boxes className="size-6" />}
         />
       ) : (
-        <div className="rounded-lg border border-border bg-white p-4">
+        <TableCard>
           <Table striped>
             <TableHead>
               <TableRow>
@@ -123,7 +134,7 @@ export function VariantInventoryPage() {
             <TableBody>
               {rows.map((item) => (
                 <TableRow key={item.id}>
-                  <TableCell className="text-zinc-500">
+                  <TableCell className="text-muted">
                     <Link
                       to={`/inventory/warehouses/${item.warehouse.id}`}
                       className="font-medium text-primary hover:underline"
@@ -131,13 +142,13 @@ export function VariantInventoryPage() {
                       {item.warehouse.name}
                     </Link>
                   </TableCell>
-                  <TableCell dir="ltr" className="tabular-nums text-zinc-500">
+                  <TableCell dir="ltr" className="tabular-nums text-muted">
                     {item.quantityOnHand}
                   </TableCell>
-                  <TableCell dir="ltr" className="tabular-nums text-zinc-500">
+                  <TableCell dir="ltr" className="tabular-nums text-muted">
                     {item.quantityReserved}
                   </TableCell>
-                  <TableCell dir="ltr" className="tabular-nums text-zinc-500">
+                  <TableCell dir="ltr" className="tabular-nums text-muted">
                     {item.available}
                   </TableCell>
                   <TableCell>
@@ -160,7 +171,7 @@ export function VariantInventoryPage() {
               ))}
             </TableBody>
           </Table>
-        </div>
+        </TableCard>
       )}
 
       {loading && rows && (
@@ -169,7 +180,7 @@ export function VariantInventoryPage() {
             aria-hidden="true"
             className="size-5 animate-spin rounded-full border-2 border-hunter-800 border-t-primary"
           />
-          <span className="text-sm font-medium text-dust-200">در حال بارگذاری…</span>
+          <span className="text-sm font-medium text-muted">در حال بارگذاری…</span>
         </div>
       )}
 

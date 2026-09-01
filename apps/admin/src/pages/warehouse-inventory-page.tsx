@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { ArrowRight, Boxes } from 'lucide-react'
 import type { InventoryItemSummary } from '@sabz/types'
 import { useWarehouseInventory } from '../hooks/use-warehouse-inventory'
 import { translateApiError } from '../lib/error-messages'
+import { pageNumbers } from '../lib/pagination'
 import { Button } from '../components/catalyst/button'
 import { Heading } from '../components/catalyst/heading'
 import {
@@ -15,6 +17,7 @@ import {
 } from '../components/catalyst/table'
 import { EmptyState } from '../components/ui/empty-state'
 import { Loading } from '../components/ui/loading'
+import { TableCard } from '../components/ui/table-card'
 import {
   Pagination,
   PaginationGap,
@@ -30,25 +33,6 @@ import { AdjustInventoryDialog } from '../components/inventory/adjust-inventory-
 import { ReserveInventoryDialog } from '../components/inventory/reserve-inventory-dialog'
 
 type MutationTarget = { mode: 'receive' | 'adjust' | 'reserve'; item: InventoryItemSummary }
-
-function pageNumbers(current: number, totalPages: number): (number | 'gap')[] {
-  if (totalPages <= 7) {
-    return Array.from({ length: totalPages }, (_, index) => index + 1)
-  }
-
-  const pages: (number | 'gap')[] = [1]
-  if (current > 3) {
-    pages.push('gap')
-  }
-  for (let page = Math.max(2, current - 1); page <= Math.min(totalPages - 1, current + 1); page++) {
-    pages.push(page)
-  }
-  if (current < totalPages - 2) {
-    pages.push('gap')
-  }
-  pages.push(totalPages)
-  return pages
-}
 
 export function WarehouseInventoryPage() {
   const { warehouseId } = useParams<{ warehouseId: string }>()
@@ -69,12 +53,16 @@ export function WarehouseInventoryPage() {
   if (error && !result) {
     return (
       <div className="mx-auto max-w-6xl space-y-6">
-        <div className="flex flex-col items-center gap-4 rounded-lg border border-border bg-white px-6 py-16 text-center">
-          <p className="text-sm/6 text-dust-200">{translateApiError(error)}</p>
+        <div className="glass flex flex-col items-center gap-4 rounded-xl px-6 py-16 text-center">
+          <p className="text-sm/6 text-muted">{translateApiError(error)}</p>
           <Button color="primary" onClick={() => void refetch()}>
             تلاش مجدد
           </Button>
-          <Link to="/inventory" className="text-sm font-medium text-primary hover:underline">
+          <Link
+            to="/inventory"
+            className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+          >
+            <ArrowRight className="size-4" data-slot="icon" />
             بازگشت به موجودی
           </Link>
         </div>
@@ -94,15 +82,19 @@ export function WarehouseInventoryPage() {
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <div className="space-y-2">
-        <Link to="/inventory" className="text-sm font-medium text-primary hover:underline">
+        <Link
+          to="/inventory"
+          className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+        >
+          <ArrowRight className="size-4" data-slot="icon" />
           بازگشت به موجودی
         </Link>
         <Heading level={1}>
           {warehouseRef ? `موجودی انبار «${warehouseRef.name}»` : 'موجودی انبار'}
         </Heading>
         {warehouseRef && (
-          <Text className="text-sm text-dust-200">
-            کد انبار: <span dir="ltr" className="font-medium text-zinc-950">{warehouseRef.code}</span>
+          <Text className="text-sm text-muted">
+            کد انبار: <span dir="ltr" className="font-medium text-foreground">{warehouseRef.code}</span>
           </Text>
         )}
       </div>
@@ -115,9 +107,10 @@ export function WarehouseInventoryPage() {
               ? `در انبار «${warehouseRef.name}» موجودی ثبت نشده است.`
               : 'در این انبار موجودی ثبت نشده است.'
           }
+          icon={<Boxes className="size-6" />}
         />
       ) : (
-        <div className="rounded-lg border border-border bg-white p-4">
+        <TableCard>
           <Table striped>
             <TableHead>
               <TableRow>
@@ -133,10 +126,10 @@ export function WarehouseInventoryPage() {
             <TableBody>
               {result.items.map((item) => (
                 <TableRow key={item.id}>
-                  <TableCell dir="ltr" className="font-medium text-zinc-950">
+                  <TableCell dir="ltr" className="font-medium text-foreground">
                     {item.variant.sku}
                   </TableCell>
-                  <TableCell className="text-zinc-500">
+                  <TableCell className="text-muted">
                     <Link
                       to={`/inventory/variants/${item.variant.id}`}
                       className="font-medium text-primary hover:underline"
@@ -144,13 +137,13 @@ export function WarehouseInventoryPage() {
                       {item.variant.name ?? '—'}
                     </Link>
                   </TableCell>
-                  <TableCell dir="ltr" className="tabular-nums text-zinc-500">
+                  <TableCell dir="ltr" className="tabular-nums text-muted">
                     {item.quantityOnHand}
                   </TableCell>
-                  <TableCell dir="ltr" className="tabular-nums text-zinc-500">
+                  <TableCell dir="ltr" className="tabular-nums text-muted">
                     {item.quantityReserved}
                   </TableCell>
-                  <TableCell dir="ltr" className="tabular-nums text-zinc-500">
+                  <TableCell dir="ltr" className="tabular-nums text-muted">
                     {item.available}
                   </TableCell>
                   <TableCell>
@@ -202,7 +195,7 @@ export function WarehouseInventoryPage() {
               />
             </Pagination>
           </div>
-        </div>
+        </TableCard>
       )}
 
       {loading && result && (
@@ -211,11 +204,11 @@ export function WarehouseInventoryPage() {
             aria-hidden="true"
             className="size-5 animate-spin rounded-full border-2 border-hunter-800 border-t-primary"
           />
-          <span className="text-sm font-medium text-dust-200">در حال بارگذاری…</span>
+          <span className="text-sm font-medium text-muted">در حال بارگذاری…</span>
         </div>
       )}
 
-      <Text className="text-xs text-dust-200">
+      <Text className="text-xs text-muted">
         {result ? `مجموع: ${result.total} مورد · ${limit} مورد در هر صفحه` : ''}
       </Text>
 

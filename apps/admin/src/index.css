@@ -1,8 +1,7 @@
 @import 'tailwindcss';
 
-/* The admin application is light-only. Keep the Catalyst dark: variants
-   inert instead of following the OS color scheme, otherwise users with a
-   dark-mode system get white text on the light UI. */
+/* Class-based dark mode: the `.dark` class on <html> is applied by the
+   inline script in index.html (before render) and by the theme toggle. */
 @variant dark (&:where(.dark, .dark *));
 
 @theme {
@@ -39,16 +38,19 @@
   --color-fern-800: #b9cfb9;
   --color-fern-900: #dce7dc;
 
-  /* Hunter Green (100 = darkest) */
-  --color-hunter-100: #0c120d;
-  --color-hunter-200: #172419;
-  --color-hunter-300: #233626;
-  --color-hunter-400: #2e4833;
-  --color-hunter-500: #3a5a40;
-  --color-hunter-600: #56865f;
-  --color-hunter-700: #7aaa83;
-  --color-hunter-800: #a7c7ac;
-  --color-hunter-900: #d3e3d6;
+  /* Hunter Green (100 = darkest) — the vibrant Sabz brand ramp. The
+     mid tones carry the primary action color (#35703f); the light end
+     provides the mint tints used for active navigation, links and
+     focus states in dark mode. */
+  --color-hunter-100: #0b1410;
+  --color-hunter-200: #10241a;
+  --color-hunter-300: #163a25;
+  --color-hunter-400: #1f4d2e;
+  --color-hunter-500: #35703f;
+  --color-hunter-600: #4c8a57;
+  --color-hunter-700: #74a87c;
+  --color-hunter-800: #a6c8a9;
+  --color-hunter-900: #d8e8da;
 
   /* Pine Teal (100 = darkest) */
   --color-pine-teal-100: #0a0f0d;
@@ -60,15 +62,6 @@
   --color-pine-teal-700: #75a38c;
   --color-pine-teal-800: #a3c2b3;
   --color-pine-teal-900: #d1e0d9;
-
-  /* Brand aliases */
-  --color-primary: #3a5a40;
-  --color-primary-dark: #344e41;
-  --color-secondary: #588157;
-  --color-accent: #a3b18a;
-  --color-background: #f8f7f5;
-  --color-foreground: #312e24;
-  --color-border: #dad7cd;
 
   /* Remap the neutral scale so the Catalyst kit uses the Dust Grey ramp.
      The provided ramp is inverted vs. Tailwind (100 = darkest), and the
@@ -88,24 +81,225 @@
   --color-zinc-900: #24211a;
   --color-zinc-950: #171510;
 
+  /* Semantic status scales. Remapped from the stock Tailwind hues so every
+     existing usage — status badges, stat cards, validation messages, error
+     boxes, destructive buttons, invalid inputs — shares one coordinated
+     system. Each family carries its own light/dark readable pairs via the
+     existing `dark:` variants in the shared components.
+       green  = success (vibrant, brand-adjacent)
+       amber  = warning (olive-gold)
+       orange = warning (alias of the same family)
+       red    = danger (warm, unmistakable)
+       sky    = info (teal-blue, the fourth status hue)
+  */
+  --color-green-50: #f2f8f1;
+  --color-green-100: #e2efe1;
+  --color-green-200: #c4dfc4;
+  --color-green-300: #98c79b;
+  --color-green-400: #63ab6b;
+  --color-green-500: #3d9450;
+  --color-green-600: #2f7c42;
+  --color-green-700: #276635;
+  --color-green-800: #1f5230;
+  --color-green-900: #173d25;
+  --color-green-950: #0c2a17;
+
+  --color-amber-50: #fbf6e9;
+  --color-amber-100: #f6ebcd;
+  --color-amber-200: #edd69a;
+  --color-amber-300: #e0bc63;
+  --color-amber-400: #d9a441;
+  --color-amber-500: #c78f2f;
+  --color-amber-600: #a8741f;
+  --color-amber-700: #855516;
+  --color-amber-800: #6e4a14;
+  --color-amber-900: #52360f;
+  --color-amber-950: #382507;
+
+  --color-orange-50: #fbf6e9;
+  --color-orange-100: #f6ebcd;
+  --color-orange-200: #edd69a;
+  --color-orange-300: #e0bc63;
+  --color-orange-400: #d9a441;
+  --color-orange-500: #c78f2f;
+  --color-orange-600: #a8741f;
+  --color-orange-700: #855516;
+  --color-orange-800: #6e4a14;
+  --color-orange-900: #52360f;
+  --color-orange-950: #382507;
+
+  --color-red-50: #fdf1f0;
+  --color-red-100: #fbe0de;
+  --color-red-200: #f5c2be;
+  --color-red-300: #ec9891;
+  --color-red-400: #e5655f;
+  --color-red-500: #d94a44;
+  --color-red-600: #c1352f;
+  --color-red-700: #a32823;
+  --color-red-800: #8a201c;
+  --color-red-900: #6d1a17;
+  --color-red-950: #4a110e;
+
+  --color-sky-50: #eef6f8;
+  --color-sky-100: #dcecf1;
+  --color-sky-200: #b9dae3;
+  --color-sky-300: #8ec2d0;
+  --color-sky-400: #5ba3b8;
+  --color-sky-500: #3d8da6;
+  --color-sky-600: #2f7489;
+  --color-sky-700: #275e6f;
+  --color-sky-800: #1f4857;
+  --color-sky-900: #173541;
+  --color-sky-950: #0d2129;
+
   /* Remap the blue shades used by Catalyst focus rings and links to the
-     brand greens; red stays reserved for semantic errors. */
-  --color-blue-300: #96b795;
-  --color-blue-400: #739f72;
-  --color-blue-500: #56865f;
-  --color-blue-600: #3a5a40;
-  --color-blue-700: #2e4833;
+     brand primary so keyboard focus always speaks in the brand color. */
+  --color-blue-300: #74a87c;
+  --color-blue-400: #4c8a57;
+  --color-blue-500: #35703f;
+  --color-blue-600: #2e6136;
+  --color-blue-700: #285431;
 
   --font-sans:
     'Vazirmatn Variable', 'Vazirmatn', ui-sans-serif, system-ui, -apple-system,
     'Segoe UI', sans-serif;
 }
 
-@layer base {
-  :root {
-    color-scheme: light;
-  }
+/* Semantic brand tokens. `inline` keeps the light/dark values live: the
+   `--sabz-*` variables below flip under `.dark`, so classes like
+   `bg-background`, `text-foreground`, `border-border`, `bg-surface`,
+   `text-muted`, `bg-primary-subtle` and `text-danger` adapt automatically
+   in both themes. */
+@theme inline {
+  --color-background: var(--sabz-background);
+  --color-foreground: var(--sabz-foreground);
+  --color-border: var(--sabz-border);
+  --color-surface: var(--sabz-surface);
+  --color-surface-strong: var(--sabz-surface-strong);
+  --color-glass: var(--sabz-glass);
+  --color-glass-border: var(--sabz-glass-border);
+  --color-muted: var(--sabz-muted);
 
+  /* Brand primary family: `primary` is for text/icons/links (mint in dark
+     mode), `primary-strong` is the button fill (mid green in both themes),
+     `primary-subtle`/`primary-border` tint selected and hovered states. */
+  --color-primary: var(--sabz-primary);
+  --color-primary-hover: var(--sabz-primary-hover);
+  --color-primary-active: var(--sabz-primary-active);
+  --color-primary-strong: var(--sabz-primary-strong);
+  --color-primary-strong-hover: var(--sabz-primary-strong-hover);
+  --color-primary-dark: var(--sabz-primary-dark);
+  --color-primary-subtle: var(--sabz-primary-subtle);
+  --color-primary-border: var(--sabz-primary-border);
+
+  --color-secondary: var(--sabz-secondary);
+  --color-accent: var(--sabz-accent);
+
+  /* Semantic status tokens (success/warning/danger/info). The scale remaps
+     above already carry the everyday usages; these tokens are the explicit
+     layer for subtle backgrounds, borders and text. */
+  --color-success: var(--sabz-success);
+  --color-success-subtle: var(--sabz-success-subtle);
+  --color-success-border: var(--sabz-success-border);
+  --color-warning: var(--sabz-warning);
+  --color-warning-subtle: var(--sabz-warning-subtle);
+  --color-warning-border: var(--sabz-warning-border);
+  --color-danger: var(--sabz-danger);
+  --color-danger-subtle: var(--sabz-danger-subtle);
+  --color-danger-border: var(--sabz-danger-border);
+  --color-info: var(--sabz-info);
+  --color-info-subtle: var(--sabz-info-subtle);
+  --color-info-border: var(--sabz-info-border);
+}
+
+:root {
+  color-scheme: light;
+
+  /* Neutral surfaces: the page sits on a warm stone, cards are subtly
+     off-white (never flat white), elevated surfaces and dialogs are pure
+     white. The glass carries a faint green cast from the brand. */
+  --sabz-background: #f6f5f1;
+  --sabz-foreground: #312e24;
+  --sabz-border: #e2dfd5;
+  --sabz-surface: #fbfaf7;
+  --sabz-surface-strong: #ffffff;
+  --sabz-glass: rgb(251 250 247 / 0.74);
+  --sabz-glass-border: rgb(53 112 63 / 0.12);
+  --sabz-muted: #615b48;
+
+  /* Brand primary — vibrant forest green for actions, links, focus. */
+  --sabz-primary: #35703f;
+  --sabz-primary-hover: #2e6136;
+  --sabz-primary-active: #285431;
+  --sabz-primary-strong: #35703f;
+  --sabz-primary-strong-hover: #2e6136;
+  --sabz-primary-dark: #2a5233;
+  --sabz-primary-subtle: rgb(53 112 63 / 0.12);
+  --sabz-primary-border: rgb(53 112 63 / 0.28);
+
+  --sabz-secondary: #4c8a57;
+  --sabz-accent: #a3b18a;
+
+  /* Semantic statuses. */
+  --sabz-success: #276635;
+  --sabz-success-subtle: #f2f8f1;
+  --sabz-success-border: #c4dfc4;
+  --sabz-warning: #855516;
+  --sabz-warning-subtle: #fbf6e9;
+  --sabz-warning-border: #edd69a;
+  --sabz-danger: #a32823;
+  --sabz-danger-subtle: #fdf1f0;
+  --sabz-danger-border: #f5c2be;
+  --sabz-info: #275e6f;
+  --sabz-info-subtle: #eef6f8;
+  --sabz-info-border: #b9dae3;
+}
+
+.dark {
+  color-scheme: dark;
+
+  /* Layered dark surfaces: deep warm background, one step up for cards,
+     a lighter step for elevated panels so the hierarchy stays visible.
+     The glass is a green-black cast rather than neutral black. */
+  --sabz-background: #141310;
+  --sabz-foreground: #e9e7e1;
+  --sabz-border: rgb(232 229 218 / 0.15);
+  --sabz-surface: #211f19;
+  --sabz-surface-strong: #28251e;
+  --sabz-glass: rgb(20 19 16 / 0.74);
+  --sabz-glass-border: rgb(142 203 150 / 0.14);
+  --sabz-muted: #b6b09c;
+
+  /* Brand primary — fresh mint for text/icons/links; the button fill drops
+     to a saturated mid green so white text keeps its contrast. */
+  --sabz-primary: #8ecb96;
+  --sabz-primary-hover: #9fd5a6;
+  --sabz-primary-active: #7cbe85;
+  --sabz-primary-strong: #45925a;
+  --sabz-primary-strong-hover: #50a066;
+  --sabz-primary-dark: #1f3a26;
+  --sabz-primary-subtle: rgb(69 146 90 / 0.14);
+  --sabz-primary-border: rgb(69 146 90 / 0.32);
+
+  --sabz-secondary: #74a87c;
+  --sabz-accent: #859865;
+
+  /* Semantic statuses — lighter foregrounds, translucent tints. */
+  --sabz-success: #63ab6b;
+  --sabz-success-subtle: rgb(61 148 80 / 0.12);
+  --sabz-success-border: rgb(99 171 107 / 0.35);
+  --sabz-warning: #d9a441;
+  --sabz-warning-subtle: rgb(217 164 65 / 0.12);
+  --sabz-warning-border: rgb(217 164 65 / 0.35);
+  --sabz-danger: #e5655f;
+  --sabz-danger-subtle: rgb(217 74 68 / 0.12);
+  --sabz-danger-border: rgb(229 101 95 / 0.35);
+  --sabz-info: #8ec2d0;
+  --sabz-info-subtle: rgb(61 141 166 / 0.12);
+  --sabz-info-border: rgb(142 194 208 / 0.35);
+}
+
+@layer base {
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
@@ -116,13 +310,55 @@
   ::selection {
     background-color: var(--color-hunter-800);
   }
+
+  .dark ::selection {
+    background-color: var(--color-hunter-600);
+  }
 }
 
 @layer components {
+  /* Glassmorphic surfaces — subtle, readability-first. Used on the sidebar,
+     header, login card, stat/empty/error cards and dialogs. Dense tables
+     and long forms stay on the near-solid `surface` token. */
+  .glass {
+    background-color: var(--sabz-glass);
+    border: 1px solid var(--sabz-glass-border);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow:
+      0 1px 2px rgb(0 0 0 / 0.04),
+      0 8px 24px rgb(0 0 0 / 0.06);
+  }
+
+  .glass-strong {
+    background-color: var(--sabz-surface);
+    border: 1px solid var(--sabz-glass-border);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    box-shadow:
+      0 1px 2px rgb(0 0 0 / 0.04),
+      0 12px 32px rgb(0 0 0 / 0.1);
+  }
+
+  /* Semantic notice boxes — one source for the repeated validation/error
+     pattern across pages and dialogs; both themes handled by the tokens. */
+  .danger-box {
+    background-color: var(--sabz-danger-subtle);
+    border: 1px solid var(--sabz-danger-border);
+    color: var(--sabz-danger);
+  }
+
+  .warning-box {
+    background-color: var(--sabz-warning-subtle);
+    border: 1px solid var(--sabz-warning-border);
+    color: var(--sabz-warning);
+  }
+
   /* Signature: Persian manuscript ruled margin (جدول).
      The content boundary is drawn as a double hairline rule, echoing the
      ruled frame of a traditional book page. Applied sparingly: the sidebar
-     edge and the login card crown. */
+     edge and the login card crown. Defined after `.glass` so its
+     `border-inline-end` overrides the glass border on that edge. */
   .rule-double {
     height: 1px;
     background-color: var(--color-border);
@@ -138,5 +374,20 @@
   .rule-double-edge {
     border-inline-end: 1px solid var(--color-border);
     box-shadow: inset -4px 0 0 0 var(--color-hunter-800);
+  }
+
+  /* Ambient layered backdrop for the app shell and login screens. */
+  .ambient {
+    background:
+      radial-gradient(60rem 30rem at 85% -10%, rgb(152 199 155 / 0.32), transparent 60%),
+      radial-gradient(50rem 26rem at -10% 110%, rgb(53 112 63 / 0.12), transparent 55%),
+      var(--sabz-background);
+  }
+
+  .dark .ambient {
+    background:
+      radial-gradient(60rem 30rem at 85% -10%, rgb(69 146 90 / 0.3), transparent 60%),
+      radial-gradient(50rem 26rem at -10% 110%, rgb(31 58 38 / 0.24), transparent 55%),
+      var(--sabz-background);
   }
 }

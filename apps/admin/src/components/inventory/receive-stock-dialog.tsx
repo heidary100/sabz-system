@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { PackagePlus } from 'lucide-react'
 import type { InventoryVariantRef, WarehouseSummary } from '@sabz/types'
 import { Alert, AlertActions, AlertBody, AlertDescription, AlertTitle } from '../catalyst/alert'
 import { Button } from '../catalyst/button'
@@ -95,7 +96,7 @@ export function ReceiveStockDialog({
               onChange={(event) => setQuantity(event.target.value)}
               disabled={submitting}
             />
-            <Text className="text-xs text-zinc-500">
+            <Text className="text-xs text-muted">
               این مقدار به موجودی فعلی اضافه میشود.
             </Text>
           </Field>
@@ -110,7 +111,7 @@ export function ReceiveStockDialog({
               onChange={(event) => setNotes(event.target.value)}
               disabled={submitting}
             />
-            <Text className="text-xs text-zinc-500">{notes.length}/{NOTES_MAX}</Text>
+            <Text className="text-xs text-muted">{notes.length}/{NOTES_MAX}</Text>
           </Field>
 
           {error && <ErrorMessage>{error}</ErrorMessage>}
@@ -121,6 +122,7 @@ export function ReceiveStockDialog({
           انصراف
         </Button>
         <Button color="primary" onClick={() => void handleSubmit()} disabled={!canSubmit}>
+          <PackagePlus data-slot="icon" />
           {submitting ? 'در حال ثبت…' : 'ثبت دریافت'}
         </Button>
       </AlertActions>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { SlidersHorizontal } from 'lucide-react'
 import type { InventoryVariantRef, WarehouseSummary } from '@sabz/types'
 import { Alert, AlertActions, AlertBody, AlertDescription, AlertTitle } from '../catalyst/alert'
 import { Button } from '../catalyst/button'
@@ -100,7 +101,7 @@ export function AdjustInventoryDialog({
       </AlertDescription>
       <AlertBody>
         <div className="space-y-5">
-          <Text className="text-sm text-zinc-600">
+          <Text className="text-sm text-muted">
             موجودی فعلی:{' '}
             <span dir="ltr" className="font-medium">
               {currentQuantity ?? '—'}
@@ -119,7 +120,7 @@ export function AdjustInventoryDialog({
               onChange={(event) => setQuantity(event.target.value)}
               disabled={submitting}
             />
-            <Text className="text-xs text-zinc-500">
+            <Text className="text-xs text-muted">
               این مقدار به صورت مطلق جایگزین موجودی فعلی میشود؛ تغییر افزایشی نیست و مقدار منفی مجاز نیست.
             </Text>
           </Field>
@@ -134,7 +135,7 @@ export function AdjustInventoryDialog({
               disabled={submitting}
               placeholder="مثلاً تطبیق شمارش فیزیکی"
             />
-            <Text className="text-xs text-zinc-500">{reason.length}/{REASON_MAX}</Text>
+            <Text className="text-xs text-muted">{reason.length}/{REASON_MAX}</Text>
           </Field>
 
           <Field>
@@ -147,7 +148,7 @@ export function AdjustInventoryDialog({
               onChange={(event) => setNotes(event.target.value)}
               disabled={submitting}
             />
-            <Text className="text-xs text-zinc-500">{notes.length}/{NOTES_MAX}</Text>
+            <Text className="text-xs text-muted">{notes.length}/{NOTES_MAX}</Text>
           </Field>
 
           {error && <ErrorMessage>{error}</ErrorMessage>}
@@ -158,6 +159,7 @@ export function AdjustInventoryDialog({
           انصراف
         </Button>
         <Button color="primary" onClick={() => void handleSubmit()} disabled={!canSubmit}>
+          <SlidersHorizontal data-slot="icon" />
           {submitting ? 'در حال ثبت…' : 'ثبت اصلاح'}
         </Button>
       </AlertActions>

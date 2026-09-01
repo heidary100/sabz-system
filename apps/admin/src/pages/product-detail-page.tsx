@@ -6,12 +6,14 @@ import { useBrandOptions } from '../hooks/use-brand-options'
 import { translateApiError } from '../lib/error-messages'
 import { formatDateTime } from '../lib/format'
 import { PRODUCT_CONDITION_LABELS } from '../lib/product-labels'
+import { Package, Pencil, Trash2 } from 'lucide-react'
 import { archiveProduct, deleteProduct, publishProduct } from '../services/products'
 import { deleteVariant } from '../services/variants'
 import { Button } from '../components/catalyst/button'
 import { Heading, Subheading } from '../components/catalyst/heading'
 import { EmptyState } from '../components/ui/empty-state'
 import { Loading } from '../components/ui/loading'
+import { InfoItem } from '../components/ui/info-item'
 import { DeleteConfirmDialog } from '../components/ui/delete-confirm-dialog'
 import { ProductStatusBadge } from '../components/products/product-status-badge'
 import { ProductForm } from '../components/products/product-form'
@@ -27,17 +29,6 @@ type VariantDialogState =
   | { mode: 'create' }
   | { mode: 'edit' | 'delete'; variant: VariantSummary }
   | null
-
-function InfoItem({ label, value }: { label: string; value: string | null }) {
-  return (
-    <div className="space-y-1">
-      <dt className="text-sm font-medium text-dust-200">{label}</dt>
-      <dd dir="auto" className="text-sm text-foreground">
-        {value || '—'}
-      </dd>
-    </div>
-  )
-}
 
 function ProductEditDialog({
   open,
@@ -80,8 +71,8 @@ export function ProductDetailPage() {
   if (error && !product) {
     return (
       <div className="mx-auto max-w-6xl space-y-6">
-        <div className="flex flex-col items-center gap-4 rounded-lg border border-border bg-white px-6 py-16 text-center">
-          <p className="text-sm/6 text-dust-200">{translateApiError(error)}</p>
+        <div className="glass flex flex-col items-center gap-4 rounded-xl px-6 py-16 text-center">
+          <p className="text-sm/6 text-muted">{translateApiError(error)}</p>
           <Button color="primary" onClick={() => void refetch()}>
             تلاش مجدد
           </Button>
@@ -97,6 +88,7 @@ export function ProductDetailPage() {
     return (
       <div className="mx-auto max-w-6xl space-y-6">
         <EmptyState
+          icon={<Package />}
           title="محصول یافت نشد"
           description="این محصول در دسترس نیست."
           actions={
@@ -173,6 +165,7 @@ export function ProductDetailPage() {
           {product.status === 'DRAFT' && (
             <>
               <Button outline onClick={() => setDialog('edit')}>
+                <Pencil data-slot="icon" />
                 ویرایش
               </Button>
               <Button color="primary" onClick={() => setDialog('publish')}>
@@ -183,6 +176,7 @@ export function ProductDetailPage() {
           {product.status === 'PUBLISHED' && (
             <>
               <Button outline onClick={() => setDialog('edit')}>
+                <Pencil data-slot="icon" />
                 ویرایش
               </Button>
               <Button outline onClick={() => setDialog('archive')}>
@@ -192,6 +186,7 @@ export function ProductDetailPage() {
           )}
           {product.status === 'ARCHIVED' && (
             <Button color="red" onClick={() => setDialog('delete')}>
+              <Trash2 data-slot="icon" />
               حذف
             </Button>
           )}
@@ -199,12 +194,12 @@ export function ProductDetailPage() {
       </div>
 
       {product.status === 'ARCHIVED' && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        <div className="warning-box rounded-lg px-4 py-3 text-sm">
           این محصول آرشیوشده است و قابل ویرایش نیست.
         </div>
       )}
 
-      <section className="rounded-lg border border-border bg-white p-6">
+      <section className="rounded-xl border border-border bg-surface p-5 sm:p-6">
         <Subheading>اطلاعات کسب‌وکار محصول</Subheading>
         <dl className="mt-4 grid grid-cols-1 gap-5 sm:grid-cols-2">
           <InfoItem label="نام" value={product.name} />

@@ -23,7 +23,7 @@ export function Loading({
         aria-hidden="true"
         className="size-8 animate-spin rounded-full border-2 border-hunter-800 border-t-primary"
       />
-      {label && <span className="text-sm font-medium text-dust-200">{label}</span>}
+      {label && <span className="text-sm font-medium text-muted">{label}</span>}
     </div>
   )
 }

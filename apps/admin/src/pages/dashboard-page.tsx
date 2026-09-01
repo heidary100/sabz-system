@@ -8,10 +8,12 @@ import type {
   DashboardUserCounts,
   PartnerStatus,
 } from '@sabz/types'
+import { RefreshCw } from 'lucide-react'
 import { Button } from '../components/catalyst/button'
-import { Heading, Subheading } from '../components/catalyst/heading'
+import { Subheading } from '../components/catalyst/heading'
 import { Text } from '../components/catalyst/text'
 import { Loading } from '../components/ui/loading'
+import { PageHeader } from '../components/ui/page-header'
 import { StatCard } from '../components/dashboard/stat-card'
 import { RecentPartners } from '../components/dashboard/recent-partners'
 import { RecentAudit } from '../components/dashboard/recent-audit'
@@ -58,9 +60,9 @@ export function DashboardPage() {
   if (error && !dashboard) {
     return (
       <div className="mx-auto max-w-6xl space-y-6">
-        <Heading level={1}>پیشخوان</Heading>
-        <div className="flex flex-col items-center gap-4 rounded-lg border border-border bg-white px-6 py-16 text-center">
-          <p className="text-sm/6 text-dust-200">{errorMessage}</p>
+        <PageHeader title="پیشخوان" />
+        <div className="glass flex flex-col items-center gap-4 rounded-xl px-6 py-16 text-center">
+          <p className="text-sm/6 text-muted">{errorMessage}</p>
           <Button color="primary" onClick={() => void refetch()}>
             تلاش مجدد
           </Button>
@@ -75,16 +77,19 @@ export function DashboardPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
-      <div className="flex items-center justify-between">
-        <Heading level={1}>پیشخوان</Heading>
-        <Button outline onClick={() => void refetch()} disabled={loading}>
-          به‌روزرسانی
-        </Button>
-      </div>
+      <PageHeader
+        title="پیشخوان"
+        actions={
+          <Button outline onClick={() => void refetch()} disabled={loading}>
+            <RefreshCw data-slot="icon" />
+            به‌روزرسانی
+          </Button>
+        }
+      />
 
       {errorMessage && (
-        <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-white px-4 py-3">
-          <p className="text-sm/6 text-dust-200">{errorMessage}</p>
+        <div className="glass flex items-center justify-between gap-4 rounded-lg px-4 py-3">
+          <p className="text-sm/6 text-muted">{errorMessage}</p>
           <Button color="primary" onClick={() => void refetch()} disabled={loading}>
             تلاش مجدد
           </Button>
