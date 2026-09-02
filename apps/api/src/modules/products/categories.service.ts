@@ -7,6 +7,7 @@ import { Prisma } from '@prisma/client';
 import type {
   CategoryDetail,
   CategorySummary,
+  CategoryTreeNode,
   PaginatedResult,
 } from '@sabz/types';
 import { PrismaService } from '../../common/database/prisma.service';
@@ -15,6 +16,7 @@ import { generateSlug } from './slug';
 import {
   CreateCategoryDto,
   ListCategoriesQueryDto,
+  ReorderCategoryDto,
   UpdateCategoryDto,
 } from './dto';
 
@@ -89,6 +91,61 @@ export class CategoriesService {
     }
 
     return this.toDetail(category);
+  }
+
+  async getTree(): Promise<CategoryTreeNode[]> {
+    const [rows, productCountRows] = await this.prisma.$transaction([
+      this.prisma.category.findMany({
+        where: { deletedAt: null },
+        select: summarySelect,
+      }),
+      this.prisma.product.groupBy({
+        by: ['categoryId'],
+        where: { deletedAt: null },
+        orderBy: { categoryId: 'asc' },
+        _count: { _all: true },
+      }),
+    ]);
+
+    /* The heterogeneous `$transaction` tuple widens the groupBy output, so
+       the `_count` shape is asserted explicitly (same defensive pattern as
+       DashboardService). */
+    const productCounts = productCountRows as unknown as ProductCountRow[];
+
+    const countByCategory = new Map<string, number>(
+      productCounts.map((row) => [row.categoryId, row._count._all]),
+    );
+
+    const nodes = new Map<string, CategoryTreeNode>();
+    for (const row of rows) {
+      nodes.set(row.id, {
+        ...this.toSummary(row),
+        productCount: countByCategory.get(row.id) ?? 0,
+        children: [],
+      });
+    }
+
+    const roots: CategoryTreeNode[] = [];
+    for (const node of nodes.values()) {
+      const parent = node.parentId !== null ? nodes.get(node.parentId) : undefined;
+      if (parent) {
+        parent.children.push(node);
+      } else {
+        roots.push(node);
+      }
+    }
+
+    const compare = (a: CategoryTreeNode, b: CategoryTreeNode): number =>
+      a.sortOrder - b.sortOrder || a.name.localeCompare(b.name) || a.id.localeCompare(b.id);
+    const sortRecursive = (list: CategoryTreeNode[]): void => {
+      list.sort(compare);
+      for (const node of list) {
+        sortRecursive(node.children);
+      }
+    };
+    sortRecursive(roots);
+
+    return roots;
   }
 
   async create(
@@ -239,6 +296,123 @@ export class CategoriesService {
       }
       throw error;
     }
+  }
+
+  async reorder(
+    categoryId: string,
+    dto: ReorderCategoryDto,
+    actorId: string,
+    ipAddress?: string,
+  ): Promise<CategoryDetail> {
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const target = await tx.category.findUnique({
+        where: { id: categoryId },
+        select: { id: true, parentId: true, sortOrder: true, deletedAt: true },
+      });
+      if (!target || target.deletedAt !== null) {
+        throw new NotFoundException('دستهبندی یافت نشد.');
+      }
+
+      const newParentId = dto.parentId !== undefined ? dto.parentId : target.parentId;
+      if (newParentId === categoryId) {
+        throw new ConflictException('یک دستهبندی نمیتواند والد خودش باشد.');
+      }
+      if (newParentId !== null) {
+        await this.assertParent(tx, newParentId);
+        await this.assertNoCycle(tx, categoryId, newParentId);
+      }
+
+      const siblings = await tx.category.findMany({
+        where: { parentId: newParentId, deletedAt: null },
+        select: { id: true, sortOrder: true },
+        orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }, { id: 'asc' }],
+      });
+
+      const rest = siblings.filter((row) => row.id !== categoryId);
+      const position = dto.position ?? rest.length;
+      const targetIndex = Math.min(Math.max(position, 0), rest.length);
+      rest.splice(targetIndex, 0, { id: categoryId, sortOrder: 0 });
+
+      const siblingDeltas: { id: string; sortOrder: number }[] = [];
+      for (const [index, row] of rest.entries()) {
+        if (row.id !== categoryId && row.sortOrder !== index) {
+          siblingDeltas.push({ id: row.id, sortOrder: index });
+        }
+      }
+      const targetNeedsUpdate =
+        newParentId !== target.parentId || target.sortOrder !== targetIndex;
+
+      if (!targetNeedsUpdate && siblingDeltas.length === 0) {
+        const current = await tx.category.findUnique({
+          where: { id: categoryId },
+          select: detailSelect,
+        });
+        if (!current || current.deletedAt !== null) {
+          throw new NotFoundException('دستهبندی یافت نشد.');
+        }
+        return current;
+      }
+
+      for (const delta of siblingDeltas) {
+        await tx.category.updateMany({
+          where: { id: delta.id, deletedAt: null },
+          data: { sortOrder: delta.sortOrder },
+        });
+      }
+
+      if (targetNeedsUpdate) {
+        const updatedRows = await tx.category.updateMany({
+          where: { id: categoryId, deletedAt: null },
+          data: {
+            ...(newParentId !== target.parentId ? { parentId: newParentId } : {}),
+            ...(target.sortOrder !== targetIndex ? { sortOrder: targetIndex } : {}),
+            updatedBy: actorId,
+          },
+        });
+        if (updatedRows.count === 0) {
+          throw new NotFoundException('دستهبندی یافت نشد.');
+        }
+      }
+
+      const before: Record<string, string | number | null> = {};
+      const after: Record<string, string | number | null> = {};
+      if (newParentId !== target.parentId) {
+        before.parentId = target.parentId;
+        after.parentId = newParentId;
+      }
+      if (target.sortOrder !== targetIndex) {
+        before.sortOrder = target.sortOrder;
+        after.sortOrder = targetIndex;
+      }
+
+      /* When only sibling sortOrder values were re-normalized and the moved
+         category's own fields are unchanged, skip the event (mirrors the
+         no-op behavior of `update`). */
+      if (Object.keys(before).length > 0) {
+        await this.auditService.log(
+          {
+            userId: actorId,
+            action: 'CATEGORY_UPDATED',
+            entity: 'Category',
+            entityId: categoryId,
+            before,
+            after,
+            ipAddress,
+          },
+          tx,
+        );
+      }
+
+      return tx.category.findUnique({
+        where: { id: categoryId },
+        select: detailSelect,
+      });
+    });
+
+    if (!updated) {
+      throw new NotFoundException('دستهبندی یافت نشد.');
+    }
+    return this.toDetail(updated);
   }
 
   async softDelete(
@@ -430,6 +604,11 @@ interface UpdateTargetRow {
   sortOrder: number;
   isVisible: boolean;
   deletedAt: Date | null;
+}
+
+interface ProductCountRow {
+  categoryId: string;
+  _count: { _all: number };
 }
 
 interface CategoryUpdateData {

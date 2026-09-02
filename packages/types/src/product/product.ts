@@ -17,6 +17,11 @@ export interface CategoryDetail extends CategorySummary {
   children: CategorySummary[];
 }
 
+export interface CategoryTreeNode extends CategorySummary {
+  productCount: number;
+  children: CategoryTreeNode[];
+}
+
 export interface BrandSummary {
   id: string;
   name: string;

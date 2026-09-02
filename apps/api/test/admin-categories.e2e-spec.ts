@@ -109,9 +109,14 @@ describe('Admin category API (SS-103) (e2e)', () => {
     it('rejects every endpoint without a token with 401', async () => {
       const id = '00000000-0000-0000-0000-000000000000';
       await request(app.getHttpServer()).get(BASE).expect(401);
+      await request(app.getHttpServer()).get(`${BASE}/tree`).expect(401);
       await request(app.getHttpServer()).get(`${BASE}/${id}`).expect(401);
       await request(app.getHttpServer()).post(BASE).send({}).expect(401);
       await request(app.getHttpServer()).patch(`${BASE}/${id}`).send({}).expect(401);
+      await request(app.getHttpServer())
+        .patch(`${BASE}/${id}/reorder`)
+        .send({})
+        .expect(401);
       await request(app.getHttpServer()).delete(`${BASE}/${id}`).expect(401);
     });
 
@@ -363,6 +368,105 @@ describe('Admin category API (SS-103) (e2e)', () => {
       expect(serialized).not.toContain('createdBy');
       expect(serialized).not.toContain('updatedBy');
       expect(serialized).not.toContain('deletedAt');
+    });
+  });
+
+  describe('tree + reorder endpoints', () => {
+    it('returns the full tree without internal fields', async () => {
+      const operator = await createUser('OPERATOR');
+      const root = await createCategoryViaApi(operator.accessToken, {
+        name: `TreeRoot ${Date.now()}`,
+        slug: `tree-root-${Date.now()}`,
+      });
+      await createCategoryViaApi(operator.accessToken, {
+        name: `TreeChild ${Date.now()}`,
+        slug: `tree-child-${Date.now()}`,
+        parentId: root.id,
+      });
+
+      const res = await request(app.getHttpServer())
+        .get(`${BASE}/tree`)
+        .set('Authorization', `Bearer ${operator.accessToken}`)
+        .expect(200);
+
+      expect(Array.isArray(res.body)).toBe(true);
+      const rootNode = res.body.find(
+        (node: { id: string }) => node.id === root.id,
+      );
+      expect(rootNode).toBeDefined();
+      expect(rootNode.children.length).toBeGreaterThanOrEqual(1);
+      expect(typeof rootNode.children[0].productCount).toBe('number');
+      expect(JSON.stringify(res.body)).not.toContain('deletedAt');
+    });
+
+    it('reorders siblings through the API and normalizes sort orders', async () => {
+      const operator = await createUser('OPERATOR');
+      const root = await createCategoryViaApi(operator.accessToken, {
+        name: `OrderRoot ${Date.now()}`,
+        slug: `order-root-${Date.now()}`,
+      });
+      const a = await createCategoryViaApi(operator.accessToken, {
+        name: 'Order A',
+        slug: `order-a-${Date.now()}`,
+        parentId: root.id,
+        sortOrder: 0,
+      });
+      const b = await createCategoryViaApi(operator.accessToken, {
+        name: 'Order B',
+        slug: `order-b-${Date.now()}`,
+        parentId: root.id,
+        sortOrder: 1,
+      });
+
+      const res = await request(app.getHttpServer())
+        .patch(`${BASE}/${a.id}/reorder`)
+        .set('Authorization', `Bearer ${operator.accessToken}`)
+        .send({ position: 1 })
+        .expect(200);
+      expect(res.body.sortOrder).toBe(1);
+
+      const tree = await request(app.getHttpServer())
+        .get(`${BASE}/tree`)
+        .set('Authorization', `Bearer ${operator.accessToken}`)
+        .expect(200);
+      const rootNode = tree.body.find(
+        (node: { id: string }) => node.id === root.id,
+      );
+      expect(rootNode.children.map((child: { id: string }) => child.id)).toEqual([
+        b.id,
+        a.id,
+      ]);
+    });
+
+    it('rejects a reorder that would form a cycle with 409', async () => {
+      const operator = await createUser('OPERATOR');
+      const a = await createCategoryViaApi(operator.accessToken, {
+        name: `CycleA ${Date.now()}`,
+        slug: `cycle-a-${Date.now()}`,
+      });
+      const b = await createCategoryViaApi(operator.accessToken, {
+        name: `CycleB ${Date.now()}`,
+        slug: `cycle-b-${Date.now()}`,
+        parentId: a.id,
+      });
+      await request(app.getHttpServer())
+        .patch(`${BASE}/${a.id}/reorder`)
+        .set('Authorization', `Bearer ${operator.accessToken}`)
+        .send({ parentId: b.id })
+        .expect(409);
+    });
+
+    it('returns 400 for a negative position', async () => {
+      const operator = await createUser('OPERATOR');
+      const category = await createCategoryViaApi(operator.accessToken, {
+        name: `Pos ${Date.now()}`,
+        slug: `pos-${Date.now()}`,
+      });
+      await request(app.getHttpServer())
+        .patch(`${BASE}/${category.id}/reorder`)
+        .set('Authorization', `Bearer ${operator.accessToken}`)
+        .send({ position: -1 })
+        .expect(400);
     });
   });
 });

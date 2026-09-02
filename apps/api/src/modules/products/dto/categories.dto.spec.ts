@@ -2,6 +2,7 @@ import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { CreateCategoryDto } from './create-category.dto';
 import { ListCategoriesQueryDto } from './list-categories-query.dto';
+import { ReorderCategoryDto } from './reorder-category.dto';
 import { UpdateCategoryDto } from './update-category.dto';
 
 const UUID = '9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d';
@@ -115,6 +116,35 @@ describe('UpdateCategoryDto', () => {
 
   it('rejects a negative sortOrder', async () => {
     await expectInvalid(plainToInstance(UpdateCategoryDto, { sortOrder: -2 }), 'sortOrder');
+  });
+});
+
+describe('ReorderCategoryDto', () => {
+  it('accepts an empty body (append in place)', async () => {
+    await expectValid(plainToInstance(ReorderCategoryDto, {}));
+  });
+
+  it('accepts a parentId and position', async () => {
+    await expectValid(
+      plainToInstance(ReorderCategoryDto, { parentId: UUID, position: 3 }),
+    );
+  });
+
+  it('preserves an explicit null parentId so a category can move to root', () => {
+    const instance = plainToInstance(ReorderCategoryDto, { parentId: null });
+    expect(instance.parentId).toBeNull();
+  });
+
+  it('rejects an invalid parentId', async () => {
+    await expectInvalid(plainToInstance(ReorderCategoryDto, { parentId: 'x' }), 'parentId');
+  });
+
+  it('rejects a negative position', async () => {
+    await expectInvalid(plainToInstance(ReorderCategoryDto, { position: -1 }), 'position');
+  });
+
+  it('rejects a non-integer position', async () => {
+    await expectInvalid(plainToInstance(ReorderCategoryDto, { position: 1.5 }), 'position');
   });
 });
 

@@ -1007,6 +1007,14 @@ fields `id`, `name`, `slug`, `parentId`, `sortOrder`, `isVisible`. Ordering is
 deterministic: `sortOrder ASC`, then `name ASC`, then `id ASC`. Soft-deleted
 categories are always excluded.
 
+GET /admin/categories/tree
+
+Retrieve the full category tree as `CategoryTreeNode[]` (roots only). Each node
+carries the `CategorySummary` fields plus `productCount` (count of non-deleted
+products in that category) and a recursive `children: CategoryTreeNode[]`.
+Children are ordered by `sortOrder ASC`, then `name ASC`, then `id ASC`.
+Soft-deleted categories are always excluded.
+
 GET /admin/categories/{id}
 
 Retrieve a single `CategoryDetail` (the `CategorySummary` fields plus a
@@ -1030,6 +1038,20 @@ Update category fields (`name`, `slug`, `parentId`, `sortOrder`, `isVisible`).
 form a cycle (moving a category under one of its descendants) return 409.
 Duplicate slug returns 409. Audits `CATEGORY_UPDATED` with only the changed
 fields.
+
+PATCH /admin/categories/{id}/reorder
+
+Move a category to another parent and/or reposition it among its siblings. Body
+uses the `ReorderCategoryInput` contract: `parentId` (optional UUID; `null` =
+root; omitted = keep the current parent) and `position` (optional non-negative
+integer, zero-based insertion index among the target parent's children after
+the moved category is removed; omitted or out-of-range = append at the end).
+The sibling `sortOrder` values of the affected group are re-normalized to
+`0..n-1` in one transaction. Self-parenting and cycle-forming moves return 409;
+missing or soft-deleted target/parent return 404. Audits a single
+`CATEGORY_UPDATED` with only the changed `parentId`/`sortOrder` fields; when the
+moved category's own fields are unchanged (sibling normalization only), no
+audit event is written.
 
 DELETE /admin/categories/{id}
 
