@@ -69,6 +69,11 @@ export interface UpdateCategoryInput {
   isVisible?: boolean;
 }
 
+export interface ReorderCategoryInput {
+  parentId?: string | null;
+  position?: number;
+}
+
 export interface CreateBrandInput {
   name: string;
   slug?: string;

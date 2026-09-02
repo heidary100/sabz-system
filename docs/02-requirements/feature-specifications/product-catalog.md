@@ -693,11 +693,19 @@ schema notes with API-level behavior.
    expose `logoKey`, `deletedAt`, `createdBy`, `updatedBy` (or `storageKey`).
    `CategoryDetail` returns exactly one level of non-deleted children. There is
    no `BrandDetail` contract; `BrandSummary` is reused for brand detail.
-10. **Audit events.** `CATEGORY_CREATED`, `CATEGORY_UPDATED`, `CATEGORY_DELETED`,
+10. **Category tree + reorder (admin workspace).** Added for the admin category
+    tree workspace: `GET /admin/categories/tree` returns the full recursive tree
+    (`CategoryTreeNode[]`) with active product counts (`productCount`), and
+    `PATCH /admin/categories/:id/reorder` moves a category to another parent
+    and/or positions it among its siblings in one transaction (one
+    `CATEGORY_UPDATED` audit event; sibling `sortOrder` values are re-normalized
+    0..n-1). Reorder reuses the existing parent/cycle checks. The paginated list
+    and `sortOrder` PATCH remain unchanged.
+11. **Audit events.** `CATEGORY_CREATED`, `CATEGORY_UPDATED`, `CATEGORY_DELETED`,
     `BRAND_CREATED`, `BRAND_UPDATED`, `BRAND_DELETED`. Payloads contain only
     safe business-state deltas (changed fields, or deletion metadata on delete);
     storage keys, secrets, and `createdBy`/`updatedBy` are never included.
-11. **Authorization.** All category/brand endpoints require `OPERATOR` or
+12. **Authorization.** All category/brand endpoints require `OPERATOR` or
     `ADMIN` (`JwtAuthGuard` + `RolesGuard`). No SUPER_ADMIN, no permission guard.
 
 ---

@@ -121,11 +121,11 @@ export function MediaPreviewDialog({
                 controls
                 className="max-h-96 w-full rounded-lg object-contain"
               >
-                پیشنمایش ویدئو در این مرورگر در دسترس نیست.
+                پیش نمایش ویدئو در این مرورگر در دسترس نیست.
               </video>
             </div>
           ) : (
-            <Text>پیشنمایش برای این نوع فایل در دسترس نیست.</Text>
+            <Text>پیش نمایش برای این نوع فایل در دسترس نیست.</Text>
           )
         ) : null}
       </AlertBody>

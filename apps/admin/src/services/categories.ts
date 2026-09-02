@@ -2,8 +2,10 @@ import type {
   CategoryDetail,
   CategoryListQuery,
   CategorySummary,
+  CategoryTreeNode,
   CreateCategoryInput,
   PaginatedResult,
+  ReorderCategoryInput,
   UpdateCategoryInput,
 } from '@sabz/types'
 import { request } from './api'
@@ -28,6 +30,20 @@ export function listCategories(
 
 export function getCategory(categoryId: string): Promise<CategoryDetail> {
   return request<CategoryDetail>(`/admin/categories/${categoryId}`)
+}
+
+export function fetchCategoryTree(): Promise<CategoryTreeNode[]> {
+  return request<CategoryTreeNode[]>('/admin/categories/tree')
+}
+
+export function reorderCategory(
+  categoryId: string,
+  input: ReorderCategoryInput,
+): Promise<CategoryDetail> {
+  return request<CategoryDetail>(`/admin/categories/${categoryId}/reorder`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  })
 }
 
 export function createCategory(input: CreateCategoryInput): Promise<CategoryDetail> {

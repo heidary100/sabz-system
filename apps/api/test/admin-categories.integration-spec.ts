@@ -220,4 +220,139 @@ describe('Admin category API database integration (SS-103)', () => {
     expect(page1.total).toBeGreaterThanOrEqual(0);
     expect(page1.items[0]).not.toHaveProperty('deletedAt');
   });
+
+  describe('tree + reorder (SS category workspace)', () => {
+    it('returns the full tree with active product counts', async () => {
+      const root = await service.create({ name: `TreeRoot ${Date.now()}` }, actorId);
+      const child = await service.create({ name: `TreeChild ${Date.now()}`, parentId: root.id }, actorId);
+      await trackAudits(root.id);
+      await trackAudits(child.id);
+
+      const brand = await prisma.brand.create({
+        data: { name: `برند ${Date.now()}-${Math.random()}`, slug: `b-${Date.now()}-${Math.random()}` },
+      });
+      const product = await prisma.product.create({
+        data: {
+          name: `محصول ${Date.now()}-${Math.random()}`,
+          slug: `p-${Date.now()}-${Math.random()}`,
+          brandId: brand.id,
+          categoryId: child.id,
+          condition: 'NEW',
+          status: 'DRAFT',
+        },
+      });
+      try {
+        const tree = await service.getTree();
+        const rootNode = tree.find((node) => node.id === root.id);
+        expect(rootNode).toBeDefined();
+        expect(rootNode!.children).toHaveLength(1);
+        expect(rootNode!.children[0]!.id).toBe(child.id);
+        expect(rootNode!.children[0]!.productCount).toBe(1);
+        expect(rootNode!.productCount).toBe(0);
+        expect(rootNode).not.toHaveProperty('deletedAt');
+      } finally {
+        await prisma.product.delete({ where: { id: product.id } });
+        await prisma.brand.delete({ where: { id: brand.id } });
+      }
+    });
+
+    it('reorders siblings and normalizes sort orders with a single audit event', async () => {
+      const stamp = Date.now();
+      const root = await service.create({ name: `OrderRoot ${stamp}` }, actorId);
+      createdCategoryIds.push(root.id);
+      const a = await service.create({ name: `OrderA ${stamp}`, parentId: root.id, sortOrder: 0 }, actorId);
+      createdCategoryIds.push(a.id);
+      const b = await service.create({ name: `OrderB ${stamp}`, parentId: root.id, sortOrder: 1 }, actorId);
+      createdCategoryIds.push(b.id);
+      const c = await service.create({ name: `OrderC ${stamp}`, parentId: root.id, sortOrder: 2 }, actorId);
+      createdCategoryIds.push(c.id);
+      await trackAudits(root.id);
+      await trackAudits(a.id);
+      await trackAudits(b.id);
+      await trackAudits(c.id);
+
+      const result = await service.reorder(a.id, { position: 2 }, actorId);
+      await trackAudits(a.id);
+
+      expect(result.sortOrder).toBe(2);
+      const rows = await prisma.category.findMany({
+        where: { parentId: root.id },
+        orderBy: [{ sortOrder: 'asc' }],
+      });
+      expect(rows.map((row) => row.id)).toEqual([b.id, c.id, a.id]);
+      expect(rows.map((row) => row.sortOrder)).toEqual([0, 1, 2]);
+
+      const audits = await prisma.auditLog.findMany({
+        where: { entityId: a.id, action: 'CATEGORY_UPDATED' },
+      });
+      expect(audits).toHaveLength(1);
+      expect(JSON.stringify(audits[0]!.before)).toContain('"sortOrder":0');
+      expect(JSON.stringify(audits[0]!.after)).toContain('"sortOrder":2');
+    });
+
+    it('moves a node between parents via reorder and positions it among the new siblings', async () => {
+      const stamp = Date.now();
+      const rootA = await service.create({ name: `MoveRootA ${stamp}` }, actorId);
+      createdCategoryIds.push(rootA.id);
+      const rootB = await service.create({ name: `MoveRootB ${stamp}` }, actorId);
+      createdCategoryIds.push(rootB.id);
+      const a = await service.create({ name: `Move1 ${stamp}`, parentId: rootA.id }, actorId);
+      createdCategoryIds.push(a.id);
+      const b = await service.create({ name: `Move2 ${stamp}`, parentId: rootB.id }, actorId);
+      createdCategoryIds.push(b.id);
+      await trackAudits(rootA.id);
+      await trackAudits(rootB.id);
+      await trackAudits(a.id);
+      await trackAudits(b.id);
+
+      const result = await service.reorder(a.id, { parentId: rootB.id, position: 1 }, actorId);
+      await trackAudits(a.id);
+
+      expect(result.parentId).toBe(rootB.id);
+      const targetRows = await prisma.category.findMany({
+        where: { parentId: rootB.id },
+        orderBy: [{ sortOrder: 'asc' }],
+      });
+      expect(targetRows.map((row) => row.id)).toEqual([b.id, a.id]);
+      expect(targetRows.map((row) => row.sortOrder)).toEqual([0, 1]);
+    });
+
+    it('rejects a reorder that would form a cycle with 409', async () => {
+      const a = await service.create({ name: `CycleA ${Date.now()}` }, actorId);
+      const b = await service.create({ name: `CycleB ${Date.now()}`, parentId: a.id }, actorId);
+      await trackAudits(a.id);
+      await trackAudits(b.id);
+
+      await expect(
+        service.reorder(a.id, { parentId: b.id }, actorId),
+      ).rejects.toMatchObject({ status: 409 });
+    });
+
+    it('leaves sort orders untouched when a reorder fails', async () => {
+      const stamp = Date.now();
+      const root = await service.create({ name: `RbOrder ${stamp}` }, actorId);
+      createdCategoryIds.push(root.id);
+      const a = await service.create({ name: `RbA ${stamp}`, parentId: root.id, sortOrder: 0 }, actorId);
+      createdCategoryIds.push(a.id);
+      const b = await service.create({ name: `RbB ${stamp}`, parentId: root.id, sortOrder: 1 }, actorId);
+      createdCategoryIds.push(b.id);
+      const c = await service.create({ name: `RbC ${stamp}`, parentId: a.id, sortOrder: 0 }, actorId);
+      createdCategoryIds.push(c.id);
+      await trackAudits(root.id);
+      await trackAudits(a.id);
+      await trackAudits(b.id);
+      await trackAudits(c.id);
+
+      await expect(
+        service.reorder(a.id, { parentId: c.id, position: 0 }, actorId),
+      ).rejects.toMatchObject({ status: 409 });
+
+      const rows = await prisma.category.findMany({
+        where: { parentId: root.id },
+        orderBy: [{ sortOrder: 'asc' }],
+      });
+      expect(rows.map((row) => row.id)).toEqual([a.id, b.id]);
+      expect(rows.map((row) => row.sortOrder)).toEqual([0, 1]);
+    });
+  });
 });

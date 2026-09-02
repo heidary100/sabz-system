@@ -37,7 +37,7 @@ describe('CategoriesService', () => {
       create: jest.Mock;
       updateMany: jest.Mock;
     };
-    product: { count: jest.Mock };
+    product: { count: jest.Mock; groupBy: jest.Mock };
     $transaction: jest.Mock;
   };
   let audit: { log: jest.Mock };
@@ -47,6 +47,7 @@ describe('CategoriesService', () => {
       create: jest.Mock;
       updateMany: jest.Mock;
       count: jest.Mock;
+      findMany: jest.Mock;
     };
     product: { count: jest.Mock };
   };
@@ -59,6 +60,7 @@ describe('CategoriesService', () => {
         create: jest.fn(),
         updateMany: jest.fn(),
         count: jest.fn(),
+        findMany: jest.fn(),
       },
       product: { count: jest.fn() },
     };
@@ -70,7 +72,7 @@ describe('CategoriesService', () => {
         create: jest.fn(),
         updateMany: jest.fn(),
       },
-      product: { count: jest.fn() },
+      product: { count: jest.fn(), groupBy: jest.fn() },
       $transaction: jest.fn(),
     };
     audit = { log: jest.fn() };
@@ -379,6 +381,261 @@ describe('CategoriesService', () => {
       tx.product.count.mockResolvedValue(0);
       tx.category.updateMany.mockResolvedValue({ count: 0 });
       await expect(service.softDelete('cat-1', actorId)).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
+
+  describe('getTree', () => {
+    it('assembles a recursive tree with product counts, roots only', async () => {
+      prisma.category.findMany.mockResolvedValue([
+        makeSummaryRow({ id: 'root-1', name: 'الکترونیک', slug: 'electronics', sortOrder: 0 }),
+        makeSummaryRow({
+          id: 'child-1',
+          name: 'رایانه',
+          slug: 'computers',
+          parentId: 'root-1',
+          sortOrder: 0,
+        }),
+        makeSummaryRow({
+          id: 'leaf-1',
+          name: 'لپتاپ',
+          slug: 'laptops',
+          parentId: 'child-1',
+          sortOrder: 0,
+        }),
+        makeSummaryRow({ id: 'root-2', name: 'مبلمان', slug: 'furniture', sortOrder: 1 }),
+      ]);
+      prisma.product.groupBy.mockResolvedValue([
+        { categoryId: 'leaf-1', _count: { _all: 5 } },
+        { categoryId: 'child-1', _count: { _all: 2 } },
+      ]);
+
+      const result = await service.getTree();
+
+      expect(prisma.category.findMany).toHaveBeenCalledWith({
+        where: { deletedAt: null },
+        select: expect.any(Object),
+      });
+      expect(prisma.product.groupBy).toHaveBeenCalledWith({
+        by: ['categoryId'],
+        where: { deletedAt: null },
+        orderBy: { categoryId: 'asc' },
+        _count: { _all: true },
+      });
+      expect(result).toHaveLength(2);
+      expect(result[0]!.id).toBe('root-1');
+      expect(result[0]!.children).toHaveLength(1);
+      expect(result[0]!.children[0]!.id).toBe('child-1');
+      expect(result[0]!.children[0]!.children).toHaveLength(1);
+      expect(result[0]!.children[0]!.children[0]!.productCount).toBe(5);
+      expect(result[0]!.children[0]!.productCount).toBe(2);
+      expect(result[0]!.productCount).toBe(0);
+      expect(result[0]!).not.toHaveProperty('deletedAt');
+    });
+
+    it('sorts children deterministically by sortOrder then name', async () => {
+      prisma.category.findMany.mockResolvedValue([
+        makeSummaryRow({ id: 'root-1', name: 'ب', slug: 'b', sortOrder: 1 }),
+        makeSummaryRow({ id: 'root-2', name: 'الف', slug: 'a', sortOrder: 0 }),
+        makeSummaryRow({ id: 'root-3', name: 'ج', slug: 'c', sortOrder: 1 }),
+      ]);
+      prisma.product.groupBy.mockResolvedValue([]);
+
+      const result = await service.getTree();
+      expect(result.map((node) => node.id)).toEqual(['root-2', 'root-1', 'root-3']);
+    });
+
+    it('treats an orphan parentId as a root node', async () => {
+      prisma.category.findMany.mockResolvedValue([
+        makeSummaryRow({ id: 'orphan', name: 'یتیم', slug: 'orphan', parentId: 'missing' }),
+      ]);
+      prisma.product.groupBy.mockResolvedValue([]);
+
+      const result = await service.getTree();
+      expect(result).toHaveLength(1);
+      expect(result[0]!.id).toBe('orphan');
+    });
+  });
+
+  describe('reorder', () => {
+    const targetRow = {
+      id: 'cat-1',
+      parentId: 'p1',
+      sortOrder: 0,
+      deletedAt: null,
+    };
+
+    it('moves a category within its siblings and normalizes sort orders', async () => {
+      tx.category.findUnique
+        .mockResolvedValueOnce(targetRow)
+        .mockResolvedValueOnce({ id: 'p1', deletedAt: null })
+        .mockResolvedValueOnce({ id: 'p1', parentId: null, deletedAt: null })
+        .mockResolvedValueOnce(makeDetailRow({ parentId: 'p1', sortOrder: 2 }));
+      tx.category.findMany.mockResolvedValue([
+        { id: 'cat-1', sortOrder: 0 },
+        { id: 'cat-2', sortOrder: 1 },
+        { id: 'cat-3', sortOrder: 2 },
+      ]);
+      tx.category.updateMany.mockResolvedValue({ count: 1 });
+
+      const result = await service.reorder('cat-1', { position: 2 }, actorId);
+
+      expect(tx.category.findMany).toHaveBeenCalledWith({
+        where: { parentId: 'p1', deletedAt: null },
+        select: { id: true, sortOrder: true },
+        orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }, { id: 'asc' }],
+      });
+      const updateCalls = (tx.category.updateMany as jest.Mock).mock.calls;
+      expect(updateCalls).toHaveLength(3);
+      expect(updateCalls[0][0]).toEqual({
+        where: { id: 'cat-2', deletedAt: null },
+        data: { sortOrder: 0 },
+      });
+      expect(updateCalls[1][0]).toEqual({
+        where: { id: 'cat-3', deletedAt: null },
+        data: { sortOrder: 1 },
+      });
+      expect(updateCalls[2][0]).toEqual({
+        where: { id: 'cat-1', deletedAt: null },
+        data: { sortOrder: 2, updatedBy: actorId },
+      });
+      expect(audit.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'CATEGORY_UPDATED',
+          entity: 'Category',
+          entityId: 'cat-1',
+          before: expect.objectContaining({ sortOrder: 0 }),
+          after: expect.objectContaining({ sortOrder: 2 }),
+        }),
+        tx,
+      );
+      expect(result.sortOrder).toBe(2);
+    });
+
+    it('moves a category to another parent at a position and audits the parent delta', async () => {
+      tx.category.findUnique
+        .mockResolvedValueOnce(targetRow)
+        .mockResolvedValueOnce({ id: 'p2', deletedAt: null })
+        .mockResolvedValueOnce({ id: 'p2', parentId: null, deletedAt: null })
+        .mockResolvedValueOnce(makeDetailRow({ parentId: 'p2', sortOrder: 0 }));
+      tx.category.findMany.mockResolvedValue([
+        { id: 'cat-4', sortOrder: 0 },
+        { id: 'cat-5', sortOrder: 1 },
+      ]);
+      tx.category.updateMany.mockResolvedValue({ count: 1 });
+
+      await service.reorder('cat-1', { parentId: 'p2', position: 0 }, actorId);
+
+      const updateCalls = (tx.category.updateMany as jest.Mock).mock.calls;
+      const targetUpdate = updateCalls.find(
+        (call) => call[0].where.id === 'cat-1',
+      );
+      expect(targetUpdate[0].data).toEqual(
+        expect.objectContaining({ parentId: 'p2', updatedBy: actorId }),
+      );
+      expect(audit.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          before: expect.objectContaining({ parentId: 'p1' }),
+          after: expect.objectContaining({ parentId: 'p2' }),
+        }),
+        tx,
+      );
+    });
+
+    it('appends at the end when position exceeds the sibling count', async () => {
+      tx.category.findUnique
+        .mockResolvedValueOnce(targetRow)
+        .mockResolvedValueOnce({ id: 'p1', deletedAt: null })
+        .mockResolvedValueOnce({ id: 'p1', parentId: null, deletedAt: null })
+        .mockResolvedValueOnce(makeDetailRow({ parentId: 'p1', sortOrder: 1 }));
+      tx.category.findMany.mockResolvedValue([
+        { id: 'cat-1', sortOrder: 0 },
+        { id: 'cat-2', sortOrder: 1 },
+      ]);
+      tx.category.updateMany.mockResolvedValue({ count: 1 });
+
+      await service.reorder('cat-1', { position: 99 }, actorId);
+
+      const updateCalls = (tx.category.updateMany as jest.Mock).mock.calls;
+      const targetUpdate = updateCalls.find((call) => call[0].where.id === 'cat-1');
+      expect(targetUpdate[0].data.sortOrder).toBe(1);
+    });
+
+    it('returns the current detail without updates or audit for a no-op reorder', async () => {
+      tx.category.findUnique
+        .mockResolvedValueOnce(targetRow)
+        .mockResolvedValueOnce({ id: 'p1', deletedAt: null })
+        .mockResolvedValueOnce({ id: 'p1', parentId: null, deletedAt: null })
+        .mockResolvedValueOnce(makeDetailRow({ parentId: 'p1', sortOrder: 0 }));
+      tx.category.findMany.mockResolvedValue([
+        { id: 'cat-1', sortOrder: 0 },
+        { id: 'cat-2', sortOrder: 1 },
+      ]);
+
+      const result = await service.reorder('cat-1', { position: 0 }, actorId);
+
+      expect(tx.category.updateMany).not.toHaveBeenCalled();
+      expect(audit.log).not.toHaveBeenCalled();
+      expect(result.sortOrder).toBe(0);
+    });
+
+    it('normalizes stale sibling sort orders without an audit event when the target is unchanged', async () => {
+      tx.category.findUnique
+        .mockResolvedValueOnce({ ...targetRow, sortOrder: 0 })
+        .mockResolvedValueOnce({ id: 'p1', deletedAt: null })
+        .mockResolvedValueOnce({ id: 'p1', parentId: null, deletedAt: null })
+        .mockResolvedValueOnce(makeDetailRow({ parentId: 'p1', sortOrder: 0 }));
+      tx.category.findMany.mockResolvedValue([
+        { id: 'cat-1', sortOrder: 0 },
+        { id: 'cat-2', sortOrder: 4 },
+        { id: 'cat-3', sortOrder: 9 },
+      ]);
+      tx.category.updateMany.mockResolvedValue({ count: 1 });
+
+      await service.reorder('cat-1', { position: 0 }, actorId);
+
+      const updateCalls = (tx.category.updateMany as jest.Mock).mock.calls;
+      expect(updateCalls).toHaveLength(2);
+      expect(updateCalls[0][0]).toEqual({
+        where: { id: 'cat-2', deletedAt: null },
+        data: { sortOrder: 1 },
+      });
+      expect(updateCalls[1][0]).toEqual({
+        where: { id: 'cat-3', deletedAt: null },
+        data: { sortOrder: 2 },
+      });
+      expect(audit.log).not.toHaveBeenCalled();
+    });
+
+    it('rejects self-parenting with 409', async () => {
+      tx.category.findUnique.mockResolvedValueOnce(targetRow);
+      await expect(
+        service.reorder('cat-1', { parentId: 'cat-1' }, actorId),
+      ).rejects.toBeInstanceOf(ConflictException);
+      expect(tx.category.findMany).not.toHaveBeenCalled();
+    });
+
+    it('rejects moving under a descendant with 409 (cycle)', async () => {
+      tx.category.findUnique
+        .mockResolvedValueOnce(targetRow)
+        .mockResolvedValueOnce({ id: 'p2', deletedAt: null })
+        .mockResolvedValueOnce({ id: 'p2', parentId: 'cat-1', deletedAt: null });
+      await expect(
+        service.reorder('cat-1', { parentId: 'p2' }, actorId),
+      ).rejects.toBeInstanceOf(ConflictException);
+    });
+
+    it('throws 404 when the category is missing', async () => {
+      tx.category.findUnique.mockResolvedValueOnce(null);
+      await expect(service.reorder('cat-1', { position: 0 }, actorId)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+    });
+
+    it('throws 404 when the category was concurrently soft-deleted', async () => {
+      tx.category.findUnique.mockResolvedValueOnce({ ...targetRow, deletedAt: now });
+      await expect(service.reorder('cat-1', { position: 0 }, actorId)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
     });
   });
 

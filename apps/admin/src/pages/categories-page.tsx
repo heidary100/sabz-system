@@ -1,222 +1,313 @@
-import { useState } from 'react'
-import type { CategoryDetail, CategorySummary } from '@sabz/types'
-import { useCategoryList } from '../hooks/use-category-list'
-import { useCategoryOptions } from '../hooks/use-category-options'
-import { translateApiError } from '../lib/error-messages'
-import { pageNumbers } from '../lib/pagination'
-import { FolderTree, Pencil, Plus, Trash2 } from 'lucide-react'
-import { Button } from '../components/catalyst/button'
-import { Text } from '../components/catalyst/text'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import type { CategoryTreeNode } from '@sabz/types'
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '../components/catalyst/table'
-import { EmptyState } from '../components/ui/empty-state'
+  ChevronsDownUp,
+  ChevronsUpDown,
+  FolderTree,
+  Plus,
+  Search,
+  X,
+} from 'lucide-react'
+import { useCategoryTree } from '../hooks/use-category-tree'
+import { translateApiError } from '../lib/error-messages'
+import { countNodes, getExpandableIds } from '../lib/category-tree-utils'
+import { Button } from '../components/catalyst/button'
+import { Input, InputGroup } from '../components/catalyst/input'
+import { Text } from '../components/catalyst/text'
+import { IconButton } from '../components/ui/icon-button'
 import { Loading } from '../components/ui/loading'
 import { PageHeader } from '../components/ui/page-header'
-import { TableCard } from '../components/ui/table-card'
+import { Tooltip } from '../components/ui/tooltip'
 import {
-  Pagination,
-  PaginationGap,
-  PaginationList,
-  PaginationNext,
-  PaginationPage,
-  PaginationPrevious,
-} from '../components/ui/pagination'
-import { DeleteConfirmDialog } from '../components/ui/delete-confirm-dialog'
-import { CategoryForm } from '../components/categories/category-form'
-import { deleteCategory } from '../services/categories'
+  CategoryTree,
+  type CategoryReorderDrop,
+} from '../components/categories/category-tree'
+import { CategoryEditor } from '../components/categories/category-editor'
+import { CategoryDeleteDialog } from '../components/categories/category-delete-dialog'
+import { deleteCategory, reorderCategory } from '../services/categories'
+
+const EXPANDED_STORAGE_KEY = 'sabz-admin-category-tree-expanded'
+
+function readExpandedIds(): Set<string> {
+  try {
+    const raw = localStorage.getItem(EXPANDED_STORAGE_KEY)
+    if (raw) {
+      const parsed: unknown = JSON.parse(raw)
+      if (Array.isArray(parsed)) {
+        return new Set(parsed.filter((item): item is string => typeof item === 'string'))
+      }
+    }
+  } catch {
+    // best-effort persistence, ignore corrupt values
+  }
+  return new Set()
+}
+
+function writeExpandedIds(ids: Set<string>): void {
+  try {
+    localStorage.setItem(EXPANDED_STORAGE_KEY, JSON.stringify([...ids]))
+  } catch {
+    // best-effort persistence, ignore quota/private-mode failures
+  }
+}
+
+interface EditorState {
+  open: boolean
+  category: CategoryTreeNode | null
+  parentPreset: CategoryTreeNode | null
+}
 
 export function CategoriesPage() {
-  const { page, limit, result, loading, error, setPage, refetch } = useCategoryList()
-  const { categories: options } = useCategoryOptions()
+  const { tree, loading, error, refetch } = useCategoryTree()
 
-  const [formOpen, setFormOpen] = useState(false)
-  const [editing, setEditing] = useState<CategoryDetail | null>(null)
-  const [deleting, setDeleting] = useState<CategorySummary | null>(null)
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(readExpandedIds)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [editor, setEditor] = useState<EditorState>({ open: false, category: null, parentPreset: null })
+  const [deleting, setDeleting] = useState<CategoryTreeNode | null>(null)
+  const [pendingTree, setPendingTree] = useState<CategoryTreeNode[] | null>(null)
+  const [reordering, setReordering] = useState(false)
+  const [reorderNotice, setReorderNotice] = useState<string | null>(null)
+  const [matchCount, setMatchCount] = useState(0)
 
-  const parentName = (parentId: string | null): string => {
-    if (!parentId) {
-      return '—'
+  useEffect(() => {
+    writeExpandedIds(expandedIds)
+  }, [expandedIds])
+
+  const displayedTree = pendingTree ?? tree
+  const totalNodes = useMemo(
+    () => (displayedTree ? countNodes(displayedTree) : 0),
+    [displayedTree],
+  )
+
+  const toggleExpanded = useCallback((id: string): void => {
+    setExpandedIds((current) => {
+      const next = new Set(current)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
+  }, [])
+
+  const expandAll = useCallback((): void => {
+    if (!displayedTree) {
+      return
     }
-    return options.find((item) => item.id === parentId)?.name ?? '—'
-  }
+    setExpandedIds(getExpandableIds(displayedTree))
+  }, [displayedTree])
 
-  const totalPages = result ? Math.max(1, Math.ceil(result.total / result.limit)) : 1
+  const collapseAll = useCallback((): void => {
+    setExpandedIds(new Set())
+  }, [])
 
-  const openCreate = (): void => {
-    setEditing(null)
-    setFormOpen(true)
-  }
+  const closeEditor = useCallback((): void => {
+    setEditor((current) => ({ ...current, open: false }))
+  }, [])
 
-  const openEdit = (category: CategorySummary): void => {
-    setEditing({ ...category, children: [] })
-    setFormOpen(true)
-  }
+  const openCreate = useCallback((): void => {
+    setEditor({ open: true, category: null, parentPreset: null })
+  }, [])
 
-  const handleSuccess = (): void => {
-    setFormOpen(false)
-    setEditing(null)
+  const openAddChild = useCallback((category: CategoryTreeNode): void => {
+    setEditor({ open: true, category: null, parentPreset: category })
+  }, [])
+
+  const openEdit = useCallback((category: CategoryTreeNode): void => {
+    setEditor({ open: true, category, parentPreset: null })
+  }, [])
+
+  const handleEditorSuccess = useCallback((): void => {
+    closeEditor()
     void refetch()
-  }
-
-  const handleDelete = async (): Promise<void> => {
-    if (deleting) {
-      await deleteCategory(deleting.id)
-      setDeleting(null)
-      void refetch()
+    if (editor.parentPreset) {
+      setExpandedIds((current) => new Set(current).add(editor.parentPreset!.id))
     }
-  }
+  }, [closeEditor, refetch, editor.parentPreset])
+
+  const handleReorder = useCallback(
+    async (drop: CategoryReorderDrop): Promise<void> => {
+      setPendingTree(drop.nextTree)
+      setReordering(true)
+      setReorderNotice(null)
+      try {
+        await reorderCategory(drop.id, {
+          parentId: drop.parentId,
+          position: drop.position,
+        })
+        await refetch()
+        setPendingTree(null)
+      } catch (error) {
+        setPendingTree(null)
+        setReorderNotice(translateApiError(error))
+      } finally {
+        setReordering(false)
+      }
+    },
+    [refetch],
+  )
+
+  const handleDeleteConfirm = useCallback(async (): Promise<void> => {
+    if (!deleting) {
+      return
+    }
+    await deleteCategory(deleting.id)
+    if (selectedId === deleting.id) {
+      setSelectedId(null)
+    }
+    await refetch()
+  }, [deleting, selectedId, refetch])
+
+  const searching = searchQuery.trim().length > 0
+  const refetchNotice =
+    error !== null && displayedTree !== null ? translateApiError(error) : null
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <PageHeader
-        title="دسته‌بندی‌ها"
+        title="دسته بندیها"
+        subtitle="سلسله مراتب کاتالوگ خود را سازماندهی کنید؛ دسته ها را بکشید تا مرتب شوند."
         actions={
-          <Button color="primary" onClick={openCreate}>
-            <Plus data-slot="icon" />
-            افزودن دسته‌بندی
-          </Button>
+          <>
+            <InputGroup className="w-full sm:w-72">
+              <Search data-slot="icon" aria-hidden="true" />
+              <Input
+                type="text"
+                inputMode="search"
+                placeholder="جستجوی دسته بندی…"
+                aria-label="جستجوی دسته بندی"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+              />
+              {searching && (
+                <IconButton
+                  label="پاک کردن جستجو"
+                  outline
+                  className="absolute end-1 top-1 size-7"
+                  onClick={() => setSearchQuery('')}
+                >
+                  <X className="size-3.5" aria-hidden="true" />
+                </IconButton>
+              )}
+            </InputGroup>
+            <Tooltip label="باز کردن همه">
+              <IconButton label="باز کردن همه" onClick={expandAll} disabled={!displayedTree}>
+                <ChevronsUpDown className="size-4" aria-hidden="true" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip label="جمع کردن همه">
+              <IconButton label="جمع کردن همه" onClick={collapseAll} disabled={!displayedTree}>
+                <ChevronsDownUp className="size-4" aria-hidden="true" />
+              </IconButton>
+            </Tooltip>
+            <Button color="primary" onClick={openCreate}>
+              <Plus data-slot="icon" /> افزودن دسته بندی
+            </Button>
+          </>
         }
       />
 
-      {loading && !result ? (
-        <Loading compact label="در حال بارگذاری…" />
-      ) : error ? (
-        <div className="glass flex flex-col items-center gap-4 rounded-xl px-6 py-16 text-center">
+      {reorderNotice && (
+        <div className="danger-box flex flex-wrap items-center justify-between gap-3 rounded-xl px-4 py-3 text-sm/6">
+          <span>{reorderNotice}</span>
+        </div>
+      )}
+
+      {refetchNotice && (
+        <div className="danger-box flex flex-wrap items-center justify-between gap-3 rounded-xl px-4 py-3 text-sm/6">
+          <span>{refetchNotice}</span>
+          <Button color="red" onClick={() => void refetch()}>
+            تلاش مجدد
+          </Button>
+        </div>
+      )}
+
+      {loading && !displayedTree ? (
+        <div className="glass flex items-center justify-center rounded-2xl px-6 py-24">
+          <Loading compact label="در حال بارگذاری درخت…" />
+        </div>
+      ) : error && !displayedTree ? (
+        <div className="glass flex flex-col items-center gap-4 rounded-2xl px-6 py-16 text-center">
           <p className="text-sm/6 text-muted">{translateApiError(error)}</p>
           <Button color="primary" onClick={() => void refetch()}>
             تلاش مجدد
           </Button>
         </div>
-      ) : !result || result.items.length === 0 ? (
-        <EmptyState
-          icon={<FolderTree />}
-          title="دسته‌بندی‌ای یافت نشد"
-          description="هنوز دسته‌بندی‌ای ثبت نشده است."
-          actions={
-            <Button outline onClick={openCreate}>
-              افزودن دسته‌بندی
-            </Button>
-          }
-        />
-      ) : (
-        <TableCard>
-          <Table striped>
-            <TableHead>
-              <TableRow>
-                <TableHeader>نام</TableHeader>
-                <TableHeader>اسلاگ</TableHeader>
-                <TableHeader>والد</TableHeader>
-                <TableHeader>ترتیب</TableHeader>
-                <TableHeader>نمایش</TableHeader>
-                <TableHeader>عملیات</TableHeader>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {result.items.map((category) => (
-                <TableRow key={category.id}>
-                  <TableCell className="font-medium text-foreground">
-                    {category.name}
-                  </TableCell>
-                  <TableCell dir="ltr" className="text-muted">
-                    {category.slug}
-                  </TableCell>
-                  <TableCell className="text-muted">
-                    {parentName(category.parentId)}
-                  </TableCell>
-                  <TableCell className="text-muted">{category.sortOrder}</TableCell>
-                  <TableCell className="text-muted">
-                    {category.isVisible ? 'بله' : 'خیر'}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Button plain onClick={() => openEdit(category)}>
-                        <Pencil data-slot="icon" />
-                        ویرایش
-                      </Button>
-                      <Button outline onClick={() => setDeleting(category)}>
-                        <Trash2 data-slot="icon" />
-                        حذف
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-
-          <div className="mt-4 border-t border-border pt-4">
-            <Pagination aria-label="صفحه‌بندی دسته‌بندی‌ها">
-              <PaginationPrevious
-                disabled={page <= 1 || loading}
-                onClick={() => setPage(page - 1)}
-              />
-              <PaginationList>
-                {pageNumbers(page, totalPages).map((item, index) =>
-                  item === 'gap' ? (
-                    <PaginationGap key={`gap-${index}`} />
-                  ) : (
-                    <PaginationPage
-                      key={item}
-                      current={item === page}
-                      disabled={loading}
-                      onClick={() => setPage(item)}
-                    >
-                      {item}
-                    </PaginationPage>
-                  ),
-                )}
-              </PaginationList>
-              <PaginationNext
-                disabled={page >= totalPages || loading}
-                onClick={() => setPage(page + 1)}
-              />
-            </Pagination>
+      ) : !displayedTree || displayedTree.length === 0 ? (
+        <div className="glass relative overflow-hidden rounded-2xl px-6 py-20 text-center">
+          <div className="mx-auto mb-6 flex size-16 items-center justify-center rounded-2xl border border-primary-border bg-primary-subtle shadow-[0_8px_24px_-12px_rgb(53_112_63/0.4)]">
+            <FolderTree className="size-8 text-primary" aria-hidden="true" />
           </div>
-        </TableCard>
-      )}
-
-      {loading && result && (
-        <div className="flex items-center justify-center gap-3 py-4" role="status">
-          <span
-            aria-hidden="true"
-            className="size-5 animate-spin rounded-full border-2 border-hunter-800 border-t-primary"
-          />
-          <span className="text-sm font-medium text-muted">در حال بارگذاری…</span>
+          <h2 className="text-lg/7 font-semibold text-foreground">
+            هنوز دسته بندیای وجود ندارد
+          </h2>
+          <p className="mx-auto mt-2 max-w-md text-sm/6 text-muted">
+            نخستین دسته بندی محصول خود را بسازید تا کاتالوگتان سامان بگیرد؛ سپس
+            میتوانید زیردسته ها را اضافه کنید و ترتیب آنها را با کشیدن و رها کردن
+            تغییر دهید.
+          </p>
+          <div className="mt-6 flex justify-center">
+            <Button color="primary" onClick={openCreate}>
+              <Plus data-slot="icon" /> افزودن دسته بندی
+            </Button>
+          </div>
         </div>
+      ) : (
+        <>
+          <div className="glass rounded-2xl p-2 shadow-inner sm:p-3">
+            <div className="rounded-xl border border-border bg-surface/60 p-1.5 sm:p-2">
+              <CategoryTree
+                tree={displayedTree}
+                expandedIds={expandedIds}
+                onToggleExpanded={toggleExpanded}
+                selectedId={selectedId}
+                onSelect={setSelectedId}
+                searchQuery={searchQuery}
+                onMatchCountChange={setMatchCount}
+                onAddChild={openAddChild}
+                onEdit={openEdit}
+                onDelete={setDeleting}
+                onReorder={(drop) => void handleReorder(drop)}
+                reordering={reordering}
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <Text className="text-xs text-muted">
+              {searching
+                ? `نتیجه جستجو: ${matchCount} دسته بندی`
+                : `مجموع: ${totalNodes} دسته بندی · برای مرتبسازی، دسته ها را بکشید`}
+            </Text>
+            {reordering && (
+              <span className="flex items-center gap-2 text-xs font-medium text-muted" role="status">
+                <span
+                  aria-hidden="true"
+                  className="size-3 animate-spin rounded-full border-2 border-hunter-800 border-t-primary"
+                />
+                در حال ذخیره ترتیب…
+              </span>
+            )}
+          </div>
+        </>
       )}
 
-      <Text className="text-xs text-muted">
-        {result ? `مجموع: ${result.total} دسته‌بندی · ${limit} مورد در هر صفحه` : ''}
-      </Text>
-
-      <CategoryForm
-        open={formOpen}
-        category={editing}
-        categories={options}
-        onClose={() => {
-          setFormOpen(false)
-          setEditing(null)
-        }}
-        onSuccess={handleSuccess}
+      <CategoryEditor
+        open={editor.open}
+        category={editor.category}
+        parentPreset={editor.parentPreset}
+        tree={displayedTree ?? []}
+        onClose={closeEditor}
+        onSuccess={handleEditorSuccess}
       />
 
-      <DeleteConfirmDialog
-        open={deleting !== null}
-        title="حذف دسته‌بندی"
-        description={
-          deleting
-            ? `آیا از حذف دسته‌بندی «${deleting.name}» مطمئن هستید؟ این عمل قابل بازگشت نیست.`
-            : ''
-        }
-        confirmLabel="حذف"
+      <CategoryDeleteDialog
+        category={deleting}
+        tree={displayedTree ?? []}
         onClose={() => setDeleting(null)}
-        onConfirm={handleDelete}
+        onConfirm={handleDeleteConfirm}
       />
     </div>
   )

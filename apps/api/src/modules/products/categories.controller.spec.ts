@@ -8,9 +8,11 @@ describe('CategoriesController', () => {
   let controller: CategoriesController;
   let service: {
     list: jest.Mock;
+    getTree: jest.Mock;
     getDetail: jest.Mock;
     create: jest.Mock;
     update: jest.Mock;
+    reorder: jest.Mock;
     softDelete: jest.Mock;
   };
 
@@ -19,9 +21,11 @@ describe('CategoriesController', () => {
   beforeEach(() => {
     service = {
       list: jest.fn(),
+      getTree: jest.fn(),
       getDetail: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
+      reorder: jest.fn(),
       softDelete: jest.fn(),
     };
     controller = new CategoriesController(service as unknown as CategoriesService);
@@ -31,9 +35,11 @@ describe('CategoriesController', () => {
     const reflector = new Reflector();
     const handlers = [
       CategoriesController.prototype.list,
+      CategoriesController.prototype.getTree,
       CategoriesController.prototype.getDetail,
       CategoriesController.prototype.create,
       CategoriesController.prototype.update,
+      CategoriesController.prototype.reorder,
       CategoriesController.prototype.softDelete,
     ];
 
@@ -52,6 +58,11 @@ describe('CategoriesController', () => {
     expect(service.list).toHaveBeenCalledWith(query);
   });
 
+  it('delegates getTree to the service', async () => {
+    await controller.getTree();
+    expect(service.getTree).toHaveBeenCalledWith();
+  });
+
   it('delegates getDetail to the service', async () => {
     await controller.getDetail('cat-1');
     expect(service.getDetail).toHaveBeenCalledWith('cat-1');
@@ -67,6 +78,12 @@ describe('CategoriesController', () => {
     const dto = {} as never;
     await controller.update('cat-1', dto, user as never, '127.0.0.1');
     expect(service.update).toHaveBeenCalledWith('cat-1', dto, 'actor-1', '127.0.0.1');
+  });
+
+  it('delegates reorder with the actor and ip', async () => {
+    const dto = {} as never;
+    await controller.reorder('cat-1', dto, user as never, '127.0.0.1');
+    expect(service.reorder).toHaveBeenCalledWith('cat-1', dto, 'actor-1', '127.0.0.1');
   });
 
   it('delegates softDelete with the actor and ip', async () => {

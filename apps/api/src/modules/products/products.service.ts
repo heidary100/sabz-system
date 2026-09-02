@@ -603,7 +603,7 @@ export class ProductsService {
       throw new NotFoundException('برند یافت نشد.');
     }
     if (!category || category.deletedAt !== null) {
-      throw new NotFoundException('دستهبندی یافت نشد.');
+      throw new NotFoundException('دسته بندی یافت نشد.');
     }
   }
 

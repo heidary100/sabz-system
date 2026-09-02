@@ -29,6 +29,7 @@ import { CategoriesService } from './categories.service';
 import {
   CreateCategoryDto,
   ListCategoriesQueryDto,
+  ReorderCategoryDto,
   UpdateCategoryDto,
 } from './dto';
 
@@ -50,6 +51,15 @@ export class CategoriesController {
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   async list(@Query() query: ListCategoriesQueryDto) {
     return this.categoriesService.list(query);
+  }
+
+  @Get('tree')
+  @ApiOperation({ summary: 'Return the full category tree with active product counts' })
+  @ApiResponse({ status: 200, description: 'Category tree returned.' })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  async getTree() {
+    return this.categoriesService.getTree();
   }
 
   @Get(':id')
@@ -95,6 +105,24 @@ export class CategoriesController {
     @Ip() ipAddress?: string,
   ) {
     return this.categoriesService.update(categoryId, dto, user.userId, ipAddress);
+  }
+
+  @Patch(':id/reorder')
+  @ApiOperation({ summary: 'Move a category and reposition it among its siblings' })
+  @ApiParam({ name: 'id', type: 'string', format: 'uuid' })
+  @ApiResponse({ status: 200, description: 'Category reordered.' })
+  @ApiResponse({ status: 400, description: 'Invalid body.' })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  @ApiResponse({ status: 404, description: 'Category not found.' })
+  @ApiResponse({ status: 409, description: 'Hierarchy conflict.' })
+  async reorder(
+    @Param('id', UUID_PARAM) categoryId: string,
+    @Body() dto: ReorderCategoryDto,
+    @CurrentUser() user: AuthUser,
+    @Ip() ipAddress?: string,
+  ) {
+    return this.categoriesService.reorder(categoryId, dto, user.userId, ipAddress);
   }
 
   @Delete(':id')
