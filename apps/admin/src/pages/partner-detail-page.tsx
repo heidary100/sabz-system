@@ -6,6 +6,7 @@ import { translateApiError } from '../lib/error-messages'
 import { formatDateTime, formatFileSize } from '../lib/format'
 import { PARTNER_DOCUMENT_TYPE_LABELS } from '../lib/partner-labels'
 import { downloadPartnerDocument } from '../services/partners'
+import { Briefcase, Download, Eye } from 'lucide-react'
 import { ApproveDialog } from '../components/partners/approve-dialog'
 import { DocumentPreviewDialog } from '../components/partners/document-preview-dialog'
 import { RejectDialog } from '../components/partners/reject-dialog'
@@ -24,19 +25,11 @@ import {
 } from '../components/catalyst/table'
 import { Text } from '../components/catalyst/text'
 import { EmptyState } from '../components/ui/empty-state'
+import { InfoItem } from '../components/ui/info-item'
 import { Loading } from '../components/ui/loading'
 import type { PartnerDocumentSummary } from '@sabz/types'
 
 type DialogName = 'approve' | 'reject' | 'tier'
-
-function InfoItem({ label, value }: { label: string; value: string | null }) {
-  return (
-    <div className="space-y-1">
-      <dt className="text-sm font-medium text-dust-200">{label}</dt>
-      <dd className="text-sm text-foreground">{value || '—'}</dd>
-    </div>
-  )
-}
 
 export function PartnerDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -53,8 +46,8 @@ export function PartnerDetailPage() {
   if (error && !partner) {
     return (
       <div className="mx-auto max-w-6xl space-y-6">
-        <div className="flex flex-col items-center gap-4 rounded-lg border border-border bg-white px-6 py-16 text-center">
-          <p className="text-sm/6 text-dust-200">{translateApiError(error)}</p>
+        <div className="glass flex flex-col items-center gap-4 rounded-xl px-6 py-16 text-center">
+          <p className="text-sm/6 text-muted">{translateApiError(error)}</p>
           <Button color="primary" onClick={() => void refetch()}>
             تلاش مجدد
           </Button>
@@ -72,6 +65,7 @@ export function PartnerDetailPage() {
         <EmptyState
           title="درخواست یافت نشد"
           description="این درخواست همکاری در دسترس نیست."
+          icon={<Briefcase className="size-6" aria-hidden="true" />}
           actions={
             <Link to="/partners">
               <Button outline>بازگشت به فهرست</Button>
@@ -134,7 +128,7 @@ export function PartnerDetailPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <section className="rounded-lg border border-border bg-white p-6">
+        <section className="rounded-xl border border-border bg-surface p-5 sm:p-6">
           <Subheading>اطلاعات کسبوکار</Subheading>
           <dl className="mt-4 grid grid-cols-1 gap-5 sm:grid-cols-2">
             <InfoItem label="نام کسبوکار" value={partner.businessName} />
@@ -149,7 +143,7 @@ export function PartnerDetailPage() {
           </dl>
         </section>
 
-        <section className="rounded-lg border border-border bg-white p-6">
+        <section className="rounded-xl border border-border bg-surface p-5 sm:p-6">
           <Subheading>متقاضی</Subheading>
           <dl className="mt-4 grid grid-cols-1 gap-5 sm:grid-cols-2">
             <InfoItem label="نام" value={partner.profile.firstName} />
@@ -158,7 +152,7 @@ export function PartnerDetailPage() {
           </dl>
         </section>
 
-        <section className="rounded-lg border border-border bg-white p-6">
+        <section className="rounded-xl border border-border bg-surface p-5 sm:p-6">
           <Subheading>زندگی درخواست</Subheading>
           <dl className="mt-4 grid grid-cols-1 gap-5 sm:grid-cols-2">
             <div className="sm:col-span-2">
@@ -172,7 +166,7 @@ export function PartnerDetailPage() {
           </dl>
         </section>
 
-        <section className="rounded-lg border border-border bg-white p-6">
+        <section className="rounded-xl border border-border bg-surface p-5 sm:p-6">
           <Subheading>تایر</Subheading>
           {partner.tier ? (
             <div className="mt-4 space-y-2">
@@ -186,10 +180,10 @@ export function PartnerDetailPage() {
         </section>
       </div>
 
-      <section className="rounded-lg border border-border bg-white p-6">
+      <section className="rounded-xl border border-border bg-surface p-5 sm:p-6">
         <Subheading>مدارک</Subheading>
         {actionError && (
-          <Text className="mt-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          <Text className="mt-2 danger-box rounded-lg px-3 py-2 text-sm">
             {actionError}
           </Text>
         )}
@@ -211,23 +205,25 @@ export function PartnerDetailPage() {
               <TableBody>
                 {partner.documents.map((document) => (
                   <TableRow key={document.id}>
-                    <TableCell className="font-medium text-zinc-950">
+                    <TableCell className="font-medium text-foreground">
                       {PARTNER_DOCUMENT_TYPE_LABELS[document.type]}
                     </TableCell>
-                    <TableCell className="text-zinc-500">{document.originalName}</TableCell>
-                    <TableCell className="text-zinc-500">{document.mimeType}</TableCell>
-                    <TableCell className="text-zinc-500">
+                    <TableCell className="text-muted">{document.originalName}</TableCell>
+                    <TableCell className="text-muted">{document.mimeType}</TableCell>
+                    <TableCell className="text-muted">
                       {formatFileSize(document.sizeBytes)}
                     </TableCell>
-                    <TableCell className="text-zinc-500">
+                    <TableCell className="text-muted">
                       {formatDateTime(document.createdAt)}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <Button plain onClick={() => setPreviewDocument(document)}>
+                          <Eye data-slot="icon" />
                           پیش‌نمایش
                         </Button>
                         <Button plain onClick={() => void handleDownload(document)}>
+                          <Download data-slot="icon" />
                           دانلود
                         </Button>
                       </div>

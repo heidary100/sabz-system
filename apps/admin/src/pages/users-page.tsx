@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useUserList } from '../hooks/use-user-list'
 import { translateApiError } from '../lib/error-messages'
 import { formatDate } from '../lib/format'
+import { pageNumbers } from '../lib/pagination'
 import {
   ROLE_LABELS,
   ROLE_ORDER,
@@ -10,9 +11,9 @@ import {
   USER_STATUS_ORDER,
 } from '../lib/user-labels'
 import type { AppRole, UserStatus } from '@sabz/types'
+import { Users } from 'lucide-react'
 import { Button } from '../components/catalyst/button'
 import { Field, Label } from '../components/catalyst/fieldset'
-import { Heading } from '../components/catalyst/heading'
 import { Input } from '../components/catalyst/input'
 import { Select } from '../components/catalyst/select'
 import {
@@ -25,6 +26,8 @@ import {
 } from '../components/catalyst/table'
 import { EmptyState } from '../components/ui/empty-state'
 import { Loading } from '../components/ui/loading'
+import { PageHeader } from '../components/ui/page-header'
+import { TableCard } from '../components/ui/table-card'
 import {
   Pagination,
   PaginationGap,
@@ -36,25 +39,6 @@ import {
 import { UserStatusBadge } from '../components/users/user-status-badge'
 
 const SEARCH_DEBOUNCE_MS = 300
-
-function pageNumbers(current: number, totalPages: number): (number | 'gap')[] {
-  if (totalPages <= 7) {
-    return Array.from({ length: totalPages }, (_, index) => index + 1)
-  }
-
-  const pages: (number | 'gap')[] = [1]
-  if (current > 3) {
-    pages.push('gap')
-  }
-  for (let page = Math.max(2, current - 1); page <= Math.min(totalPages - 1, current + 1); page++) {
-    pages.push(page)
-  }
-  if (current < totalPages - 2) {
-    pages.push('gap')
-  }
-  pages.push(totalPages)
-  return pages
-}
 
 export function UsersPage() {
   const navigate = useNavigate()
@@ -92,12 +76,10 @@ export function UsersPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
-      <div className="flex items-center justify-between">
-        <Heading level={1}>کاربران</Heading>
-      </div>
+      <PageHeader title="کاربران" />
 
-      <div className="grid w-full max-w-4xl gap-4 sm:grid-cols-3">
-        <Field className="sm:col-span-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Field className="sm:col-span-2 lg:col-span-2">
           <Label>جستجو</Label>
           <Input
             type="search"
@@ -143,8 +125,8 @@ export function UsersPage() {
       {loading && !result ? (
         <Loading compact label="در حال بارگذاری…" />
       ) : error ? (
-        <div className="flex flex-col items-center gap-4 rounded-lg border border-border bg-white px-6 py-16 text-center">
-          <p className="text-sm/6 text-dust-200">{translateApiError(error)}</p>
+        <div className="glass flex flex-col items-center gap-4 rounded-xl px-6 py-16 text-center">
+          <p className="text-sm/6 text-muted">{translateApiError(error)}</p>
           <Button color="primary" onClick={() => void refetch()}>
             تلاش مجدد
           </Button>
@@ -157,6 +139,7 @@ export function UsersPage() {
               ? 'با این فیلترها کاربری ثبت نشده است.'
               : 'هنوز کاربری ثبت نشده است.'
           }
+          icon={<Users className="size-6" aria-hidden="true" />}
           actions={
             hasActiveFilter ? (
               <Button
@@ -174,7 +157,7 @@ export function UsersPage() {
           }
         />
       ) : (
-        <div className="rounded-lg border border-border bg-white p-4">
+        <TableCard>
           <Table striped>
             <TableHead>
               <TableRow>
@@ -194,10 +177,10 @@ export function UsersPage() {
                   title={`مشاهده ${user.profile ? `${user.profile.firstName} ${user.profile.lastName}` : user.mobile}`}
                   onNavigate={openUser(user.id)}
                 >
-                  <TableCell dir="ltr" className="font-medium text-zinc-950">
+                  <TableCell dir="ltr" className="font-medium text-foreground">
                     {user.mobile}
                   </TableCell>
-                  <TableCell className="text-zinc-500">
+                  <TableCell className="text-muted">
                     {user.profile
                       ? `${user.profile.firstName} ${user.profile.lastName}`
                       : '—'}
@@ -205,15 +188,15 @@ export function UsersPage() {
                   <TableCell>
                     <UserStatusBadge status={user.status} />
                   </TableCell>
-                  <TableCell className="text-zinc-500">
+                  <TableCell className="text-muted">
                     {user.roles.length > 0
                       ? user.roles.map((role) => ROLE_LABELS[role]).join('، ')
                       : '—'}
                   </TableCell>
-                  <TableCell className="text-zinc-500">
+                  <TableCell className="text-muted">
                     {user.partner?.businessName ?? '—'}
                   </TableCell>
-                  <TableCell className="text-zinc-500">
+                  <TableCell className="text-muted">
                     {formatDate(user.createdAt)}
                   </TableCell>
                 </TableRow>
@@ -249,7 +232,7 @@ export function UsersPage() {
               />
             </Pagination>
           </div>
-        </div>
+        </TableCard>
       )}
 
       {loading && result && (
@@ -258,11 +241,11 @@ export function UsersPage() {
             aria-hidden="true"
             className="size-5 animate-spin rounded-full border-2 border-hunter-800 border-t-primary"
           />
-          <span className="text-sm font-medium text-dust-200">در حال بارگذاری…</span>
+          <span className="text-sm font-medium text-muted">در حال بارگذاری…</span>
         </div>
       )}
 
-      <p className="text-xs text-dust-200">
+      <p className="text-xs text-muted">
         {result ? `مجموع: ${result.total} کاربر · ${limit} مورد در هر صفحه` : ''}
       </p>
     </div>

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
+import { BookmarkCheck } from 'lucide-react'
 import type { ReservationStatus, ReservationSummary } from '@sabz/types'
 import { useReservationList } from '../hooks/use-reservation-list'
 import { useWarehouseOptions } from '../hooks/use-warehouse-options'
@@ -9,6 +10,7 @@ import {
   RESERVATION_STATUS_LABELS,
   RESERVATION_STATUS_ORDER,
 } from '../lib/inventory-labels'
+import { pageNumbers } from '../lib/pagination'
 import { Badge } from '../components/catalyst/badge'
 import { Button } from '../components/catalyst/button'
 import { Field, Label } from '../components/catalyst/fieldset'
@@ -25,6 +27,7 @@ import {
 } from '../components/catalyst/table'
 import { EmptyState } from '../components/ui/empty-state'
 import { Loading } from '../components/ui/loading'
+import { TableCard } from '../components/ui/table-card'
 import {
   Pagination,
   PaginationGap,
@@ -41,25 +44,6 @@ import { ConsumeReservationDialog } from '../components/inventory/consume-reserv
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 type ActionTarget = { mode: 'release' | 'consume'; reservation: ReservationSummary }
-
-function pageNumbers(current: number, totalPages: number): (number | 'gap')[] {
-  if (totalPages <= 7) {
-    return Array.from({ length: totalPages }, (_, index) => index + 1)
-  }
-
-  const pages: (number | 'gap')[] = [1]
-  if (current > 3) {
-    pages.push('gap')
-  }
-  for (let page = Math.max(2, current - 1); page <= Math.min(totalPages - 1, current + 1); page++) {
-    pages.push(page)
-  }
-  if (current < totalPages - 2) {
-    pages.push('gap')
-  }
-  pages.push(totalPages)
-  return pages
-}
 
 function terminalTimestamp(reservation: ReservationSummary): string | null {
   switch (reservation.status) {
@@ -215,7 +199,7 @@ export function InventoryReservationsPage() {
       </div>
 
       {invalidVariantId && (
-        <p className="text-sm text-red-700">شناسه واریانت باید یک UUID معتبر باشد.</p>
+        <p className="text-sm text-red-700 dark:text-red-400">شناسه واریانت باید یک UUID معتبر باشد.</p>
       )}
 
       <div className="flex flex-wrap items-center gap-3">
@@ -228,9 +212,9 @@ export function InventoryReservationsPage() {
       </div>
 
       {variantId !== '' && (
-        <div className="flex items-center gap-2 rounded-lg border border-border bg-white px-3 py-2">
+        <div className="glass flex items-center gap-2 rounded-lg px-3 py-2">
           <Badge>فیلتر واریانت</Badge>
-          <span dir="ltr" className="font-mono text-xs text-zinc-600">
+          <span dir="ltr" className="font-mono text-xs text-muted">
             {variantId}
           </span>
           <Button plain onClick={removeVariantFilter} aria-label="حذف فیلتر واریانت">
@@ -242,8 +226,8 @@ export function InventoryReservationsPage() {
       {loading && !result ? (
         <Loading compact label="در حال بارگذاری…" />
       ) : error ? (
-        <div className="flex flex-col items-center gap-4 rounded-lg border border-border bg-white px-6 py-16 text-center">
-          <p className="text-sm/6 text-dust-200">{translateApiError(error)}</p>
+        <div className="glass flex flex-col items-center gap-4 rounded-xl px-6 py-16 text-center">
+          <p className="text-sm/6 text-muted">{translateApiError(error)}</p>
           <Button color="primary" onClick={() => void refetch()}>
             تلاش مجدد
           </Button>
@@ -256,6 +240,7 @@ export function InventoryReservationsPage() {
               ? 'با این فیلترها رزروی ثبت نشده است.'
               : 'هنوز رزروی ثبت نشده است.'
           }
+          icon={<BookmarkCheck className="size-6" />}
           actions={
             hasActiveFilter ? (
               <Button outline onClick={resetFilters}>
@@ -265,7 +250,7 @@ export function InventoryReservationsPage() {
           }
         />
       ) : (
-        <div className="rounded-lg border border-border bg-white p-4">
+        <TableCard>
           <Table striped>
             <TableHead>
               <TableRow>
@@ -285,10 +270,10 @@ export function InventoryReservationsPage() {
                 const overdue = isOverdue(reservation)
                 return (
                   <TableRow key={reservation.id}>
-                    <TableCell dir="ltr" className="font-medium text-zinc-950">
+                    <TableCell dir="ltr" className="font-medium text-foreground">
                       {reservation.variant.sku}
                     </TableCell>
-                    <TableCell className="text-zinc-500">
+                    <TableCell className="text-muted">
                       <Link
                         to={`/inventory/variants/${reservation.variant.id}`}
                         className="font-medium text-primary hover:underline"
@@ -296,7 +281,7 @@ export function InventoryReservationsPage() {
                         {reservation.variant.name ?? '—'}
                       </Link>
                     </TableCell>
-                    <TableCell className="text-zinc-500">
+                    <TableCell className="text-muted">
                       <Link
                         to={`/inventory/warehouses/${reservation.warehouse.id}`}
                         className="font-medium text-primary hover:underline"
@@ -304,25 +289,25 @@ export function InventoryReservationsPage() {
                         {reservation.warehouse.name}
                       </Link>
                     </TableCell>
-                    <TableCell dir="ltr" className="tabular-nums text-zinc-500">
+                    <TableCell dir="ltr" className="tabular-nums text-muted">
                       {reservation.quantity}
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col items-start gap-1">
                         <ReservationStatusBadge status={reservation.status} />
                         {terminalAt && (
-                          <span className="text-xs text-zinc-400">
+                          <span className="text-xs text-muted">
                             {formatDateTime(terminalAt)}
                           </span>
                         )}
                       </div>
                     </TableCell>
-                    <TableCell className="text-zinc-500">
+                    <TableCell className="text-muted">
                       {reservation.expiresAt ? (
                         <div className="flex flex-col items-start gap-1">
                           <span dir="ltr">{formatDateTime(reservation.expiresAt)}</span>
                           {overdue && (
-                            <span className="text-xs text-amber-700">
+                            <span className="text-xs text-amber-700 dark:text-amber-400">
                               زمان انقضا گذشته است؛ پس از یک عملیات وضعیت به‌روزرسانی می‌شود
                             </span>
                           )}
@@ -331,7 +316,7 @@ export function InventoryReservationsPage() {
                         'بدون انقضا'
                       )}
                     </TableCell>
-                    <TableCell className="text-zinc-500">
+                    <TableCell className="text-muted">
                       {formatDateTime(reservation.createdAt)}
                     </TableCell>
                     <TableCell>
@@ -355,7 +340,7 @@ export function InventoryReservationsPage() {
                           </Button>
                         </div>
                       ) : (
-                        <span className="text-zinc-400">—</span>
+                        <span className="text-muted">—</span>
                       )}
                     </TableCell>
                   </TableRow>
@@ -392,7 +377,7 @@ export function InventoryReservationsPage() {
               />
             </Pagination>
           </div>
-        </div>
+        </TableCard>
       )}
 
       {loading && result && (
@@ -401,11 +386,11 @@ export function InventoryReservationsPage() {
             aria-hidden="true"
             className="size-5 animate-spin rounded-full border-2 border-hunter-800 border-t-primary"
           />
-          <span className="text-sm font-medium text-dust-200">در حال بارگذاری…</span>
+          <span className="text-sm font-medium text-muted">در حال بارگذاری…</span>
         </div>
       )}
 
-      <Text className="text-xs text-dust-200">
+      <Text className="text-xs text-muted">
         {result ? `مجموع: ${result.total} رزرو · ${limit} مورد در هر صفحه` : ''}
       </Text>
 

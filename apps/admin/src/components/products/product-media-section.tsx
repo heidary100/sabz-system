@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { ProductMediaSummary, VariantSummary } from '@sabz/types'
+import { Plus, Trash2 } from 'lucide-react'
 import { Subheading } from '../catalyst/heading'
 import { Text } from '../catalyst/text'
 import { Button } from '../catalyst/button'
@@ -27,7 +28,7 @@ type MediaDialogState =
 
 function MediaTypeBadge({ mediaType }: { mediaType: ProductMediaSummary['mediaType'] }) {
   return (
-    <Badge color={mediaType === 'IMAGE' ? 'emerald' : 'sky'}>
+    <Badge color={mediaType === 'IMAGE' ? 'green' : 'sky'}>
       {PRODUCT_MEDIA_TYPE_LABELS[mediaType]}
     </Badge>
   )
@@ -80,24 +81,25 @@ export function ProductMediaSection({
   const selectedMedia = dialog?.type === 'preview' || dialog?.type === 'delete' ? dialog.media : null
 
   return (
-    <section className="rounded-lg border border-border bg-white p-6">
+    <section className="rounded-xl border border-border bg-surface p-5 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <Subheading>رسانهها</Subheading>
-          <Text className="mt-1 text-xs text-zinc-500">
+          <Text className="mt-1 text-xs text-muted">
             رسانهها به ترتیب تعیینشده توسط سرور نمایش داده میشوند؛ اولین تصویر بارگذاریشده بهصورت
             خودکار تصویر اصلی میشود.
           </Text>
         </div>
         {manageable && (
           <Button color="primary" onClick={() => setDialog({ type: 'upload' })}>
+            <Plus data-slot="icon" />
             افزودن رسانه
           </Button>
         )}
       </div>
 
       {actionError && (
-        <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+        <p className="mt-4 danger-box rounded-lg px-3 py-2 text-sm">
           {actionError}
         </p>
       )}
@@ -127,21 +129,21 @@ export function ProductMediaSection({
                   : undefined
                 return (
                   <TableRow key={item.id}>
-                    <TableCell dir="ltr" className="font-medium text-zinc-950">
+                    <TableCell dir="ltr" className="font-medium text-foreground">
                       {item.originalName}
                     </TableCell>
                     <TableCell>
                       <MediaTypeBadge mediaType={item.mediaType} />
                     </TableCell>
-                    <TableCell dir="ltr" className="text-zinc-500">
+                    <TableCell dir="ltr" className="text-muted">
                       {item.mimeType}
                     </TableCell>
-                    <TableCell className="text-zinc-500">
+                    <TableCell className="text-muted">
                       {formatFileSize(item.sizeBytes)}
                     </TableCell>
-                    <TableCell className="text-zinc-500">{item.sortOrder}</TableCell>
+                    <TableCell className="text-muted">{item.sortOrder}</TableCell>
                     {hasVariantAssociation && (
-                      <TableCell dir="ltr" className="text-zinc-500">
+                      <TableCell dir="ltr" className="text-muted">
                         {variant ? (variant.name ? `${variant.sku} — ${variant.name}` : variant.sku) : '—'}
                       </TableCell>
                     )}
@@ -149,10 +151,10 @@ export function ProductMediaSection({
                       {item.isPrimary ? (
                         <Badge color="amber">تصویر اصلی</Badge>
                       ) : (
-                        <span className="text-zinc-500">—</span>
+                        <span className="text-muted">—</span>
                       )}
                     </TableCell>
-                    <TableCell className="text-zinc-500">
+                    <TableCell className="text-muted">
                       {formatDateTime(item.createdAt)}
                     </TableCell>
                     <TableCell>
@@ -165,6 +167,7 @@ export function ProductMediaSection({
                         </Button>
                         {manageable && (
                           <Button outline onClick={() => setDialog({ type: 'delete', media: item })}>
+                            <Trash2 data-slot="icon" />
                             حذف
                           </Button>
                         )}

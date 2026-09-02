@@ -83,10 +83,12 @@ export function PaginationPage({
       className={clsx(
         className,
         'min-w-9 before:absolute before:-inset-px before:rounded-lg',
-        current && 'before:bg-zinc-950/5 dark:before:bg-white/10',
+        current && 'before:bg-primary-subtle dark:before:bg-primary-subtle',
       )}
     >
-      <span className="-mx-0.5">{children}</span>
+      <span className={clsx('-mx-0.5', current && 'text-primary dark:text-primary')}>
+        {children}
+      </span>
     </Button>
   )
 }

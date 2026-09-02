@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
+import { ArrowLeftRight } from 'lucide-react'
 import type { InventoryMovementType } from '@sabz/types'
 import { useInventoryMovements } from '../hooks/use-inventory-movements'
 import { useWarehouseOptions } from '../hooks/use-warehouse-options'
@@ -9,6 +10,7 @@ import {
   INVENTORY_MOVEMENT_TYPE_LABELS,
   INVENTORY_MOVEMENT_TYPE_ORDER,
 } from '../lib/inventory-labels'
+import { pageNumbers } from '../lib/pagination'
 import { Badge } from '../components/catalyst/badge'
 import { Button } from '../components/catalyst/button'
 import { Field, Label } from '../components/catalyst/fieldset'
@@ -25,6 +27,7 @@ import {
 } from '../components/catalyst/table'
 import { EmptyState } from '../components/ui/empty-state'
 import { Loading } from '../components/ui/loading'
+import { TableCard } from '../components/ui/table-card'
 import {
   Pagination,
   PaginationGap,
@@ -35,25 +38,6 @@ import {
 } from '../components/ui/pagination'
 import { Text } from '../components/catalyst/text'
 import { InventoryMovementTypeBadge } from '../components/inventory/inventory-movement-type-badge'
-
-function pageNumbers(current: number, totalPages: number): (number | 'gap')[] {
-  if (totalPages <= 7) {
-    return Array.from({ length: totalPages }, (_, index) => index + 1)
-  }
-
-  const pages: (number | 'gap')[] = [1]
-  if (current > 3) {
-    pages.push('gap')
-  }
-  for (let page = Math.max(2, current - 1); page <= Math.min(totalPages - 1, current + 1); page++) {
-    pages.push(page)
-  }
-  if (current < totalPages - 2) {
-    pages.push('gap')
-  }
-  pages.push(totalPages)
-  return pages
-}
 
 function toIsoStartOfDay(date: string): string | undefined {
   if (!date) {
@@ -205,7 +189,7 @@ export function InventoryMovementsPage() {
       </div>
 
       {invalidDateRange && (
-        <p className="text-sm text-red-700">تاریخ «از» نباید دیرتر از «تا» باشد.</p>
+        <p className="text-sm text-red-700 dark:text-red-400">تاریخ «از» نباید دیرتر از «تا» باشد.</p>
       )}
 
       <div className="flex flex-wrap items-center gap-3">
@@ -218,9 +202,9 @@ export function InventoryMovementsPage() {
       </div>
 
       {variantId !== '' && (
-        <div className="flex items-center gap-2 rounded-lg border border-border bg-white px-3 py-2">
+        <div className="glass flex items-center gap-2 rounded-lg px-3 py-2">
           <Badge>فیلتر واریانت</Badge>
-          <span dir="ltr" className="font-mono text-xs text-zinc-600">
+          <span dir="ltr" className="font-mono text-xs text-muted">
             {variantId}
           </span>
           <Button plain onClick={removeVariantFilter} aria-label="حذف فیلتر واریانت">
@@ -232,8 +216,8 @@ export function InventoryMovementsPage() {
       {loading && !result ? (
         <Loading compact label="در حال بارگذاری…" />
       ) : error ? (
-        <div className="flex flex-col items-center gap-4 rounded-lg border border-border bg-white px-6 py-16 text-center">
-          <p className="text-sm/6 text-dust-200">{translateApiError(error)}</p>
+        <div className="glass flex flex-col items-center gap-4 rounded-xl px-6 py-16 text-center">
+          <p className="text-sm/6 text-muted">{translateApiError(error)}</p>
           <Button color="primary" onClick={() => void refetch()}>
             تلاش مجدد
           </Button>
@@ -246,6 +230,7 @@ export function InventoryMovementsPage() {
               ? 'با این فیلترها حرکتی ثبت نشده است.'
               : 'هنوز حرکتی برای موجودی ثبت نشده است.'
           }
+          icon={<ArrowLeftRight className="size-6" />}
           actions={
             hasActiveFilter ? (
               <Button outline onClick={resetFilters}>
@@ -255,7 +240,7 @@ export function InventoryMovementsPage() {
           }
         />
       ) : (
-        <div className="rounded-lg border border-border bg-white p-4">
+        <TableCard>
           <Table striped>
             <TableHead>
               <TableRow>
@@ -275,10 +260,10 @@ export function InventoryMovementsPage() {
             <TableBody>
               {result.items.map((movement) => (
                 <TableRow key={movement.id}>
-                  <TableCell className="text-zinc-500">
+                  <TableCell className="text-muted">
                     {formatDateTime(movement.createdAt)}
                   </TableCell>
-                  <TableCell className="text-zinc-500">
+                  <TableCell className="text-muted">
                     {movement.actor
                       ? [movement.actor.firstName, movement.actor.lastName]
                           .filter(Boolean)
@@ -288,26 +273,26 @@ export function InventoryMovementsPage() {
                   <TableCell>
                     <InventoryMovementTypeBadge type={movement.type} />
                   </TableCell>
-                  <TableCell dir="ltr" className="tabular-nums text-zinc-500">
+                  <TableCell dir="ltr" className="tabular-nums text-muted">
                     {movement.quantity}
                   </TableCell>
-                  <TableCell dir="ltr" className="tabular-nums text-zinc-500">
+                  <TableCell dir="ltr" className="tabular-nums text-muted">
                     {movement.reservedDelta}
                   </TableCell>
-                  <TableCell dir="ltr" className="tabular-nums text-zinc-500">
+                  <TableCell dir="ltr" className="tabular-nums text-muted">
                     {movement.onHandBefore}
                   </TableCell>
-                  <TableCell dir="ltr" className="tabular-nums text-zinc-500">
+                  <TableCell dir="ltr" className="tabular-nums text-muted">
                     {movement.onHandAfter}
                   </TableCell>
-                  <TableCell dir="ltr" className="tabular-nums text-zinc-500">
+                  <TableCell dir="ltr" className="tabular-nums text-muted">
                     {movement.reservedBefore}
                   </TableCell>
-                  <TableCell dir="ltr" className="tabular-nums text-zinc-500">
+                  <TableCell dir="ltr" className="tabular-nums text-muted">
                     {movement.reservedAfter}
                   </TableCell>
-                  <TableCell className="text-zinc-500">{movement.reason ?? '—'}</TableCell>
-                  <TableCell className="text-zinc-500">{movement.notes ?? '—'}</TableCell>
+                  <TableCell className="text-muted">{movement.reason ?? '—'}</TableCell>
+                  <TableCell className="text-muted">{movement.notes ?? '—'}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -341,7 +326,7 @@ export function InventoryMovementsPage() {
               />
             </Pagination>
           </div>
-        </div>
+        </TableCard>
       )}
 
       {loading && result && (
@@ -350,11 +335,11 @@ export function InventoryMovementsPage() {
             aria-hidden="true"
             className="size-5 animate-spin rounded-full border-2 border-hunter-800 border-t-primary"
           />
-          <span className="text-sm font-medium text-dust-200">در حال بارگذاری…</span>
+          <span className="text-sm font-medium text-muted">در حال بارگذاری…</span>
         </div>
       )}
 
-      <Text className="text-xs text-dust-200">
+      <Text className="text-xs text-muted">
         {result ? `مجموع: ${result.total} حرکت · ${limit} مورد در هر صفحه` : ''}
       </Text>
     </div>

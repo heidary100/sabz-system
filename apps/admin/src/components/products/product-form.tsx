@@ -172,7 +172,7 @@ export function ProductForm({
           : 'محصول جدید همیشه به‌صورت پیش‌نویس ایجاد می‌شود و برای انتشار باید حداقل یک واریانت داشته باشد.'}
       </AlertDescription>
       <AlertBody>
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2">
           <Field className="sm:col-span-2">
             <Label>نام</Label>
             <Input
@@ -195,7 +195,7 @@ export function ProductForm({
               onChange={(event) => set('slug', event.target.value)}
               disabled={submitting}
             />
-            <Text className="text-xs text-zinc-500">
+            <Text className="text-xs text-muted">
               فقط حروف انگلیسی کوچک، اعداد و خط تیره.
             </Text>
           </Field>

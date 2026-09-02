@@ -71,7 +71,7 @@ export function TierChangeDialog({
             <Label>تایر جدید</Label>
             {tiersError ? (
               <div className="space-y-2">
-                <Text className="text-sm text-red-700">{translateApiError(tiersError)}</Text>
+                <Text className="text-sm text-red-700 dark:text-red-400">{translateApiError(tiersError)}</Text>
                 <Button outline onClick={onRetryTiers} disabled={submitting}>
                   تلاش مجدد
                 </Button>
@@ -93,7 +93,7 @@ export function TierChangeDialog({
             )}
           </Field>
 
-          <Text className="text-sm text-zinc-500">
+          <Text className="text-sm text-muted">
             تغییر تایر فقط برای همکاران تأییدشده ممکن است و در سامانه ثبت می‌شود.
           </Text>
 

@@ -76,7 +76,7 @@ export function SuspendDialog({
               onChange={(event) => setReason(event.target.value)}
               disabled={submitting}
             />
-            <Text className="text-xs text-zinc-500">
+            <Text className="text-xs text-muted">
               {reason.length}/{REASON_MAX}
             </Text>
           </Field>

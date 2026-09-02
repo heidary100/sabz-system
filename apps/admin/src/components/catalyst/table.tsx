@@ -111,7 +111,7 @@ export function TableHeader({ className, ...props }: React.ComponentPropsWithout
       {...props}
       className={clsx(
         className,
-        'border-b border-b-zinc-950/10 px-4 py-2 font-medium first:ps-(--gutter,--spacing(2)) last:pe-(--gutter,--spacing(2)) dark:border-b-white/10',
+        'border-b border-b-zinc-950/10 bg-zinc-950/2.5 px-4 py-2 font-medium first:ps-(--gutter,--spacing(2)) last:pe-(--gutter,--spacing(2)) dark:border-b-white/10 dark:bg-white/2.5',
         grid && 'border-e border-e-zinc-950/5 first:border-e-0 dark:border-e-white/5',
         !bleed && 'sm:first:ps-1 sm:last:pe-1',
       )}

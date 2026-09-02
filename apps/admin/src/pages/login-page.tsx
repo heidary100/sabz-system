@@ -102,10 +102,10 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-svh items-center justify-center bg-background px-4">
-      <div className="rule-double-top w-full max-w-sm space-y-8 rounded-xl border border-border bg-white p-8 pt-7 shadow-xs">
+    <div className="ambient flex min-h-svh items-center justify-center px-4">
+      <div className="glass rule-double-top w-full max-w-sm space-y-8 rounded-xl p-8 pt-7">
         <div className="space-y-2">
-          <span className="text-xs font-semibold text-dust-200">پنل مدیریت</span>
+          <span className="text-xs font-semibold text-primary">پنل مدیریت</span>
           <Heading level={1}>سبز</Heading>
           <Text>
             {step === 'phone'
@@ -130,7 +130,7 @@ export function LoginPage() {
             </Field>
 
             {error && (
-              <Text className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              <Text className="danger-box rounded-lg px-3 py-2 text-sm">
                 {error}
               </Text>
             )}
@@ -157,7 +157,7 @@ export function LoginPage() {
             </Field>
 
             {error && (
-              <Text className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              <Text className="danger-box rounded-lg px-3 py-2 text-sm">
                 {error}
               </Text>
             )}

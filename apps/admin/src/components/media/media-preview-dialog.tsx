@@ -101,13 +101,13 @@ export function MediaPreviewDialog({
               aria-hidden="true"
               className="size-8 animate-spin rounded-full border-2 border-hunter-800 border-t-primary"
             />
-            <span className="text-sm font-medium text-dust-200">در حال بارگذاری رسانه…</span>
+            <span className="text-sm font-medium text-muted">در حال بارگذاری رسانه…</span>
           </div>
         ) : error ? (
-          <Text className="text-red-700">{error}</Text>
+          <Text className="text-red-700 dark:text-red-400">{error}</Text>
         ) : objectUrl ? (
           isImage ? (
-            <div className="flex justify-center bg-white p-4">
+            <div className="flex justify-center bg-surface p-4">
               <img
                 src={objectUrl}
                 alt={media.originalName}

@@ -7,6 +7,7 @@ import { formatDateTime } from '../lib/format'
 import { ROLE_LABELS } from '../lib/user-labels'
 import type { AdminUserDetail, AppRole } from '@sabz/types'
 import { useAuth } from '../auth/auth-provider'
+import { Plus, Trash2, Users } from 'lucide-react'
 import { RoleAssignmentDialog } from '../components/users/role-assignment-dialog'
 import { RoleRemovalDialog } from '../components/users/role-removal-dialog'
 import { SuspendDialog } from '../components/users/suspend-dialog'
@@ -18,18 +19,10 @@ import { Heading, Subheading } from '../components/catalyst/heading'
 import { Text } from '../components/catalyst/text'
 import { Badge } from '../components/catalyst/badge'
 import { EmptyState } from '../components/ui/empty-state'
+import { InfoItem } from '../components/ui/info-item'
 import { Loading } from '../components/ui/loading'
 
 type DialogName = 'suspend' | 'unsuspend' | 'unlock' | 'roles'
-
-function InfoItem({ label, value }: { label: string; value: string | null }) {
-  return (
-    <div className="space-y-1">
-      <dt className="text-sm font-medium text-dust-200">{label}</dt>
-      <dd className="text-sm text-foreground">{value || '—'}</dd>
-    </div>
-  )
-}
 
 function roleName(user: AdminUserDetail): string {
   return user.profile ? `${user.profile.firstName} ${user.profile.lastName}` : user.mobile
@@ -56,8 +49,8 @@ export function UserDetailPage() {
   if (error && !user) {
     return (
       <div className="mx-auto max-w-6xl space-y-6">
-        <div className="flex flex-col items-center gap-4 rounded-lg border border-border bg-white px-6 py-16 text-center">
-          <p className="text-sm/6 text-dust-200">{translateApiError(error)}</p>
+        <div className="glass flex flex-col items-center gap-4 rounded-xl px-6 py-16 text-center">
+          <p className="text-sm/6 text-muted">{translateApiError(error)}</p>
           <Button color="primary" onClick={() => void refetch()}>
             تلاش مجدد
           </Button>
@@ -75,6 +68,7 @@ export function UserDetailPage() {
         <EmptyState
           title="کاربر یافت نشد"
           description="این کاربر در دسترس نیست."
+          icon={<Users className="size-6" aria-hidden="true" />}
           actions={
             <Link to="/users">
               <Button outline>بازگشت به فهرست</Button>
@@ -131,6 +125,7 @@ export function UserDetailPage() {
           )}
           {isAdmin && !isSelf && (
             <Button color="primary" onClick={() => setDialog('roles')}>
+              <Plus data-slot="icon" />
               افزودن نقش
             </Button>
           )}
@@ -138,7 +133,7 @@ export function UserDetailPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <section className="rounded-lg border border-border bg-white p-6">
+        <section className="rounded-xl border border-border bg-surface p-5 sm:p-6">
           <Subheading>هویت</Subheading>
           <dl className="mt-4 grid grid-cols-1 gap-5 sm:grid-cols-2">
             <InfoItem label="موبایل" value={user.mobile} />
@@ -149,7 +144,7 @@ export function UserDetailPage() {
           </dl>
         </section>
 
-        <section className="rounded-lg border border-border bg-white p-6">
+        <section className="rounded-xl border border-border bg-surface p-5 sm:p-6">
           <Subheading>پروفایل</Subheading>
           <dl className="mt-4 grid grid-cols-1 gap-5 sm:grid-cols-2">
             <InfoItem label="نام" value={user.profile?.firstName ?? null} />
@@ -157,7 +152,7 @@ export function UserDetailPage() {
           </dl>
         </section>
 
-        <section className="rounded-lg border border-border bg-white p-6">
+        <section className="rounded-xl border border-border bg-surface p-5 sm:p-6">
           <Subheading>نقش‌ها</Subheading>
           {user.roles.length === 0 ? (
             <Text className="mt-4">هیچ نقشی تخصیص نیافته است.</Text>
@@ -172,12 +167,13 @@ export function UserDetailPage() {
                     <Badge color={role.name === 'ADMIN' ? 'green' : 'zinc'}>
                       {ROLE_LABELS[role.name]}
                     </Badge>
-                    <Text className="mt-1 text-xs text-zinc-500">
+                    <Text className="mt-1 text-xs text-muted">
                       تخصیص: {formatDateTime(role.assignedAt)}
                     </Text>
                   </div>
                   {isAdmin && !isSelf && role.name !== 'ADMIN' && (
                     <Button outline onClick={() => setRemoveRole(role.name)}>
+                      <Trash2 data-slot="icon" />
                       حذف نقش
                     </Button>
                   )}
@@ -187,7 +183,7 @@ export function UserDetailPage() {
           )}
         </section>
 
-        <section className="rounded-lg border border-border bg-white p-6">
+        <section className="rounded-xl border border-border bg-surface p-5 sm:p-6">
           <Subheading>همکاری</Subheading>
           {user.partner ? (
             <dl className="mt-4 grid grid-cols-1 gap-5 sm:grid-cols-2">

@@ -56,7 +56,7 @@ export function ConsumeReservationDialog({
           : 'مشخصات رزرو در دسترس نیست.'}
       </AlertDescription>
       <AlertBody>
-        <p className="text-sm/6 text-zinc-500">
+        <p className="text-sm/6 text-muted">
           مصرف رزرو یک عملیات قطعی است؛ مقدار از موجودی در دست کسر می‌شود و امکان بازگردانی ندارد.
           در M1 این عملیات سفارشی ایجاد نمی‌کند.
         </p>

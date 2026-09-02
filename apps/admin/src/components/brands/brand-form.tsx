@@ -95,7 +95,7 @@ export function BrandForm({
               onChange={(event) => setSlug(event.target.value)}
               disabled={submitting}
             />
-            <Text className="text-xs text-zinc-500">
+            <Text className="text-xs text-muted">
               فقط حروف انگلیسی کوچک، اعداد و خط تیره.
             </Text>
           </Field>
@@ -110,7 +110,7 @@ export function BrandForm({
               onChange={(event) => setDescription(event.target.value)}
               disabled={submitting}
             />
-            <Text className="text-xs text-zinc-500">
+            <Text className="text-xs text-muted">
               {description.length}/1000
             </Text>
           </Field>

@@ -25,7 +25,7 @@ function PayloadSection({
       <dl className="mt-2 space-y-1.5 rounded-lg border border-border bg-background p-3">
         {Object.entries(payload).map(([key, value]) => (
           <div key={key} className="grid grid-cols-[9rem_1fr] gap-3 text-sm/6">
-            <dt className="text-dust-200">{key}</dt>
+            <dt className="text-muted">{key}</dt>
             <dd dir="auto" className="break-words text-foreground">
               {String(value)}
             </dd>
@@ -56,17 +56,17 @@ export function AuditDetailsDialog({
     <Alert open={open} onClose={onClose} size="3xl">
       <AlertTitle>
         {auditActionLabel(entry.action)}{' '}
-        <span className="font-normal text-dust-200">{auditEntityLabel(entry.entity)}</span>
+        <span className="font-normal text-muted">{auditEntityLabel(entry.entity)}</span>
       </AlertTitle>
       <AlertBody>
         <div className="space-y-4">
           <dl className="grid gap-2 text-sm/6 sm:grid-cols-2">
             <div className="grid grid-cols-[6rem_1fr] gap-3">
-              <dt className="text-dust-200">زمان</dt>
+              <dt className="text-muted">زمان</dt>
               <dd className="text-foreground">{formatDateTime(entry.createdAt)}</dd>
             </div>
             <div className="grid grid-cols-[6rem_1fr] gap-3">
-              <dt className="text-dust-200">عامل</dt>
+              <dt className="text-muted">عامل</dt>
               <dd className="text-foreground">
                 {entry.actor
                   ? [entry.actor.firstName, entry.actor.lastName]
@@ -77,7 +77,7 @@ export function AuditDetailsDialog({
             </div>
             {entry.entityId ? (
               <div className="grid grid-cols-[6rem_1fr] gap-3">
-                <dt className="text-dust-200">شناسه موجودیت</dt>
+                <dt className="text-muted">شناسه موجودیت</dt>
                 <dd dir="ltr" className="break-all text-foreground">
                   {entry.entityId}
                 </dd>
@@ -85,7 +85,7 @@ export function AuditDetailsDialog({
             ) : null}
             {entry.ipAddress ? (
               <div className="grid grid-cols-[6rem_1fr] gap-3">
-                <dt className="text-dust-200">آی‌پی</dt>
+                <dt className="text-muted">آی‌پی</dt>
                 <dd dir="ltr" className="text-foreground">
                   {entry.ipAddress}
                 </dd>

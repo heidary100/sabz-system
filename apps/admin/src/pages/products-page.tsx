@@ -6,14 +6,15 @@ import { useCategoryOptions } from '../hooks/use-category-options'
 import { useBrandOptions } from '../hooks/use-brand-options'
 import { translateApiError } from '../lib/error-messages'
 import { formatDate } from '../lib/format'
+import { pageNumbers } from '../lib/pagination'
 import {
   PRODUCT_CONDITION_LABELS,
   PRODUCT_STATUS_LABELS,
   PRODUCT_STATUS_ORDER,
 } from '../lib/product-labels'
+import { Package, Plus } from 'lucide-react'
 import { Button } from '../components/catalyst/button'
 import { Field, Label } from '../components/catalyst/fieldset'
-import { Heading } from '../components/catalyst/heading'
 import { Input } from '../components/catalyst/input'
 import { Select } from '../components/catalyst/select'
 import {
@@ -26,6 +27,8 @@ import {
 } from '../components/catalyst/table'
 import { EmptyState } from '../components/ui/empty-state'
 import { Loading } from '../components/ui/loading'
+import { PageHeader } from '../components/ui/page-header'
+import { TableCard } from '../components/ui/table-card'
 import {
   Pagination,
   PaginationGap,
@@ -38,25 +41,6 @@ import { ProductStatusBadge } from '../components/products/product-status-badge'
 import { ProductForm } from '../components/products/product-form'
 
 const SEARCH_DEBOUNCE_MS = 300
-
-function pageNumbers(current: number, totalPages: number): (number | 'gap')[] {
-  if (totalPages <= 7) {
-    return Array.from({ length: totalPages }, (_, index) => index + 1)
-  }
-
-  const pages: (number | 'gap')[] = [1]
-  if (current > 3) {
-    pages.push('gap')
-  }
-  for (let page = Math.max(2, current - 1); page <= Math.min(totalPages - 1, current + 1); page++) {
-    pages.push(page)
-  }
-  if (current < totalPages - 2) {
-    pages.push('gap')
-  }
-  pages.push(totalPages)
-  return pages
-}
 
 export function ProductsPage() {
   const navigate = useNavigate()
@@ -112,15 +96,18 @@ export function ProductsPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
-      <div className="flex items-center justify-between">
-        <Heading level={1}>محصولات</Heading>
-        <Button color="primary" onClick={() => setCreateOpen(true)}>
-          افزودن محصول
-        </Button>
-      </div>
+      <PageHeader
+        title="محصولات"
+        actions={
+          <Button color="primary" onClick={() => setCreateOpen(true)}>
+            <Plus data-slot="icon" />
+            افزودن محصول
+          </Button>
+        }
+      />
 
-      <div className="grid w-full max-w-5xl gap-4 sm:grid-cols-4">
-        <Field className="sm:col-span-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Field className="sm:col-span-2 lg:col-span-4">
           <Label>جستجو</Label>
           <Input
             type="search"
@@ -181,14 +168,15 @@ export function ProductsPage() {
       {loading && !result ? (
         <Loading compact label="در حال بارگذاری…" />
       ) : error ? (
-        <div className="flex flex-col items-center gap-4 rounded-lg border border-border bg-white px-6 py-16 text-center">
-          <p className="text-sm/6 text-dust-200">{translateApiError(error)}</p>
+        <div className="glass flex flex-col items-center gap-4 rounded-xl px-6 py-16 text-center">
+          <p className="text-sm/6 text-muted">{translateApiError(error)}</p>
           <Button color="primary" onClick={() => void refetch()}>
             تلاش مجدد
           </Button>
         </div>
       ) : !result || result.items.length === 0 ? (
         <EmptyState
+          icon={<Package />}
           title="محصولی یافت نشد"
           description={
             hasActiveFilter
@@ -208,7 +196,7 @@ export function ProductsPage() {
           }
         />
       ) : (
-        <div className="rounded-lg border border-border bg-white p-4">
+        <TableCard>
           <Table striped>
             <TableHead>
               <TableRow>
@@ -229,21 +217,21 @@ export function ProductsPage() {
                   title={`مشاهده ${product.name}`}
                   onNavigate={openProduct(product.id)}
                 >
-                  <TableCell className="font-medium text-zinc-950">
+                  <TableCell className="font-medium text-foreground">
                     {product.name}
                   </TableCell>
-                  <TableCell dir="ltr" className="text-zinc-500">
+                  <TableCell dir="ltr" className="text-muted">
                     {product.slug}
                   </TableCell>
-                  <TableCell className="text-zinc-500">{product.brand.name}</TableCell>
-                  <TableCell className="text-zinc-500">{product.category.name}</TableCell>
+                  <TableCell className="text-muted">{product.brand.name}</TableCell>
+                  <TableCell className="text-muted">{product.category.name}</TableCell>
                   <TableCell>
                     <ProductStatusBadge status={product.status} />
                   </TableCell>
-                  <TableCell className="text-zinc-500">
+                  <TableCell className="text-muted">
                     {PRODUCT_CONDITION_LABELS[product.condition]}
                   </TableCell>
-                  <TableCell className="text-zinc-500">
+                  <TableCell className="text-muted">
                     {formatDate(product.createdAt)}
                   </TableCell>
                 </TableRow>
@@ -279,7 +267,7 @@ export function ProductsPage() {
               />
             </Pagination>
           </div>
-        </div>
+        </TableCard>
       )}
 
       {loading && result && (
@@ -288,11 +276,11 @@ export function ProductsPage() {
             aria-hidden="true"
             className="size-5 animate-spin rounded-full border-2 border-hunter-800 border-t-primary"
           />
-          <span className="text-sm font-medium text-dust-200">در حال بارگذاری…</span>
+          <span className="text-sm font-medium text-muted">در حال بارگذاری…</span>
         </div>
       )}
 
-      <p className="text-xs text-dust-200">
+      <p className="text-xs text-muted">
         {result ? `مجموع: ${result.total} محصول · ${limit} مورد در هر صفحه` : ''}
       </p>
 

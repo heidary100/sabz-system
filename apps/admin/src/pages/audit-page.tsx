@@ -3,16 +3,17 @@ import type { AuditEntry } from '@sabz/types'
 import { useAuditLog } from '../hooks/use-audit-log'
 import { translateApiError } from '../lib/error-messages'
 import { formatDateTime } from '../lib/format'
+import { pageNumbers } from '../lib/pagination'
 import {
   AUDIT_ACTION_ORDER,
   AUDIT_ENTITY_ORDER,
   auditActionLabel,
   auditEntityLabel,
 } from '../lib/audit-labels'
+import { ClipboardList, Eye } from 'lucide-react'
 import { Badge } from '../components/catalyst/badge'
 import { Button } from '../components/catalyst/button'
 import { Field, Label } from '../components/catalyst/fieldset'
-import { Heading } from '../components/catalyst/heading'
 import { Input } from '../components/catalyst/input'
 import { Select } from '../components/catalyst/select'
 import {
@@ -26,6 +27,8 @@ import {
 import { AuditDetailsDialog } from '../components/audit/audit-details-dialog'
 import { EmptyState } from '../components/ui/empty-state'
 import { Loading } from '../components/ui/loading'
+import { PageHeader } from '../components/ui/page-header'
+import { TableCard } from '../components/ui/table-card'
 import {
   Pagination,
   PaginationGap,
@@ -37,25 +40,6 @@ import {
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
-function pageNumbers(current: number, totalPages: number): (number | 'gap')[] {
-  if (totalPages <= 7) {
-    return Array.from({ length: totalPages }, (_, index) => index + 1)
-  }
-
-  const pages: (number | 'gap')[] = [1]
-  if (current > 3) {
-    pages.push('gap')
-  }
-  for (let page = Math.max(2, current - 1); page <= Math.min(totalPages - 1, current + 1); page++) {
-    pages.push(page)
-  }
-  if (current < totalPages - 2) {
-    pages.push('gap')
-  }
-  pages.push(totalPages)
-  return pages
-}
 
 function isValidUuid(value: string): boolean {
   return value.trim() === '' || UUID_PATTERN.test(value.trim())
@@ -146,11 +130,9 @@ export function AuditPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
-      <div className="flex items-center justify-between">
-        <Heading level={1}>گزارش فعالیت‌ها</Heading>
-      </div>
+      <PageHeader title="گزارش فعالیت‌ها" />
 
-      <div className="grid w-full max-w-5xl gap-4 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Field className="sm:col-span-2 lg:col-span-2">
           <Label>عامل (شناسه کاربر)</Label>
           <Input
@@ -161,7 +143,7 @@ export function AuditPage() {
             onChange={(event) => setActorInput(event.target.value)}
           />
           {invalidActor && (
-            <p className="text-xs text-red-700">شناسه باید UUID معتبر باشد.</p>
+            <p className="text-xs text-red-700 dark:text-red-400">شناسه باید UUID معتبر باشد.</p>
           )}
         </Field>
         <Field>
@@ -204,7 +186,7 @@ export function AuditPage() {
             onChange={(event) => setEntityIdInput(event.target.value)}
           />
           {invalidEntityId && (
-            <p className="text-xs text-red-700">شناسه باید UUID معتبر باشد.</p>
+            <p className="text-xs text-red-700 dark:text-red-400">شناسه باید UUID معتبر باشد.</p>
           )}
         </Field>
         <Field>
@@ -228,7 +210,7 @@ export function AuditPage() {
       </div>
 
       {invalidDateRange && (
-        <p className="text-sm text-red-700">تاریخ «از» نباید دیرتر از «تا» باشد.</p>
+        <p className="text-sm text-red-700 dark:text-red-400">تاریخ «از» نباید دیرتر از «تا» باشد.</p>
       )}
 
       <div className="flex items-center gap-3">
@@ -243,8 +225,8 @@ export function AuditPage() {
       {loading && !result ? (
         <Loading compact label="در حال بارگذاری…" />
       ) : error ? (
-        <div className="flex flex-col items-center gap-4 rounded-lg border border-border bg-white px-6 py-16 text-center">
-          <p className="text-sm/6 text-dust-200">{translateApiError(error)}</p>
+        <div className="glass flex flex-col items-center gap-4 rounded-xl px-6 py-16 text-center">
+          <p className="text-sm/6 text-muted">{translateApiError(error)}</p>
           <Button color="primary" onClick={() => void refetch()}>
             تلاش مجدد
           </Button>
@@ -257,6 +239,7 @@ export function AuditPage() {
               ? 'با این فیلترها فعالیتی ثبت نشده است.'
               : 'هنوز فعالیتی ثبت نشده است.'
           }
+          icon={<ClipboardList className="size-6" aria-hidden="true" />}
           actions={
             hasActiveFilter ? (
               <Button outline onClick={resetFilters}>
@@ -266,7 +249,7 @@ export function AuditPage() {
           }
         />
       ) : (
-        <div className="rounded-lg border border-border bg-white p-4">
+        <TableCard>
           <Table striped>
             <TableHead>
               <TableRow>
@@ -281,10 +264,10 @@ export function AuditPage() {
             <TableBody>
               {result.items.map((entry) => (
                 <TableRow key={entry.id}>
-                  <TableCell className="text-zinc-500">
+                  <TableCell className="text-muted">
                     {formatDateTime(entry.createdAt)}
                   </TableCell>
-                  <TableCell className="text-zinc-500">
+                  <TableCell className="text-muted">
                     {entry.actor
                       ? [entry.actor.firstName, entry.actor.lastName]
                           .filter(Boolean)
@@ -294,10 +277,10 @@ export function AuditPage() {
                   <TableCell>
                     <Badge>{auditActionLabel(entry.action)}</Badge>
                   </TableCell>
-                  <TableCell className="text-zinc-500">
+                  <TableCell className="text-muted">
                     {auditEntityLabel(entry.entity)}
                   </TableCell>
-                  <TableCell dir="ltr" className="font-mono text-xs text-zinc-500">
+                  <TableCell dir="ltr" className="font-mono text-xs text-muted">
                     {entry.entityId ?? '—'}
                   </TableCell>
                   <TableCell>
@@ -306,6 +289,7 @@ export function AuditPage() {
                       onClick={() => setDetailsEntry(entry)}
                       aria-label="مشاهده جزئیات"
                     >
+                      <Eye data-slot="icon" />
                       مشاهده
                     </Button>
                   </TableCell>
@@ -342,7 +326,7 @@ export function AuditPage() {
               />
             </Pagination>
           </div>
-        </div>
+        </TableCard>
       )}
 
       {loading && result && (
@@ -351,11 +335,11 @@ export function AuditPage() {
             aria-hidden="true"
             className="size-5 animate-spin rounded-full border-2 border-hunter-800 border-t-primary"
           />
-          <span className="text-sm font-medium text-dust-200">در حال بارگذاری…</span>
+          <span className="text-sm font-medium text-muted">در حال بارگذاری…</span>
         </div>
       )}
 
-      <p className="text-xs text-dust-200">
+      <p className="text-xs text-muted">
         {result ? `مجموع: ${result.total} رویداد · ${limit} مورد در هر صفحه` : ''}
       </p>
 

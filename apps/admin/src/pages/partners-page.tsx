@@ -2,11 +2,12 @@ import { useNavigate } from 'react-router-dom'
 import { usePartnerList } from '../hooks/use-partner-list'
 import { translateApiError } from '../lib/error-messages'
 import { formatDate } from '../lib/format'
+import { pageNumbers } from '../lib/pagination'
 import { PARTNER_STATUS_LABELS, PARTNER_STATUS_ORDER } from '../lib/partner-labels'
 import type { PartnerStatus } from '@sabz/types'
+import { Briefcase } from 'lucide-react'
 import { Button } from '../components/catalyst/button'
 import { Field, Label } from '../components/catalyst/fieldset'
-import { Heading } from '../components/catalyst/heading'
 import { Select } from '../components/catalyst/select'
 import {
   Table,
@@ -18,6 +19,8 @@ import {
 } from '../components/catalyst/table'
 import { EmptyState } from '../components/ui/empty-state'
 import { Loading } from '../components/ui/loading'
+import { PageHeader } from '../components/ui/page-header'
+import { TableCard } from '../components/ui/table-card'
 import {
   Pagination,
   PaginationGap,
@@ -27,25 +30,6 @@ import {
   PaginationPrevious,
 } from '../components/ui/pagination'
 import { StatusBadge } from '../components/partners/status-badge'
-
-function pageNumbers(current: number, totalPages: number): (number | 'gap')[] {
-  if (totalPages <= 7) {
-    return Array.from({ length: totalPages }, (_, index) => index + 1)
-  }
-
-  const pages: (number | 'gap')[] = [1]
-  if (current > 3) {
-    pages.push('gap')
-  }
-  for (let page = Math.max(2, current - 1); page <= Math.min(totalPages - 1, current + 1); page++) {
-    pages.push(page)
-  }
-  if (current < totalPages - 2) {
-    pages.push('gap')
-  }
-  pages.push(totalPages)
-  return pages
-}
 
 export function PartnersPage() {
   const navigate = useNavigate()
@@ -70,9 +54,7 @@ export function PartnersPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
-      <div className="flex items-center justify-between">
-        <Heading level={1}>درخواست‌های همکاری</Heading>
-      </div>
+      <PageHeader title="درخواست‌های همکاری" />
 
       <div className="flex w-full max-w-xs items-end gap-4">
         <Field className="w-full">
@@ -94,8 +76,8 @@ export function PartnersPage() {
       {loading && !result ? (
         <Loading compact label="در حال بارگذاری…" />
       ) : error ? (
-        <div className="flex flex-col items-center gap-4 rounded-lg border border-border bg-white px-6 py-16 text-center">
-          <p className="text-sm/6 text-dust-200">{translateApiError(error)}</p>
+        <div className="glass flex flex-col items-center gap-4 rounded-xl px-6 py-16 text-center">
+          <p className="text-sm/6 text-muted">{translateApiError(error)}</p>
           <Button color="primary" onClick={() => void refetch()}>
             تلاش مجدد
           </Button>
@@ -104,6 +86,7 @@ export function PartnersPage() {
         <EmptyState
           title="درخواستی یافت نشد"
           description="در این وضعیت، درخواست همکاری ثبت نشده است."
+          icon={<Briefcase className="size-6" aria-hidden="true" />}
           actions={
             status !== 'PENDING' ? (
               <Button outline onClick={() => setStatus('PENDING')}>
@@ -113,7 +96,7 @@ export function PartnersPage() {
           }
         />
       ) : (
-        <div className="rounded-lg border border-border bg-white p-4">
+        <TableCard>
           <Table striped>
             <TableHead>
               <TableRow>
@@ -131,16 +114,16 @@ export function PartnersPage() {
                   title={`مشاهده ${partner.businessName}`}
                   onNavigate={openPartner(partner.id)}
                 >
-                  <TableCell className="font-medium text-zinc-950">
+                  <TableCell className="font-medium text-foreground">
                     {partner.businessName}
                   </TableCell>
                   <TableCell>
                     <StatusBadge status={partner.approvalStatus} />
                   </TableCell>
-                  <TableCell className="text-zinc-500">
+                  <TableCell className="text-muted">
                     {[partner.province, partner.city].filter(Boolean).join('، ') || '—'}
                   </TableCell>
-                  <TableCell className="text-zinc-500">
+                  <TableCell className="text-muted">
                     {formatDate(partner.submittedAt ?? partner.createdAt)}
                   </TableCell>
                 </TableRow>
@@ -176,7 +159,7 @@ export function PartnersPage() {
               />
             </Pagination>
           </div>
-        </div>
+        </TableCard>
       )}
 
       {loading && result && (
@@ -185,11 +168,11 @@ export function PartnersPage() {
             aria-hidden="true"
             className="size-5 animate-spin rounded-full border-2 border-hunter-800 border-t-primary"
           />
-          <span className="text-sm font-medium text-dust-200">در حال بارگذاری…</span>
+          <span className="text-sm font-medium text-muted">در حال بارگذاری…</span>
         </div>
       )}
 
-      <p className="text-xs text-dust-200">
+      <p className="text-xs text-muted">
         {result ? `مجموع: ${result.total} درخواست · ${limit} مورد در هر صفحه` : ''}
       </p>
     </div>

@@ -148,7 +148,7 @@ export function VariantForm({
           : 'واریانت جدید را برای این محصول ثبت کنید.'}
       </AlertDescription>
       <AlertBody>
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2">
           <Field>
             <Label>SKU</Label>
             <Input
@@ -160,7 +160,7 @@ export function VariantForm({
               onChange={(event) => set('sku', event.target.value)}
               disabled={submitting}
             />
-            <Text className="text-xs text-zinc-500">کد یکتا؛ نباید با SKU واریانت دیگری تکراری باشد.</Text>
+            <Text className="text-xs text-muted">کد یکتا؛ نباید با SKU واریانت دیگری تکراری باشد.</Text>
           </Field>
 
           <Field>
@@ -174,7 +174,7 @@ export function VariantForm({
               onChange={(event) => set('barcode', event.target.value)}
               disabled={submitting}
             />
-            <Text className="text-xs text-zinc-500">در صورت خالی بودن هنگام ویرایش، پاک میشود.</Text>
+            <Text className="text-xs text-muted">در صورت خالی بودن هنگام ویرایش، پاک میشود.</Text>
           </Field>
 
           <Field>
@@ -187,7 +187,7 @@ export function VariantForm({
               onChange={(event) => set('name', event.target.value)}
               disabled={submitting}
             />
-            <Text className="text-xs text-zinc-500">فقط برچسب نمایشی است؛ سیستم ویژگیهای قابلتنظیم هنوز پشتیبانی نمیشود.</Text>
+            <Text className="text-xs text-muted">فقط برچسب نمایشی است؛ سیستم ویژگیهای قابلتنظیم هنوز پشتیبانی نمیشود.</Text>
           </Field>
 
           <Field>
@@ -217,7 +217,7 @@ export function VariantForm({
                 onChange={(event) => set('stockQuantity', event.target.value)}
                 disabled={submitting}
               />
-              <Text className="text-xs text-zinc-500">
+              <Text className="text-xs text-muted">
                 نمای کلی موجودی (M1). پس از ایجاد، موجودی از مسیر «موجودی» تنظیم میشود.
               </Text>
             </Field>
