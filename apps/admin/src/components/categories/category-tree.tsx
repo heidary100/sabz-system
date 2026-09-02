@@ -267,7 +267,7 @@ export function CategoryTree({
     >
       <div
         role="tree"
-        aria-label="درخت دستهبندیها"
+        aria-label="درخت دسته بندیها"
         className="relative flex flex-col gap-0.5"
       >
         {items.map((item) => (
@@ -289,7 +289,7 @@ export function CategoryTree({
         ))}
         {items.length === 0 && searching && (
           <div className="py-10 text-center text-sm text-muted">
-            دستهبندیای با این عبارت یافت نشد.
+            دسته بندیای با این عبارت یافت نشد.
           </div>
         )}
         {indicatorIndex !== null && projection && (

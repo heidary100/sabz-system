@@ -48,9 +48,9 @@ export function CategoryDeleteDialog({
           className="mx-auto mb-3 size-8 text-red-600 dark:text-red-400"
           aria-hidden="true"
         />
-        <AlertTitle>حذف دستهبندی</AlertTitle>
+        <AlertTitle>حذف دسته بندی</AlertTitle>
         <AlertDescription>
-          آیا از حذف دستهبندی «{category?.name ?? ''}» مطمئن هستید؟ این عمل قابل
+          آیا از حذف دسته بندی «{category?.name ?? ''}» مطمئن هستید؟ این عمل قابل
           بازگشت نیست.
         </AlertDescription>
 
@@ -58,7 +58,7 @@ export function CategoryDeleteDialog({
           <dl className="mt-4 space-y-2 rounded-xl border border-border bg-surface px-4 py-3 text-sm/6">
             <div className="flex items-center gap-2">
               <Folder className="size-4 shrink-0 text-primary" aria-hidden="true" />
-              <dt className="sr-only">دستهبندی</dt>
+              <dt className="sr-only">دسته بندی</dt>
               <dd className="min-w-0 flex-1 truncate font-medium text-foreground">
                 {category.name}
               </dd>
@@ -70,7 +70,7 @@ export function CategoryDeleteDialog({
               </dd>
             </div>
             <div className="flex justify-between gap-4">
-              <dt className="shrink-0 text-muted">زیردستهها</dt>
+              <dt className="shrink-0 text-muted">زیردسته ها</dt>
               <dd className="text-foreground">{fa.format(childCount)}</dd>
             </div>
             <div className="flex justify-between gap-4">
@@ -82,7 +82,7 @@ export function CategoryDeleteDialog({
 
         {(childCount > 0 || (category?.productCount ?? 0) > 0) && (
           <p className="warning-box mt-4 rounded-lg px-3 py-2 text-sm/6">
-            این دستهبندی هنوز{' '}
+            این دسته بندی هنوز{' '}
             {childCount > 0 && `${fa.format(childCount)} زیردسته`}
             {childCount > 0 && (category?.productCount ?? 0) > 0 && ' و '}
             {(category?.productCount ?? 0) > 0 && `${fa.format(category!.productCount)} محصول فعال`}{' '}

@@ -167,8 +167,8 @@ export function CategoriesPage() {
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <PageHeader
-        title="دستهبندیها"
-        subtitle="سلسلهمراتب کاتالوگ خود را سازماندهی کنید؛ دستهها را بکشید تا مرتب شوند."
+        title="دسته بندیها"
+        subtitle="سلسله مراتب کاتالوگ خود را سازماندهی کنید؛ دسته ها را بکشید تا مرتب شوند."
         actions={
           <>
             <InputGroup className="w-full sm:w-72">
@@ -176,8 +176,8 @@ export function CategoriesPage() {
               <Input
                 type="text"
                 inputMode="search"
-                placeholder="جستجوی دستهبندی…"
-                aria-label="جستجوی دستهبندی"
+                placeholder="جستجوی دسته بندی…"
+                aria-label="جستجوی دسته بندی"
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
               />
@@ -203,7 +203,7 @@ export function CategoriesPage() {
               </IconButton>
             </Tooltip>
             <Button color="primary" onClick={openCreate}>
-              <Plus data-slot="icon" /> افزودن دستهبندی
+              <Plus data-slot="icon" /> افزودن دسته بندی
             </Button>
           </>
         }
@@ -241,16 +241,16 @@ export function CategoriesPage() {
             <FolderTree className="size-8 text-primary" aria-hidden="true" />
           </div>
           <h2 className="text-lg/7 font-semibold text-foreground">
-            هنوز دستهبندیای وجود ندارد
+            هنوز دسته بندیای وجود ندارد
           </h2>
           <p className="mx-auto mt-2 max-w-md text-sm/6 text-muted">
-            نخستین دستهبندی محصول خود را بسازید تا کاتالوگتان سامان بگیرد؛ سپس
-            میتوانید زیردستهها را اضافه کنید و ترتیب آنها را با کشیدن و رها کردن
+            نخستین دسته بندی محصول خود را بسازید تا کاتالوگتان سامان بگیرد؛ سپس
+            میتوانید زیردسته ها را اضافه کنید و ترتیب آنها را با کشیدن و رها کردن
             تغییر دهید.
           </p>
           <div className="mt-6 flex justify-center">
             <Button color="primary" onClick={openCreate}>
-              <Plus data-slot="icon" /> افزودن دستهبندی
+              <Plus data-slot="icon" /> افزودن دسته بندی
             </Button>
           </div>
         </div>
@@ -278,8 +278,8 @@ export function CategoriesPage() {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <Text className="text-xs text-muted">
               {searching
-                ? `نتیجه جستجو: ${matchCount} دستهبندی`
-                : `مجموع: ${totalNodes} دستهبندی · برای مرتبسازی، دستهها را بکشید`}
+                ? `نتیجه جستجو: ${matchCount} دسته بندی`
+                : `مجموع: ${totalNodes} دسته بندی · برای مرتبسازی، دسته ها را بکشید`}
             </Text>
             {reordering && (
               <span className="flex items-center gap-2 text-xs font-medium text-muted" role="status">

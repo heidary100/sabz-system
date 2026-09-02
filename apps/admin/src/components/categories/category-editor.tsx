@@ -63,7 +63,7 @@ export function CategoryEditor({
 
   const handleSubmit = async (): Promise<void> => {
     if (!name.trim()) {
-      setError('نام دستهبندی الزامی است.')
+      setError('نام دسته بندی الزامی است.')
       return
     }
     setSubmitting(true)
@@ -91,15 +91,15 @@ export function CategoryEditor({
     }
   }
 
-  const previewPath = [...parentPath, name.trim() || category?.name || 'نام دستهبندی']
+  const previewPath = [...parentPath, name.trim() || category?.name || 'نام دسته بندی']
 
   return (
     <Alert open={open} onClose={onClose} size="2xl">
-      <AlertTitle>{isEdit ? 'ویرایش دستهبندی' : 'افزودن دستهبندی'}</AlertTitle>
+      <AlertTitle>{isEdit ? 'ویرایش دسته بندی' : 'افزودن دسته بندی'}</AlertTitle>
       <AlertDescription>
         {isEdit
-          ? 'مشخصات دستهبندی را ویرایش کنید. جابهجایی در سلسلهمراتب با کشیدن و رها کردن انجام میشود.'
-          : 'دستهبندی جدیدی برای سازماندهی کاتالوگ خود ثبت کنید.'}
+          ? 'مشخصات دسته بندی را ویرایش کنید. جابهجایی در سلسله مراتب با کشیدن و رها کردن انجام میشود.'
+          : 'دسته بندی جدیدی برای سازماندهی کاتالوگ خود ثبت کنید.'}
       </AlertDescription>
       <AlertBody>
         <div className="space-y-6">
@@ -133,10 +133,10 @@ export function CategoryEditor({
           </Fieldset>
 
           <Fieldset>
-            <Legend>سلسلهمراتب</Legend>
+            <Legend>سلسله مراتب</Legend>
             <FieldGroup>
               <Field>
-                <Label>دستهبندی والد</Label>
+                <Label>دسته بندی والد</Label>
                 <Select
                   name="parentId"
                   value={parentId}
@@ -189,7 +189,7 @@ export function CategoryEditor({
                     {previewPath[previewPath.length - 1]}
                   </p>
                   <p className="truncate text-xs text-muted">
-                    {previewPath.length > 1 ? previewPath.join(' ← ') : 'دستهبندی ریشه'}
+                    {previewPath.length > 1 ? previewPath.join(' ← ') : 'دسته بندی ریشه'}
                   </p>
                 </div>
                 <Badge color={isVisible ? 'green' : 'zinc'}>

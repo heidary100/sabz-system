@@ -87,7 +87,7 @@ export class CategoriesService {
     });
 
     if (!category || category.deletedAt !== null) {
-      throw new NotFoundException('دستهبندی یافت نشد.');
+      throw new NotFoundException('دسته بندی یافت نشد.');
     }
 
     return this.toDetail(category);
@@ -198,7 +198,7 @@ export class CategoriesService {
       return this.toDetail(created);
     } catch (error) {
       if (this.isUniqueViolation(error)) {
-        throw new ConflictException('یک دستهبندی با این slug قبلاً وجود دارد.');
+        throw new ConflictException('یک دسته بندی با این slug قبلاً وجود دارد.');
       }
       throw error;
     }
@@ -228,13 +228,13 @@ export class CategoriesService {
         });
 
         if (!target || target.deletedAt !== null) {
-          throw new NotFoundException('دستهبندی یافت نشد.');
+          throw new NotFoundException('دسته بندی یافت نشد.');
         }
 
         if (data.parentId !== undefined) {
           const newParentId = data.parentId;
           if (newParentId === categoryId) {
-            throw new ConflictException('یک دستهبندی نمیتواند والد خودش باشد.');
+            throw new ConflictException('یک دسته بندی نمیتواند والد خودش باشد.');
           }
           if (newParentId !== null) {
             await this.assertParent(tx, newParentId);
@@ -251,7 +251,7 @@ export class CategoriesService {
             select: detailSelect,
           });
           if (!current || current.deletedAt !== null) {
-            throw new NotFoundException('دستهبندی یافت نشد.');
+            throw new NotFoundException('دسته بندی یافت نشد.');
           }
           return current;
         }
@@ -264,7 +264,7 @@ export class CategoriesService {
           } as Prisma.CategoryUncheckedUpdateManyInput,
         });
         if (updatedRows.count === 0) {
-          throw new NotFoundException('دستهبندی یافت نشد.');
+          throw new NotFoundException('دسته بندی یافت نشد.');
         }
 
         await this.auditService.log(
@@ -287,12 +287,12 @@ export class CategoriesService {
       });
 
       if (!updated) {
-        throw new NotFoundException('دستهبندی یافت نشد.');
+        throw new NotFoundException('دسته بندی یافت نشد.');
       }
       return this.toDetail(updated);
     } catch (error) {
       if (this.isUniqueViolation(error)) {
-        throw new ConflictException('یک دستهبندی با این slug قبلاً وجود دارد.');
+        throw new ConflictException('یک دسته بندی با این slug قبلاً وجود دارد.');
       }
       throw error;
     }
@@ -310,12 +310,12 @@ export class CategoriesService {
         select: { id: true, parentId: true, sortOrder: true, deletedAt: true },
       });
       if (!target || target.deletedAt !== null) {
-        throw new NotFoundException('دستهبندی یافت نشد.');
+        throw new NotFoundException('دسته بندی یافت نشد.');
       }
 
       const newParentId = dto.parentId !== undefined ? dto.parentId : target.parentId;
       if (newParentId === categoryId) {
-        throw new ConflictException('یک دستهبندی نمیتواند والد خودش باشد.');
+        throw new ConflictException('یک دسته بندی نمیتواند والد خودش باشد.');
       }
       if (newParentId !== null) {
         await this.assertParent(tx, newParentId);
@@ -348,7 +348,7 @@ export class CategoriesService {
           select: detailSelect,
         });
         if (!current || current.deletedAt !== null) {
-          throw new NotFoundException('دستهبندی یافت نشد.');
+          throw new NotFoundException('دسته بندی یافت نشد.');
         }
         return current;
       }
@@ -370,7 +370,7 @@ export class CategoriesService {
           },
         });
         if (updatedRows.count === 0) {
-          throw new NotFoundException('دستهبندی یافت نشد.');
+          throw new NotFoundException('دسته بندی یافت نشد.');
         }
       }
 
@@ -410,7 +410,7 @@ export class CategoriesService {
     });
 
     if (!updated) {
-      throw new NotFoundException('دستهبندی یافت نشد.');
+      throw new NotFoundException('دسته بندی یافت نشد.');
     }
     return this.toDetail(updated);
   }
@@ -427,7 +427,7 @@ export class CategoriesService {
       });
 
       if (!target || target.deletedAt !== null) {
-        throw new NotFoundException('دستهبندی یافت نشد.');
+        throw new NotFoundException('دسته بندی یافت نشد.');
       }
 
       const childCount = await tx.category.count({
@@ -435,7 +435,7 @@ export class CategoriesService {
       });
       if (childCount > 0) {
         throw new ConflictException(
-          'این دستهبندی دارای زیردسته فعال است؛ ابتدا زیردستهها را جابهجا یا حذف کنید.',
+          'این دسته بندی دارای زیردسته فعال است؛ ابتدا زیردسته ها را جابهجا یا حذف کنید.',
         );
       }
 
@@ -444,7 +444,7 @@ export class CategoriesService {
       });
       if (activeProductCount > 0) {
         throw new ConflictException(
-          'این دستهبندی توسط محصولات فعال استفاده میشود و قابل حذف نیست.',
+          'این دسته بندی توسط محصولات فعال استفاده میشود و قابل حذف نیست.',
         );
       }
 
@@ -455,7 +455,7 @@ export class CategoriesService {
         data: { deletedAt, updatedBy: actorId },
       });
       if (updated.count === 0) {
-        throw new NotFoundException('دستهبندی یافت نشد.');
+        throw new NotFoundException('دسته بندی یافت نشد.');
       }
 
       const row = await tx.category.findUnique({
@@ -480,7 +480,7 @@ export class CategoriesService {
     });
 
     if (!deleted) {
-      throw new NotFoundException('دستهبندی یافت نشد.');
+      throw new NotFoundException('دسته بندی یافت نشد.');
     }
     return this.toDetail(deleted);
   }
@@ -494,7 +494,7 @@ export class CategoriesService {
       select: { id: true, deletedAt: true },
     });
     if (!parent || parent.deletedAt !== null) {
-      throw new NotFoundException('دستهبندی والد یافت نشد.');
+      throw new NotFoundException('دسته بندی والد یافت نشد.');
     }
   }
 
@@ -515,7 +515,7 @@ export class CategoriesService {
     while (current !== null) {
       if (visited.has(current)) {
         throw new ConflictException(
-          'جابهجایی باعث ایجاد چرخه در سلسلهمراتب دستهبندی میشود.',
+          'جابهجایی باعث ایجاد چرخه در سلسله مراتب دسته بندی میشود.',
         );
       }
       visited.add(current);
