@@ -178,7 +178,7 @@ export function CategoryEditor({
           </Fieldset>
 
           <Fieldset>
-            <Legend>پیشنمایش</Legend>
+            <Legend>پیش نمایش</Legend>
             <FieldGroup>
               <div className="flex items-center gap-3 rounded-xl border border-primary-border bg-primary-subtle/40 px-3 py-3">
                 <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg bg-surface-strong shadow-sm">

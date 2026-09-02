@@ -84,9 +84,9 @@ export function ProductMediaSection({
     <section className="rounded-xl border border-border bg-surface p-5 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <Subheading>رسانهها</Subheading>
+          <Subheading>رسانه ها</Subheading>
           <Text className="mt-1 text-xs text-muted">
-            رسانهها به ترتیب تعیینشده توسط سرور نمایش داده میشوند؛ اولین تصویر بارگذاریشده بهصورت
+            رسانه ها به ترتیب تعیین شده توسط سرور نمایش داده میشوند؛ اولین تصویر بارگذاری شده بهصورت
             خودکار تصویر اصلی میشود.
           </Text>
         </div>
