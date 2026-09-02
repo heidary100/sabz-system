@@ -84,6 +84,30 @@ export function buildTreeFromItems(items: TreeItem[]): CategoryTreeNode[] {
   return roots
 }
 
+/**
+ * Re-attach the full subtree of `id` (taken from `source`) onto a tree built
+ * from a flattened item list. Flattening during a drag excludes the dragged
+ * node's descendants, so an optimistic rebuild would otherwise lose them.
+ */
+export function restoreSubtree(
+  tree: CategoryTreeNode[],
+  id: string,
+  source: CategoryTreeNode[],
+): CategoryTreeNode[] {
+  const target = lookupNode(source, id)
+  if (!target) {
+    return tree
+  }
+  const subtree = target.node
+  const walk = (nodes: CategoryTreeNode[]): CategoryTreeNode[] =>
+    nodes.map((node) =>
+      node.id === id
+        ? { ...node, children: subtree.children }
+        : { ...node, children: walk(node.children) },
+    )
+  return walk(tree)
+}
+
 export function lookupNode(tree: CategoryTreeNode[], id: string): TreeNodeLookup | null {
   let result: TreeNodeLookup | null = null
   const walk = (nodes: CategoryTreeNode[], parent: CategoryTreeNode | null, path: CategoryTreeNode[], depth: number): void => {
@@ -220,7 +244,7 @@ function getMinDepth(nextItem: TreeItem | undefined, projectedDepth: number): nu
   return nextItem ? nextItem.depth : projectedDepth
 }
 
-function getParentId(depth: number, previousItem: TreeItem | undefined, overItemIndex: number, items: TreeItem[]): string | null {
+function getParentId(depth: number, previousItem: TreeItem | undefined, insertAt: number, items: TreeItem[]): string | null {
   if (depth === 0 || !previousItem) {
     return null
   }
@@ -231,7 +255,7 @@ function getParentId(depth: number, previousItem: TreeItem | undefined, overItem
     return previousItem.id
   }
   const newParent = items
-    .slice(0, overItemIndex)
+    .slice(0, insertAt)
     .reverse()
     .find((item) => item.depth === depth)?.parentId
   return newParent ?? null
@@ -260,28 +284,41 @@ export function getProjectedDrop(
   }
 
   const activeItem = items[activeItemIndex]!
-  const overItem = items[overItemIndex]!
   const dragDepth = getDragDepth(dragOffset, INDENTATION_WIDTH)
   const projectedDepth = activeItem.depth + dragDepth
-  const maxDepth = getMaxDepth(overItem, projectedDepth)
-  const minDepth = getMinDepth(overItem, projectedDepth)
-  let depth = projectedDepth
-
-  if (projectedDepth >= maxDepth) {
-    depth = maxDepth
-  } else if (projectedDepth < minDepth) {
-    depth = minDepth
-  }
-
-  const parentId = getParentId(depth, overItem, overItemIndex, items)
 
   const reordered = items.filter((item) => item.id !== activeId)
   const overIndex = reordered.findIndex((item) => item.id === overId)
   const insertAt = activeItemIndex < overItemIndex ? overIndex + 1 : overIndex
-  reordered.splice(Math.max(insertAt, 0), 0, {
+
+  /* Depth is clamped by the rows surrounding the insertion slot so a pure
+     vertical move never changes the nesting level: the drop can be no deeper
+     than one level below the row above it, and no shallower than the row
+     below it. Only the horizontal indent gesture changes depth. */
+  const previousItem = reordered[insertAt - 1]
+  const nextItem = reordered[insertAt]
+  const maxDepth = getMaxDepth(previousItem, projectedDepth)
+  const minDepth = getMinDepth(nextItem, projectedDepth)
+  const clampedDepth = projectedDepth
+
+  const depth = clampedDepth >= maxDepth
+    ? maxDepth
+    : clampedDepth < minDepth
+      ? minDepth
+      : clampedDepth
+
+  const parentId = getParentId(depth, previousItem, insertAt, reordered)
+
+  /* Reconcile the preview depth with the resolved parent so the drop
+     indicator always matches the tree that will be rebuilt: a root drop
+     renders at depth 0 even when the clamped preview sat deeper. */
+  const parentItem = parentId !== null ? reordered.find((item) => item.id === parentId) : undefined
+  const resolvedDepth = parentId === null ? 0 : parentItem ? parentItem.depth + 1 : depth
+
+  reordered.splice(insertAt, 0, {
     ...activeItem,
     parentId,
-    depth,
+    depth: resolvedDepth,
   })
 
   let position = 0
@@ -295,5 +332,5 @@ export function getProjectedDrop(
     }
   }
 
-  return { depth, parentId, position, canDrop: true, items: reordered }
+  return { depth: resolvedDepth, parentId, position, canDrop: true, items: reordered }
 }

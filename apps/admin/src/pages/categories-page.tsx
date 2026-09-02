@@ -174,7 +174,8 @@ export function CategoriesPage() {
             <InputGroup className="w-full sm:w-72">
               <Search data-slot="icon" aria-hidden="true" />
               <Input
-                type="search"
+                type="text"
+                inputMode="search"
                 placeholder="جستجوی دستهبندی…"
                 aria-label="جستجوی دستهبندی"
                 value={searchQuery}

@@ -5,6 +5,7 @@ import {
   DragOverlay,
   PointerSensor,
   closestCenter,
+  pointerWithin,
   useDraggable,
   useDroppable,
   useSensor,
@@ -39,6 +40,7 @@ import {
   getAllIds,
   getDescendantIds,
   getProjectedDrop,
+  restoreSubtree,
   type DropProjection,
   type TreeItem,
 } from '../../lib/category-tree-utils'
@@ -205,7 +207,11 @@ export function CategoryTree({
           id: activeId,
           parentId: dropProjection.parentId,
           position: dropProjection.position,
-          nextTree: buildTreeFromItems(dropProjection.items),
+          nextTree: restoreSubtree(
+            buildTreeFromItems(dropProjection.items),
+            activeId,
+            tree,
+          ),
         })
       }
     },
@@ -221,12 +227,13 @@ export function CategoryTree({
   const collisionDetection: CollisionDetection = useCallback(
     (args) => {
       const activeId = String(args.active.id)
-      const within = closestCenter(args)
-      const filtered = within.filter((collision) => collision.id !== activeId)
-      if (filtered.length > 0) {
-        return filtered
+      const pointerCollisions = pointerWithin(args).filter(
+        (collision) => collision.id !== activeId,
+      )
+      if (pointerCollisions.length > 0) {
+        return pointerCollisions
       }
-      return within
+      return closestCenter(args).filter((collision) => collision.id !== activeId)
     },
     [],
   )
@@ -280,11 +287,6 @@ export function CategoryTree({
             onDelete={onDelete}
           />
         ))}
-        {items.length === 0 && !searching && (
-          <div className="py-10 text-center text-sm text-muted">
-            هیچ دستهبندیای وجود ندارد.
-          </div>
-        )}
         {items.length === 0 && searching && (
           <div className="py-10 text-center text-sm text-muted">
             دستهبندیای با این عبارت یافت نشد.
