@@ -1,7 +1,9 @@
 import { randomUUID } from 'crypto';
+import { createReadStream } from 'fs';
 import { mkdirSync } from 'fs';
-import { mkdir, readFile, rename, rm, writeFile } from 'fs/promises';
+import { copyFile, mkdir, readFile, rename, rm, stat, writeFile } from 'fs/promises';
 import { dirname, resolve, sep } from 'path';
+import type { Readable } from 'stream';
 import {
   InvalidMediaStorageKeyError,
   MediaNotFoundError,
@@ -64,6 +66,42 @@ export class LocalDiskMediaStorage implements ProductMediaStorage {
       }
       throw error;
     }
+  }
+
+  /**
+   * Stores a local source file under `key`. Used by the media pipeline to
+   * persist the processed (watermarked) asset without buffering large videos
+   * into memory. The source is copied and atomically renamed into place; the
+   * caller remains responsible for deleting the source temp file.
+   */
+  async putFile(key: string, sourcePath: string): Promise<void> {
+    const target = this.resolveKey(key);
+    await mkdir(dirname(target), { recursive: true });
+    const temporary = `${target}.${randomUUID()}.tmp`;
+    try {
+      await copyFile(sourcePath, temporary);
+      await rename(temporary, target);
+    } finally {
+      await rm(temporary, { force: true });
+    }
+  }
+
+  /**
+   * Streams a stored object for download without loading it into memory.
+   * Missing objects map to `MediaNotFoundError`; the stream errors later if
+   * the file disappears between the stat and the read.
+   */
+  async getStream(key: string): Promise<Readable> {
+    const target = this.resolveKey(key);
+    try {
+      await stat(target);
+    } catch (error) {
+      if (this.isMissing(error)) {
+        throw new MediaNotFoundError(key);
+      }
+      throw error;
+    }
+    return createReadStream(target);
   }
 
   async delete(key: string): Promise<void> {

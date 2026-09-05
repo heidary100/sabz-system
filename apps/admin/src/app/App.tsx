@@ -15,6 +15,7 @@ import { LoginPage } from '../pages/login-page'
 import { PartnerDetailPage } from '../pages/partner-detail-page'
 import { PartnersPage } from '../pages/partners-page'
 import { ProductDetailPage } from '../pages/product-detail-page'
+import { ProductEditorPage } from '../pages/product-editor-page'
 import { ProductsPage } from '../pages/products-page'
 import { RolesPage } from '../pages/roles-page'
 import { UserDetailPage } from '../pages/user-detail-page'
@@ -103,6 +104,14 @@ export default function App() {
               }
             />
             <Route
+              path="products/new"
+              element={
+                <RequireRole roles={ADMIN_ROLES}>
+                  <ProductEditorPage />
+                </RequireRole>
+              }
+            />
+            <Route
               path="products"
               element={
                 <RequireRole roles={ADMIN_ROLES}>
@@ -115,6 +124,14 @@ export default function App() {
               element={
                 <RequireRole roles={ADMIN_ROLES}>
                   <ProductDetailPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="products/:id/edit"
+              element={
+                <RequireRole roles={ADMIN_ROLES}>
+                  <ProductEditorPage />
                 </RequireRole>
               }
             />

@@ -16,6 +16,7 @@ describe('ProductMediaController', () => {
     upload: jest.Mock;
     list: jest.Mock;
     getBinary: jest.Mock;
+    getBinaryStream: jest.Mock;
   };
 
   beforeEach(() => {
@@ -23,6 +24,7 @@ describe('ProductMediaController', () => {
       upload: jest.fn(),
       list: jest.fn(),
       getBinary: jest.fn(),
+      getBinaryStream: jest.fn(),
     };
     controller = new ProductMediaController(service as unknown as MediaService);
   });
@@ -61,8 +63,8 @@ describe('ProductMediaController', () => {
   });
 
   it('returns a StreamableFile for download using the stored mime type', async () => {
-    service.getBinary.mockResolvedValue({
-      buffer: Buffer.from([0xff, 0xd8, 0xff]),
+    service.getBinaryStream.mockResolvedValue({
+      stream: { read: jest.fn() },
       summary: {
         id: 'media-1',
         productId: 'prod-1',
@@ -78,7 +80,7 @@ describe('ProductMediaController', () => {
     });
     const result = await controller.download('prod-1', 'media-1');
     expect(result).toBeInstanceOf(StreamableFile);
-    expect(service.getBinary).toHaveBeenCalledWith('prod-1', 'media-1');
+    expect(service.getBinaryStream).toHaveBeenCalledWith('prod-1', 'media-1');
   });
 });
 

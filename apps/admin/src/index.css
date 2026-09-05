@@ -391,3 +391,236 @@
       var(--sabz-background);
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Rich text (product long description)
+   Shared by the admin detail page renderer, the TipTap editor content area
+   and (via the same class) the storefront renderer. RTL-first, theme-aware.
+--------------------------------------------------------------------------- */
+.rich-text {
+  @apply text-sm/6 text-foreground sm:text-base/7;
+}
+
+.rich-text p {
+  @apply mt-0 mb-4;
+}
+
+.rich-text h1 {
+  @apply mt-6 mb-3 text-xl/8 font-bold text-foreground;
+}
+
+.rich-text h2 {
+  @apply mt-6 mb-3 text-lg/7 font-bold text-foreground;
+}
+
+.rich-text h3 {
+  @apply mt-5 mb-2 text-base/6 font-semibold text-foreground;
+}
+
+.rich-text h1:first-child,
+.rich-text h2:first-child,
+.rich-text h3:first-child,
+.rich-text p:first-child {
+  @apply mt-0;
+}
+
+.rich-text ul,
+.rich-text ol {
+  @apply mt-0 mb-4 ps-6;
+}
+
+.rich-text ul {
+  @apply list-disc;
+}
+
+.rich-text ol {
+  @apply list-decimal;
+}
+
+.rich-text li {
+  @apply mb-1;
+}
+
+.rich-text blockquote {
+  @apply mb-4 border-s-4 border-primary/40 bg-primary-subtle px-4 py-2 text-muted;
+}
+
+.rich-text strong {
+  @apply font-bold text-foreground;
+}
+
+.rich-text em {
+  @apply italic;
+}
+
+.rich-text u {
+  @apply underline;
+}
+
+.rich-text a {
+  @apply text-primary underline underline-offset-4 hover:text-primary-dark;
+}
+
+.rich-text img {
+  @apply my-2 h-auto max-w-full rounded-lg border border-border;
+  display: block;
+  margin-inline-start: auto;
+  margin-inline-end: auto;
+}
+
+/* Figure-wrapped description images (serialized document + preview). */
+.rich-text figure,
+.product-image-node {
+  @apply my-4 max-w-full;
+  width: fit-content;
+}
+
+.rich-text figure[data-align='left'],
+.product-image-node[data-align='left'] {
+  margin-left: 0;
+  margin-right: auto;
+}
+
+.rich-text figure[data-align='right'],
+.product-image-node[data-align='right'] {
+  margin-left: auto;
+  margin-right: 0;
+}
+
+.rich-text figure[data-align='center'],
+.product-image-node[data-align='center'] {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.rich-text figure > img,
+.rich-text figure > a > img {
+  @apply h-auto max-w-full rounded-lg border border-border;
+  display: block;
+}
+
+.rich-text figcaption {
+  @apply mt-1.5 text-center text-sm text-muted;
+}
+
+.rich-text hr {
+  @apply my-6 border-t border-border;
+}
+
+.rich-text table {
+  @apply my-4 w-full border-collapse;
+  border: 1px solid var(--color-border);
+}
+
+.rich-text th,
+.rich-text td {
+  @apply border px-3 py-2 text-sm/6;
+  border-color: var(--color-border);
+}
+
+.rich-text th {
+  @apply bg-surface-strong text-foreground;
+  font-weight: 600;
+}
+
+/* ---------------------------------------------------------------------------
+   Content editor workspace
+--------------------------------------------------------------------------- */
+.content-editor-canvas {
+  @apply min-h-[18rem] cursor-text outline-none;
+}
+
+.content-editor-canvas p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  @apply float-start text-muted;
+  height: 0;
+  pointer-events: none;
+}
+
+/* Image node view inside the editor. */
+.product-image-node {
+  position: relative;
+  cursor: grab;
+}
+
+.product-image-node:active {
+  cursor: grabbing;
+}
+
+.product-image-node-img {
+  @apply h-auto max-w-full rounded-lg border border-border;
+  display: block;
+}
+
+.product-image-node-caption {
+  @apply mt-1.5 text-center text-sm text-muted;
+}
+
+.product-image-selected {
+  border-radius: 0.5rem;
+  outline: 2px solid var(--color-primary);
+  outline-offset: 3px;
+}
+
+.product-image-resize-handle {
+  position: absolute;
+  bottom: -7px;
+  right: -7px;
+  width: 15px;
+  height: 15px;
+  border: 2px solid var(--color-surface-strong);
+  border-radius: 3px;
+  background-color: var(--color-primary);
+  cursor: nwse-resize;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.3);
+  touch-action: none;
+}
+
+/* Tables inside the editor canvas reuse the rich-text table styling. */
+.content-editor-canvas table {
+  @apply my-4 w-full border-collapse;
+  border: 1px solid var(--color-border);
+}
+
+.content-editor-canvas th,
+.content-editor-canvas td {
+  @apply border px-3 py-2 text-sm/6;
+  border-color: var(--color-border);
+}
+
+.content-editor-canvas th {
+  @apply bg-surface-strong text-foreground;
+  font-weight: 600;
+}
+
+.content-editor-canvas .selectedCell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border: 2px solid var(--color-primary);
+  background: var(--color-primary-subtle);
+}
+
+.content-editor-canvas .column-resize-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background-color: var(--color-primary);
+}
+
+.content-editor-canvas .tableWrapper {
+  @apply my-4 overflow-x-auto;
+}
+
+.rich-text-editor-content {
+  @apply cursor-text px-4 py-3 outline-none;
+}
+
+.rich-text-editor-content p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  @apply float-start text-muted;
+  height: 0;
+  pointer-events: none;
+}

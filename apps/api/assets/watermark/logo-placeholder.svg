@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <!-- Placeholder brand mark for product-media watermarking. Replace this file
+       with the official company logo asset (keep the same file name, or point
+       WATERMARK_LOGO_PATH at the new asset) — no code change is required. -->
+  <rect width="512" height="512" rx="112" fill="#3a5a40"/>
+  <path d="M256 376 C 256 376 160 300 160 212 C 160 148 204 112 256 128 C 256 88 280 88 280 88 C 312 88 352 128 352 212 C 352 300 256 376 256 376 Z" fill="#a3b18a" opacity="0.95"/>
+  <rect x="238" y="292" width="36" height="96" rx="18" fill="#f8f7f5"/>
+  <circle cx="196" cy="236" r="26" fill="#f8f7f5" opacity="0.9"/>
+</svg>

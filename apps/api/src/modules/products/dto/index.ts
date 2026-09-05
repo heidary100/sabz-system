@@ -12,3 +12,4 @@ export { CreateVariantDto } from './create-variant.dto';
 export { UpdateVariantDto } from './update-variant.dto';
 export { UpdateVariantInventoryDto } from './update-inventory.dto';
 export { UploadMediaDto } from './upload-media.dto';
+export { ImportDescriptionImageDto } from './import-description-image.dto';

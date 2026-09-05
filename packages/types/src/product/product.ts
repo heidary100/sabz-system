@@ -47,6 +47,7 @@ export interface ProductMediaSummary {
   mediaType: ProductMediaType;
   originalName: string;
   mimeType: string;
+  /** Size of the stored (watermarked/processed) asset. */
   sizeBytes: number;
   sortOrder: number;
   isPrimary: boolean;
@@ -69,7 +70,13 @@ export interface ProductDetail {
   id: string;
   name: string;
   slug: string;
+  /** Plain text up to 500 chars. */
   shortDescription: string | null;
+  /**
+   * Rich-text long description. Persisted as allowlist-sanitized HTML (the
+   * API sanitizes before storage); render it directly (never as plain text) to
+   * display the admin-authored formatting safely.
+   */
   description: string | null;
   brand: BrandSummary;
   category: CategorySummary;

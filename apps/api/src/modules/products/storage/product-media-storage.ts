@@ -1,3 +1,5 @@
+import type { Readable } from 'stream';
+
 /**
  * Product-domain-scoped media storage abstraction (SS-105).
  *
@@ -18,7 +20,15 @@ export const PRODUCT_MEDIA_STORAGE = Symbol('PRODUCT_MEDIA_STORAGE');
 
 export interface ProductMediaStorage {
   put(key: string, data: Buffer): Promise<void>;
+  /**
+   * Moves/copies a local file into storage under `key`. Used by the media
+   * pipeline to store the processed (watermarked) asset without buffering a
+   * large file into memory.
+   */
+  putFile(key: string, sourcePath: string): Promise<void>;
   get(key: string): Promise<Buffer>;
+  /** Streams a stored object for download without buffering it in memory. */
+  getStream(key: string): Promise<Readable>;
   delete(key: string): Promise<void>;
 }
 

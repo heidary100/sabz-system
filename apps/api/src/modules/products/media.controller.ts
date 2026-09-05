@@ -15,6 +15,8 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
+import { diskStorage } from 'multer';
+import { randomUUID } from 'crypto';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiBearerAuth,
@@ -35,10 +37,14 @@ import { buildMediaAttachmentDisposition } from './download-media-disposition';
 import { MediaService } from './media.service';
 import { UploadMediaDto } from './dto';
 import { OversizedUploadFilter } from '../partners/oversized-upload.filter';
-import { ALLOWED_MEDIA_MIME_TYPES } from './media-validation';
+import { resolveProductMediaTempDir } from './media-upload.config';
+import { ALLOWED_MEDIA_MIME_TYPES, MAX_VIDEO_SIZE_BYTES } from './media-validation';
 
 const UUID_PARAM = new ParseUUIDPipe({ errorHttpStatusCode: HttpStatus.NOT_FOUND });
-const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+// The multer hard cap is the video limit (200 MB). Images keep their 10 MB cap
+// and are rejected with the correct per-type message by the service-level
+// validation after the (still small) image body reaches disk.
+const MAX_UPLOAD_BYTES = MAX_VIDEO_SIZE_BYTES;
 
 /**
  * Product media endpoints (SS-105). Upload/list/download are product-scoped
@@ -58,6 +64,18 @@ export class ProductMediaController {
   @Post(':productId/media')
   @UseInterceptors(
     FileInterceptor('file', {
+      // Uploads stream to a server-generated temp file on disk, never a memory
+      // buffer: a 200 MB video must not be held in a Node.js heap. The temp
+      // file is validated and watermarked by the media pipeline, then moved
+      // into the final storage key. All temp paths are server-generated.
+      storage: diskStorage({
+        // Resolved per request (not at import time) so a PRODUCT_MEDIA_TEMP_DIR
+        // set in a .env file applies — matching the service provider and the
+        // startup sweep.
+        destination: (_request, _file, callback) =>
+          callback(null, resolveProductMediaTempDir()),
+        filename: (_request, _file, callback) => callback(null, randomUUID()),
+      }),
       // defParamCharset: busboy otherwise decodes the multipart filename
       // parameter as latin1, mangling non-ASCII (e.g. Persian) filenames.
       defParamCharset: 'utf8',
@@ -78,7 +96,8 @@ export class ProductMediaController {
   )
   @ApiConsumes('multipart/form-data')
   @ApiBody({
-    description: 'Product media file and optional fields',
+    description:
+      'Product media file and optional fields. Images up to 10 MB, videos up to 200 MB.',
     schema: {
       type: 'object',
       required: ['file'],
@@ -134,15 +153,15 @@ export class ProductMediaController {
     @Param('productId', UUID_PARAM) productId: string,
     @Param('mediaId', UUID_PARAM) mediaId: string,
   ) {
-    const { buffer, summary } = await this.mediaService.getBinary(
+    const { stream, summary } = await this.mediaService.getBinaryStream(
       productId,
       mediaId,
     );
 
-    return new StreamableFile(buffer, {
+    return new StreamableFile(stream, {
       type: summary.mimeType,
       disposition: buildMediaAttachmentDisposition(summary),
-      length: buffer.length,
+      length: summary.sizeBytes,
     });
   }
 }

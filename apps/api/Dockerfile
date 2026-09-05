@@ -3,6 +3,13 @@ FROM node:22-slim AS base
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
 
+# FFmpeg is required for the server-side video watermarking pipeline
+# (CATALOG-007). The bundled Vazirmatn font renders the Persian watermark text
+# without installing extra system fonts.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN corepack enable
 
 WORKDIR /app

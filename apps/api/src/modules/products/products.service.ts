@@ -13,6 +13,7 @@ import type {
 import { PrismaService } from '../../common/database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { generateSlug } from './slug';
+import { sanitizeRichText } from './description-sanitize';
 import {
   CreateProductDto,
   ListProductsQueryDto,
@@ -209,7 +210,7 @@ export class ProductsService {
             name: dto.name,
             slug,
             shortDescription: dto.shortDescription ?? null,
-            description: dto.description ?? null,
+            description: dto.description ? sanitizeRichText(dto.description) : null,
             brandId: dto.brandId,
             categoryId: dto.categoryId,
             warranty: dto.warranty ?? null,
@@ -612,7 +613,8 @@ export class ProductsService {
     if (dto.name !== undefined) data.name = dto.name;
     if (dto.slug !== undefined) data.slug = dto.slug;
     if (dto.shortDescription !== undefined) data.shortDescription = dto.shortDescription;
-    if (dto.description !== undefined) data.description = dto.description;
+    if (dto.description !== undefined)
+      data.description = dto.description ? sanitizeRichText(dto.description) : null;
     if (dto.brandId !== undefined) data.brandId = dto.brandId;
     if (dto.categoryId !== undefined) data.categoryId = dto.categoryId;
     if (dto.warranty !== undefined) data.warranty = dto.warranty;

@@ -1,8 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useProductDetail } from '../hooks/use-product-detail'
-import { useCategoryOptions } from '../hooks/use-category-options'
-import { useBrandOptions } from '../hooks/use-brand-options'
 import { translateApiError } from '../lib/error-messages'
 import { formatDateTime } from '../lib/format'
 import { PRODUCT_CONDITION_LABELS } from '../lib/product-labels'
@@ -14,47 +12,21 @@ import { Heading, Subheading } from '../components/catalyst/heading'
 import { EmptyState } from '../components/ui/empty-state'
 import { Loading } from '../components/ui/loading'
 import { InfoItem } from '../components/ui/info-item'
+import { RichText } from '../components/ui/rich-text'
 import { DeleteConfirmDialog } from '../components/ui/delete-confirm-dialog'
 import { ProductStatusBadge } from '../components/products/product-status-badge'
-import { ProductForm } from '../components/products/product-form'
 import { LifecycleConfirmDialog } from '../components/products/lifecycle-confirm-dialog'
 import { ProductVariantsSection } from '../components/products/product-variants-section'
 import { ProductMediaSection } from '../components/products/product-media-section'
 import { VariantForm } from '../components/variants/variant-form'
-import type { ProductDetail, VariantSummary } from '@sabz/types'
+import type { VariantSummary } from '@sabz/types'
 
-type DialogName = 'edit' | 'publish' | 'archive' | 'delete' | null
+type DialogName = 'publish' | 'archive' | 'delete' | null
 
 type VariantDialogState =
   | { mode: 'create' }
   | { mode: 'edit' | 'delete'; variant: VariantSummary }
   | null
-
-function ProductEditDialog({
-  open,
-  product,
-  onClose,
-  onSuccess,
-}: {
-  open: boolean
-  product: ProductDetail
-  onClose: () => void
-  onSuccess: () => void
-}) {
-  const { categories } = useCategoryOptions()
-  const { brands } = useBrandOptions()
-
-  return (
-    <ProductForm
-      open={open}
-      product={product}
-      brands={brands}
-      categories={categories}
-      onClose={onClose}
-      onSuccess={onSuccess}
-    />
-  )
-}
 
 export function ProductDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -119,11 +91,6 @@ export function ProductDetailPage() {
     }
   }
 
-  const handleEditSuccess = (): void => {
-    setDialog(null)
-    void refetch()
-  }
-
   const handleVariantSuccess = (): void => {
     setVariantDialog(null)
     void refetch()
@@ -164,7 +131,7 @@ export function ProductDetailPage() {
         <div className="flex items-center gap-3">
           {product.status === 'DRAFT' && (
             <>
-              <Button outline onClick={() => setDialog('edit')}>
+              <Button outline onClick={() => navigate(`/products/${product.id}/edit`)}>
                 <Pencil data-slot="icon" />
                 ویرایش
               </Button>
@@ -175,7 +142,7 @@ export function ProductDetailPage() {
           )}
           {product.status === 'PUBLISHED' && (
             <>
-              <Button outline onClick={() => setDialog('edit')}>
+              <Button outline onClick={() => navigate(`/products/${product.id}/edit`)}>
                 <Pencil data-slot="icon" />
                 ویرایش
               </Button>
@@ -208,7 +175,14 @@ export function ProductDetailPage() {
             <InfoItem label="توضیح کوتاه" value={product.shortDescription} />
           </div>
           <div className="sm:col-span-2">
-            <InfoItem label="توضیح کامل" value={product.description} />
+            <dt className="text-sm font-medium text-muted">توضیح کامل</dt>
+            <dd className="mt-1">
+              {product.description ? (
+                <RichText html={product.description} />
+              ) : (
+                <span className="text-sm text-foreground">—</span>
+              )}
+            </dd>
           </div>
           <InfoItem label="برند" value={product.brand.name} />
           <InfoItem label="دسته‌بندی" value={product.category.name} />
@@ -252,15 +226,6 @@ export function ProductDetailPage() {
         manageable={manageable}
         onRefetch={() => void refetch()}
       />
-
-      {dialog === 'edit' && (
-        <ProductEditDialog
-          open
-          product={product}
-          onClose={() => setDialog(null)}
-          onSuccess={handleEditSuccess}
-        />
-      )}
 
       <LifecycleConfirmDialog
         open={dialog === 'publish'}
