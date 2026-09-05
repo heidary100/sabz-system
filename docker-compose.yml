@@ -73,7 +73,7 @@ services:
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-dev_refresh_secret_change_me}
       JWT_ACCESS_EXPIRES_IN: ${JWT_ACCESS_EXPIRES_IN:-15m}
       JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-30d}
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:3002}
       THROTTLE_TTL_MS: ${THROTTLE_TTL_MS:-60000}
       THROTTLE_LIMIT: ${THROTTLE_LIMIT:-100}
       TRUST_PROXY: ${TRUST_PROXY:-}
@@ -117,6 +117,14 @@ services:
       - api_node_modules:/app/apps/api/node_modules
       - api_documents:/app/.data/documents
       - api_product_media:/app/.data/product-media
+    healthcheck:
+      # /api/v1/health verifies the process is up and Redis is reachable.
+      # start_period covers the first-startup TS compile + Prisma generation.
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/v1/health').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 90s
     depends_on:
       postgres:
         condition: service_healthy
@@ -149,6 +157,11 @@ services:
     restart: unless-stopped
     ports:
       - "3002:3001"
+    environment:
+      # Browser-facing API base URL (inlined by Next.js). The default matches
+      # the code fallback in apps/storefront/src/lib/api.ts and is reachable
+      # from the host browser because the API publishes port 3000.
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:3000/api/v1}
     command: ["pnpm", "--filter", "@sabz/storefront", "dev", "--hostname", "0.0.0.0"]
     volumes:
       - ./apps/storefront:/app/apps/storefront
