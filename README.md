@@ -295,9 +295,20 @@ docker compose logs api
 ### Cannot log in to the admin
 
 1. Confirm the seed ran: `docker compose logs api | grep -i seed` — look for `Seeded 4 roles…`. Without it, no admin exists.
-2. Use exactly the seeded mobile (`+989170000001`, or `091700000001` — both are accepted) and OTP `123456`.
+2. Use exactly the seeded mobile (`+989170000001`, or `09170000001` — both are accepted) and OTP `123456`. Do **not** use the input's placeholder example (`+989123456789`) — that is a format hint, not an account.
 3. Each OTP code allows 3 verification attempts and expires after 2 minutes — request a new code and retry. OTP requests are limited to 3/minute per number and 15/minute per IP; after a 429, wait 60 seconds.
 4. Open the browser dev tools → Network tab: the failing request's error tells you which case below applies.
+
+### "Access denied" after logging in
+
+You logged in with a mobile number that has no admin role. The API auto-registers **any** valid Iranian mobile as a role-less user — the login itself succeeds, but the admin panel rejects it. The access-denied page shows the number you logged in with; if it is not `+989170000001`, log out and use the seeded admin mobile. To inspect which accounts exist and their roles:
+
+```bash
+docker compose exec postgres psql -U sabz -d sabz -c \
+  "SELECT u.\"mobile\", r.\"name\" AS role FROM \"User\" u LEFT JOIN \"UserRole\" ur ON ur.\"userId\" = u.\"id\" LEFT JOIN \"Role\" r ON r.\"id\" = ur.\"roleId\";"
+```
+
+If the seeded admin is missing entirely (no `+989170000001` row), the seed did not run — check `docker compose logs api` for a seed error and reset with `docker compose down -v && docker compose up -d --build`.
 
 ### Admin page loads but API calls fail (CORS / network)
 
