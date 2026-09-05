@@ -221,10 +221,9 @@ docker compose ps
 # Restart PostgreSQL
 docker compose restart postgres
 
-# Reset database (WARNING: deletes all data)
+# Reset database (WARNING: deletes all data, media and documents)
 docker compose down -v
-docker compose up -d postgres
-cd apps/api && npx prisma migrate dev
+docker compose up -d --build
 ```
 
 ## Prisma Client Issues
@@ -252,11 +251,13 @@ Or from the repository root:
 pnpm seed
 ```
 
-The seed is idempotent and safe to run repeatedly. It requires
+In the Docker development environment this is automatic: the API container
+runs `prisma:seed` at every startup, after `prisma migrate deploy`. The seed
+is idempotent and safe to run repeatedly. It requires
 `DEV_ADMIN_MOBILE` (a valid Iranian mobile number) and refuses to run when
-`NODE_ENV=production`. Note that `prisma migrate dev` also runs the seed
-automatically after applying migrations, so `DEV_ADMIN_MOBILE` must be set
-in any environment where migrations are applied.
+`NODE_ENV` is not `development`. Note that `prisma migrate dev` also runs the
+seed automatically after applying migrations, so `DEV_ADMIN_MOBILE` must be
+set in any environment where migrations are applied.
 
 Example:
 
