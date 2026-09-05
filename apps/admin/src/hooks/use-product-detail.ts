@@ -9,6 +9,12 @@ export function useProductDetail(productId: string) {
   const requestSeq = useRef(0)
 
   const refetch = useCallback(async () => {
+    if (!productId) {
+      setProduct(null)
+      setLoading(false)
+      setError(null)
+      return
+    }
     const seq = ++requestSeq.current
     setLoading(true)
     setError(null)

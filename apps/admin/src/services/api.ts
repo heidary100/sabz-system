@@ -143,6 +143,70 @@ export async function requestMultipart<T>(
 }
 
 /**
+ * Authenticated multipart/form-data upload that reports upload progress
+ * through an XHR request. Mirrors requestMultipart() exactly for auth handling
+ * (bearer token injection, single-flight refresh, one retry, session clearing)
+ * but reports the client-side upload percentage via `onProgress` so large
+ * media (up to 200 MB) can show a real progress bar before the server-side
+ * watermark processing phase begins.
+ */
+export async function requestMultipartWithProgress<T>(
+  path: string,
+  formData: FormData,
+  onProgress?: (percent: number) => void,
+  options: RequestOptions = {},
+): Promise<T> {
+  const { auth = true, allowRefresh = true } = options
+
+  const performRequest = (): Promise<T> =>
+    new Promise<T>((resolvePromise, rejectPromise) => {
+      const xhr = new XMLHttpRequest()
+      xhr.open('POST', `${API_BASE_URL}${path}`)
+      if (auth && accessToken) {
+        xhr.setRequestHeader('Authorization', `Bearer ${accessToken}`)
+      }
+      xhr.withCredentials = true
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable && event.total > 0) {
+          onProgress?.(Math.round((event.loaded / event.total) * 100))
+        }
+      }
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            resolvePromise(JSON.parse(xhr.responseText) as T)
+          } catch {
+            rejectPromise(new ApiError(xhr.status, undefined))
+          }
+          return
+        }
+        let payload: ApiErrorPayload | undefined
+        try {
+          payload = JSON.parse(xhr.responseText) as ApiErrorPayload
+        } catch {
+          payload = undefined
+        }
+        rejectPromise(new ApiError(xhr.status, payload))
+      }
+      xhr.onerror = () => rejectPromise(new ApiError(0, undefined))
+      xhr.send(formData)
+    })
+
+  try {
+    return await performRequest()
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401 && auth && allowRefresh) {
+      const refreshed = await refreshSession()
+      if (refreshed) {
+        return performRequest()
+      }
+      clearSession()
+    }
+    throw error
+  }
+}
+
+/**
  * Authenticated fetch that returns binary content instead of JSON. Used by the
  * document preview/download flow, which mirrors request() exactly: bearer token
  * injection, single-flight refresh, one retry, and session clearing on refresh

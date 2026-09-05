@@ -86,7 +86,7 @@ export function ProductMediaSection({
         <div>
           <Subheading>رسانه ها</Subheading>
           <Text className="mt-1 text-xs text-muted">
-            رسانه ها به ترتیب تعیین شده توسط سرور نمایش داده میشوند؛ اولین تصویر بارگذاری شده بهصورت
+            رسانه ها به ترتیب تعیین شده توسط سرور نمایش داده میشوند؛ اولین تصویر بارگذاری شده به صورت
             خودکار تصویر اصلی میشود.
           </Text>
         </div>

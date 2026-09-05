@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import type { ProductDetail, ProductStatus } from '@sabz/types'
+import type { ProductStatus } from '@sabz/types'
 import { useProductList } from '../hooks/use-product-list'
 import { useCategoryOptions } from '../hooks/use-category-options'
 import { useBrandOptions } from '../hooks/use-brand-options'
@@ -38,7 +38,6 @@ import {
   PaginationPrevious,
 } from '../components/ui/pagination'
 import { ProductStatusBadge } from '../components/products/product-status-badge'
-import { ProductForm } from '../components/products/product-form'
 
 const SEARCH_DEBOUNCE_MS = 300
 
@@ -65,7 +64,6 @@ export function ProductsPage() {
   const { brands: brandOptions } = useBrandOptions()
 
   const [searchInput, setSearchInput] = useState(search)
-  const [createOpen, setCreateOpen] = useState(false)
 
   useEffect(() => {
     const timer = setTimeout(() => setSearch(searchInput), SEARCH_DEBOUNCE_MS)
@@ -89,9 +87,8 @@ export function ProductsPage() {
     setBrandId('')
   }
 
-  const handleCreated = (product: ProductDetail): void => {
-    setCreateOpen(false)
-    navigate(`/products/${product.id}`)
+  const createProduct = (): void => {
+    navigate('/products/new')
   }
 
   return (
@@ -99,7 +96,7 @@ export function ProductsPage() {
       <PageHeader
         title="محصولات"
         actions={
-          <Button color="primary" onClick={() => setCreateOpen(true)}>
+          <Button color="primary" onClick={createProduct}>
             <Plus data-slot="icon" />
             افزودن محصول
           </Button>
@@ -189,7 +186,7 @@ export function ProductsPage() {
                 حذف فیلترها
               </Button>
             ) : (
-              <Button outline onClick={() => setCreateOpen(true)}>
+              <Button outline onClick={createProduct}>
                 افزودن محصول
               </Button>
             )
@@ -283,15 +280,6 @@ export function ProductsPage() {
       <p className="text-xs text-muted">
         {result ? `مجموع: ${result.total} محصول · ${limit} مورد در هر صفحه` : ''}
       </p>
-
-      <ProductForm
-        open={createOpen}
-        product={null}
-        brands={brandOptions}
-        categories={categoryOptions}
-        onClose={() => setCreateOpen(false)}
-        onSuccess={handleCreated}
-      />
     </div>
   )
 }
