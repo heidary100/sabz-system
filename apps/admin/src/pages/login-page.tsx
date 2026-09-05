@@ -189,6 +189,14 @@ export function LoginPage() {
             </div>
           </form>
         )}
+
+        {import.meta.env.DEV && (
+          <Text className="rounded-lg border border-border px-3 py-2 text-xs leading-6 text-zinc-500">
+            محیط توسعه — مدیر پیشفرض: <span dir="ltr">+989170000001</span> و کد
+            تأیید همیشه <span dir="ltr">123456</span> است. هر شماره دیگری به‌عنوان
+            کاربر عادی ثبت میشود و به پنل مدیریت دسترسی ندارد.
+          </Text>
+        )}
       </div>
     </div>
   )
