@@ -31,4 +31,9 @@ COPY apps/api ./apps/api
 
 EXPOSE 3000
 
-CMD ["sh", "-c", "pnpm --filter @sabz/api prisma:generate && pnpm --filter @sabz/api exec prisma migrate deploy && pnpm --filter @sabz/api dev"]
+# Startup lifecycle: regenerate the Prisma client (schema changes are picked
+# up via the bind-mounted source without an image rebuild), apply pending
+# migrations, then run the seed. The seed is idempotent and refuses to run
+# unless NODE_ENV=development (pinned by docker-compose.yml), so it is safe on
+# every container start and cannot leak into production.
+CMD ["sh", "-c", "pnpm --filter @sabz/api prisma:generate && pnpm --filter @sabz/api exec prisma migrate deploy && pnpm --filter @sabz/api prisma:seed && pnpm --filter @sabz/api dev"]

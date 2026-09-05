@@ -49,7 +49,7 @@ cd sabz-system
 docker compose up -d --build
 ```
 
-On first run this builds the three application images and starts all five services. The API container generates the Prisma client and applies any pending database migrations before starting the dev server.
+On first run this builds the three application images and starts all five services. The API container waits for healthy PostgreSQL and Redis, generates the Prisma client, applies any pending database migrations, runs the idempotent development seed (roles, the dev admin user, the default warehouse), and only then starts the dev server.
 
 ## 3. Verify Everything Is Running
 
@@ -57,13 +57,13 @@ On first run this builds the three application images and starts all five servic
 docker compose ps
 ```
 
-All services should report `running` and the infrastructure services `healthy`:
+All services should report `running`; the infrastructure services and the API report `healthy` (the API health check hits `/api/v1/health`):
 
 ```text
 NAME              IMAGE                      STATUS
 sabz-postgres     postgres:16                Up ... (healthy)
 sabz-redis        redis:7-alpine             Up ... (healthy)
-sabz-api          sabz-system-api            Up ... (running)
+sabz-api          sabz-system-api            Up ... (healthy)
 sabz-admin        sabz-system-admin          Up ... (running)
 sabz-storefront   sabz-system-storefront     Up ... (running)
 ```
@@ -71,9 +71,19 @@ sabz-storefront   sabz-system-storefront     Up ... (running)
 Endpoints:
 
 - API: http://localhost:3000/api/v1
-- API Swagger docs: http://localhost:3000/docs
+- API Swagger docs: http://localhost:3000/api/docs
 - Admin: http://localhost:5173
 - Storefront: http://localhost:3002
+
+### Log In to the Admin (Development/Demo Credentials)
+
+Authentication is mobile + OTP. The development seed creates an admin account with a deterministic development OTP:
+
+1. Open http://localhost:5173
+2. Enter the mobile number `+989170000001` (override with `DEV_ADMIN_MOBILE` in a root `.env`)
+3. Request a code, then enter `123456`
+
+The `123456` OTP is active only when `NODE_ENV=development` and is hard-coded — it cannot be enabled in production. See the root [README](../../README.md#demo-credentials-developmentdemo-only) for details.
 
 ## 4. View Logs
 
@@ -129,10 +139,11 @@ docker compose exec redis redis-cli ping
 
 ## Run Database Migrations Manually
 
-Migrations are applied automatically when the API container starts. To run them manually:
+Migrations and the seed are applied automatically when the API container starts (the seed is idempotent and refuses to run unless `NODE_ENV=development`). To run them manually:
 
 ```bash
-docker compose exec api pnpm --filter @sabz/api prisma:migrate
+docker compose exec api pnpm --filter @sabz/api exec prisma migrate deploy
+docker compose exec api pnpm --filter @sabz/api prisma:seed
 ```
 
 To open Prisma Studio:
@@ -168,6 +179,8 @@ File watching relies on the host bind mounts, so changes saved on the host are p
 - `api_documents` — persistent business document storage, mounted at `/app/.data/documents` in the API container (matches `DOCUMENT_STORAGE_DIR`, SS-038).
 - `api_product_media` — persistent product media storage, mounted at `/app/.data/product-media` in the API container (matches `PRODUCT_MEDIA_STORAGE_DIR`, SS-105).
 
+`docker compose down` keeps all of these; `docker compose down -v` deletes them.
+
 ---
 
 # Environment Variables
@@ -195,7 +208,7 @@ If a host process occupies a published port, either stop it or change the left-h
 
 ## PostgreSQL Not Ready / API Keeps Restarting
 
-The API depends on healthy Postgres and Redis before starting. If a stale volume contains an invalid state:
+The API depends on healthy Postgres and Redis before starting, and its own health check hits `/api/v1/health`. If the API keeps restarting, inspect `docker compose logs api` — the most common causes are a stale Postgres volume (password mismatch) or a failed seed. If a stale volume contains an invalid state:
 
 ```bash
 docker compose down -v
