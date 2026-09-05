@@ -9,3 +9,102 @@ body {
   background: var(--background);
   color: var(--foreground);
 }
+
+/* Rich-text product description (rendered by components/rich-text.tsx).
+   RTL-first typography for the sanitized HTML persisted by the product API. */
+@layer components {
+  .rich-text {
+    @apply text-base/7 text-neutral-700;
+  }
+  .rich-text p {
+    @apply mb-4 mt-0;
+  }
+  .rich-text h2 {
+    @apply mb-3 mt-6 text-xl/8 font-bold text-neutral-900;
+  }
+  .rich-text h3 {
+    @apply mb-2 mt-5 text-lg/7 font-semibold text-neutral-900;
+  }
+  .rich-text h1 {
+    @apply mb-3 mt-6 text-2xl/9 font-bold text-neutral-900;
+  }
+  .rich-text h2:first-child,
+  .rich-text h3:first-child,
+  .rich-text h1:first-child,
+  .rich-text p:first-child {
+    @apply mt-0;
+  }
+  .rich-text ul,
+  .rich-text ol {
+    @apply mb-4 mt-0 list-outside ps-6;
+  }
+  .rich-text ul {
+    @apply list-disc;
+  }
+  .rich-text ol {
+    @apply list-decimal;
+  }
+  .rich-text li {
+    @apply mb-1;
+  }
+  .rich-text blockquote {
+    @apply mb-4 rounded-md border-s-4 border-green-800 bg-green-50 px-4 py-2 text-neutral-600;
+  }
+  .rich-text strong {
+    @apply font-bold text-neutral-900;
+  }
+  .rich-text em {
+    @apply italic;
+  }
+  .rich-text u {
+    @apply underline;
+  }
+  .rich-text a {
+    @apply text-green-800 underline underline-offset-4 hover:text-green-900;
+  }
+  .rich-text img {
+    @apply my-2 h-auto max-w-full rounded-lg;
+    display: block;
+    margin-inline-start: auto;
+    margin-inline-end: auto;
+  }
+  .rich-text figure {
+    @apply my-4 max-w-full;
+    width: fit-content;
+  }
+  .rich-text figure[data-align='left'] {
+    margin-left: 0;
+    margin-right: auto;
+  }
+  .rich-text figure[data-align='right'] {
+    margin-left: auto;
+    margin-right: 0;
+  }
+  .rich-text figure[data-align='center'] {
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .rich-text figure > img,
+  .rich-text figure > a > img {
+    @apply h-auto max-w-full rounded-lg;
+    display: block;
+  }
+  .rich-text figcaption {
+    @apply mt-1.5 text-center text-sm text-neutral-500;
+  }
+  .rich-text hr {
+    @apply my-6 border-t border-neutral-200;
+  }
+  .rich-text table {
+    @apply my-4 w-full border-collapse;
+    border: 1px solid #e5e7eb;
+  }
+  .rich-text th,
+  .rich-text td {
+    @apply border px-3 py-2 text-sm/6;
+    border-color: #e5e7eb;
+  }
+  .rich-text th {
+    @apply bg-neutral-100 font-semibold text-neutral-900;
+  }
+}

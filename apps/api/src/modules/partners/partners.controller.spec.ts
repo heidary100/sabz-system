@@ -165,7 +165,7 @@ describe('OversizedUploadFilter', () => {
     expect(json).toHaveBeenCalledWith(
       expect.objectContaining({
         statusCode: 400,
-        message: 'حجم فایل باید حداکثر ۱۰ مگابایت باشد.',
+        message: 'حجم فایل از حداکثر مجاز بیشتر است.',
       }),
     );
   });

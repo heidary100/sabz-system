@@ -3,7 +3,8 @@ import {
   detectMediaMimeFromMagic,
   extensionForMediaMime,
   isImageMime,
-  MAX_MEDIA_SIZE_BYTES,
+  MAX_IMAGE_SIZE_BYTES,
+  MAX_VIDEO_SIZE_BYTES,
   mediaTypeForMime,
   sanitizeMediaDisplayName,
   validateMediaFile,
@@ -51,40 +52,84 @@ describe('media validation (SS-105)', () => {
 
   describe('validateMediaFile', () => {
     it('accepts a matching jpeg', () => {
-      expect(validateMediaFile('image/jpeg', imageBuffer('jpeg'))).toBe('image/jpeg');
+      const header = imageBuffer('jpeg');
+      expect(validateMediaFile('image/jpeg', header, header.length)).toBe('image/jpeg');
     });
     it('accepts a matching png', () => {
-      expect(validateMediaFile('image/png', imageBuffer('png'))).toBe('image/png');
+      const header = imageBuffer('png');
+      expect(validateMediaFile('image/png', header, header.length)).toBe('image/png');
     });
     it('accepts a matching webp', () => {
-      expect(validateMediaFile('image/webp', imageBuffer('webp'))).toBe('image/webp');
+      const header = imageBuffer('webp');
+      expect(validateMediaFile('image/webp', header, header.length)).toBe('image/webp');
     });
     it('accepts a matching mp4', () => {
-      expect(validateMediaFile('video/mp4', imageBuffer('mp4'))).toBe('video/mp4');
+      const header = imageBuffer('mp4');
+      expect(validateMediaFile('video/mp4', header, header.length)).toBe('video/mp4');
     });
-    it('rejects an empty buffer', () => {
-      expect(() => validateMediaFile('image/png', Buffer.from([]))).toThrow(
+    it('rejects an empty file', () => {
+      expect(() => validateMediaFile('image/png', Buffer.from([]), 0)).toThrow(
         BadRequestException,
       );
     });
     it('rejects a MIME/magic mismatch', () => {
-      expect(() => validateMediaFile('image/png', imageBuffer('jpeg'))).toThrow(
+      const header = imageBuffer('jpeg');
+      expect(() => validateMediaFile('image/png', header, header.length)).toThrow(
         BadRequestException,
       );
     });
     it('rejects an unsupported declared MIME with unsupported content', () => {
       expect(() =>
-        validateMediaFile('application/pdf', Buffer.from('text')),
+        validateMediaFile('application/pdf', Buffer.from('text'), 4),
       ).toThrow(BadRequestException);
     });
-    it('rejects an oversized file', () => {
-      const oversized = Buffer.concat([
-        imageBuffer('png'),
-        Buffer.alloc(MAX_MEDIA_SIZE_BYTES),
-      ]);
-      expect(() => validateMediaFile('image/png', oversized)).toThrow(
-        BadRequestException,
-      );
+    it('accepts an image exactly at the 10 MB boundary', () => {
+      const header = imageBuffer('png');
+      expect(
+        validateMediaFile('image/png', header, MAX_IMAGE_SIZE_BYTES),
+      ).toBe('image/png');
+    });
+    it('rejects an image over the 10 MB cap with the image message', () => {
+      const header = imageBuffer('png');
+      try {
+        validateMediaFile('image/png', header, MAX_IMAGE_SIZE_BYTES + 1);
+        throw new Error('expected to throw');
+      } catch (error) {
+        expect(error).toBeInstanceOf(BadRequestException);
+        expect((error as BadRequestException).message).toBe(
+          'حجم تصویر باید حداکثر ۱۰ مگابایت باشد.',
+        );
+      }
+    });
+    it('accepts a video exactly at the 200 MB boundary', () => {
+      const header = imageBuffer('mp4');
+      expect(
+        validateMediaFile('video/mp4', header, MAX_VIDEO_SIZE_BYTES),
+      ).toBe('video/mp4');
+    });
+    it('accepts a video over 10 MB but within the 200 MB video cap', () => {
+      const header = imageBuffer('mp4');
+      expect(
+        validateMediaFile('video/mp4', header, 100 * 1024 * 1024),
+      ).toBe('video/mp4');
+    });
+    it('rejects a video over the 200 MB cap with the video message', () => {
+      const header = imageBuffer('mp4');
+      try {
+        validateMediaFile('video/mp4', header, MAX_VIDEO_SIZE_BYTES + 1);
+        throw new Error('expected to throw');
+      } catch (error) {
+        expect(error).toBeInstanceOf(BadRequestException);
+        expect((error as BadRequestException).message).toBe(
+          'حجم ویدئو باید حداکثر ۲۰۰ مگابایت باشد.',
+        );
+      }
+    });
+    it('enforces the image cap independently of the larger video cap', () => {
+      const header = imageBuffer('png');
+      expect(() =>
+        validateMediaFile('image/png', header, MAX_VIDEO_SIZE_BYTES),
+      ).toThrow(BadRequestException);
     });
   });
 

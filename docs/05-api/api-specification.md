@@ -1696,7 +1696,17 @@ Validated formats and limits (per the product-catalog spec):
 - Images: JPG, PNG, WEBP — validated by MIME + magic bytes.
 - Videos: MP4 — validated by MIME + ISOBMFF `ftyp` container signature (no
   codec/stream validation in M1).
-- Maximum size: 10 MB (enforced at the multipart interceptor and service level).
+- Maximum size is per media type: **images 10 MB**, **videos 200 MB**
+  (enforced at the multipart interceptor — a hard 200 MB cap — and at the
+  service level with a precise per-type message).
+
+Uploads stream to a server-generated temp file (multer disk storage, never a
+memory buffer) and are then **watermarked server-side** (CATALOG-007): every
+stored image/video carries the company logo + company name (bottom corner,
+semi-transparent chip). Only the processed/watermarked binary is persisted;
+the original upload is never retained, so no un-watermarked asset can be served
+through any endpoint. Watermarking can be disabled via `WATERMARK_ENABLED=false`
+(for local development or tests).
 
 Ownership rules:
 
@@ -1751,9 +1761,50 @@ transaction commits. If the deleted media was the primary image, the next image
 by `sortOrder` is promoted to primary. Returns `200` with `{ removed: true }`,
 or `404` when the media does not exist or is already soft-deleted.
 
-Watermarking, image optimization, thumbnails, and video transcoding are not part
-of SS-105; they are deferred (M2). Public/storefront media delivery is out of
-scope for this milestone.
+Every uploaded product image/video is watermarked server-side (CATALOG-007)
+before it is stored (see Upload media). Public/storefront catalog media
+delivery is out of scope for this milestone.
+
+---
+
+## 21.1 Description images (rich-text inline images)
+
+The product long description supports inline `<img>` tags (URL or uploaded
+images) authored in the admin rich-text editor.
+
+```
+POST /admin/products/{productId}/description-images
+```
+
+`multipart/form-data` with a single `file`. Requires an authenticated
+OPERATOR/ADMIN. Validates images only (JPG/PNG/WEBP, magic bytes, max 5 MB);
+the owning product must exist, not be soft-deleted, and not be ARCHIVED. No
+database record is created — the returned URL is referenced inline by the
+description HTML. Success returns `201`:
+
+```json
+{ "id": "<uuid>", "url": "/api/v1/description-images/<uuid>.jpg" }
+```
+
+Errors: `400` invalid file, `401`/`403` auth, `404` product not found,
+`409` archived product.
+
+```
+GET /description-images/{file}
+```
+
+Public, read-only serving of an uploaded description image (no auth — these
+images render to customers). `file` must match the server-generated
+`<uuid>.<ext>` format (jpg/png/webp); anything else is `404`. Responses set
+`Content-Type` from the extension, `Cache-Control: public, max-age=31536000,
+immutable`, and are exempt from per-IP throttling. This endpoint can never
+traverse storage: the file name is strictly validated before it reaches the
+storage layer.
+
+Description HTML is sanitized on save: only `img[src][alt]` is allowed, with
+`src` restricted to `https://` URLs or the same-origin
+`/api/v1/description-images/...` path (`data:` and `javascript:` sources are
+stripped).
 
 ---
 

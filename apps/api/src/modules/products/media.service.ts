@@ -1,17 +1,24 @@
 import {
+  BadRequestException,
   ConflictException,
   Inject,
   Injectable,
   Logger,
   NotFoundException,
+  OnModuleInit,
 } from '@nestjs/common';
 import { Prisma, ProductStatus } from '@prisma/client';
 import type { ProductMediaSummary } from '@sabz/types';
 import { randomUUID } from 'crypto';
+import { mkdir, readdir, rm, stat } from 'fs/promises';
+import { join } from 'path';
+import type { Readable } from 'stream';
 import { PrismaService } from '../../common/database/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { readFileHeader } from './media-file';
 import {
   extensionForMediaMime,
+  MEDIA_HEADER_READ_BYTES,
   mediaTypeForMime,
   sanitizeMediaDisplayName,
   validateMediaFile,
@@ -21,19 +28,28 @@ import {
   PRODUCT_MEDIA_STORAGE,
   ProductMediaStorage,
 } from './storage/product-media-storage';
+import { MediaProcessingService } from './media-processing/media-processing.service';
 import { UploadMediaDto } from './dto';
 
 const MEDIA_ENTITY = 'ProductMedia';
+/** Temp uploads older than this are swept at startup. */
+const TEMP_FILE_MAX_AGE_MS = 60 * 60 * 1000;
 
 @Injectable()
-export class MediaService {
+export class MediaService implements OnModuleInit {
   private readonly logger = new Logger(MediaService.name);
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
     @Inject(PRODUCT_MEDIA_STORAGE) private readonly storage: ProductMediaStorage,
+    private readonly mediaProcessing: MediaProcessingService,
+    @Inject('PRODUCT_MEDIA_TEMP_DIR') private readonly tempDir: string,
   ) {}
+
+  async onModuleInit(): Promise<void> {
+    await this.sweepStaleTempFiles();
+  }
 
   async list(productId: string): Promise<ProductMediaSummary[]> {
     const product = await this.prisma.product.findUnique({
@@ -57,11 +73,16 @@ export class MediaService {
    * server-generated (`products/<productId>/<mediaId>.<ext>`) and never
    * derived from the client filename.
    *
-   * Filesystem/DB consistency model (proven in SS-039):
-   *   1. validate file, resolve product/variant ownership and state;
-   *   2. write the binary first;
-   *   3. transactionally create metadata + primary/order state + audit;
-   *   4. if the DB transaction fails, best-effort delete the orphaned binary.
+   * Pipeline (uploads stream to a multer disk temp file, never memory):
+   *   1. validate file (MIME + magic bytes + per-type size) from disk;
+   *   2. resolve product/variant ownership and state;
+   *   3. watermark/process the asset server-side (image: sharp, video: FFmpeg);
+   *   4. move the processed asset into final storage;
+   *   5. transactionally create metadata + primary/order state + audit;
+   *   6. if the DB transaction fails, best-effort delete the orphaned binary.
+   *
+   * Only the processed (watermarked) asset is stored; originals are never
+   * retained so an un-branded file cannot be served through any endpoint.
    */
   async upload(
     productId: string,
@@ -70,26 +91,46 @@ export class MediaService {
     actorId: string,
     ipAddress?: string,
   ): Promise<ProductMediaSummary> {
-    const detectedMime = validateMediaFile(file.mimetype, file.buffer);
-
-    const mediaType = mediaTypeForMime(detectedMime);
-    if (dto.mediaType !== undefined && dto.mediaType !== mediaType) {
-      throw new ConflictException(
-        'نوع رسانه اعلامشده با محتوای واقعی فایل مطابقت ندارد.',
-      );
+    if (!file.path) {
+      throw new BadRequestException('فایل الزامی است.');
     }
 
-    const mediaId = randomUUID();
-    const extension = extensionForMediaMime(detectedMime);
-    const storageKey = `products/${productId}/${mediaId}.${extension}`;
-    const originalName = sanitizeMediaDisplayName(file.originalname);
-    const sizeBytes = file.buffer.length;
-
-    // Binary first: the database state is authoritative; if the DB write fails
-    // afterwards the new binary is cleaned up best-effort below.
-    await this.storage.put(storageKey, file.buffer);
-
+    // Everything below must be inside the try/finally: any failure between
+    // validation, processing and the DB write would otherwise leave the multer
+    // temp file (up to 200 MB) behind until the startup sweep.
+    let processed: { outputPath: string; sizeBytes: number } | null = null;
+    let storedKey: string | null = null;
     try {
+      const header = await readFileHeader(file.path, MEDIA_HEADER_READ_BYTES);
+      const totalSizeBytes = (await stat(file.path)).size;
+      const detectedMime = validateMediaFile(file.mimetype, header, totalSizeBytes);
+
+      const mediaType = mediaTypeForMime(detectedMime);
+      if (dto.mediaType !== undefined && dto.mediaType !== mediaType) {
+        throw new ConflictException(
+          'نوع رسانه اعلامشده با محتوای واقعی فایل مطابقت ندارد.',
+        );
+      }
+
+      const mediaId = randomUUID();
+      const extension = extensionForMediaMime(detectedMime);
+      const storageKey = `products/${productId}/${mediaId}.${extension}`;
+      const originalName = sanitizeMediaDisplayName(file.originalname);
+
+      // Server-side watermark/processing. Both the input and output are temp
+      // files on disk; only the processed asset is persisted below.
+      processed = await this.mediaProcessing.process(
+        file.path,
+        detectedMime,
+        this.tempDir,
+      );
+      const sizeBytes = processed.sizeBytes;
+
+      // Binary first: the database state is authoritative; if the DB write
+      // fails afterwards the new binary is cleaned up best-effort below.
+      await this.storage.putFile(storageKey, processed.outputPath);
+      storedKey = storageKey;
+
       const created = await this.prisma.$transaction(async (tx) => {
         // Row-lock the owning product: serializes concurrent uploads so the
         // exactly-one-primary invariant and sortOrder assignment are safe.
@@ -176,16 +217,47 @@ export class MediaService {
     } catch (error) {
       // The database write failed after the binary was persisted: best-effort
       // remove the orphaned binary so no file survives without a metadata row.
-      try {
-        await this.storage.delete(storageKey);
-      } catch (cleanupError) {
-        this.logger.error(
-          `Failed to clean up orphaned media binary ${storageKey}: ${
-            cleanupError instanceof Error ? cleanupError.message : String(cleanupError)
-          }`,
-        );
+      if (storedKey) {
+        try {
+          await this.storage.delete(storedKey);
+        } catch (cleanupError) {
+          this.logger.error(
+            `Failed to clean up orphaned media binary ${storedKey}: ${
+              cleanupError instanceof Error ? cleanupError.message : String(cleanupError)
+            }`,
+          );
+        }
       }
       throw error;
+    } finally {
+      // Clean up temp files: the multer input and the processed output (when
+      // different). Windows may briefly hold an mmap/AV handle on a file just
+      // processed by libvips, so removal retries briefly before giving up.
+      // Failures are logged, never allowed to mask the response.
+      const toRemove = new Set<string>([
+        file.path,
+        processed?.outputPath ?? file.path,
+      ]);
+      for (const path of toRemove) {
+        let lastError: unknown = null;
+        for (let attempt = 0; attempt < 3; attempt += 1) {
+          try {
+            await rm(path, { force: true });
+            lastError = null;
+            break;
+          } catch (error) {
+            lastError = error;
+            await new Promise((resolvePromise) => setTimeout(resolvePromise, 200));
+          }
+        }
+        if (lastError) {
+          this.logger.warn(
+            `Failed to remove temp file ${path}: ${
+              lastError instanceof Error ? lastError.message : String(lastError)
+            }`,
+          );
+        }
+      }
     }
   }
 
@@ -198,12 +270,7 @@ export class MediaService {
     productId: string,
     mediaId: string,
   ): Promise<{ buffer: Buffer; summary: ProductMediaSummary }> {
-    const media = await this.prisma.productMedia.findFirst({
-      where: { id: mediaId, productId, deletedAt: null },
-    });
-    if (!media) {
-      throw new NotFoundException('رسانه یافت نشد.');
-    }
+    const media = await this.findActive(productId, mediaId);
 
     let buffer: Buffer;
     try {
@@ -216,6 +283,93 @@ export class MediaService {
     }
 
     return { buffer, summary: this.toSummary(media) };
+  }
+
+  /**
+   * Streams the media binary for download without buffering large videos into
+   * memory. Missing/soft-deleted media and missing binaries map to 404 without
+   * disclosing storage internals.
+   */
+  async getBinaryStream(
+    productId: string,
+    mediaId: string,
+  ): Promise<{ stream: Readable; summary: ProductMediaSummary }> {
+    const media = await this.findActive(productId, mediaId);
+
+    let stream: Readable;
+    try {
+      stream = await this.storage.getStream(media.storageKey);
+    } catch (error) {
+      if (error instanceof MediaNotFoundError) {
+        throw new NotFoundException('رسانه یافت نشد.');
+      }
+      throw error;
+    }
+
+    return { stream, summary: this.toSummary(media) };
+  }
+
+  private async findActive(
+    productId: string,
+    mediaId: string,
+  ): Promise<Prisma.ProductMediaGetPayload<Record<string, never>>> {
+    const media = await this.prisma.productMedia.findFirst({
+      where: { id: mediaId, productId, deletedAt: null },
+    });
+    if (!media) {
+      throw new NotFoundException('رسانه یافت نشد.');
+    }
+    return media;
+  }
+
+  /**
+   * Removes temp upload/processing files left behind by crashes or aborted
+   * requests so large files do not accumulate indefinitely inside the media
+   * volume. Runs once at startup; only files older than an hour are touched.
+   */
+  private async sweepStaleTempFiles(): Promise<void> {
+    try {
+      await mkdir(this.tempDir, { recursive: true });
+      const cutoff = Date.now() - TEMP_FILE_MAX_AGE_MS;
+      const entries = await readdir(this.tempDir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (!entry.isFile()) {
+          continue;
+        }
+        const full = join(this.tempDir, entry.name);
+        try {
+          const info = await stat(full);
+          if (info.mtimeMs < cutoff) {
+            await rm(full, { force: true });
+          }
+        } catch (error) {
+          if (this.isMissingError(error)) {
+            continue;
+          }
+          this.logger.warn(
+            `Failed to inspect stale temp file ${full}: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          );
+        }
+      }
+    } catch (error) {
+      if (this.isMissingError(error)) {
+        return;
+      }
+      this.logger.warn(
+        `Failed to sweep media temp directory ${this.tempDir}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+  }
+
+  private isMissingError(error: unknown): boolean {
+    if (typeof error !== 'object' || error === null) {
+      return false;
+    }
+    return (error as NodeJS.ErrnoException).code === 'ENOENT';
   }
 
   /**

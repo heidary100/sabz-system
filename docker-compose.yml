@@ -90,6 +90,28 @@ services:
       # implemented; object storage is future work.
       PRODUCT_MEDIA_STORAGE_DRIVER: ${PRODUCT_MEDIA_STORAGE_DRIVER:-local}
       PRODUCT_MEDIA_STORAGE_DIR: /app/.data/product-media
+      # Media pipeline (SS-105): temp dir inside the media volume (swept at
+      # startup) and per-type size caps (images 10 MB, videos 200 MB). Only
+      # PRODUCT_MEDIA_TEMP_DIR is fixed here; size caps keep their code
+      # defaults unless overridden from the root .env.
+      PRODUCT_MEDIA_TEMP_DIR: ${PRODUCT_MEDIA_TEMP_DIR:-/app/.data/product-media/tmp}
+      PRODUCT_MEDIA_IMAGE_MAX_SIZE_BYTES: ${PRODUCT_MEDIA_IMAGE_MAX_SIZE_BYTES:-}
+      PRODUCT_MEDIA_VIDEO_MAX_SIZE_BYTES: ${PRODUCT_MEDIA_VIDEO_MAX_SIZE_BYTES:-}
+      PRODUCT_DESCRIPTION_IMAGE_MAX_SIZE_BYTES: ${PRODUCT_DESCRIPTION_IMAGE_MAX_SIZE_BYTES:-}
+      # Company watermarking (CATALOG-007). FFmpeg is installed in the API
+      # image for the video watermark; branding assets are bundled under
+      # apps/api/assets/watermark and can be overridden from the root .env.
+      WATERMARK_ENABLED: ${WATERMARK_ENABLED:-true}
+      WATERMARK_COMPANY_NAME: ${WATERMARK_COMPANY_NAME:-سبز سیستم}
+      WATERMARK_LOGO_PATH: ${WATERMARK_LOGO_PATH:-assets/watermark/logo-placeholder.svg}
+      WATERMARK_FONT_PATH: ${WATERMARK_FONT_PATH:-assets/watermark/fonts/Vazirmatn-Regular.ttf}
+      WATERMARK_OPACITY: ${WATERMARK_OPACITY:-0.55}
+      WATERMARK_POSITION: ${WATERMARK_POSITION:-bottom-right}
+      WATERMARK_MARGIN_RATIO: ${WATERMARK_MARGIN_RATIO:-0.04}
+      WATERMARK_SIZE_RATIO: ${WATERMARK_SIZE_RATIO:-0.3}
+      WATERMARK_MIN_SIZE_PX: ${WATERMARK_MIN_SIZE_PX:-140}
+      WATERMARK_MAX_SIZE_PX: ${WATERMARK_MAX_SIZE_PX:-360}
+      FFMPEG_PATH: ${FFMPEG_PATH:-ffmpeg}
     volumes:
       - ./apps/api:/app/apps/api
       - api_node_modules:/app/apps/api/node_modules

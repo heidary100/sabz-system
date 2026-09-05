@@ -175,10 +175,11 @@ Product
 +|   +-- productId: UUID (required; product-owned)
 +|   +-- variantId: UUID? (optional variant link)
 +|   +-- mediaType: ProductMediaType (IMAGE | VIDEO)
-+|   +-- originalName / mimeType / sizeBytes
++|   +-- originalName / mimeType / sizeBytes (size of the watermarked asset)
 +|   +-- storageKey: string (unique, server-generated; binary outside DB)
 +|   +-- sortOrder: int
 +|   +-- isPrimary: boolean
++|   (binary is always the watermarked/processed asset — CATALOG-007)
 +|
 +-- ProductSpecification (deferred to SS-104)
 +|

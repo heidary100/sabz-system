@@ -5,8 +5,9 @@ import { ProductMediaType } from '@prisma/client';
  * Product media validation contract (SS-105).
  *
  * The supported formats come from the product-catalog feature spec: images
- * JPG/PNG/WEBP and video MP4. A single 10 MB cap is applied for all media
- * (the requirements define no per-type limits).
+ * JPG/PNG/WEBP and video MP4. Size limits are per media type: images keep the
+ * original 10 MB cap and videos support up to 200 MB (company requirement:
+ * product videos up to ~200 MB must upload and be watermarked server-side).
  *
  * Validation is layered:
  *   1. MIME declaration  – the declared MIME must be in the allowed set.
@@ -16,6 +17,10 @@ import { ProductMediaType } from '@prisma/client';
  *                          is available, so video is validated only by its
  *                          ISOBMFF `ftyp` container signature, not by codec or
  *                          stream inspection. Unsupported formats are rejected.
+ *
+ * Validation operates on the leading header bytes plus the total file size so
+ * uploads can be streamed to disk (multer disk storage) instead of buffered in
+ * memory — a 200 MB video must never be held as a single Node.js Buffer.
  */
 
 export const ALLOWED_MEDIA_MIME_TYPES = [
@@ -27,7 +32,46 @@ export const ALLOWED_MEDIA_MIME_TYPES = [
 
 export type AllowedMediaMimeType = (typeof ALLOWED_MEDIA_MIME_TYPES)[number];
 
-export const MAX_MEDIA_SIZE_BYTES = 10 * 1024 * 1024;
+/** Parses a positive byte-count env override, falling back to `fallback`. */
+function envBytes(name: string, fallback: number): number {
+  const value = Number(process.env[name]);
+  return Number.isInteger(value) && value > 0 ? value : fallback;
+}
+
+/**
+ * Import-time caps used by the multipart interceptors and the unit tests.
+ * These follow real environment variables only (Docker/CI/exports), because
+ * they are evaluated before `@nestjs/config` loads `.env` files.
+ */
+export const MAX_IMAGE_SIZE_BYTES = envBytes(
+  'PRODUCT_MEDIA_IMAGE_MAX_SIZE_BYTES',
+  10 * 1024 * 1024,
+);
+export const MAX_VIDEO_SIZE_BYTES = envBytes(
+  'PRODUCT_MEDIA_VIDEO_MAX_SIZE_BYTES',
+  200 * 1024 * 1024,
+);
+/** Inline rich-text description images: images only, up to 5 MB. */
+export const MAX_DESCRIPTION_IMAGE_SIZE_BYTES = envBytes(
+  'PRODUCT_DESCRIPTION_IMAGE_MAX_SIZE_BYTES',
+  5 * 1024 * 1024,
+);
+
+/**
+ * Request-time caps re-read from the environment on every call, so overrides
+ * placed in a `.env` file (loaded by `@nestjs/config` at bootstrap) apply to
+ * the service-layer validation. The multipart interceptor hard cap still uses
+ * the import-time constants above.
+ */
+export function maxImageSizeBytes(): number {
+  return envBytes('PRODUCT_MEDIA_IMAGE_MAX_SIZE_BYTES', 10 * 1024 * 1024);
+}
+export function maxVideoSizeBytes(): number {
+  return envBytes('PRODUCT_MEDIA_VIDEO_MAX_SIZE_BYTES', 200 * 1024 * 1024);
+}
+export function maxDescriptionImageSizeBytes(): number {
+  return envBytes('PRODUCT_DESCRIPTION_IMAGE_MAX_SIZE_BYTES', 5 * 1024 * 1024);
+}
 
 const IMAGE_MIME_TYPES: ReadonlySet<string> = new Set([
   'image/jpeg',
@@ -42,6 +86,9 @@ const MIME_TO_EXTENSION: Record<AllowedMediaMimeType, string> = {
   'image/webp': 'webp',
   'video/mp4': 'mp4',
 };
+
+/** Number of leading bytes needed to recognize every supported signature. */
+export const MEDIA_HEADER_READ_BYTES = 16;
 
 const JPEG_MAGIC = Buffer.from([0xff, 0xd8, 0xff]);
 const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
@@ -88,22 +135,42 @@ export function detectMediaMimeFromMagic(
 }
 
 /**
- * Validates an uploaded media buffer against the SS-105 storage contract:
- * allowed MIME type, matching magic bytes, and the 10 MB size cap. Returns
- * the detected MIME type, which is authoritative for storage decisions.
+ * Maximum accepted size for a validated MIME type. Images keep the original
+ * 10 MB cap; videos support up to 200 MB.
+ */
+export function maxSizeBytesForMime(
+  mimeType: AllowedMediaMimeType,
+): number {
+  return isImageMime(mimeType) ? maxImageSizeBytes() : maxVideoSizeBytes();
+}
+
+/** Persian size-limit message for a validated MIME type. */
+export function sizeLimitMessageForMime(
+  mimeType: AllowedMediaMimeType,
+): string {
+  return isImageMime(mimeType)
+    ? 'حجم تصویر باید حداکثر ۱۰ مگابایت باشد.'
+    : 'حجم ویدئو باید حداکثر ۲۰۰ مگابایت باشد.';
+}
+
+/**
+ * Validates an uploaded media file against the SS-105 storage contract:
+ * allowed MIME type, matching magic bytes, and the per-type size cap
+ * (10 MB images, 200 MB videos). `header` must contain the leading
+ * `MEDIA_HEADER_READ_BYTES` bytes (or fewer for tiny files) and `sizeBytes`
+ * the total file size from disk. Returns the detected MIME type, which is
+ * authoritative for storage decisions.
  */
 export function validateMediaFile(
   declaredMimeType: string,
-  buffer: Buffer,
+  header: Buffer,
+  sizeBytes: number,
 ): AllowedMediaMimeType {
-  if (buffer.length === 0) {
+  if (header.length === 0 || sizeBytes === 0) {
     throw new BadRequestException('فایل خالی است.');
   }
-  if (buffer.length > MAX_MEDIA_SIZE_BYTES) {
-    throw new BadRequestException('حجم فایل باید حداکثر ۱۰ مگابایت باشد.');
-  }
 
-  const detected = detectMediaMimeFromMagic(buffer);
+  const detected = detectMediaMimeFromMagic(header);
   if (detected === null) {
     throw new BadRequestException(
       'فرمت فایل پشتیبانی نمیشود. فقط JPG، PNG، WEBP و MP4 مجاز است.',
@@ -116,12 +183,77 @@ export function validateMediaFile(
     );
   }
 
+  if (sizeBytes > maxSizeBytesForMime(detected)) {
+    throw new BadRequestException(sizeLimitMessageForMime(detected));
+  }
+
   return detected;
 }
 
 /** Safe storage extension for a validated MIME type. */
 export function extensionForMediaMime(mimeType: AllowedMediaMimeType): string {
   return MIME_TO_EXTENSION[mimeType];
+}
+
+/**
+ * Validates an inline rich-text description image: images only (JPG/PNG/WEBP)
+ * with matching magic bytes and a 5 MB cap. Used by the description-image
+ * upload endpoint, separate from the catalog product-media pipeline.
+ */
+export function validateDescriptionImageFile(
+  declaredMimeType: string,
+  header: Buffer,
+  sizeBytes: number,
+): AllowedMediaMimeType {
+  if (header.length === 0 || sizeBytes === 0) {
+    throw new BadRequestException('فایل خالی است.');
+  }
+
+  const detected = detectMediaMimeFromMagic(header);
+  if (detected === null || !isImageMime(detected)) {
+    throw new BadRequestException(
+      'فرمت فایل پشتیبانی نمیشود. فقط JPG، PNG و WEBP مجاز است.',
+    );
+  }
+  if (declaredMimeType !== detected) {
+    throw new BadRequestException(
+      'نوع فایل اعلامشده با محتوای واقعی فایل مطابقت ندارد.',
+    );
+  }
+  if (sizeBytes > maxDescriptionImageSizeBytes()) {
+    throw new BadRequestException(
+      'حجم تصویر باید حداکثر ۵ مگابایت باشد.',
+    );
+  }
+  return detected;
+}
+
+/**
+ * Validates an imported (URL-fetched) description image from its magic bytes
+ * and size. No declared MIME exists for server-fetched content, so the
+ * detected signature is authoritative; only images (JPG/PNG/WEBP) within the
+ * 5 MB cap are accepted.
+ */
+export function validateImportedDescriptionImage(
+  header: Buffer,
+  sizeBytes: number,
+): AllowedMediaMimeType {
+  if (header.length === 0 || sizeBytes === 0) {
+    throw new BadRequestException('فایل خالی است.');
+  }
+
+  const detected = detectMediaMimeFromMagic(header);
+  if (detected === null || !isImageMime(detected)) {
+    throw new BadRequestException(
+      'فرمت فایل پشتیبانی نمیشود. فقط JPG، PNG و WEBP مجاز است.',
+    );
+  }
+  if (sizeBytes > maxDescriptionImageSizeBytes()) {
+    throw new BadRequestException(
+      'حجم تصویر باید حداکثر ۵ مگابایت باشد.',
+    );
+  }
+  return detected;
 }
 
 /** Whether a MIME type is an image (videos are never primary in M1). */

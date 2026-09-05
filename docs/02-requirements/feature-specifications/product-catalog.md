@@ -828,15 +828,22 @@ product media API and the Product-domain media storage abstraction.
     All require `OPERATOR`/`ADMIN`. The product-scoped media list is provided as
     an independent contract; `ProductDetail.media` (SS-102) is unchanged and
     reflects only active media ordered by `sortOrder`.
-11. **Deferred processing.** Watermarking (CATALOG-007), image optimization,
-    thumbnail generation, and video transcoding are **not** implemented in
-    SS-105. No `isWatermarked`/processing fields are added to the schema, and no
-    sharp/ffmpeg/queue/worker dependency is introduced. These remain M2 work.
+11. **Watermarking (CATALOG-007) is implemented.** Every uploaded product image
+    (JPG/PNG/WEBP, sharp) and video (MP4, FFmpeg) is watermarked server-side
+    with the company logo + company name before it is stored; only the
+    processed binary is persisted and originals are never retained. The
+    branding configuration (logo path, company name, opacity, position, sizing)
+    is centralized in `media-processing/watermark-config.ts` and driven by
+    `WATERMARK_*` env vars, defaulting to the bundled assets under
+    `apps/api/assets/watermark`. Image optimization, thumbnail generation and
+    video transcoding remain future work; no `isWatermarked`/processing fields
+    are added to the schema. FFmpeg is installed in the API Docker image and CI.
 12. **No public delivery.** SS-105 exposes only authenticated admin
     download/preview. No public URLs, CDN, or storefront media APIs are added;
-    the `ProductMediaStorage` interface stays minimal (`put`/`get`/`delete`)
-    with no signed-URL generation. Public/storefront delivery can introduce a
-    public-media adapter later without changing Product business logic.
+    the `ProductMediaStorage` interface stays minimal
+    (`put`/`putFile`/`get`/`getStream`/`delete`) with no signed-URL generation.
+    Public/storefront delivery can introduce a public-media adapter later
+    without changing Product business logic.
 13. **Shared types.** `ProductMediaSummary` (SS-101) fully covers the JSON
     metadata response; no new `@sabz/types` contract is introduced.
 14. **Environment.** New `PRODUCT_MEDIA_STORAGE_DRIVER`/`DIR` variables follow

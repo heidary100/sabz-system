@@ -57,7 +57,7 @@ export class CreateProductDto {
   @IsOptional()
   @Transform(({ value }) => normalizeOptional(value))
   @IsString({ message: 'description باید رشته باشد.' })
-  @MaxLength(10000, { message: 'description باید حداکثر ۱۰۰۰۰ کاراکتر باشد.' })
+  @MaxLength(50000, { message: 'description باید حداکثر ۵۰۰۰۰ کاراکتر باشد.' })
   description?: string;
 
   @ApiProperty({ description: 'Brand id' })

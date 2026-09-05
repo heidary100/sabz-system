@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from 'fs/promises';
+import { mkdtemp, rm, stat, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { ProductCondition } from '@prisma/client';
@@ -24,29 +24,12 @@ function mp4Buffer(): Buffer {
   ]);
 }
 
-function file(
-  mimetype: string,
-  buffer: Buffer,
-  originalname = 'upload.bin',
-): Express.Multer.File {
-  return {
-    fieldname: 'file',
-    originalname,
-    encoding: '7bit',
-    mimetype,
-    size: buffer.length,
-    buffer,
-    stream: undefined as never,
-    destination: '',
-    filename: '',
-    path: '',
-  };
-}
-
 describe('Admin product media database integration (SS-105)', () => {
   let prisma: PrismaService;
   let service: MediaService;
   let storageRoot: string;
+  let tempDir: string;
+  const uploadTempDirs: string[] = [];
 
   const createdProductIds: string[] = [];
   const createdBrandIds: string[] = [];
@@ -54,6 +37,29 @@ describe('Admin product media database integration (SS-105)', () => {
   const createdVariantIds: string[] = [];
   const createdMediaIds: string[] = [];
   const actorId = '22222222-2222-4222-8222-222222222222';
+
+  async function file(
+    mimetype: string,
+    buffer: Buffer,
+    originalname = 'upload.bin',
+  ): Promise<Express.Multer.File> {
+    const dir = await mkdtemp(join(tmpdir(), 'sabz-media-int-'));
+    uploadTempDirs.push(dir);
+    const path = join(dir, 'upload');
+    await writeFile(path, buffer);
+    return {
+      fieldname: 'file',
+      originalname,
+      encoding: '7bit',
+      mimetype,
+      size: buffer.length,
+      buffer: undefined as never,
+      stream: undefined as never,
+      destination: dir,
+      filename: 'upload',
+      path,
+    } as Express.Multer.File;
+  }
 
   async function createBrand(): Promise<string> {
     const brand = await prisma.brand.create({
@@ -115,9 +121,19 @@ describe('Admin product media database integration (SS-105)', () => {
     prisma = new PrismaService();
     await prisma.$connect();
     storageRoot = await mkdtemp(join(tmpdir(), 'product-media-int-'));
+    tempDir = await mkdtemp(join(tmpdir(), 'product-media-int-tmp-'));
     const storage = new LocalDiskMediaStorage(storageRoot);
     const audit = new AuditService(prisma);
-    service = new MediaService(prisma, audit, storage);
+    // Identity processing keeps the integration suite focused on the DB/storage
+    // lifecycle; watermark behavior is covered by the media-processing specs.
+    const processing = {
+      process: async (inputPath: string) => ({
+        outputPath: inputPath,
+        sizeBytes: (await stat(inputPath)).size,
+      }),
+    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    service = new MediaService(prisma, audit, storage, processing as any, tempDir);
   });
 
   afterAll(async () => {
@@ -163,13 +179,17 @@ describe('Admin product media database integration (SS-105)', () => {
     await prisma.productVariant.deleteMany({ where: { id: { in: createdVariantIds } } });
     await prisma.$disconnect();
     await rm(storageRoot, { recursive: true, force: true });
+    await rm(tempDir, { recursive: true, force: true });
+    for (const dir of uploadTempDirs) {
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 
   it('uploads an image, persists metadata + binary round-trip, and audits', async () => {
     const productId = await createProduct();
     const result = await service.upload(
       productId,
-      file('image/jpeg', jpegBuffer(), 'photo.jpg'),
+      await file('image/jpeg', jpegBuffer(), 'photo.jpg'),
       {},
       actorId,
     );
@@ -199,13 +219,13 @@ describe('Admin product media database integration (SS-105)', () => {
     const productId = await createProduct();
     const first = await service.upload(
       productId,
-      file('image/png', pngBuffer(), 'a.png'),
+      await file('image/png', pngBuffer(), 'a.png'),
       {},
       actorId,
     );
     const second = await service.upload(
       productId,
-      file('image/jpeg', jpegBuffer(), 'b.jpg'),
+      await file('image/jpeg', jpegBuffer(), 'b.jpg'),
       {},
       actorId,
     );
@@ -220,7 +240,7 @@ describe('Admin product media database integration (SS-105)', () => {
     const productId = await createProduct();
     const result = await service.upload(
       productId,
-      file('video/mp4', mp4Buffer(), 'v.mp4'),
+      await file('video/mp4', mp4Buffer(), 'v.mp4'),
       {},
       actorId,
     );
@@ -234,7 +254,7 @@ describe('Admin product media database integration (SS-105)', () => {
     const variantId = await createVariant(productId);
     const result = await service.upload(
       productId,
-      file('image/jpeg', jpegBuffer()),
+      await file('image/jpeg', jpegBuffer()),
       { variantId },
       actorId,
     );
@@ -249,7 +269,7 @@ describe('Admin product media database integration (SS-105)', () => {
     await expect(
       service.upload(
         productId,
-        file('image/jpeg', jpegBuffer()),
+        await file('image/jpeg', jpegBuffer()),
         { variantId: otherVariantId },
         actorId,
       ),
@@ -259,7 +279,7 @@ describe('Admin product media database integration (SS-105)', () => {
   it('returns 404 uploading to a soft-deleted product', async () => {
     const productId = await createProduct({ deletedAt: new Date() });
     await expect(
-      service.upload(productId, file('image/jpeg', jpegBuffer()), {}, actorId),
+      service.upload(productId, await file('image/jpeg', jpegBuffer()), {}, actorId),
     ).rejects.toMatchObject({ status: 404 });
   });
 
@@ -267,13 +287,13 @@ describe('Admin product media database integration (SS-105)', () => {
     const productId = await createProduct();
     const a = await service.upload(
       productId,
-      file('image/jpeg', jpegBuffer(), 'a.jpg'),
+      await file('image/jpeg', jpegBuffer(), 'a.jpg'),
       {},
       actorId,
     );
     const b = await service.upload(
       productId,
-      file('image/jpeg', jpegBuffer(), 'b.jpg'),
+      await file('image/jpeg', jpegBuffer(), 'b.jpg'),
       {},
       actorId,
     );
@@ -292,7 +312,7 @@ describe('Admin product media database integration (SS-105)', () => {
     const productId = await createProduct();
     const a = await service.upload(
       productId,
-      file('image/jpeg', jpegBuffer()),
+      await file('image/jpeg', jpegBuffer()),
       {},
       actorId,
     );
@@ -310,13 +330,13 @@ describe('Admin product media database integration (SS-105)', () => {
     const productId = await createProduct();
     const a = await service.upload(
       productId,
-      file('image/jpeg', jpegBuffer()),
+      await file('image/jpeg', jpegBuffer()),
       {},
       actorId,
     );
     const b = await service.upload(
       productId,
-      file('image/jpeg', jpegBuffer()),
+      await file('image/jpeg', jpegBuffer()),
       {},
       actorId,
     );
@@ -337,7 +357,7 @@ describe('Admin product media database integration (SS-105)', () => {
     const productId = await createProduct();
     const uploaded = await service.upload(
       productId,
-      file('image/jpeg', jpegBuffer()),
+      await file('image/jpeg', jpegBuffer()),
       {},
       actorId,
     );
@@ -363,7 +383,7 @@ describe('Admin product media database integration (SS-105)', () => {
     const productId = await createProduct();
     const uploaded = await service.upload(
       productId,
-      file('image/jpeg', jpegBuffer()),
+      await file('image/jpeg', jpegBuffer()),
       {},
       actorId,
     );

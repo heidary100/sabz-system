@@ -1,4 +1,4 @@
-import { access, mkdtemp, readdir, rm } from 'fs/promises';
+import { access, mkdtemp, readdir, rm, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import {
@@ -44,6 +44,55 @@ describe('LocalDiskMediaStorage', () => {
 
   it('throws MediaNotFoundError when the media does not exist', async () => {
     await expect(storage.get('products/product-1/missing.jpg')).rejects.toBeInstanceOf(
+      MediaNotFoundError,
+    );
+  });
+
+  it('round-trips a local source file through putFile and get', async () => {
+    const sourceDir = await mkdtemp(join(tmpdir(), 'product-media-src-'));
+    const sourcePath = join(sourceDir, 'processed.jpg');
+    await writeFile(sourcePath, Buffer.from('processed-media-contents'));
+    const key = 'products/product-1/processed.jpg';
+
+    await storage.putFile(key, sourcePath);
+
+    await expect(storage.get(key)).resolves.toEqual(
+      Buffer.from('processed-media-contents'),
+    );
+    await rm(sourceDir, { recursive: true, force: true });
+  });
+
+  it('putFile leaves no temporary files behind', async () => {
+    const sourceDir = await mkdtemp(join(tmpdir(), 'product-media-src-'));
+    const sourcePath = join(sourceDir, 'processed.jpg');
+    await writeFile(sourcePath, Buffer.from('atomic-processed'));
+    const key = 'products/atomic-file-product/processed.jpg';
+
+    await storage.putFile(key, sourcePath);
+
+    const entries = await readdir(join(root, 'products', 'atomic-file-product'));
+    expect(entries).toEqual(['processed.jpg']);
+    await rm(sourceDir, { recursive: true, force: true });
+  });
+
+  it('getStream streams the stored media', async () => {
+    const key = 'products/product-1/stream.jpg';
+    const contents = Buffer.from('streamable-media');
+
+    await storage.put(key, contents);
+
+    const stream = await storage.getStream(key);
+    const chunks: Buffer[] = [];
+    await new Promise<void>((resolvePromise, rejectPromise) => {
+      stream.on('data', (chunk: Buffer) => chunks.push(chunk));
+      stream.on('end', () => resolvePromise());
+      stream.on('error', rejectPromise);
+    });
+    expect(Buffer.concat(chunks)).toEqual(contents);
+  });
+
+  it('getStream maps a missing file to MediaNotFoundError', async () => {
+    await expect(storage.getStream('products/product-1/missing.jpg')).rejects.toBeInstanceOf(
       MediaNotFoundError,
     );
   });

@@ -1,0 +1,11 @@
+Vazirmatn font — SIL Open Font License 1.1
+
+The bundled font file `Vazirmatn-Regular.ttf` is Vazirmatn, © Saber Rastikerdar,
+distributed under the SIL Open Font License, Version 1.1.
+
+License: https://openfontlicense.org/documents/OFL.txt
+Project: https://github.com/rastikerdar/vazirmatn
+
+This license permits copying, modification and redistribution (including in
+commercial products) provided the license text accompanies the font and the
+font name is not used to promote modified versions without permission.

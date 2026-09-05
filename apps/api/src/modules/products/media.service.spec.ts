@@ -1,39 +1,39 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { ProductStatus } from '@prisma/client';
+import { mkdtemp, rm, stat, writeFile } from 'fs/promises';
+import { tmpdir } from 'os';
+import { join } from 'path';
 import { MediaService } from './media.service';
 import { MediaNotFoundError } from './storage/product-media-storage';
 import { UploadMediaDto } from './dto';
+import type { PrismaService } from '../../common/database/prisma.service';
+import type { AuditService } from '../audit/audit.service';
+import type { ProductMediaStorage } from './storage/product-media-storage';
+import type { MediaProcessingService } from './media-processing/media-processing.service';
 
-function jpegFile(overrides: Partial<Express.Multer.File> = {}): Express.Multer.File {
+const JPEG_BYTES = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46]);
+const MP4_BYTES = Buffer.from([0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70]);
+
+async function makeFile(
+  buffer: Buffer,
+  mimetype: string,
+  originalname = 'photo.jpg',
+): Promise<Express.Multer.File> {
+  const dir = await mkdtemp(join(tmpdir(), 'sabz-media-'));
+  const path = join(dir, 'upload');
+  await writeFile(path, buffer);
   return {
     fieldname: 'file',
-    originalname: 'photo.jpg',
+    originalname,
     encoding: '7bit',
-    mimetype: 'image/jpeg',
-    size: 4,
-    buffer: Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00]),
+    mimetype,
+    size: buffer.length,
+    buffer: undefined as never,
     stream: undefined as never,
-    destination: '',
-    filename: '',
-    path: '',
-    ...overrides,
-  };
-}
-
-function mp4File(overrides: Partial<Express.Multer.File> = {}): Express.Multer.File {
-  return {
-    fieldname: 'file',
-    originalname: 'video.mp4',
-    encoding: '7bit',
-    mimetype: 'video/mp4',
-    size: 8,
-    buffer: Buffer.from([0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70]),
-    stream: undefined as never,
-    destination: '',
-    filename: '',
-    path: '',
-    ...overrides,
-  };
+    destination: dir,
+    filename: 'upload',
+    path,
+  } as Express.Multer.File;
 }
 
 describe('MediaService (SS-105)', () => {
@@ -53,15 +53,22 @@ describe('MediaService (SS-105)', () => {
   };
   let storage: {
     put: jest.Mock;
+    putFile: jest.Mock;
     get: jest.Mock;
+    getStream: jest.Mock;
     delete: jest.Mock;
   };
   let audit: { log: jest.Mock };
+  let processing: { process: jest.Mock };
+  let tempDir: string;
+  let createdTempPaths: string[] = [];
 
   const actorId = '11111111-1111-4111-8111-111111111111';
   const productId = '22222222-2222-4222-8222-222222222222';
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    tempDir = await mkdtemp(join(tmpdir(), 'sabz-media-tmp-'));
+    createdTempPaths = [];
     prisma = {
       product: { findUnique: jest.fn(), findFirst: jest.fn() },
       productVariant: { findFirst: jest.fn() },
@@ -75,26 +82,72 @@ describe('MediaService (SS-105)', () => {
       $transaction: jest.fn(),
       $queryRaw: jest.fn(),
     };
-    storage = { put: jest.fn(), get: jest.fn(), delete: jest.fn() };
+    storage = {
+      put: jest.fn(),
+      putFile: jest.fn(),
+      get: jest.fn(),
+      getStream: jest.fn(),
+      delete: jest.fn(),
+    };
     audit = { log: jest.fn() };
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    service = new MediaService(prisma as any, audit as any, storage as any);
+    processing = {
+      // Default: identity processing (watermark disabled/absent) so the
+      // service-level behavior is exercised independently of the processors.
+      process: jest.fn(async (inputPath: string) => {
+        const info = await stat(inputPath);
+        return { outputPath: inputPath, sizeBytes: info.size };
+      }),
+    };
+    service = new MediaService(
+      prisma as unknown as PrismaService,
+      audit as unknown as AuditService,
+      storage as unknown as ProductMediaStorage,
+      processing as unknown as MediaProcessingService,
+      tempDir,
+    );
+  });
+
+  afterEach(async () => {
+    for (const dir of createdTempPaths) {
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 
   describe('upload', () => {
     it('rejects a MIME/magic mismatch with 400', async () => {
+      const file = await makeFile(JPEG_BYTES, 'image/png');
+      createdTempPaths.push(file.destination);
       await expect(
-        service.upload(productId, jpegFile({ mimetype: 'image/png' }), {}, actorId),
+        service.upload(productId, file, {}, actorId),
       ).rejects.toMatchObject({ status: 400 });
+      expect(storage.putFile).not.toHaveBeenCalled();
+    });
+
+    it('removes the multer temp file even when validation fails', async () => {
+      const file = await makeFile(JPEG_BYTES, 'image/png');
+      createdTempPaths.push(file.destination);
+      await expect(
+        service.upload(productId, file, {}, actorId),
+      ).rejects.toMatchObject({ status: 400 });
+      await expect(stat(file.path)).rejects.toMatchObject({ code: 'ENOENT' });
     });
 
     it('rejects an unsupported format before any storage write', async () => {
-      const file = jpegFile({ mimetype: 'application/pdf', buffer: Buffer.from('pdf') });
+      const file = await makeFile(Buffer.from('pdf'), 'application/pdf');
+      createdTempPaths.push(file.destination);
       await expect(service.upload(productId, file, {}, actorId)).rejects.toThrow();
-      expect(storage.put).not.toHaveBeenCalled();
+      expect(storage.putFile).not.toHaveBeenCalled();
     });
 
-    it('writes binary first, then creates metadata in a transaction', async () => {
+    it('rejects an empty file', async () => {
+      const file = await makeFile(Buffer.alloc(0), 'image/png');
+      createdTempPaths.push(file.destination);
+      await expect(
+        service.upload(productId, file, {}, actorId),
+      ).rejects.toMatchObject({ status: 400 });
+    });
+
+    it('watermarks/processes the temp file, then stores the processed output', async () => {
       prisma.$queryRaw.mockResolvedValue([{ id: productId, status: 'DRAFT', deletedAt: null }]);
       prisma.productMedia.aggregate.mockResolvedValue({ _max: { sortOrder: null } });
       prisma.productMedia.findFirst.mockResolvedValue(null); // no existing primary
@@ -107,20 +160,28 @@ describe('MediaService (SS-105)', () => {
         createdBy: actorId,
         updatedBy: null,
       }));
-      // execute the transaction callback
       prisma.$transaction.mockImplementation(async (cb) => cb(prisma));
+      const processedPath = join(tempDir, 'processed.jpg');
+      await writeFile(processedPath, JPEG_BYTES);
+      processing.process.mockResolvedValue({ outputPath: processedPath, sizeBytes: 16 });
 
-      const result = await service.upload(productId, jpegFile(), {}, actorId);
+      const file = await makeFile(JPEG_BYTES, 'image/jpeg');
+      createdTempPaths.push(file.destination);
+      const result = await service.upload(productId, file, {}, actorId);
 
-      expect(storage.put).toHaveBeenCalledTimes(1);
-      const key = storage.put.mock.calls[0][0] as string;
+      expect(processing.process).toHaveBeenCalledTimes(1);
+      expect(processing.process.mock.calls[0][0]).toBe(file.path);
+      expect(processing.process.mock.calls[0][1]).toBe('image/jpeg');
+      expect(storage.putFile).toHaveBeenCalledTimes(1);
+      const [key, source] = storage.putFile.mock.calls[0] as [string, string];
       expect(key).toMatch(new RegExp(`^products/${productId}/[0-9a-f-]{36}\\.jpg$`));
-      expect(prisma.productMedia.create).toHaveBeenCalledTimes(1);
+      expect(source).toBe(processedPath);
+      // sizeBytes reflects the processed asset, not the upload
+      expect(prisma.productMedia.create.mock.calls[0][0].data.sizeBytes).toBe(16);
       expect(result.isPrimary).toBe(true);
       expect(result.sortOrder).toBe(0);
       // never expose storageKey
       expect(JSON.stringify(result)).not.toContain('storageKey');
-      // audit payload is safe
       expect(JSON.stringify(audit.log.mock.calls[0][0].after)).not.toContain('storageKey');
     });
 
@@ -139,7 +200,9 @@ describe('MediaService (SS-105)', () => {
       }));
       prisma.$transaction.mockImplementation(async (cb) => cb(prisma));
 
-      const result = await service.upload(productId, jpegFile(), {}, actorId);
+      const file = await makeFile(JPEG_BYTES, 'image/jpeg');
+      createdTempPaths.push(file.destination);
+      const result = await service.upload(productId, file, {}, actorId);
       expect(result.isPrimary).toBe(false);
       expect(result.sortOrder).toBe(1);
     });
@@ -150,10 +213,12 @@ describe('MediaService (SS-105)', () => {
       prisma.productMedia.findFirst.mockResolvedValue(null); // no existing primary
       prisma.$transaction.mockImplementation(async (cb) => cb(prisma));
 
+      const file = await makeFile(JPEG_BYTES, 'image/jpeg');
+      createdTempPaths.push(file.destination);
       await expect(
         service.upload(
           productId,
-          jpegFile(),
+          file,
           { isPrimary: false } as UploadMediaDto,
           actorId,
         ),
@@ -176,7 +241,9 @@ describe('MediaService (SS-105)', () => {
       }));
       prisma.$transaction.mockImplementation(async (cb) => cb(prisma));
 
-      const result = await service.upload(productId, mp4File(), {}, actorId);
+      const file = await makeFile(MP4_BYTES, 'video/mp4', 'video.mp4');
+      createdTempPaths.push(file.destination);
+      const result = await service.upload(productId, file, {}, actorId);
       expect(result.mediaType).toBe('VIDEO');
       expect(result.isPrimary).toBe(false);
     });
@@ -184,10 +251,13 @@ describe('MediaService (SS-105)', () => {
     it('rejects a declared mediaType that contradicts detected content', async () => {
       prisma.$queryRaw.mockResolvedValue([{ id: productId, status: 'DRAFT', deletedAt: null }]);
       prisma.$transaction.mockImplementation(async (cb) => cb(prisma));
+
+      const file = await makeFile(JPEG_BYTES, 'image/jpeg');
+      createdTempPaths.push(file.destination);
       await expect(
         service.upload(
           productId,
-          jpegFile(),
+          file,
           { mediaType: 'VIDEO' } as UploadMediaDto,
           actorId,
         ),
@@ -197,16 +267,20 @@ describe('MediaService (SS-105)', () => {
     it('returns 404 when the product is soft-deleted', async () => {
       prisma.$queryRaw.mockResolvedValue([{ id: productId, status: 'DRAFT', deletedAt: new Date() }]);
       prisma.$transaction.mockImplementation(async (cb) => cb(prisma));
+      const file = await makeFile(JPEG_BYTES, 'image/jpeg');
+      createdTempPaths.push(file.destination);
       await expect(
-        service.upload(productId, jpegFile(), {}, actorId),
+        service.upload(productId, file, {}, actorId),
       ).rejects.toBeInstanceOf(NotFoundException);
     });
 
     it('returns 409 when the product is archived', async () => {
       prisma.$queryRaw.mockResolvedValue([{ id: productId, status: ProductStatus.ARCHIVED, deletedAt: null }]);
       prisma.$transaction.mockImplementation(async (cb) => cb(prisma));
+      const file = await makeFile(JPEG_BYTES, 'image/jpeg');
+      createdTempPaths.push(file.destination);
       await expect(
-        service.upload(productId, jpegFile(), {}, actorId),
+        service.upload(productId, file, {}, actorId),
       ).rejects.toBeInstanceOf(ConflictException);
     });
 
@@ -214,10 +288,12 @@ describe('MediaService (SS-105)', () => {
       prisma.$queryRaw.mockResolvedValue([{ id: productId, status: 'DRAFT', deletedAt: null }]);
       prisma.productVariant.findFirst.mockResolvedValue(null);
       prisma.$transaction.mockImplementation(async (cb) => cb(prisma));
+      const file = await makeFile(JPEG_BYTES, 'image/jpeg');
+      createdTempPaths.push(file.destination);
       await expect(
         service.upload(
           productId,
-          jpegFile(),
+          file,
           { variantId: '33333333-3333-4333-8333-333333333333' },
           actorId,
         ),
@@ -227,10 +303,39 @@ describe('MediaService (SS-105)', () => {
     it('cleans up the orphaned binary when the DB transaction fails', async () => {
       prisma.$queryRaw.mockResolvedValue([{ id: productId, status: 'DRAFT', deletedAt: null }]);
       prisma.$transaction.mockRejectedValue(new Error('db failure'));
+      const file = await makeFile(JPEG_BYTES, 'image/jpeg');
+      createdTempPaths.push(file.destination);
       await expect(
-        service.upload(productId, jpegFile(), {}, actorId),
+        service.upload(productId, file, {}, actorId),
       ).rejects.toThrow('db failure');
+      expect(storage.putFile).toHaveBeenCalledTimes(1);
       expect(storage.delete).toHaveBeenCalledTimes(1);
+    });
+
+    it('cleans up temp files (input and processed output) after upload', async () => {
+      prisma.$queryRaw.mockResolvedValue([{ id: productId, status: 'DRAFT', deletedAt: null }]);
+      prisma.productMedia.aggregate.mockResolvedValue({ _max: { sortOrder: null } });
+      prisma.productMedia.findFirst.mockResolvedValue(null);
+      prisma.productMedia.create.mockImplementation(async ({ data }) => ({
+        id: 'media-1',
+        ...data,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        deletedAt: null,
+        createdBy: actorId,
+        updatedBy: null,
+      }));
+      prisma.$transaction.mockImplementation(async (cb) => cb(prisma));
+      const processedPath = join(tempDir, 'processed.jpg');
+      await writeFile(processedPath, JPEG_BYTES);
+      processing.process.mockResolvedValue({ outputPath: processedPath, sizeBytes: 16 });
+
+      const file = await makeFile(JPEG_BYTES, 'image/jpeg');
+      createdTempPaths.push(file.destination);
+      await service.upload(productId, file, {}, actorId);
+
+      await expect(stat(file.path)).rejects.toMatchObject({ code: 'ENOENT' });
+      await expect(stat(processedPath)).rejects.toMatchObject({ code: 'ENOENT' });
     });
   });
 
@@ -290,6 +395,57 @@ describe('MediaService (SS-105)', () => {
       expect(buffer).toEqual(Buffer.from([0xff, 0xd8, 0xff]));
       expect(JSON.stringify(summary)).not.toContain('storageKey');
       expect(JSON.stringify(summary)).not.toContain('deletedAt');
+    });
+  });
+
+  describe('getBinaryStream', () => {
+    it('streams the media binary', async () => {
+      prisma.productMedia.findFirst.mockResolvedValue({
+        id: 'media-1',
+        productId,
+        variantId: null,
+        mediaType: 'IMAGE',
+        originalName: 'photo.jpg',
+        mimeType: 'image/jpeg',
+        sizeBytes: 4,
+        sortOrder: 0,
+        isPrimary: true,
+        storageKey: 'products/p/m.jpg',
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        deletedAt: null,
+        createdBy: null,
+        updatedBy: null,
+      });
+      storage.getStream.mockResolvedValue({ read: jest.fn() });
+
+      const { stream, summary } = await service.getBinaryStream(productId, 'media-1');
+      expect(stream).toBeDefined();
+      expect(JSON.stringify(summary)).not.toContain('storageKey');
+    });
+
+    it('maps a missing binary to 404', async () => {
+      prisma.productMedia.findFirst.mockResolvedValue({
+        id: 'media-1',
+        productId,
+        variantId: null,
+        mediaType: 'IMAGE',
+        originalName: 'photo.jpg',
+        mimeType: 'image/jpeg',
+        sizeBytes: 4,
+        sortOrder: 0,
+        isPrimary: true,
+        storageKey: 'products/p/m.jpg',
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        deletedAt: null,
+        createdBy: null,
+        updatedBy: null,
+      });
+      storage.getStream.mockRejectedValue(new MediaNotFoundError('products/p/m.jpg'));
+      await expect(service.getBinaryStream(productId, 'media-1')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
     });
   });
 
@@ -395,9 +551,6 @@ describe('MediaService (SS-105)', () => {
     });
 
     it('promotes based on the in-lock primary state, not the stale pre-lock snapshot', async () => {
-      // A concurrent delete promoted this media to primary between the
-      // pre-lock read (isPrimary: false) and the in-lock re-read (isPrimary:
-      // true). Promotion must still happen so exactly one primary remains.
       prisma.productMedia.findFirst
         .mockResolvedValueOnce({
           id: 'media-1',
@@ -425,9 +578,7 @@ describe('MediaService (SS-105)', () => {
 
       await service.remove('media-1', actorId);
 
-      // updateMany is called for the soft-delete and for the promote
       expect(prisma.productMedia.updateMany.mock.calls.length).toBeGreaterThanOrEqual(2);
-      // the promotion update targets the next image
       expect(prisma.productMedia.updateMany.mock.calls[1][0].where.id).toBe('media-2');
     });
   });

@@ -59,6 +59,11 @@ describe('Admin product media API (SS-105) (e2e)', () => {
   }
 
   beforeAll(async () => {
+    // This suite exercises the HTTP/auth/media-flow contract, not the
+    // watermark pipeline (covered by unit/integration specs). Watermarking is
+    // disabled so uploads of fixture bytes (fake MP4 magic) are stored as-is.
+    process.env.WATERMARK_ENABLED = 'false';
+
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
