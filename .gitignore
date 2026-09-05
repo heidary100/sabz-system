@@ -16,3 +16,6 @@ coverage/
 
 .DS_Store
 *.zip
+
+# Graphify knowledge-graph output (local tooling)
+graphify-out/
