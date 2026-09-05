@@ -223,7 +223,7 @@ OTP codes are intentionally ephemeral — losing Redis state never breaks login.
 | `REDIS_PASSWORD` | Optional | Only if you configure the Redis service with a password |
 | `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` | Dev defaults | Authentication token secrets — **use long random strings outside local development** |
 | `JWT_ACCESS_EXPIRES_IN` / `JWT_REFRESH_EXPIRES_IN` | Dev defaults | Token lifetimes (`15m` / `30d`) |
-| `CORS_ORIGINS` | Dev default | Comma-separated browser origins allowed to make credentialed requests (defaults cover admin 5173 + storefront 3002) |
+| `CORS_ORIGINS` | Dev default | Comma-separated browser origins allowed to make credentialed requests (defaults cover admin + storefront as both `localhost` and `127.0.0.1`) |
 | `THROTTLE_TTL_MS` / `THROTTLE_LIMIT` | Dev defaults | Global per-IP rate limiting |
 | `TRUST_PROXY` | Optional | Reverse-proxy hops for correct client IP detection; leave empty when the API is reached directly |
 | `DEV_ADMIN_MOBILE` | Dev default | Mobile number of the seeded development admin |
@@ -294,14 +294,18 @@ docker compose logs api
 
 ### Cannot log in to the admin
 
-- Confirm the seed ran: `docker compose logs api | grep -i seed` (look for `Seeded 4 roles…`).
-- Use exactly the seeded mobile (`+989170000001` by default) and OTP `123456`.
-- OTP requests are rate-limited per IP; if you see 429s, restart the API container to clear Redis state or wait for the window to expire.
+1. Confirm the seed ran: `docker compose logs api | grep -i seed` — look for `Seeded 4 roles…`. Without it, no admin exists.
+2. Use exactly the seeded mobile (`+989170000001`, or `091700000001` — both are accepted) and OTP `123456`.
+3. Each OTP code allows 3 verification attempts and expires after 2 minutes — request a new code and retry. OTP requests are limited to 3/minute per number and 15/minute per IP; after a 429, wait 60 seconds.
+4. Open the browser dev tools → Network tab: the failing request's error tells you which case below applies.
 
 ### Admin page loads but API calls fail (CORS / network)
 
-- The browser calls `VITE_API_BASE_URL` directly — it must be a URL the **browser** can reach (`http://localhost:3000/api/v1`), never a Docker-internal hostname like `http://api:3000`.
-- The API must list the admin origin in `CORS_ORIGINS` (default `http://localhost:5173,http://localhost:3002`).
+The browser calls `VITE_API_BASE_URL` directly — it must be a URL the **browser** can reach, never a Docker-internal hostname like `http://api:3000`.
+
+- **Console shows a CORS error**: the origin in the browser's address bar is not in `CORS_ORIGINS`. Defaults cover `http://localhost:5173`, `http://localhost:3002`, `http://127.0.0.1:5173`, `http://127.0.0.1:3002`. If you browse from a different host (e.g. `http://<server-ip>:5173`), add that exact origin to `CORS_ORIGINS` in `.env` and set `VITE_API_BASE_URL` / `NEXT_PUBLIC_API_BASE_URL` to an API URL reachable from that browser (e.g. `http://<server-ip>:3000/api/v1`), then `docker compose up -d` to apply.
+- **Connection refused / timeout**: the API is not up — check `docker compose ps` and `docker compose logs api`.
+- On Windows, a WSL relay can hold the IPv6 loopback (see the `localhost` hangs entry below) — try `http://127.0.0.1:<port>`.
 
 ### Database seems corrupted or migrations fail
 
