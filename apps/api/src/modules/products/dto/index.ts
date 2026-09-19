@@ -13,3 +13,8 @@ export { UpdateVariantDto } from './update-variant.dto';
 export { UpdateVariantInventoryDto } from './update-inventory.dto';
 export { UploadMediaDto } from './upload-media.dto';
 export { ImportDescriptionImageDto } from './import-description-image.dto';
+export { ListCatalogBrandsQueryDto } from './list-catalog-brands-query.dto';
+export {
+  CATALOG_PRODUCT_SORTS,
+  ListCatalogProductsQueryDto,
+} from './list-catalog-products-query.dto';
