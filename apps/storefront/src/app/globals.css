@@ -108,3 +108,23 @@ body {
     @apply bg-neutral-100 font-semibold text-neutral-900;
   }
 }
+
+/* Sabz brand palette (AGENTS.md): greens for actions/accents, warm neutrals
+   for surfaces. Defined as Tailwind v4 theme colors so utilities like
+   bg-sabz-700 are available everywhere. */
+@theme {
+  --color-sabz-50: #f4f6f2;
+  --color-sabz-100: #e6eae1;
+  --color-sabz-200: #ccd6c6;
+  --color-sabz-300: #a3b18a;
+  --color-sabz-400: #7d9873;
+  --color-sabz-500: #588157;
+  --color-sabz-600: #4a6d4b;
+  --color-sabz-700: #3a5a40;
+  --color-sabz-800: #344e41;
+  --color-sabz-900: #2b3f35;
+  --color-sand-50: #f8f7f5;
+  --color-sand-100: #efece7;
+  --color-sand-200: #dad7cd;
+  --color-ink-900: #312e24;
+}
