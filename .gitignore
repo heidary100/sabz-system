@@ -16,6 +16,8 @@ coverage/
 
 .DS_Store
 *.zip
+# Design reference archives committed intentionally (Tailwind Plus Ecommerce)
+!docs/assets/*.zip
 
 # Graphify knowledge-graph output (local tooling)
 graphify-out/
