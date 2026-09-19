@@ -162,6 +162,9 @@ services:
       # the code fallback in apps/storefront/src/lib/api.ts and is reachable
       # from the host browser because the API publishes port 3000.
       NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:3000/api/v1}
+      # Server-side catalog fetches run inside the Compose network, where the
+      # API is reachable only by its service name (not localhost).
+      API_INTERNAL_BASE_URL: ${API_INTERNAL_BASE_URL:-http://api:3000/api/v1}
     command: ["pnpm", "--filter", "@sabz/storefront", "dev", "--hostname", "0.0.0.0"]
     volumes:
       - ./apps/storefront:/app/apps/storefront

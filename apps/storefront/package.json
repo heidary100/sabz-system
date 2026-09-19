@@ -8,9 +8,10 @@
     "start": "next start -p 3001",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "echo \"No tests yet\""
+    "test": "vitest run"
   },
   "dependencies": {
+    "@fontsource-variable/vazirmatn": "^5.3.0",
     "@sabz/api-client": "workspace:*",
     "@sabz/types": "workspace:*",
     "next": "^16.3.0",
@@ -25,6 +26,7 @@
     "eslint": "^9.18.0",
     "eslint-config-next": "^16.3.0",
     "tailwindcss": "^4.3.3",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "vitest": "^5.0.0"
   }
 }
