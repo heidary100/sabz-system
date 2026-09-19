@@ -1,6 +1,19 @@
 export { ApiErrorPayload } from './api/errors';
 export { PaginatedResult } from './api/pagination';
 
+export {
+  CatalogBrandDto,
+  CatalogCategoryCrumb,
+  CatalogCategoryNode,
+  CatalogListQuery,
+  CatalogProductCardDto,
+  CatalogProductDetailDto,
+  CatalogProductMediaDto,
+  CatalogProductSort,
+  CatalogProductVariantDto,
+  CatalogRefDto,
+} from './catalog/catalog';
+
 export { APP_ROLES, AppRole } from './auth/roles';
 export { AuthUser, UserStatus } from './auth/user';
 export {
