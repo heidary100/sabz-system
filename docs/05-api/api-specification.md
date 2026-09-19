@@ -1957,3 +1957,100 @@ Endpoint-specific protection (for example the Redis-based OTP request and verifi
 500 Internal Server Error
 
 503 Service Unavailable
+---
+
+# 29. Public Catalog API (Milestone 2 — SS-119 contract)
+
+Contract defined by SS-119; endpoints are implemented by SS-120 (categories
+and brands), SS-121 (product listing), SS-122 (product detail), and SS-123
+(media serving). All routes are public, unauthenticated, and read-only.
+
+Binding contract rules:
+
+- Visibility: only `PUBLISHED`, non-soft-deleted products; visible,
+  non-soft-deleted categories. Anything else is `404` (never filtered lists).
+- Prices are Toman; `Decimal` values serialize as strings.
+- Availability comes from the SS-112 inventory read aggregate (active
+  warehouses only), never from the legacy `stockQuantity` column.
+- Media URLs are server-generated; storage keys are never exposed.
+- Pagination uses the shared envelope:
+  `{ "items": [...], "total": number, "page": number, "limit": number }`.
+
+Shared types: `packages/types/src/catalog/catalog.ts`.
+
+## Categories
+
+```
+GET /catalog/categories
+```
+
+Returns the tree of visible, non-deleted categories, ordered by `sortOrder`,
+each with the count of published products it directly holds:
+
+```json
+[
+  {
+    "id": "…", "name": "…", "slug": "…", "sortOrder": 0,
+    "publishedProductCount": 12,
+    "children": [ … ]
+  }
+]
+```
+
+Errors: `500` only (no client-supplied input).
+
+## Brands
+
+```
+GET /catalog/brands?page=&limit=
+```
+
+Returns a paginated list of brands (`id`, `name`, `slug`). Validation:
+`page ≥ 1`, `1 ≤ limit ≤ 50`; violations return `400`.
+
+## Product listing
+
+```
+GET /catalog/products?page=&limit=&q=&category=&brand=&condition=&sort=
+```
+
+- `q`: free-text search over product names (length-capped; validated).
+- `category` / `brand`: slug filters.
+- `condition`: one of the `ProductCondition` enum values.
+- `sort`: `newest` (default) | `price_asc` | `price_desc` | `name`.
+
+Returns `PaginatedResult<CatalogProductCardDto>`; each card carries `id`,
+`name`, `slug`, `condition`, `brand`, `category`, `priceFrom` (minimum variant
+price), `inStock`, `primaryImageUrl`, and `primaryThumbnailUrl` (nullable until
+SS-129 backfills thumbnails). Unknown query parameters are ignored; invalid
+values return `400`.
+
+## Product detail
+
+```
+GET /catalog/products/{slug}
+```
+
+Returns `CatalogProductDetailDto`: the card fields plus `shortDescription`,
+sanitized rich-text `description`, `warranty`, dimensions, `originCountry`,
+`categoryBreadcrumb` (root-first ancestry chain), ordered `media` (primary
+first; `url`, nullable `thumbnailUrl`), and `variants` (`sku`, `price`,
+per-variant `inStock`).
+
+Errors: `404` for unknown slug, `DRAFT`/`ARCHIVED` status, or soft-deleted
+product.
+
+## Product media
+
+```
+GET /catalog/media/{mediaId}
+```
+
+Public, read-only serving of the stored (watermarked) product media asset.
+`mediaId` must be a UUID. Responses stream the binary with the stored MIME
+type and `Cache-Control: public, max-age=31536000, immutable`; the endpoint is
+exempt from per-IP throttling (immutable assets embedded by catalog pages).
+Storage keys are never exposed.
+
+Errors: `404` when `mediaId` is malformed, the media row is missing or
+soft-deleted, or the owning product is not a published, non-deleted product.
