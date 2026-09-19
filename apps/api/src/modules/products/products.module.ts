@@ -16,6 +16,7 @@ import {
   AdminMediaController,
   ProductMediaController,
 } from './media.controller';
+import { PublicProductMediaController } from './public-media.controller';
 import { MediaService } from './media.service';
 import { DescriptionImageService } from './description-image.service';
 import {
@@ -61,6 +62,7 @@ export const PRODUCT_MEDIA_TEMP_DIR = 'PRODUCT_MEDIA_TEMP_DIR';
     AdminMediaController,
     AdminDescriptionImagesController,
     PublicDescriptionImagesController,
+    PublicProductMediaController,
   ],
   providers: [
     ProductsService,

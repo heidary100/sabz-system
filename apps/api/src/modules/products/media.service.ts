@@ -309,6 +309,51 @@ export class MediaService implements OnModuleInit {
     return { stream, summary: this.toSummary(media) };
   }
 
+  /**
+   * Streams a media binary for the public catalog (SS-123). The media row must
+   * be active AND its owning product must be PUBLISHED and not soft-deleted —
+   * media of drafts, archived or deleted products is indistinguishable from a
+   * missing asset (404), so nothing outside the live catalog can be requested.
+   * Variant-scoped media of a soft-deleted variant is likewise hidden. No
+   * storage internals are disclosed.
+   */
+  async getPublicStream(
+    mediaId: string,
+  ): Promise<{ stream: Readable; mimeType: string; sizeBytes: number }> {
+    const media = await this.prisma.productMedia.findFirst({
+      where: {
+        id: mediaId,
+        deletedAt: null,
+        OR: [{ variantId: null }, { variant: { deletedAt: null } }],
+      },
+      select: {
+        storageKey: true,
+        mimeType: true,
+        sizeBytes: true,
+        product: { select: { status: true, deletedAt: true } },
+      },
+    });
+    if (
+      !media ||
+      media.product.deletedAt !== null ||
+      media.product.status !== ProductStatus.PUBLISHED
+    ) {
+      throw new NotFoundException('رسانه یافت نشد.');
+    }
+
+    let stream: Readable;
+    try {
+      stream = await this.storage.getStream(media.storageKey);
+    } catch (error) {
+      if (error instanceof MediaNotFoundError) {
+        throw new NotFoundException('رسانه یافت نشد.');
+      }
+      throw error;
+    }
+
+    return { stream, mimeType: media.mimeType, sizeBytes: media.sizeBytes };
+  }
+
   private async findActive(
     productId: string,
     mediaId: string,
