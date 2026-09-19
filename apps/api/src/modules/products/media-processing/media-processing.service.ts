@@ -32,6 +32,9 @@ export class MediaProcessingService {
     outputDir: string,
   ): Promise<ProcessedAsset> {
     if (!this.config.enabled) {
+      // Watermarking disabled (local tests/dev): the original is stored
+      // verbatim and no thumbnail derivative is produced (SS-129 consumers
+      // fall back to the original while thumbnailKey is null).
       const info = await stat(inputPath);
       return { outputPath: inputPath, sizeBytes: info.size };
     }
@@ -39,7 +42,18 @@ export class MediaProcessingService {
     const extension = extensionForMediaMime(detectedMime);
     const outputPath = join(outputDir, `${randomUUID()}.${extension}`);
     if (isImageMime(detectedMime)) {
-      return this.imageProcessor.process(inputPath, detectedMime, outputPath);
+      const processed = await this.imageProcessor.process(
+        inputPath,
+        detectedMime,
+        outputPath,
+      );
+      // The thumbnail is a resize of the watermarked asset: branded by
+      // construction, and never larger than the original.
+      const thumbnail = await this.imageProcessor.generateThumbnail(
+        processed.outputPath,
+        join(outputDir, `${randomUUID()}.thumb.webp`),
+      );
+      return { ...processed, ...thumbnail };
     }
     return this.videoProcessor.process(inputPath, outputPath);
   }

@@ -55,4 +55,30 @@ export class PublicProductMediaController {
     // browsers show progress on large (200 MB) videos.
     return new StreamableFile(stream, { type: mimeType, length: sizeBytes });
   }
+
+  @Get(':mediaId/thumbnail')
+  // Immutable server-generated assets: exempt from per-IP throttling so a
+  // product page with many images can render without being rate-limited.
+  @SkipThrottle()
+  @ApiOperation({ summary: 'Serve the watermarked thumbnail of a catalog media asset' })
+  @ApiParam({ name: 'mediaId', type: 'string', format: 'uuid' })
+  @ApiResponse({ status: 200, description: 'WEBP thumbnail streamed.' })
+  @ApiResponse({
+    status: 404,
+    description:
+      'Media not found, no thumbnail exists, or its product is not published.',
+  })
+  async thumbnail(
+    @Param('mediaId', UUID_PARAM) mediaId: string,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const { stream, sizeBytes } =
+      await this.mediaService.getPublicThumbnail(mediaId);
+    // Thumbnails are derived once from the immutable original.
+    response.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    return new StreamableFile(stream, {
+      type: 'image/webp',
+      length: sizeBytes,
+    });
+  }
 }

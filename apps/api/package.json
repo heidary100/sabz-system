@@ -11,6 +11,7 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "prisma db seed",
     "prisma:bootstrap": "tsx prisma/bootstrap.ts",
+    "media:backfill-thumbnails": "tsx prisma/backfill-thumbnails.ts",
     "prisma:studio": "prisma studio",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",

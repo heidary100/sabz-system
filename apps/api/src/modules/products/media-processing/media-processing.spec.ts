@@ -222,6 +222,10 @@ describe('media watermark processing (CATALOG-007)', () => {
     it('dispatches images to the image processor', async () => {
       const imageProc = {
         process: jest.fn(async () => ({ outputPath: 'img-out', sizeBytes: 10 })),
+        generateThumbnail: jest.fn(async () => ({
+          thumbnailPath: 'img-out.thumb',
+          thumbnailSizeBytes: 4,
+        })),
       };
       const videoProc = { process: jest.fn() };
       const service = new MediaProcessingService(
@@ -231,8 +235,13 @@ describe('media watermark processing (CATALOG-007)', () => {
       );
       const result = await service.process('in.bin', 'image/png', dir);
       expect(imageProc.process).toHaveBeenCalled();
+      expect(imageProc.generateThumbnail).toHaveBeenCalledWith(
+        'img-out',
+        expect.stringMatching(/\.thumb\.webp$/),
+      );
       expect(videoProc.process).not.toHaveBeenCalled();
       expect(result.outputPath).toBe('img-out');
+      expect(result.thumbnailPath).toBe('img-out.thumb');
     });
 
     it('dispatches videos to the video processor', async () => {
