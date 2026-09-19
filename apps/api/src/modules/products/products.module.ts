@@ -17,6 +17,12 @@ import {
   ProductMediaController,
 } from './media.controller';
 import { PublicProductMediaController } from './public-media.controller';
+import {
+  PublicCatalogBrandsController,
+  PublicCatalogCategoriesController,
+  PublicCatalogProductsController,
+} from './public-catalog.controller';
+import { PublicCatalogService } from './public-catalog.service';
 import { MediaService } from './media.service';
 import { DescriptionImageService } from './description-image.service';
 import {
@@ -63,6 +69,9 @@ export const PRODUCT_MEDIA_TEMP_DIR = 'PRODUCT_MEDIA_TEMP_DIR';
     AdminDescriptionImagesController,
     PublicDescriptionImagesController,
     PublicProductMediaController,
+    PublicCatalogCategoriesController,
+    PublicCatalogBrandsController,
+    PublicCatalogProductsController,
   ],
   providers: [
     ProductsService,
@@ -71,6 +80,7 @@ export const PRODUCT_MEDIA_TEMP_DIR = 'PRODUCT_MEDIA_TEMP_DIR';
     VariantsService,
     MediaService,
     DescriptionImageService,
+    PublicCatalogService,
     {
       provide: PRODUCT_MEDIA_STORAGE,
       inject: [ConfigService],
