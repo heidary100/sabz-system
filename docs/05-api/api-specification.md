@@ -2047,6 +2047,17 @@ GET /catalog/media/{mediaId}
 ```
 
 Public, read-only serving of the stored (watermarked) product media asset.
+
+```
+GET /catalog/media/{mediaId}/thumbnail
+```
+
+Public, read-only serving of the watermarked WEBP thumbnail derivative
+(SS-129, longest edge capped at 640px, generated from the watermarked asset so
+branding is uniform). Same visibility rules and `404` semantics as the
+original; `404` when no thumbnail exists (videos, or images predating SS-129
+not yet backfilled), in which case consumers fall back to the original.
+Responses are immutable-cached and carry the declared `Content-Length`.
 `mediaId` must be a UUID. Responses stream the binary with the stored MIME
 type and `Cache-Control: public, max-age=31536000, immutable`; the endpoint is
 exempt from per-IP throttling (immutable assets embedded by catalog pages).

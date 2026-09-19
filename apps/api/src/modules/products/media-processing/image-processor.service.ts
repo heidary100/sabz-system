@@ -8,7 +8,13 @@ import type { AllowedMediaMimeType } from '../media-validation';
 export interface ProcessedAsset {
   outputPath: string;
   sizeBytes: number;
+  /** Watermarked WEBP derivative for listings (SS-129). Images only. */
+  thumbnailPath?: string;
+  thumbnailSizeBytes?: number;
 }
+
+/** Longest-edge cap for listing thumbnails (SS-129). */
+export const THUMBNAIL_MAX_EDGE_PX = 640;
 
 /**
  * Server-side product image watermarking (CATALOG-007). Every uploaded product
@@ -100,6 +106,40 @@ export class ImageProcessorService {
       }
       this.logger.error(
         `Image watermark processing failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      throw new BadRequestException('پردازش تصویر ناموفق بود.');
+    }
+  }
+
+  /**
+   * Generates the listing thumbnail (SS-129) from the ALREADY-watermarked
+   * asset, so the derivative carries the branding by construction and is
+   * never re-composited (no double watermark). Fitted inside a
+   * THUMBNAIL_MAX_EDGE_PX square without enlargement, always WEBP.
+   */
+  async generateThumbnail(
+    watermarkedPath: string,
+    thumbnailPath: string,
+  ): Promise<{ thumbnailPath: string; thumbnailSizeBytes: number }> {
+    try {
+      await sharp(watermarkedPath)
+        .resize({
+          width: THUMBNAIL_MAX_EDGE_PX,
+          height: THUMBNAIL_MAX_EDGE_PX,
+          fit: 'inside',
+          withoutEnlargement: true,
+        })
+        .webp({ quality: 80 })
+        .toFile(thumbnailPath);
+      return {
+        thumbnailPath,
+        thumbnailSizeBytes: await this.fileSize(thumbnailPath),
+      };
+    } catch (error) {
+      this.logger.error(
+        `Thumbnail generation failed: ${
           error instanceof Error ? error.message : String(error)
         }`,
       );

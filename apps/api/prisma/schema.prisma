@@ -394,6 +394,12 @@ model ProductMedia {
 
   storageKey String @unique
 
+  /// Server-generated key of the watermarked thumbnail derivative (SS-129).
+  /// Images only; null = no thumbnail (videos, or images predating SS-129
+  /// that were not backfilled). Consumers fall back to the original asset.
+  thumbnailKey      String?
+  thumbnailSizeBytes Int?
+
   sortOrder  Int     @default(0)
   isPrimary  Boolean @default(false)
 

@@ -247,6 +247,7 @@ export class PublicCatalogService {
             mediaType: true,
             isPrimary: true,
             sortOrder: true,
+            thumbnailKey: true,
           },
           orderBy: [
             { isPrimary: 'desc' as const },
@@ -277,7 +278,10 @@ export class PublicCatalogService {
       id: row.id,
       mediaType: row.mediaType,
       url: `${PUBLIC_MEDIA_URL_PREFIX}/${row.id}`,
-      thumbnailUrl: null,
+      thumbnailUrl:
+        row.thumbnailKey !== null
+          ? `${PUBLIC_MEDIA_URL_PREFIX}/${row.id}/thumbnail`
+          : null,
       isPrimary: row.isPrimary,
       sortOrder: row.sortOrder,
     }));
@@ -349,7 +353,7 @@ export class PublicCatalogService {
           },
           media: {
             where: publicMediaWhere({ mediaType: 'IMAGE' }),
-            select: { id: true },
+            select: { id: true, thumbnailKey: true },
             orderBy: [
               { isPrimary: 'desc' as const },
               { sortOrder: 'asc' as const },
@@ -397,7 +401,10 @@ export class PublicCatalogService {
           row.media.length > 0
             ? `${PUBLIC_MEDIA_URL_PREFIX}/${row.media[0]!.id}`
             : null,
-        primaryThumbnailUrl: null,
+        primaryThumbnailUrl:
+          row.media.length > 0 && row.media[0]!.thumbnailKey !== null
+            ? `${PUBLIC_MEDIA_URL_PREFIX}/${row.media[0]!.id}/thumbnail`
+            : null,
       });
     }
     return cards;

@@ -98,8 +98,14 @@ export class MediaService implements OnModuleInit {
     // Everything below must be inside the try/finally: any failure between
     // validation, processing and the DB write would otherwise leave the multer
     // temp file (up to 200 MB) behind until the startup sweep.
-    let processed: { outputPath: string; sizeBytes: number } | null = null;
+    let processed: {
+      outputPath: string;
+      sizeBytes: number;
+      thumbnailPath?: string;
+      thumbnailSizeBytes?: number;
+    } | null = null;
     let storedKey: string | null = null;
+    let thumbnailKey: string | null = null;
     try {
       const header = await readFileHeader(file.path, MEDIA_HEADER_READ_BYTES);
       const totalSizeBytes = (await stat(file.path)).size;
@@ -118,18 +124,27 @@ export class MediaService implements OnModuleInit {
       const originalName = sanitizeMediaDisplayName(file.originalname);
 
       // Server-side watermark/processing. Both the input and output are temp
-      // files on disk; only the processed asset is persisted below.
+      // files on disk; only the processed asset is persisted below. Images
+      // also get a watermarked WEBP thumbnail derivative (SS-129).
       processed = await this.mediaProcessing.process(
         file.path,
         detectedMime,
         this.tempDir,
       );
       const sizeBytes = processed.sizeBytes;
+      const thumbnailSizeBytes = processed.thumbnailSizeBytes ?? null;
+      thumbnailKey =
+        processed.thumbnailPath !== undefined
+          ? `products/${productId}/${mediaId}.thumb.webp`
+          : null;
 
       // Binary first: the database state is authoritative; if the DB write
-      // fails afterwards the new binary is cleaned up best-effort below.
+      // fails afterwards the new binaries are cleaned up best-effort below.
       await this.storage.putFile(storageKey, processed.outputPath);
       storedKey = storageKey;
+      if (thumbnailKey !== null && processed.thumbnailPath !== undefined) {
+        await this.storage.putFile(thumbnailKey, processed.thumbnailPath);
+      }
 
       const created = await this.prisma.$transaction(async (tx) => {
         // Row-lock the owning product: serializes concurrent uploads so the
@@ -183,6 +198,8 @@ export class MediaService implements OnModuleInit {
             mimeType: detectedMime,
             sizeBytes,
             storageKey,
+            thumbnailKey,
+            thumbnailSizeBytes,
             sortOrder,
             isPrimary,
             createdBy: actorId,
@@ -215,14 +232,18 @@ export class MediaService implements OnModuleInit {
 
       return this.toSummary(created);
     } catch (error) {
-      // The database write failed after the binary was persisted: best-effort
-      // remove the orphaned binary so no file survives without a metadata row.
-      if (storedKey) {
+      // The database write failed after the binaries were persisted:
+      // best-effort remove the orphaned binaries so no file survives without
+      // a metadata row.
+      for (const orphanKey of [storedKey, thumbnailKey]) {
+        if (orphanKey === null) {
+          continue;
+        }
         try {
-          await this.storage.delete(storedKey);
+          await this.storage.delete(orphanKey);
         } catch (cleanupError) {
           this.logger.error(
-            `Failed to clean up orphaned media binary ${storedKey}: ${
+            `Failed to clean up orphaned media binary ${orphanKey}: ${
               cleanupError instanceof Error ? cleanupError.message : String(cleanupError)
             }`,
           );
@@ -234,10 +255,13 @@ export class MediaService implements OnModuleInit {
       // different). Windows may briefly hold an mmap/AV handle on a file just
       // processed by libvips, so removal retries briefly before giving up.
       // Failures are logged, never allowed to mask the response.
-      const toRemove = new Set<string>([
-        file.path,
-        processed?.outputPath ?? file.path,
-      ]);
+      const toRemove = new Set<string>(
+        [
+          file.path,
+          processed?.outputPath ?? file.path,
+          processed?.thumbnailPath ?? null,
+        ].filter((path): path is string => path !== null),
+      );
       for (const path of toRemove) {
         let lastError: unknown = null;
         for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -354,6 +378,50 @@ export class MediaService implements OnModuleInit {
     return { stream, mimeType: media.mimeType, sizeBytes: media.sizeBytes };
   }
 
+  /**
+   * Streams the watermarked thumbnail derivative for the public catalog
+   * (SS-129). Same visibility gate as the original: active media of a
+   * PUBLISHED, non-deleted product (variant-scoped media hidden with its
+   * variant); 404 when no thumbnail exists so consumers fall back to the
+   * original. No storage internals are disclosed.
+   */
+  async getPublicThumbnail(
+    mediaId: string,
+  ): Promise<{ stream: Readable; sizeBytes: number }> {
+    const media = await this.prisma.productMedia.findFirst({
+      where: {
+        id: mediaId,
+        deletedAt: null,
+        thumbnailKey: { not: null },
+        OR: [{ variantId: null }, { variant: { is: { deletedAt: null } } }],
+      },
+      select: {
+        thumbnailKey: true,
+        thumbnailSizeBytes: true,
+        product: { select: { status: true, deletedAt: true } },
+      },
+    });
+    if (
+      !media ||
+      media.product.deletedAt !== null ||
+      media.product.status !== ProductStatus.PUBLISHED
+    ) {
+      throw new NotFoundException('رسانه یافت نشد.');
+    }
+
+    let stream: Readable;
+    try {
+      stream = await this.storage.getStream(media.thumbnailKey as string);
+    } catch (error) {
+      if (error instanceof MediaNotFoundError) {
+        throw new NotFoundException('رسانه یافت نشد.');
+      }
+      throw error;
+    }
+
+    return { stream, sizeBytes: media.thumbnailSizeBytes ?? 0 };
+  }
+
   private async findActive(
     productId: string,
     mediaId: string,
@@ -439,6 +507,7 @@ export class MediaService implements OnModuleInit {
         sizeBytes: true,
         sortOrder: true,
         storageKey: true,
+        thumbnailKey: true,
       },
     });
     if (!target) {
@@ -501,14 +570,19 @@ export class MediaService implements OnModuleInit {
     });
 
     // Post-commit binary removal; failures are logged, not rolled back.
-    try {
-      await this.storage.delete(target.storageKey);
-    } catch (error) {
-      this.logger.error(
-        `Failed to remove media binary ${target.storageKey}: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      );
+    for (const binaryKey of [target.storageKey, target.thumbnailKey]) {
+      if (binaryKey === null) {
+        continue;
+      }
+      try {
+        await this.storage.delete(binaryKey);
+      } catch (error) {
+        this.logger.error(
+          `Failed to remove media binary ${binaryKey}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
     }
   }
 
