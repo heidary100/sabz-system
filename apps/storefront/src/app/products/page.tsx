@@ -15,6 +15,10 @@ type SearchParams = Promise<Record<string, string | string[] | undefined>>;
  * Product listing (SS-125): URL search params are the single source of truth;
  * the page is a server component over the public catalog API.
  */
+// Catalog pages render per request: build-time prerendering would either
+// snapshot stale data or fail when the API is unreachable (CI).
+export const dynamic = 'force-dynamic';
+
 export default async function ProductsPage({
   searchParams,
 }: {

@@ -43,6 +43,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return { title: category?.name ?? 'دسته‌بندی' };
 }
 
+// Catalog pages render per request: build-time prerendering would either
+// snapshot stale data or fail when the API is unreachable (CI).
+export const dynamic = 'force-dynamic';
+
 export default async function CategoryPage({ params, searchParams }: PageProps) {
   const [{ slug }, rawSearchParams] = await Promise.all([params, searchParams]);
   const categories = await fetchCategoryTree();

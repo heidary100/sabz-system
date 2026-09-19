@@ -31,6 +31,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 /** Product detail (SS-127) over the public detail API. */
+// Catalog pages render per request: build-time prerendering would either
+// snapshot stale data or fail when the API is unreachable (CI).
+export const dynamic = 'force-dynamic';
+
 export default async function ProductPage({ params }: PageProps) {
   const { slug } = await params;
   const product = await fetchProductBySlug(slug);

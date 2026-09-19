@@ -6,6 +6,10 @@ import { ProductCard } from '@/components/ecommerce/product-card/product-card';
  * Home page (SS-128): hero, featured categories with counts, and the latest
  * published products. Degrades gracefully when the catalog is empty.
  */
+// Catalog pages render per request: build-time prerendering would either
+// snapshot stale data or fail when the API is unreachable (CI).
+export const dynamic = 'force-dynamic';
+
 export default async function HomePage() {
   const [categories, latest] = await Promise.all([
     fetchCategoryTree(),
