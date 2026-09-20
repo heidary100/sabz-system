@@ -11,6 +11,7 @@ import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/app.setup';
 import { PrismaService } from '../src/common/database/prisma.service';
 import { TokenService } from '../src/modules/auth/services/token.service';
+import { AttributesService } from '../src/modules/products/attributes.service';
 
 jest.setTimeout(60_000);
 
@@ -657,6 +658,68 @@ describe('Public catalog API (SS-120/121/122) (e2e)', () => {
       await request(app.getHttpServer())
         .get(`${PRODUCTS_BASE}/${encodeURIComponent('Not A Slug!')}`)
         .expect(400);
+    });
+
+    it('exposes ordered specs on the detail DTO', async () => {
+      const token = await createOperator();
+      const suffix = `${uniqueSuffix()}`;
+      const { productId } = await seedProduct(token, `مشخصه ${suffix}`, {
+        prices: ['10.00'],
+      });
+      const specs = app.get(AttributesService);
+      await specs.assignSpec(productId, {
+        attributeName: `صفحه‌نمایش ${suffix}`,
+        attributeSlug: `display-${suffix}`,
+        value: '15.6 اینچ',
+        valueSlug: '15-6-inch',
+        sortOrder: 2,
+        source: 'WOO_ATTR',
+      });
+      await specs.assignSpec(productId, {
+        attributeName: `پردازنده ${suffix}`,
+        attributeSlug: `cpu-${suffix}`,
+        group: 'سخت‌افزار',
+        value: 'Core i7',
+        valueSlug: 'core-i7',
+        sortOrder: 1,
+        source: 'WOO_ATTR',
+      });
+      await publishProduct(token, productId);
+      const row = await prisma.product.findUniqueOrThrow({
+        where: { id: productId },
+        select: { slug: true },
+      });
+
+      const res = await request(app.getHttpServer())
+        .get(`${PRODUCTS_BASE}/${row.slug}`)
+        .expect(200);
+      expect(res.body.specs.map((spec: { attributeName: string }) => spec.attributeName)).toEqual([
+        `پردازنده ${suffix}`,
+        `صفحه‌نمایش ${suffix}`,
+      ]);
+      expect(res.body.specs[0]).toMatchObject({
+        attributeSlug: `cpu-${suffix}`,
+        attributeGroup: 'سخت‌افزار',
+        value: 'Core i7',
+        valueSlug: 'core-i7',
+        sortOrder: 1,
+      });
+
+      await prisma.productAttributeValue.deleteMany({
+        where: { productId },
+      });
+      const attributeIds = (
+        await prisma.attribute.findMany({
+          where: { name: { in: [`پردازنده ${suffix}`, `صفحه‌نمایش ${suffix}`] } },
+          select: { id: true },
+        })
+      ).map((attribute) => attribute.id);
+      await prisma.attributeValue.deleteMany({
+        where: { attributeId: { in: attributeIds } },
+      });
+      await prisma.attribute.deleteMany({
+        where: { id: { in: attributeIds } },
+      });
     });
   });
 

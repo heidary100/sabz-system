@@ -10,6 +10,7 @@ export {
   CatalogProductDetailDto,
   CatalogProductMediaDto,
   CatalogProductSort,
+  CatalogProductSpecDto,
   CatalogProductVariantDto,
   CatalogRefDto,
 } from './catalog/catalog';
@@ -69,7 +70,7 @@ export {
   DashboardUserCounts,
 } from './admin/dashboard';
 
-export { ProductCondition, ProductMediaType, ProductStatus, PriceStatus } from './product/type';
+export { AttributeType, PriceStatus, ProductCondition, ProductMediaType, ProductStatus } from './product/type';
 
 export {
   BrandSummary,
@@ -96,6 +97,12 @@ export {
   UpdateProductInput,
   UpdateVariantInput,
 } from './product/admin';
+
+export {
+  AttributeDto,
+  AttributeValueDto,
+  ProductSpecDto,
+} from './product/attributes';
 
 export {
   INVENTORY_STOCK_STATUSES,

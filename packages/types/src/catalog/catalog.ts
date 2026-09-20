@@ -101,6 +101,17 @@ export interface CatalogProductVariantDto {
   inStock: boolean;
 }
 
+/** Ordered display spec (SS-202): attribute/value pair with grouping. */
+export interface CatalogProductSpecDto {
+  attributeName: string;
+  attributeSlug: string;
+  /** Woo dotted-namespace group (e.g. مشخصات کلی); null when ungrouped. */
+  attributeGroup: string | null;
+  value: string;
+  valueSlug: string;
+  sortOrder: number;
+}
+
 /** One hop of the category ancestry chain, root first. */
 export interface CatalogCategoryCrumb {
   name: string;
@@ -133,6 +144,8 @@ export interface CatalogProductDetailDto {
   categoryBreadcrumb: CatalogCategoryCrumb[];
   variants: CatalogProductVariantDto[];
   media: CatalogProductMediaDto[];
+  /** Ordered display specs (SS-202); empty when the product has none. */
+  specs: CatalogProductSpecDto[];
   /** True when at least one variant has available stock in active warehouses. */
   inStock: boolean;
   createdAt: string;
