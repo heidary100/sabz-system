@@ -1,0 +1,15 @@
+{
+  "$comment": "SS-131 demo catalog — brand snapshot of sabzsistem.com best-sellers, committed fixture.",
+  "brands": [
+    { "slug": "powerology", "name": "پاورولوژی", "nameEn": "Powerology", "isFeatured": true },
+    { "slug": "green-lion", "name": "گرین لاین", "nameEn": "Green Lion", "isFeatured": true },
+    { "slug": "porodo", "name": "پرودو", "nameEn": "Porodo", "isFeatured": true },
+    { "slug": "biva", "name": "بیوا", "nameEn": "Biva", "isFeatured": false },
+    { "slug": "xiaomi", "name": "شیائومی", "nameEn": "Xiaomi", "isFeatured": true },
+    { "slug": "kerbi", "name": "کربی", "nameEn": "KERBI", "isFeatured": false },
+    { "slug": "sandisk", "name": "سن‌دیسک", "nameEn": "SanDisk", "isFeatured": false },
+    { "slug": "samsung", "name": "سامسونگ", "nameEn": "Samsung", "isFeatured": true },
+    { "slug": "western-digital", "name": "وسترن دیجیتال", "nameEn": "Western Digital", "isFeatured": false },
+    { "slug": "lenovo", "name": "لنوو", "nameEn": "Lenovo", "isFeatured": false }
+  ]
+}

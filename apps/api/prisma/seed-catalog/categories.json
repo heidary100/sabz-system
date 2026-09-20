@@ -1,0 +1,22 @@
+{
+  "$comment": "SS-131 demo catalog — category tree snapshot of sabzsistem.com (کالای دیجیتال and children), committed fixture. Slugs are unique ASCII kebab-case (generateSlug strips Persian; ≤200 chars for the public detail pipe). parentSlug builds the adjacency tree; sortOrder preserves the storefront nav order.",
+  "categories": [
+    { "slug": "digital-goods", "name": "کالای دیجیتال", "parentSlug": null, "sortOrder": 0 },
+    { "slug": "mobile-phones", "name": "گوشی موبایل", "parentSlug": "digital-goods", "sortOrder": 0 },
+    { "slug": "mobile-accessories", "name": "لوازم جانبی گوشی موبایل", "parentSlug": "digital-goods", "sortOrder": 1 },
+    { "slug": "power-bank", "name": "پاوربانک (شارژر همراه)", "parentSlug": "mobile-accessories", "sortOrder": 0 },
+    { "slug": "headphones", "name": "هدفون و هندزفری", "parentSlug": "mobile-accessories", "sortOrder": 1 },
+    { "slug": "chargers", "name": "شارژر", "parentSlug": "mobile-accessories", "sortOrder": 2 },
+    { "slug": "audio-video", "name": "تجهیزات صوتی و تصویری", "parentSlug": "digital-goods", "sortOrder": 2 },
+    { "slug": "computer-accessories", "name": "کامپیوتر و تجهیزات جانبی", "parentSlug": "digital-goods", "sortOrder": 3 },
+    { "slug": "speakers", "name": "اسپیکر (بلندگو)", "parentSlug": "computer-accessories", "sortOrder": 0 },
+    { "slug": "storage-devices", "name": "تجهیزات ذخیره‌سازی اطلاعات", "parentSlug": "computer-accessories", "sortOrder": 1 },
+    { "slug": "external-hdd", "name": "هارد دیسک اکسترنال", "parentSlug": "storage-devices", "sortOrder": 0 },
+    { "slug": "ssd", "name": "حافظه SSD", "parentSlug": "storage-devices", "sortOrder": 1 },
+    { "slug": "flash-memory", "name": "فلش مموری", "parentSlug": "storage-devices", "sortOrder": 2 },
+    { "slug": "smart-gadgets", "name": "گجت های هوشمند", "parentSlug": "digital-goods", "sortOrder": 4 },
+    { "slug": "smart-glasses", "name": "عینک هوشمند", "parentSlug": "smart-gadgets", "sortOrder": 0 },
+    { "slug": "game-consoles", "name": "کنسول بازی", "parentSlug": "digital-goods", "sortOrder": 5 },
+    { "slug": "stock-goods", "name": "کالای استوک", "parentSlug": "digital-goods", "sortOrder": 6 }
+  ]
+}

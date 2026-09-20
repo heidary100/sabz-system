@@ -238,8 +238,9 @@ npx prisma generate
 
 # Development Seed Data
 
-Seed the four application roles (CUSTOMER, PARTNER, OPERATOR, ADMIN) and one
-development admin user:
+Seed the four application roles (CUSTOMER, PARTNER, OPERATOR, ADMIN), one
+development admin user, and the SS-131 demo catalog (17 categories, 10 brands,
+23 published products with watermarked media, sourced from sabzsistem.com):
 
 ```bash
 pnpm --filter @sabz/api prisma:seed

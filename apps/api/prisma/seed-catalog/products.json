@@ -1,0 +1,367 @@
+{
+  "$comment": "SS-131 demo catalog — representative product snapshot of sabzsistem.com (titles/models/brands as listed on the live WooCommerce site, Sep 2026). Prices: the live site displays Rial; the storefront contract is Toman, so priceToman = priceRial / 10 (the seeder asserts this invariant). Slugs are unique ASCII kebab-case ≤200 chars. Every product is PUBLISHED with a primary image; seed-halo-beam is multi-variant (priceFrom path); seed-pdxv40 carries a video (gallery video path); seed-lint-remover has zero stock (out-of-stock path).",
+  "products": [
+    {
+      "slug": "powerology-halo-beam-ppbcha92-40000",
+      "name": "پاور بانک پاورولوژی Halo Beam PPBCHA92 ظرفیت 40000 میلی‌آمپر",
+      "brandSlug": "powerology",
+      "categorySlug": "power-bank",
+      "condition": "NEW",
+      "warranty": "۱۸ ماه گارانتی سبز سیستم",
+      "originCountry": "چین",
+      "shortDescription": "پاوربانک ۴۰۰۰۰ میلی‌آمپری با نمایشگر دیجیتال و شارژ سریع، مناسب سفر و استفاده روزمره.",
+      "description": "<p>پاور بانک <strong>پاورولوژی Halo Beam PPBCHA92</strong> با ظرفیت ۴۰۰۰۰ میلی‌آمپر، شارژ سریع و نمایشگر دیجیتال میزان شارژ، یکی از پرفروش‌ترین پاوربانک‌های فروشگاه سبز سیستم است.</p><ul><li>ظرفیت ۴۰۰۰۰ میلی‌آمپر ساعت</li><li>پشتیبانی از شارژ سریع</li><li>نمایشگر دیجیتال میزان شارژ</li></ul>",
+      "variants": [
+        { "sku": "SEED-PB-HALO92-BASE", "name": "مدل پایه", "priceRial": 155000000, "priceToman": "15500000", "stock": 12 },
+        { "sku": "SEED-PB-HALO92-PLUS", "name": "همراه کابل اضافه", "priceRial": 162000000, "priceToman": "16200000", "stock": 5 }
+      ],
+      "media": [
+        { "file": "seed-01.jpg", "mediaType": "IMAGE" },
+        { "file": "seed-02.jpg", "mediaType": "IMAGE" }
+      ]
+    },
+    {
+      "slug": "xiaomi-redmi-note-13-256",
+      "name": "گوشی موبایل شیائومی Redmi Note 13 حافظه ۲۵۶ رم ۸",
+      "brandSlug": "xiaomi",
+      "categorySlug": "mobile-phones",
+      "condition": "NEW",
+      "warranty": "۱۸ ماه گارانتی سبز سیستم",
+      "originCountry": "چین",
+      "shortDescription": "میان‌رده محبوب شیائومی با نمایشگر امولد و دوربین ۱۰۸ مگاپیکسلی.",
+      "description": "<p>گوشی <strong>Redmi Note 13</strong> با نمایشگر امولد ۱۲۰ هرتزی و باتری ۵۰۰۰ میلی‌آمپری، انتخابی مطمئن در بازه قیمتی میان‌رده است.</p>",
+      "variants": [
+        { "sku": "SEED-MOB-RN13-256", "name": "۲۵۶/۸ گیگ", "priceRial": 95000000, "priceToman": "9500000", "stock": 8 }
+      ],
+      "media": [{ "file": "seed-03.jpg", "mediaType": "IMAGE" }]
+    },
+    {
+      "slug": "porodo-soundtec-tws-earbuds",
+      "name": "هندزفری بلوتوثی پرودو مدل Soundtec با کیس شارژ",
+      "brandSlug": "porodo",
+      "categorySlug": "headphones",
+      "condition": "NEW",
+      "warranty": "۱۲ ماه گارانتی سبز سیستم",
+      "originCountry": "چین",
+      "shortDescription": "هندزفری بلوتوثی با حذف نویز مکالمه و کیس شارژ سریع.",
+      "description": null,
+      "variants": [
+        { "sku": "SEED-HP-PD-SOUNDTEC", "name": "مشکی", "priceRial": 18000000, "priceToman": "1800000", "stock": 18 }
+      ],
+      "media": [{ "file": "seed-04.jpg", "mediaType": "IMAGE" }]
+    },
+    {
+      "slug": "green-lion-wireless-ch-station-4in1",
+      "name": "شارژر رومیزی گرین لاین مدل Wireless-Ch Station 4 in 1",
+      "brandSlug": "green-lion",
+      "categorySlug": "chargers",
+      "condition": "NEW",
+      "warranty": "۱۸ ماه گارانتی سبز سیستم",
+      "originCountry": "چین",
+      "shortDescription": "استند شارژ ۴ کاره مگ‌سیف برای گوشی، ساعت و هندزفری.",
+      "description": "<p>شارژر رومیزی <strong>گرین لاین Wireless-Ch Station 4 in 1</strong> گوشی، ساعت هوشمند و هندزفری شما را هم‌زمان و بدون سیم‌های اضافه شارژ می‌کند.</p>",
+      "variants": [
+        { "sku": "SEED-CH-GL-4IN1", "name": "سفید", "priceRial": 69000000, "priceToman": "6900000", "stock": 10 }
+      ],
+      "media": [
+        { "file": "seed-05.jpg", "mediaType": "IMAGE" },
+        { "file": "seed-06.jpg", "mediaType": "IMAGE" }
+      ]
+    },
+    {
+      "slug": "green-lion-prisma-4k-projector",
+      "name": "ویدیو پروژکتور قابل حمل گرین لاین مدل Prisma 4K",
+      "brandSlug": "green-lion",
+      "categorySlug": "audio-video",
+      "condition": "NEW",
+      "warranty": "۱۸ ماه گارانتی سبز سیستم",
+      "originCountry": "چین",
+      "shortDescription": "پروژکتور قابل حمل با کیفیت HD و اتصال بی‌سیم.",
+      "description": "<p>ویدیو پروژکتور <strong>گرین لاین Prisma 4K</strong> با طراحی قابل حمل و اتصالات متنوع، سینمای خانگی شما را هرجا که باشید می‌سازد.</p><ul><li>رزولوشن HD با پشتیبانی از 4K</li><li>اتصال وای‌فای و بلوتوث</li><li>اسپیکر داخلی</li></ul>",
+      "variants": [
+        { "sku": "SEED-AV-GL-PRISMA", "name": "مدل پایه", "priceRial": 269000000, "priceToman": "26900000", "stock": 3 }
+      ],
+      "media": [
+        { "file": "seed-07.jpg", "mediaType": "IMAGE" },
+        { "file": "seed-08.jpg", "mediaType": "IMAGE" },
+        { "file": "seed-09.jpg", "mediaType": "IMAGE" }
+      ]
+    },
+    {
+      "slug": "kxk-686-rechargeable-spotlight",
+      "name": "پرژکتور شارژی چندمنظوره KXK-686",
+      "brandSlug": "kerbi",
+      "categorySlug": "audio-video",
+      "condition": "NEW",
+      "warranty": "۱۲ ماه گارانتی سبز سیستم",
+      "originCountry": "چین",
+      "shortDescription": "نور قابل‌حمل چندحالته و قدرتمند برای طبیعت‌گردی و مواقع اضطراری.",
+      "description": null,
+      "variants": [
+        { "sku": "SEED-AV-KXK686", "name": "مدل پایه", "priceRial": 19000000, "priceToman": "1900000", "stock": 25 }
+      ],
+      "media": [{ "file": "seed-10.jpg", "mediaType": "IMAGE" }]
+    },
+    {
+      "slug": "kerbi-y225-lantern-speaker",
+      "name": "اسپیکر چراغ‌دار کربی مدل Y225",
+      "brandSlug": "kerbi",
+      "categorySlug": "speakers",
+      "condition": "NEW",
+      "warranty": "۱۲ ماه گارانتی سبز سیستم",
+      "originCountry": "چین",
+      "shortDescription": "اسپیکر بلوتوثی همراه چراغ روشنایی برای سفر و کمپینگ.",
+      "description": null,
+      "variants": [
+        { "sku": "SEED-SP-KB-Y225", "name": "مشکی", "priceRial": 46500000, "priceToman": "4650000", "stock": 11 }
+      ],
+      "media": [{ "file": "seed-01.jpg", "mediaType": "IMAGE" }]
+    },
+    {
+      "slug": "green-lion-snap-label-printer",
+      "name": "پرینتر حرارتی (لیبل‌زن) گرین لاین مدل Snap Label",
+      "brandSlug": "green-lion",
+      "categorySlug": "computer-accessories",
+      "condition": "NEW",
+      "warranty": "۱۸ ماه گارانتی سبز سیستم",
+      "originCountry": "چین",
+      "shortDescription": "لیبل‌زن حرارتی قابل‌حمل برای فروشگاه، انبار و منزل.",
+      "description": null,
+      "variants": [
+        { "sku": "SEED-PC-GL-SNAP", "name": "مدل پایه", "priceRial": 57500000, "priceToman": "5750000", "stock": 5 }
+      ],
+      "media": [{ "file": "seed-02.jpg", "mediaType": "IMAGE" }]
+    },
+    {
+      "slug": "sandisk-ultra-flash-128gb",
+      "name": "فلش مموری سن‌دیسک Ultra ظرفیت ۱۲۸ گیگابایت",
+      "brandSlug": "sandisk",
+      "categorySlug": "flash-memory",
+      "condition": "NEW",
+      "warranty": "۲۴ ماه گارانتی سبز سیستم",
+      "originCountry": "چین",
+      "shortDescription": "فلش USB 3.2 با سرعت خواندن بالا و بدنه مقاوم.",
+      "description": null,
+      "variants": [
+        { "sku": "SEED-ST-SD-U128", "name": "۱۲۸ گیگ", "priceRial": 12000000, "priceToman": "1200000", "stock": 50 }
+      ],
+      "media": [{ "file": "seed-03.jpg", "mediaType": "IMAGE" }]
+    },
+    {
+      "slug": "samsung-870-evo-1tb-ssd",
+      "name": "حافظه SSD سامسونگ 870 EVO ظرفیت ۱ ترابایت",
+      "brandSlug": "samsung",
+      "categorySlug": "ssd",
+      "condition": "NEW",
+      "warranty": "۳۶ ماه گارانتی سبز سیستم",
+      "originCountry": "کره جنوبی",
+      "shortDescription": "اس‌اس‌دی ساتا با سرعت و دوام اثبات‌شده برای لپ‌تاپ و کامپیوتر.",
+      "description": null,
+      "variants": [
+        { "sku": "SEED-ST-SS-870E1T", "name": "۱ ترابایت", "priceRial": 48000000, "priceToman": "4800000", "stock": 14 }
+      ],
+      "media": [{ "file": "seed-04.jpg", "mediaType": "IMAGE" }]
+    },
+    {
+      "slug": "wd-elements-2tb-external-hdd",
+      "name": "هارد دیسک اکسترنال وسترن دیجیتال Elements ظرفیت ۲ ترابایت",
+      "brandSlug": "western-digital",
+      "categorySlug": "external-hdd",
+      "condition": "NEW",
+      "warranty": "۲۴ ماه گارانتی سبز سیستم",
+      "originCountry": "چین",
+      "shortDescription": "هارد اکسترنال قابل‌حمل با اتصال USB 3.0 برای بکاپ‌گیری.",
+      "description": null,
+      "variants": [
+        { "sku": "SEED-ST-WD-EL2T", "name": "۲ ترابایت", "priceRial": 42000000, "priceToman": "4200000", "stock": 9 }
+      ],
+      "media": [{ "file": "seed-05.jpg", "mediaType": "IMAGE" }]
+    },
+    {
+      "slug": "biva-fa-01-hand-fan",
+      "name": "پنکه دستی بیوا مدل BIVA FA-01",
+      "brandSlug": "biva",
+      "categorySlug": "smart-gadgets",
+      "condition": "NEW",
+      "warranty": "۱۲ ماه گارانتی سبز سیستم",
+      "originCountry": "چین",
+      "shortDescription": "پنکه دستی شارژی با ۳ سطح سرعت و درگاه Micro USB.",
+      "description": "<ul><li>وزن ۳۵۰ گرم</li><li>ظرفیت باتری ۵۰۰ میلی‌آمپر ساعت</li><li>۱.۵ تا ۲ ساعت کارکرد</li><li>۳ سطح سرعت باد</li></ul>",
+      "variants": [
+        { "sku": "SEED-GD-BV-FA01", "name": "سفید", "priceRial": 14500000, "priceToman": "1450000", "stock": 30 }
+      ],
+      "media": [{ "file": "seed-06.jpg", "mediaType": "IMAGE" }]
+    },
+    {
+      "slug": "green-lion-smart-egg-cooker",
+      "name": "تخم‌مرغ‌پز گرین لاین مدل Smart Egg Cooker",
+      "brandSlug": "green-lion",
+      "categorySlug": "smart-gadgets",
+      "condition": "NEW",
+      "warranty": "۱۲ ماه گارانتی سبز سیستم",
+      "originCountry": "چین",
+      "shortDescription": "تخم‌مرغ‌پز برقی با خاموشی خودکار و طراحی کم‌جا.",
+      "description": null,
+      "variants": [
+        { "sku": "SEED-GD-GL-EGG", "name": "مدل پایه", "priceRial": 56000000, "priceToman": "5600000", "stock": 8 }
+      ],
+      "media": [{ "file": "seed-07.jpg", "mediaType": "IMAGE" }]
+    },
+    {
+      "slug": "powerology-lumu-heated-lunch-box",
+      "name": "ظرف غذای گرم‌کن‌دار پاورولوژی Lumu PLBF818",
+      "brandSlug": "powerology",
+      "categorySlug": "smart-gadgets",
+      "condition": "NEW",
+      "warranty": "۱۲ ماه گارانتی سبز سیستم",
+      "originCountry": "چین",
+      "shortDescription": "لانچ‌باکس برقی با گرم‌کن داخلی برای محل کار و سفر.",
+      "description": null,
+      "variants": [
+        { "sku": "SEED-GD-PO-LUMU", "name": "خاکستری", "priceRial": 78000000, "priceToman": "7800000", "stock": 6 }
+      ],
+      "media": [{ "file": "seed-08.jpg", "mediaType": "IMAGE" }]
+    },
+    {
+      "slug": "portable-touch-makeup-mirror",
+      "name": "آینه آرایشی چراغ‌دار لمسی شارژی قابل‌حمل",
+      "brandSlug": "green-lion",
+      "categorySlug": "smart-gadgets",
+      "condition": "NEW",
+      "warranty": "۱۲ ماه گارانتی سبز سیستم",
+      "originCountry": "چین",
+      "shortDescription": "آینه لمسی با تنظیم دمای رنگ و شدت نور و باتری ۳۰۰۰ میلی‌آمپری.",
+      "description": "<ul><li><strong>تنظیم دمای رنگ و شدت نور</strong>: دمای رنگ ۰ تا ۹۰۰۰ کلوین</li><li><strong>نورپردازی بی‌نظیر</strong>: بازتولید ۹۷٪ رنگ‌های طبیعی نور روز</li><li><strong>سه نوع نور</strong>: طبیعی، گرم و سرد</li><li><strong>باتری قابل شارژ</strong>: ۳۰۰۰ میلی‌آمپر ساعت</li></ul>",
+      "variants": [
+        { "sku": "SEED-GD-GL-MIRROR", "name": "سفید", "priceRial": 23500000, "priceToman": "2350000", "stock": 15 }
+      ],
+      "media": [{ "file": "seed-09.jpg", "mediaType": "IMAGE" }]
+    },
+    {
+      "slug": "green-lion-atomizer-spray-gun",
+      "name": "اسپری مه‌پاش اتمایزر گرین لاین",
+      "brandSlug": "green-lion",
+      "categorySlug": "smart-gadgets",
+      "condition": "NEW",
+      "warranty": "۱۲ ماه گارانتی سبز سیستم",
+      "originCountry": "چین",
+      "shortDescription": "تفنگ اسپری کاربردی برای نظافت و ضدعفونی.",
+      "description": null,
+      "variants": [
+        { "sku": "SEED-GD-GL-ATOM", "name": "مدل پایه", "priceRial": 43000000, "priceToman": "4300000", "stock": 20 }
+      ],
+      "media": [{ "file": "seed-10.jpg", "mediaType": "IMAGE" }]
+    },
+    {
+      "slug": "green-lion-hyper-air-inflator",
+      "name": "پمپ باد شارژی گرین لاین Hyper Air GNHYINFTRBK",
+      "brandSlug": "green-lion",
+      "categorySlug": "smart-gadgets",
+      "condition": "NEW",
+      "warranty": "۱۸ ماه گارانتی سبز سیستم",
+      "originCountry": "چین",
+      "shortDescription": "کمپرسور باد قابل‌حمل با نمایشگر دیجیتال و توقف خودکار.",
+      "description": "<ul><li>باتری قدرتمند دوگانه ۳۶۰۰</li><li>فشار خروجی تا ۱۵۰PSI مناسب خودرو، موتور و دوچرخه</li><li>قابلیت تنظیم فشار و توقف خودکار هوشمند</li><li>نمایشگر دیجیتال با پشتیبانی از PSI / BAR / KPA</li><li>شارژ سریع از طریق درگاه USB-C</li></ul>",
+      "variants": [
+        { "sku": "SEED-GD-GL-HYPER", "name": "مشکی", "priceRial": 53500000, "priceToman": "5350000", "stock": 13 }
+      ],
+      "media": [
+        { "file": "seed-01.jpg", "mediaType": "IMAGE" },
+        { "file": "seed-02.jpg", "mediaType": "IMAGE" }
+      ]
+    },
+    {
+      "slug": "powerology-sunglasses-cannes",
+      "name": "عینک هوشمند پاورولوژی Sunglasses Cannes",
+      "brandSlug": "powerology",
+      "categorySlug": "smart-glasses",
+      "condition": "NEW",
+      "warranty": "۱۲ ماه گارانتی سبز سیستم",
+      "originCountry": "چین",
+      "shortDescription": "عینک هوشمند با اسپیکر داخلی و اتصال بلوتوث.",
+      "description": null,
+      "variants": [
+        { "sku": "SEED-SG-PO-CANNES", "name": "مشکی", "priceRial": 64000000, "priceToman": "6400000", "stock": 7 }
+      ],
+      "media": [{ "file": "seed-03.jpg", "mediaType": "IMAGE" }]
+    },
+    {
+      "slug": "porodo-pdxv40-handheld-console",
+      "name": "کنسول دستی پرودو مدل PDXV40",
+      "brandSlug": "porodo",
+      "categorySlug": "game-consoles",
+      "condition": "NEW",
+      "warranty": "۱۲ ماه گارانتی سبز سیستم",
+      "originCountry": "چین",
+      "shortDescription": "کنسول بازی دستی با هزاران بازی کلاسیک و خروجی تلویزیون.",
+      "description": "<p>کنسول دستی <strong>پرودو PDXV40</strong> با صفحه‌نمایش رنگی و قابلیت اتصال به تلویزیون، ساعت‌ها سرگرمی را در جیب شما می‌گذارد.</p>",
+      "variants": [
+        { "sku": "SEED-GC-PD-V40", "name": "مشکی", "priceRial": 119000000, "priceToman": "11900000", "stock": 4 }
+      ],
+      "media": [
+        { "file": "seed-04.jpg", "mediaType": "IMAGE" },
+        { "file": "demo-unboxing.mp4", "mediaType": "VIDEO" }
+      ]
+    },
+    {
+      "slug": "xiaomi-mijia-handheld-steamer",
+      "name": "اتو بخار شیائومی مدل Mijia MJGTJ02LF",
+      "brandSlug": "xiaomi",
+      "categorySlug": "mobile-accessories",
+      "condition": "NEW",
+      "warranty": "۱۸ ماه گارانتی سبز سیستم",
+      "originCountry": "چین",
+      "shortDescription": "اتو بخار دستی ایده‌آل برای حفظ ظاهر تمیز لباس‌ها.",
+      "description": null,
+      "variants": [
+        { "sku": "SEED-MA-XM-STEAM", "name": "سفید", "priceRial": 79000000, "priceToman": "7900000", "stock": 9 }
+      ],
+      "media": [{ "file": "seed-05.jpg", "mediaType": "IMAGE" }]
+    },
+    {
+      "slug": "kerbi-s102-accessory-pack",
+      "name": "پک لوازم جانبی کربی مدل S102",
+      "brandSlug": "kerbi",
+      "categorySlug": "mobile-accessories",
+      "condition": "NEW",
+      "warranty": "۱۲ ماه گارانتی سبز سیستم",
+      "originCountry": "چین",
+      "shortDescription": "مجموعه کم‌حجم و کاربردی لوازم جانبی موبایل.",
+      "description": null,
+      "variants": [
+        { "sku": "SEED-MA-KB-S102", "name": "مدل پایه", "priceRial": 6900000, "priceToman": "690000", "stock": 40 }
+      ],
+      "media": [{ "file": "seed-06.jpg", "mediaType": "IMAGE" }]
+    },
+    {
+      "slug": "mijia-mqxjq01kl-lint-remover",
+      "name": "پرزگیر برقی لباس میجیا مدل MQXJQ01KL",
+      "brandSlug": "xiaomi",
+      "categorySlug": "mobile-accessories",
+      "condition": "NEW",
+      "warranty": "۱۲ ماه گارانتی سبز سیستم",
+      "originCountry": "چین",
+      "shortDescription": "پرزگیر برقی برای نگهداری از لباس‌ها و حفظ ظاهر تمیز آن‌ها.",
+      "description": null,
+      "variants": [
+        { "sku": "SEED-MA-XM-LINT", "name": "سفید", "priceRial": 8500000, "priceToman": "850000", "stock": 0 }
+      ],
+      "media": [{ "file": "seed-07.jpg", "mediaType": "IMAGE" }]
+    },
+    {
+      "slug": "lenovo-thinkpad-t480-stock",
+      "name": "لپ‌تاپ استوک لنوو ThinkPad T480 تمیز و تست‌شده",
+      "brandSlug": "lenovo",
+      "categorySlug": "stock-goods",
+      "condition": "STOCK_CLEARANCE",
+      "warranty": "۷ روز مهلت تست سلامت",
+      "originCountry": "چین",
+      "shortDescription": "استوک تمیز با پردازنده نسل ۸، رم ۸ و حافظه ۲۵۶ گیگ.",
+      "description": "<p>لپ‌تاپ استوک <strong>ThinkPad T480</strong> در وضعیت تمیز و کاملا تست‌شده، مناسب کاربری اداری و دانشجویی.</p>",
+      "variants": [
+        { "sku": "SEED-SK-LN-T480", "name": "i5/8/256", "priceRial": 145000000, "priceToman": "14500000", "stock": 2 }
+      ],
+      "media": [{ "file": "seed-08.jpg", "mediaType": "IMAGE" }]
+    }
+  ]
+}

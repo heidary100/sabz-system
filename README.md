@@ -124,7 +124,7 @@ docker compose up -d --build
         ├─ API container waits for both health checks, then:
         │    1. prisma generate  (Prisma client)
         │    2. prisma migrate deploy (applies all pending migrations)
-        │    3. prisma db seed   (roles, dev admin, default warehouse — idempotent)
+        │    3. prisma db seed   (roles, dev admin, default warehouse, demo catalog — idempotent)
         │    4. nest start --watch
         │
         ├─ Admin dev server starts (Vite, hot reload)
@@ -184,6 +184,7 @@ The seed is **idempotent** (upsert-based) and safe to run any number of times. I
 - The four system roles (`CUSTOMER`, `PARTNER`, `OPERATOR`, `ADMIN`)
 - The development admin user (`DEV_ADMIN_MOBILE`) with the `ADMIN` role and a Persian profile
 - The default warehouse (`DEFAULT`) required by inventory
+- The demo catalog (SS-131): 17 categories, 10 brands and 23 published products snapshotted from sabzsistem.com (prices normalized to Toman), with watermarked media uploaded through the production pipeline
 
 ### Database Reset (Destructive)
 
