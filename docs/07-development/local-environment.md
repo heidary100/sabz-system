@@ -178,6 +178,32 @@ The JWT variables are required because the app bootstraps the full Nest
 application (which calls `getOrThrow` on both secrets). If `apps/api/.env`
 already contains them, the inline values are redundant but harmless.
 
+### Test-database isolation (test_db)
+
+Integration and E2E suites never touch the development database the portal
+reads. A Jest `globalSetup` (`apps/api/test/test-database.setup.ts`) resolves
+a dedicated test database before any spec runs:
+
+- `TEST_DATABASE_URL` when set (CI, managed Postgres) — used as-is.
+- Otherwise derived from `DATABASE_URL` by suffixing the database name with
+  `_test` (dev `sabz` → `sabz_test`), preserving host and credentials, so
+  Compose (`postgres`) and host-native (`localhost`) layouts both work with
+  zero configuration.
+
+The setup creates the database when missing, applies all committed
+migrations, then points the worker processes at it. The hard rule is enforced
+fail-fast: any resolved test database whose name does not end with `_test`
+aborts the run instead of risking the dev catalog. `DATABASE_URL` in the
+examples above is therefore only the *dev connection the test name derives
+from* — no test row ever lands in it.
+
+The test database is kept afterwards for fast reruns and failure inspection;
+it is disposable test space by contract. To start over, drop it
+(`DROP DATABASE sabz_test`) — the next run recreates it.
+
+Integration specs must still clean up any rows they create (keeps the shared
+test database tidy across suites).
+
 ## Integration tests (database-backed)
 
 Real-database specs run against the migrated PostgreSQL database using the
@@ -193,6 +219,10 @@ JWT_ACCESS_SECRET="dev_access_secret_change_me" \
 JWT_REFRESH_SECRET="dev_refresh_secret_change_me" \
 pnpm --filter @sabz/api test:integration
 ```
+
+The same test-database isolation as the E2E suite applies (see above):
+specs run against `sabz_test` (derived) or `TEST_DATABASE_URL`, never the
+dev database.
 
 Integration specs must clean up any rows they create.
 
