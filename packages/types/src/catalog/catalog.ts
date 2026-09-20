@@ -30,7 +30,7 @@ export interface CatalogListQuery {
   sort?: CatalogProductSort;
 }
 
-/** Visible category with the number of published products it (directly) holds. */
+/** Visible category with the published-product count of its whole subtree (SS-205 roll-up). */
 export interface CatalogCategoryNode {
   id: string;
   name: string;

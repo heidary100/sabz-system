@@ -155,9 +155,16 @@ describe('BrandsService', () => {
       expect(result.isFeatured).toBe(false);
     });
 
-    it('falls back to a random prefixed slug when the name is non-alphanumeric', async () => {
-      tx.brand.create.mockResolvedValue(makeSummaryRow({ slug: 'brand-abcd1234' }));
+    it('transliterates Persian names instead of random fallback (SS-205)', async () => {
+      tx.brand.create.mockResolvedValue(makeSummaryRow({ slug: 'dl' }));
       await service.create({ name: 'دل' }, actorId);
+      const data = (tx.brand.create as jest.Mock).mock.calls[0][0].data;
+      expect(data.slug).toBe('dl');
+    });
+
+    it('falls back to a random prefixed slug when nothing slug-worthy survives', async () => {
+      tx.brand.create.mockResolvedValue(makeSummaryRow({ slug: 'brand-abcd1234' }));
+      await service.create({ name: '!!!' }, actorId);
       const data = (tx.brand.create as jest.Mock).mock.calls[0][0].data;
       expect(data.slug).toMatch(/^brand-[0-9a-f]{8}$/);
     });

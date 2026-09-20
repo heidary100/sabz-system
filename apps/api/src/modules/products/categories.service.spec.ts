@@ -183,9 +183,16 @@ describe('CategoriesService', () => {
       expect(result.slug).toBe('laptop');
     });
 
-    it('falls back to a random prefixed slug when the name is non-alphanumeric', async () => {
-      tx.category.create.mockResolvedValue(makeDetailRow({ slug: 'category-abcd1234' }));
+    it('transliterates Persian names instead of random fallback (SS-205)', async () => {
+      tx.category.create.mockResolvedValue(makeDetailRow({ slug: 'lptap' }));
       await service.create({ name: 'لپتاپ' }, actorId);
+      const data = (tx.category.create as jest.Mock).mock.calls[0][0].data;
+      expect(data.slug).toBe('lptap');
+    });
+
+    it('falls back to a random prefixed slug when nothing slug-worthy survives', async () => {
+      tx.category.create.mockResolvedValue(makeDetailRow({ slug: 'category-abcd1234' }));
+      await service.create({ name: '!!!' }, actorId);
       const data = (tx.category.create as jest.Mock).mock.calls[0][0].data;
       expect(data.slug).toMatch(/^category-[0-9a-f]{8}$/);
     });
