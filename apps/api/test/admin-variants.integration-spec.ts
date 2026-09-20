@@ -1,7 +1,6 @@
 import { ProductCondition, ProductStatus } from '@prisma/client';
 import { PrismaService } from '../src/common/database/prisma.service';
 import { AuditService } from '../src/modules/audit/audit.service';
-import { InventoryService } from '../src/modules/inventory/inventory.service';
 import { VariantsService } from '../src/modules/products/variants.service';
 
 jest.setTimeout(30_000);
@@ -63,7 +62,6 @@ describe('Admin variant API database integration (SS-104)', () => {
         productId,
         sku: `SKU-${Date.now()}-${Math.random()}`,
         price: '100.00',
-        stockQuantity: 0,
         createdBy: actorId,
         ...overrides,
       } as never,
@@ -76,8 +74,7 @@ describe('Admin variant API database integration (SS-104)', () => {
     prisma = new PrismaService();
     await prisma.$connect();
     const audit = new AuditService(prisma);
-    const inventory = new InventoryService(prisma, audit);
-    service = new VariantsService(prisma, audit, inventory);
+    service = new VariantsService(prisma, audit);
   });
 
   afterAll(async () => {
@@ -125,7 +122,7 @@ describe('Admin variant API database integration (SS-104)', () => {
     const productId = await createProduct();
     const result = await service.create(
       productId,
-      { sku: `SKU-CREATE-${Date.now()}`, price: '2500.00', stockQuantity: 4, name: 'پایه' },
+      { sku: `SKU-CREATE-${Date.now()}`, price: '2500.00', name: 'پایه' },
       actorId,
     );
 
@@ -142,7 +139,7 @@ describe('Admin variant API database integration (SS-104)', () => {
     expect(JSON.stringify(result)).not.toContain('createdBy');
 
     const row = await prisma.productVariant.findUnique({ where: { id: result.id } });
-    expect(row?.stockQuantity).toBe(4);
+    expect(row?.price.toString()).toBe('2500');
 
     const audits = await prisma.auditLog.findMany({
       where: { entityId: result.id, action: 'PRODUCT_VARIANT_CREATED' },
@@ -243,27 +240,23 @@ describe('Admin variant API database integration (SS-104)', () => {
     ).rejects.toMatchObject({ status: 404 });
   });
 
-  it('sets stock and audits PRODUCT_INVENTORY_SET', async () => {
-    const productId = await createProduct();
-    const variantId = await createVariant(productId, { stockQuantity: 1 });
-
-    const result = await service.updateInventory(variantId, { stockQuantity: 7 }, actorId);
-    expect(result.stockQuantity).toBe(7);
-
-    const audits = await prisma.auditLog.findMany({
-      where: { entityId: variantId, action: 'PRODUCT_INVENTORY_SET' },
-    });
-    expect(audits.length).toBeGreaterThanOrEqual(1);
-    expect(JSON.stringify(audits[0]!.before)).toContain('"stockQuantity":1');
-    expect(JSON.stringify(audits[0]!.after)).toContain('"stockQuantity":7');
+  it('exposes no inventory write on the variant service (SS-130 removed the compat path)', async () => {
+    expect(
+      (service as unknown as Record<string, unknown>).updateInventory,
+    ).toBeUndefined();
   });
 
-  it('rejects inventory update on a soft-deleted variant with 404', async () => {
+  it('rejects unknown inventory-style fields on update with no side effects', async () => {
     const productId = await createProduct();
-    const variantId = await createVariant(productId, { deletedAt: new Date() });
-    await expect(
-      service.updateInventory(variantId, { stockQuantity: 1 }, actorId),
-    ).rejects.toMatchObject({ status: 404 });
+    const variantId = await createVariant(productId);
+    // stockQuantity is not part of UpdateVariantDto; extra body fields are
+    // ignored by the service (buildUpdateData picks known keys only).
+    const result = await service.update(
+      variantId,
+      { name: 'x' } as never,
+      actorId,
+    );
+    expect(result.id).toBe(variantId);
   });
 
   it('soft-deletes a variant, excludes it from reads, and audits', async () => {
@@ -289,9 +282,6 @@ describe('Admin variant API database integration (SS-104)', () => {
     const variantId = await createVariant(productId, { deletedAt: new Date() });
     await expect(
       service.update(variantId, { name: 'x' }, actorId),
-    ).rejects.toMatchObject({ status: 404 });
-    await expect(
-      service.updateInventory(variantId, { stockQuantity: 1 }, actorId),
     ).rejects.toMatchObject({ status: 404 });
     await expect(service.softDelete(variantId, actorId)).rejects.toMatchObject({
       status: 404,

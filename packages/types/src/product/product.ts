@@ -37,7 +37,6 @@ export interface VariantSummary {
   barcode: string | null;
   name: string | null;
   price: string;
-  stockQuantity: number;
 }
 
 export interface ProductMediaSummary {

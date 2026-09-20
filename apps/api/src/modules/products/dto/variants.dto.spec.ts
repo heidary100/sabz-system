@@ -2,7 +2,6 @@ import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { CreateVariantDto } from './create-variant.dto';
 import { UpdateVariantDto } from './update-variant.dto';
-import { UpdateVariantInventoryDto } from './update-inventory.dto';
 
 async function expectValid<T extends object>(dto: T): Promise<void> {
   const errors = await validate(dto as object);
@@ -33,7 +32,6 @@ describe('CreateVariantDto', () => {
         ...base,
         barcode: ' 123456 ',
         name: '  پایه  ',
-        stockQuantity: 3,
       }),
     );
   });
@@ -86,27 +84,14 @@ describe('CreateVariantDto', () => {
     );
   });
 
-  it('rejects a negative stockQuantity', async () => {
-    await expectInvalid(
-      plainToInstance(CreateVariantDto, { ...base, stockQuantity: -1 }),
-      'stockQuantity',
-    );
-  });
-
-  it('rejects a fractional stockQuantity', async () => {
-    await expectInvalid(
-      plainToInstance(CreateVariantDto, { ...base, stockQuantity: 1.5 }),
-      'stockQuantity',
-    );
-  });
-
-  it('ignores any productId passed in the body', async () => {
-    // The owning product is a route param only; the DTO declares no productId
-    // property, so a body-supplied productId is not part of the contract and
-    // does not fail validation.
+  it('ignores any productId or stockQuantity passed in the body', async () => {
+    // The owning product is a route param only and stock is managed through
+    // the inventory endpoint; neither declares a DTO property, so passing
+    // them does not fail validation and they are never persisted from the body.
     const dto = plainToInstance(CreateVariantDto, {
       ...base,
       productId: '9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d',
+      stockQuantity: 3,
     });
     await expectValid(dto);
   });
@@ -148,38 +133,14 @@ describe('UpdateVariantDto', () => {
     );
   });
 
-  it('does not validate or accept productId or inventory fields', async () => {
-    // productId (re-parenting) and stockQuantity (inventory authority lives in
-    // the inventory endpoint) are intentionally not part of the update contract;
-    // passing them does not fail validation.
+  it('does not validate or accept productId', async () => {
+    // productId (re-parenting) is intentionally not part of the update
+    // contract; passing it does not fail validation. Stock is managed
+    // exclusively through the inventory endpoint (SS-130 removed the
+    // deprecated variant inventory DTO).
     const dto = plainToInstance(UpdateVariantDto, {
       productId: '9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d',
-      stockQuantity: 5,
     });
     await expectValid(dto);
-  });
-});
-
-describe('UpdateVariantInventoryDto', () => {
-  it('accepts a valid non-negative stockQuantity', async () => {
-    await expectValid(plainToInstance(UpdateVariantInventoryDto, { stockQuantity: 0 }));
-  });
-
-  it('rejects a missing stockQuantity', async () => {
-    await expectInvalid(plainToInstance(UpdateVariantInventoryDto, {}), 'stockQuantity');
-  });
-
-  it('rejects a negative stockQuantity', async () => {
-    await expectInvalid(
-      plainToInstance(UpdateVariantInventoryDto, { stockQuantity: -1 }),
-      'stockQuantity',
-    );
-  });
-
-  it('rejects a fractional stockQuantity', async () => {
-    await expectInvalid(
-      plainToInstance(UpdateVariantInventoryDto, { stockQuantity: 1.5 }),
-      'stockQuantity',
-    );
   });
 });

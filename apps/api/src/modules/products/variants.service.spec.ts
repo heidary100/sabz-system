@@ -1,7 +1,6 @@
 import { Prisma, ProductStatus } from '@prisma/client';
 import { PrismaService } from '../../common/database/prisma.service';
 import { AuditService } from '../audit/audit.service';
-import { InventoryService } from '../inventory/inventory.service';
 import { VariantsService } from './variants.service';
 
 function makeVariantRow(overrides: Record<string, unknown> = {}) {
@@ -12,7 +11,6 @@ function makeVariantRow(overrides: Record<string, unknown> = {}) {
     barcode: null,
     name: null,
     price: { toString: () => '1500.00' },
-    stockQuantity: 0,
     deletedAt: null,
     ...overrides,
   };
@@ -53,7 +51,6 @@ describe('VariantsService', () => {
     $transaction: jest.Mock;
   };
   let audit: { log: jest.Mock };
-  let inventory: { setVariantStockCompat: jest.Mock };
   let tx: TxMock;
 
   beforeEach(() => {
@@ -78,7 +75,6 @@ describe('VariantsService', () => {
       $transaction: jest.fn(),
     };
     audit = { log: jest.fn() };
-    inventory = { setVariantStockCompat: jest.fn().mockResolvedValue(undefined) };
 
     prisma.$transaction.mockImplementation((arg: unknown) => {
       if (typeof arg === 'function') {
@@ -93,7 +89,6 @@ describe('VariantsService', () => {
     service = new VariantsService(
       prisma as unknown as PrismaService,
       audit as unknown as AuditService,
-      inventory as unknown as InventoryService,
     );
   });
 
@@ -143,7 +138,6 @@ describe('VariantsService', () => {
         barcode: null,
         name: null,
         price: '1500.00',
-        stockQuantity: 0,
       });
     });
 
@@ -170,19 +164,18 @@ describe('VariantsService', () => {
 
       const result = await service.create(
         'prod-1',
-        { sku: 'XPS13-BASE', price: '1500.00', stockQuantity: 2 },
+        { sku: 'XPS13-BASE', price: '1500.00' },
         'actor-1',
         '127.0.0.1',
       );
 
-      expect(result.stockQuantity).toBe(0);
+      expect(result.sku).toBe('XPS13-BASE');
       expect(tx.productVariant.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
             productId: 'prod-1',
             sku: 'XPS13-BASE',
             price: '1500.00',
-            stockQuantity: 2,
             createdBy: 'actor-1',
           }),
         }),
@@ -307,70 +300,6 @@ describe('VariantsService', () => {
       await expect(
         service.update('var-1', { sku: 'DUP' }, 'actor-1'),
       ).rejects.toMatchObject({ status: 409 });
-    });
-  });
-
-  describe('updateInventory', () => {
-    it('delegates the write to the inventory path and returns the refreshed summary', async () => {
-      prisma.productVariant.findUnique.mockResolvedValue(
-        makeVariantRow({ stockQuantity: 8, price: { toString: () => '100.00' } }),
-      );
-
-      const result = await service.updateInventory(
-        'var-1',
-        { stockQuantity: 8 },
-        'actor-1',
-      );
-
-      expect(inventory.setVariantStockCompat).toHaveBeenCalledWith(
-        'var-1',
-        8,
-        'actor-1',
-        undefined,
-      );
-      expect(result.stockQuantity).toBe(8);
-    });
-
-    it('never writes ProductVariant.stockQuantity or audits from VariantsService', async () => {
-      prisma.productVariant.findUnique.mockResolvedValue(
-        makeVariantRow({ stockQuantity: 8, price: { toString: () => '100.00' } }),
-      );
-
-      await service.updateInventory('var-1', { stockQuantity: 8 }, 'actor-1');
-
-      expect(tx.productVariant.updateMany).not.toHaveBeenCalled();
-      expect(audit.log).not.toHaveBeenCalled();
-    });
-
-    it('passes the request ip to the inventory write path', async () => {
-      prisma.productVariant.findUnique.mockResolvedValue(
-        makeVariantRow({ stockQuantity: 8, price: { toString: () => '100.00' } }),
-      );
-
-      await service.updateInventory(
-        'var-1',
-        { stockQuantity: 8 },
-        'actor-1',
-        '127.0.0.1',
-      );
-
-      expect(inventory.setVariantStockCompat).toHaveBeenCalledWith(
-        'var-1',
-        8,
-        'actor-1',
-        '127.0.0.1',
-      );
-    });
-
-    it('throws 404 when the variant is soft-deleted after the write (no resurrection)', async () => {
-      inventory.setVariantStockCompat.mockResolvedValue(undefined);
-      prisma.productVariant.findUnique.mockResolvedValue(
-        makeVariantRow({ deletedAt: new Date() }),
-      );
-
-      await expect(
-        service.updateInventory('var-1', { stockQuantity: 1 }, 'actor-1'),
-      ).rejects.toMatchObject({ status: 404 });
     });
   });
 

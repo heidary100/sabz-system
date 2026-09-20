@@ -25,11 +25,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { AuthUser } from '../auth/interfaces/auth-user.interface';
 import { VariantsService } from './variants.service';
-import {
-  CreateVariantDto,
-  UpdateVariantDto,
-  UpdateVariantInventoryDto,
-} from './dto';
+import { CreateVariantDto, UpdateVariantDto } from './dto';
 
 const UUID_PARAM = new ParseUUIDPipe({ errorHttpStatusCode: HttpStatus.NOT_FOUND });
 
@@ -131,31 +127,5 @@ export class AdminVariantsController {
     @Ip() ipAddress?: string,
   ) {
     return this.variantsService.softDelete(variantId, user.userId, ipAddress);
-  }
-
-  @Patch(':id/inventory')
-  @ApiOperation({
-    summary:
-      'DEPRECATED (SS-113). Set the absolute stockQuantity on the default warehouse through the inventory write path.',
-  })
-  @ApiParam({ name: 'id', type: 'string', format: 'uuid' })
-  @ApiResponse({ status: 200, description: 'Stock quantity set.' })
-  @ApiResponse({ status: 400, description: 'Invalid body.' })
-  @ApiResponse({ status: 401, description: 'Unauthorized.' })
-  @ApiResponse({ status: 403, description: 'Forbidden.' })
-  @ApiResponse({ status: 404, description: 'Variant not found.' })
-  @ApiResponse({ status: 409, description: 'Archived product.' })
-  async updateInventory(
-    @Param('id', UUID_PARAM) variantId: string,
-    @Body() dto: UpdateVariantInventoryDto,
-    @CurrentUser() user: AuthUser,
-    @Ip() ipAddress?: string,
-  ) {
-    return this.variantsService.updateInventory(
-      variantId,
-      dto,
-      user.userId,
-      ipAddress,
-    );
   }
 }

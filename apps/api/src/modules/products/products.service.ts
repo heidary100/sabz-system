@@ -101,7 +101,6 @@ const detailSelect = {
       barcode: true,
       name: true,
       price: true,
-      stockQuantity: true,
     },
     orderBy: { createdAt: 'asc' as const },
   },
@@ -555,7 +554,6 @@ export class ProductsService {
         barcode: variant.barcode,
         name: variant.name,
         price: variant.price.toString(),
-        stockQuantity: variant.stockQuantity,
       })),
       media: row.media.map((media) => ({
         id: media.id,

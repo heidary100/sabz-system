@@ -164,7 +164,6 @@ describe('Admin product API (SS-102) (e2e)', () => {
         productId,
         sku: `SKU-${Date.now()}-${Math.random()}`,
         price: '100.00',
-        stockQuantity: 1,
       },
     });
     variantIds.push(variant.id);

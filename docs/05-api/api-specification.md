@@ -926,8 +926,8 @@ write audit events transactionally, and never expose internal fields
 GET /admin/products/{productId}/variants
 
 List the active (non-soft-deleted) variants of a product as an array of
-`VariantSummary` (`id`, `productId`, `sku`, `barcode`, `name`, `price`,
-`stockQuantity`). Missing, invalid-UUID, or soft-deleted products return 404.
+`VariantSummary` (`id`, `productId`, `sku`, `barcode`, `name`, `price`).
+Missing, invalid-UUID, or soft-deleted products return 404.
 Ordering is deterministic: `createdAt ASC`, then `id ASC`.
 
 POST /admin/products/{productId}/variants
@@ -935,7 +935,8 @@ POST /admin/products/{productId}/variants
 Create a variant for the product taken from the route param (never from the
 body). Body uses `sku` (required, trimmed, max 64), `barcode` (optional, max
 64), `name` (optional display label, max 255), `price` (required, positive,
-`Decimal(12,2)` as string), `stockQuantity` (optional integer >= 0, default 0).
+`Decimal(12,2)` as string). New variants start with no inventory rows
+(`inStock=false`) until the first `POST /admin/inventory/receive`.
 The owning product must exist, not be soft-deleted (404) and not be `ARCHIVED`
 (409). Duplicate `sku` returns 409 (DB unique constraint, race-safe). Audits
 `PRODUCT_VARIANT_CREATED`.
@@ -960,32 +961,19 @@ are captured in the before/after delta).
 DELETE /admin/variants/{id}
 
 Soft-delete a variant (`deletedAt` + `updatedBy`; no hard delete). Missing,
-invalid-UUID, or soft-deleted variants return 404. A variant may be deleted
-regardless of its `stockQuantity`. Deleting the only variant of a published
-product does **not** unpublish the product; the publish prerequisite (at least
-one active variant) applies only at publish time. Audits
+invalid-UUID, or soft-deleted variants return 404. Deleting the only variant
+of a published product does **not** unpublish the product; the publish
+prerequisite (at least one active variant) applies only at publish time. Audits
 `PRODUCT_VARIANT_DELETED`. The response is the last-known `VariantSummary`.
 
-PATCH /admin/variants/{id}/inventory
-
-**DEPRECATED (SS-113, not removed in M1).** Set the absolute `stockQuantity`
-through the inventory write path: the value is applied as an absolute set on the
-**default warehouse** (`code = 'DEFAULT'`) `InventoryItem`, a
-`MANUAL_ADJUSTMENT` movement is written, `ProductVariant.stockQuantity` is
-refreshed to the authoritative aggregate, and `PRODUCT_INVENTORY_SET` is
-audited — all in one transaction. Body: `stockQuantity` (required integer >= 0).
-The write is conditional on the variant and its owning product being active
-(`deletedAt IS NULL` and product not archived), so it never resurrects a deleted
-variant, cannot produce a negative value (validated `>= 0`), and a mutation
-racing a concurrent archive or soft-delete fails cleanly. An archived owning
-product returns 409. The response is the post-write `VariantSummary`. New code
-must use `POST /admin/inventory/receive` and `POST /admin/inventory/adjust`
-(§17.3) instead.
+> **SS-130.** `PATCH /admin/variants/{id}/inventory` (the deprecated absolute
+> `stockQuantity` compat endpoint) and the `ProductVariant.stockQuantity`
+> column were removed. Stock is managed exclusively through
+> `POST /admin/inventory/receive` and `POST /admin/inventory/adjust` (§17.3);
+> availability reads come from `InventoryItem` rows only.
 
 Authorization: all variant endpoints require `OPERATOR` or `ADMIN`. There is no
-SUPER_ADMIN role. The inventory boundary is EPIC-005: only
-`ProductVariant.stockQuantity` is exposed; warehouses, reservations,
-movements/history, receiving, returns and reorder belong to EPIC-006.
+SUPER_ADMIN role.
 
 ---
 

@@ -23,7 +23,6 @@ import { PrismaService } from '../../common/database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import {
   activeInventoryWhere,
-  aggregateVariantStock,
   deriveAvailable,
   deriveStockStatus,
 } from './inventory-aggregate';
@@ -46,16 +45,6 @@ const DEFAULT_LIMIT = 20;
  * the row as a system-driven expiry rather than a manual release.
  */
 const EXPIRATION_REASON = 'انقضای خودکار رزرو';
-
-/**
- * Default warehouse is infrastructure reference data (code `DEFAULT`, ensured
- * idempotently by the bootstrap helper). It is the target of the legacy SS-104
- * `PATCH /admin/variants/:id/inventory` compatibility path. The constants are
- * kept in sync with `apps/api/prisma/bootstrap.ts`; the bootstrap module itself
- * is not imported here because it instantiates its own PrismaClient.
- */
-const DEFAULT_WAREHOUSE_CODE = 'DEFAULT';
-const DEFAULT_WAREHOUSE_NAME = 'انبار پیشفرض';
 
 function escapeLike(search: string): string {
   return search.replace(/[\\%_]/g, '\\$&');
@@ -161,15 +150,12 @@ type ReservationSummaryRow = Prisma.ReservationGetPayload<{
 
 /**
  * Admin inventory API. SS-112 owns the read-only inventory queries; SS-113 owns
- * the mutation API (receive + absolute adjust) plus the SS-104 compatibility
- * write path (`setVariantStockCompat`); SS-115 owns the reservation API
+ * the mutation API (receive + absolute adjust); SS-115 owns the reservation API
  * (reserve, release, consume, list) with lazy transactional expiration. Every
  * mutation is one interactive transaction that writes exactly one
- * InventoryMovement and exactly one AuditLog and refreshes
- * `ProductVariant.stockQuantity` from the authoritative `InventoryItem` rows
- * before committing, so the writes commit or roll back atomically.
- * `InventoryItem` is authoritative; `ProductVariant.stockQuantity` is always a
- * denormalized aggregate (refreshed only when `quantityOnHand` changes).
+ * InventoryMovement and exactly one AuditLog. `InventoryItem` rows are the
+ * single source of availability (SS-130 removed the legacy denormalized
+ * `ProductVariant.stockQuantity` projection).
  */
 @Injectable()
 export class InventoryService {
@@ -187,8 +173,7 @@ export class InventoryService {
    * against the existing item; the first-ever receipt for a (variant, warehouse)
    * pair creates the InventoryItem with an INITIAL_STOCK movement, subsequent
    * receipts use PURCHASE_RECEIPT. Two concurrent receives on the same item both
-   * succeed and the final `ProductVariant.stockQuantity` equals the aggregate of
-   * the authoritative rows.
+   * succeed against the authoritative rows.
    */
   async receive(
     dto: ReceiveStockDto,
@@ -207,8 +192,6 @@ export class InventoryService {
           dto.quantity,
           actorId,
         );
-
-        await this.refreshVariantStock(tx, dto.variantId, actorId);
 
         await tx.inventoryMovement.create({
           data: {
@@ -283,8 +266,6 @@ export class InventoryService {
           createIfMissing: false,
         });
 
-        await this.refreshVariantStock(tx, dto.variantId, actorId);
-
         await this.auditService.log(
           {
             userId: actorId,
@@ -311,62 +292,6 @@ export class InventoryService {
     );
 
     return this.readItemSummary(itemId);
-  }
-
-  /**
-   * SS-104 compatibility absolute set (deprecated, not removed). Routes the
-   * legacy `PATCH /admin/variants/:id/inventory` write through the inventory
-   * write path: an absolute set on the default warehouse's InventoryItem, a
-   * MANUAL_ADJUSTMENT movement, an aggregate refresh of
-   * `ProductVariant.stockQuantity`, and the legacy `PRODUCT_INVENTORY_SET`
-   * audit event — all in one transaction. Returns nothing; the caller re-reads
-   * the variant to build its own response.
-   */
-  async setVariantStockCompat(
-    variantId: string,
-    stockQuantity: number,
-    actorId: string,
-    ipAddress?: string,
-  ): Promise<void> {
-    await this.withInventoryRetry(() =>
-      this.prisma.$transaction(async (tx) => {
-        await this.assertVariantForMutation(tx, variantId);
-        const warehouse = await this.ensureDefaultWarehouse(tx);
-        await this.assertWarehouseForMutation(tx, warehouse.id);
-        const beforeStock = await this.readStoredStock(tx, variantId);
-
-        const applied = await this.applyAbsoluteSet(tx, {
-          variantId,
-          warehouseId: warehouse.id,
-          requested: stockQuantity,
-          reason: null,
-          notes: null,
-          actorId,
-          createIfMissing: true,
-        });
-
-        const aggregateAfter = await this.refreshVariantStock(
-          tx,
-          variantId,
-          actorId,
-        );
-
-        await this.auditService.log(
-          {
-            userId: actorId,
-            action: 'PRODUCT_INVENTORY_SET',
-            entity: 'ProductVariant',
-            entityId: variantId,
-            before: { stockQuantity: beforeStock },
-            after: { stockQuantity: aggregateAfter },
-            ipAddress,
-          },
-          tx,
-        );
-
-        return applied.itemId;
-      }),
-    );
   }
 
   // ---------------------------------------------------------------------------
@@ -832,8 +757,7 @@ export class InventoryService {
    * Consume an ACTIVE reservation (SS-115). Transitions ACTIVE → CONSUMED
    * (conditional state gate, single winner), decrements both
    * `quantityReserved` and `quantityOnHand`, writes exactly one SALE movement
-   * and one INVENTORY_CONSUMED audit, and refreshes
-   * `ProductVariant.stockQuantity` in the same transaction. `quantityOnHand`
+   * and one INVENTORY_CONSUMED audit. `quantityOnHand`
    * is re-checked under the item lock so stock can never go negative.
    */
   async consumeReservation(
@@ -1133,40 +1057,6 @@ export class InventoryService {
   }
 
   /**
-   * Refreshes `ProductVariant.stockQuantity` to the authoritative aggregate of
-   * `InventoryItem.quantityOnHand` across active, non-deleted warehouses
-   * (shared `aggregateVariantStock` helper — the exact scope SS-112 reads use).
-   * The variant row is locked (SELECT ... FOR UPDATE) before the sum is computed
-   * so concurrent mutations on different items of the same variant cannot both
-   * write a stale aggregate: the last writer always sums committed rows.
-   */
-  private async refreshVariantStock(
-    tx: Prisma.TransactionClient,
-    variantId: string,
-    actorId: string,
-  ): Promise<number> {
-    await tx.$queryRaw`
-      SELECT "id"
-      FROM "ProductVariant"
-      WHERE "id" = ${variantId}
-      FOR UPDATE
-    `;
-
-    const totals = await aggregateVariantStock(tx, [variantId]);
-    const total = totals.get(variantId) ?? 0;
-
-    const updated = await tx.productVariant.updateMany({
-      where: { id: variantId, deletedAt: null },
-      data: { stockQuantity: total, updatedBy: actorId },
-    });
-    if (updated.count === 0) {
-      throw new NotFoundException('واریانت یافت نشد.');
-    }
-
-    return total;
-  }
-
-  /**
    * Resolve why a conditional inventory update matched nothing after the
    * in-transaction pre-reads already validated the resources. Because the
    * pre-reads ruled out both cases, this only fires on a concurrent
@@ -1183,32 +1073,6 @@ export class InventoryService {
     throw new ConflictException(
       'وضعیت موجودی تغییر کرده است؛ مجدد تلاش کنید.',
     );
-  }
-
-  /**
-   * Ensures the default warehouse exists (idempotent upsert, mirroring the
-   * bootstrap helper). Only used by the SS-104 compatibility path.
-   */
-  private async ensureDefaultWarehouse(
-    tx: Prisma.TransactionClient,
-  ): Promise<{ id: string }> {
-    return tx.warehouse.upsert({
-      where: { code: DEFAULT_WAREHOUSE_CODE },
-      update: {},
-      create: { code: DEFAULT_WAREHOUSE_CODE, name: DEFAULT_WAREHOUSE_NAME },
-      select: { id: true },
-    });
-  }
-
-  private async readStoredStock(
-    tx: Prisma.TransactionClient,
-    variantId: string,
-  ): Promise<number> {
-    const variant = await tx.productVariant.findUnique({
-      where: { id: variantId },
-      select: { stockQuantity: true },
-    });
-    return variant?.stockQuantity ?? 0;
   }
 
   /**
@@ -1534,10 +1398,6 @@ export class InventoryService {
       actorId: params.actorId,
       ipAddress: params.ipAddress,
     });
-
-    if (params.consume) {
-      await this.refreshVariantStock(tx, item.variantId, params.actorId);
-    }
   }
 
   /**

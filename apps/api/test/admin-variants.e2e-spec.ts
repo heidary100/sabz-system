@@ -164,7 +164,9 @@ describe('Admin variant API (SS-104) (e2e)', () => {
       await request(app.getHttpServer()).get(`${VARIANTS}/${id}`).expect(401);
       await request(app.getHttpServer()).patch(`${VARIANTS}/${id}`).send({}).expect(401);
       await request(app.getHttpServer()).delete(`${VARIANTS}/${id}`).expect(401);
-      await request(app.getHttpServer()).patch(`${VARIANTS}/${id}/inventory`).send({}).expect(401);
+      // SS-130: the deprecated PATCH :id/inventory compat endpoint is removed;
+      // an unauthenticated call now 404s at routing (no guard runs).
+      await request(app.getHttpServer()).patch(`${VARIANTS}/${id}/inventory`).send({}).expect(404);
     });
 
     it('rejects CUSTOMER and PARTNER with 403', async () => {
@@ -182,11 +184,12 @@ describe('Admin variant API (SS-104) (e2e)', () => {
           .set('Authorization', `Bearer ${token}`)
           .send({ sku: 'S', price: '1.00' })
           .expect(403);
+        // SS-130: compat inventory endpoint removed → 404 regardless of role.
         await request(app.getHttpServer())
           .patch(`${VARIANTS}/${id}/inventory`)
           .set('Authorization', `Bearer ${token}`)
           .send({ stockQuantity: 1 })
-          .expect(403);
+          .expect(404);
       }
     });
 
@@ -205,19 +208,19 @@ describe('Admin variant API (SS-104) (e2e)', () => {
     });
   });
 
-  describe('variant CRUD + inventory', () => {
-    it('creates, lists, reads detail, updates, sets inventory, soft-deletes and audits', async () => {
+  describe('variant CRUD', () => {
+    it('creates, lists, reads detail, updates, soft-deletes and audits', async () => {
       const operator = await createUser('OPERATOR');
       const productId = await createProduct();
 
       const created = await request(app.getHttpServer())
         .post(`${PRODUCTS}/${productId}/variants`)
         .set('Authorization', `Bearer ${operator.accessToken}`)
-        .send({ sku: `SKU-E2E-${Date.now()}`, price: '1500.00', stockQuantity: 3 })
+        .send({ sku: `SKU-E2E-${Date.now()}`, price: '1500.00' })
         .expect(201);
       variantIds.push(created.body.id);
       expect(created.body.price).toBe('1500');
-      expect(created.body.stockQuantity).toBe(3);
+      expect(created.body).not.toHaveProperty('stockQuantity');
       expect(created.body.productId).toBe(productId);
 
       const list = await request(app.getHttpServer())
@@ -243,12 +246,12 @@ describe('Admin variant API (SS-104) (e2e)', () => {
       expect(updated.body.price).toBe('99.5');
       expect(updated.body.name).toBe('پایه');
 
-      const inventory = await request(app.getHttpServer())
+      // SS-130: the deprecated compat inventory endpoint is removed.
+      await request(app.getHttpServer())
         .patch(`${VARIANTS}/${created.body.id}/inventory`)
         .set('Authorization', `Bearer ${operator.accessToken}`)
         .send({ stockQuantity: 7 })
-        .expect(200);
-      expect(inventory.body.stockQuantity).toBe(7);
+        .expect(404);
 
       await request(app.getHttpServer())
         .delete(`${VARIANTS}/${created.body.id}`)
@@ -268,7 +271,6 @@ describe('Admin variant API (SS-104) (e2e)', () => {
         expect.arrayContaining([
           'PRODUCT_VARIANT_CREATED',
           'PRODUCT_VARIANT_UPDATED',
-          'PRODUCT_INVENTORY_SET',
           'PRODUCT_VARIANT_DELETED',
         ]),
       );
@@ -338,14 +340,18 @@ describe('Admin variant API (SS-104) (e2e)', () => {
         .set('Authorization', `Bearer ${operator.accessToken}`)
         .send({ sku: 'S', price: '10.123' })
         .expect(400);
-      await request(app.getHttpServer())
+      // SS-130: stockQuantity is not part of the variant contract; a body
+      // carrying it is accepted and the field is ignored (never persisted).
+      const ignored = await request(app.getHttpServer())
         .post(`${PRODUCTS}/${productId}/variants`)
         .set('Authorization', `Bearer ${operator.accessToken}`)
-        .send({ sku: 'S', price: '10.00', stockQuantity: -1 })
-        .expect(400);
+        .send({ sku: `SKU-IGN-${Date.now()}`, price: '10.00', stockQuantity: -1 })
+        .expect(201);
+      variantIds.push(ignored.body.id);
+      expect(ignored.body).not.toHaveProperty('stockQuantity');
     });
 
-    it('rejects creating/updating inventory for an archived product with 409', async () => {
+    it('rejects creating a variant for an archived product with 409', async () => {
       const operator = await createUser('OPERATOR');
       const productId = await createProduct({ status: ProductStatus.ARCHIVED });
 

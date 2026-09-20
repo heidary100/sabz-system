@@ -19,6 +19,15 @@ The Inventory & Warehouse Management module tracks product availability, invento
 
 It ensures inventory accuracy across purchasing, sales, returns, and future accounting integrations.
 
+> **SS-130 removal (Milestone 2 close-out).** The `ProductVariant.stockQuantity`
+> column, the `PATCH /admin/variants/:id/inventory` compat endpoint, the
+> variant-create `stockQuantity` field, and the `PRODUCT_INVENTORY_SET` audit
+> event were removed. `InventoryItem` rows are now the single source of
+> availability: new variants start with no rows (unavailable until the first
+> receive, which creates the item with an `INITIAL_STOCK` movement), and no
+> projection is refreshed on mutations. The M1/SS-109 notes below describing
+> the denormalized aggregate and its backfill are historical.
+>
 > **M1 boundary (EPIC-005 / SS-104).** In Milestone 1 the only inventory state
 > exposed is `ProductVariant.stockQuantity` (a temporary catalog availability
 > snapshot), via `PATCH /admin/variants/:id/inventory` (absolute set, never

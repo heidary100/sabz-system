@@ -60,7 +60,6 @@ describe('Admin product API database integration (SS-102)', () => {
         productId,
         sku: `SKU-${Date.now()}-${Math.random()}`,
         price: '100.00',
-        stockQuantity: 1,
         createdBy: actorId,
       },
     });
@@ -310,7 +309,6 @@ describe('Admin product API database integration (SS-102)', () => {
         productId: product.id,
         sku: `WEIGHT-${Date.now()}-${Math.random()}`,
         price: '2500.00',
-        stockQuantity: 3,
         createdBy: actorId,
       },
     });

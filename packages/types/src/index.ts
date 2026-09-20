@@ -95,7 +95,6 @@ export {
   UpdateCategoryInput,
   UpdateProductInput,
   UpdateVariantInput,
-  UpdateVariantInventoryInput,
 } from './product/admin';
 
 export {

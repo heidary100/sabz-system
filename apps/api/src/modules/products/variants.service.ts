@@ -7,12 +7,7 @@ import { Prisma, ProductStatus } from '@prisma/client';
 import type { VariantSummary } from '@sabz/types';
 import { PrismaService } from '../../common/database/prisma.service';
 import { AuditService } from '../audit/audit.service';
-import { InventoryService } from '../inventory/inventory.service';
-import {
-  CreateVariantDto,
-  UpdateVariantDto,
-  UpdateVariantInventoryDto,
-} from './dto';
+import { CreateVariantDto, UpdateVariantDto } from './dto';
 
 const variantSelect = {
   id: true,
@@ -21,7 +16,6 @@ const variantSelect = {
   barcode: true,
   name: true,
   price: true,
-  stockQuantity: true,
   deletedAt: true,
 } satisfies Prisma.ProductVariantSelect;
 
@@ -36,7 +30,6 @@ export class VariantsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
-    private readonly inventoryService: InventoryService,
   ) {}
 
   async list(productId: string): Promise<VariantSummary[]> {
@@ -79,7 +72,6 @@ export class VariantsService {
             barcode: dto.barcode ?? null,
             name: dto.name ?? null,
             price: dto.price,
-            stockQuantity: dto.stockQuantity ?? 0,
             createdBy: actorId,
           },
           select: variantSelect,
@@ -97,7 +89,6 @@ export class VariantsService {
               barcode: row.barcode,
               name: row.name,
               price: row.price.toString(),
-              stockQuantity: row.stockQuantity,
             },
             ipAddress,
           },
@@ -180,31 +171,6 @@ export class VariantsService {
     }
   }
 
-  /**
-   * SS-104 compatibility absolute set (deprecated, not removed). The M1
-   * boundary endpoint no longer writes `ProductVariant.stockQuantity`
-   * directly; the write is routed through the inventory write path
-   * (InventoryService.setVariantStockCompat) which mutates the authoritative
-   * default-warehouse InventoryItem, writes a MANUAL_ADJUSTMENT movement,
-   * refreshes the stockQuantity aggregate and audits, all in one transaction.
-   * No stock transaction lives here anymore.
-   */
-  async updateInventory(
-    variantId: string,
-    dto: UpdateVariantInventoryDto,
-    actorId: string,
-    ipAddress?: string,
-  ): Promise<VariantSummary> {
-    await this.inventoryService.setVariantStockCompat(
-      variantId,
-      dto.stockQuantity,
-      actorId,
-      ipAddress,
-    );
-    const row = await this.readVariant(variantId);
-    return this.toSummary(row);
-  }
-
   async softDelete(
     variantId: string,
     actorId: string,
@@ -249,7 +215,6 @@ export class VariantsService {
       barcode: row.barcode,
       name: row.name,
       price: row.price.toString(),
-      stockQuantity: row.stockQuantity,
     };
   }
 

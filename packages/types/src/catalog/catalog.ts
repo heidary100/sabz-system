@@ -10,8 +10,8 @@ import type { ProductCondition, ProductMediaType } from '../product/type';
  * - Prices are Toman, persisted as Prisma `Decimal` and serialized as strings.
  * - Media URLs are server-provided (`/api/v1/catalog/media/...` or absolute);
  *   storage keys are never exposed.
- * - Availability is derived from the inventory read aggregate (SS-112) —
- *   never from the legacy `ProductVariant.stockQuantity` field.
+ * - Availability is derived from the inventory read aggregate (SS-112), the
+ *   single source since SS-130 removed the legacy variant stock projection.
  */
 
 /** Whitelisted sort options for `GET /catalog/products`. */

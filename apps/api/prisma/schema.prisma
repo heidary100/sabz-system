@@ -363,8 +363,7 @@ model ProductVariant {
   barcode    String?
   name       String?
 
-  price         Decimal @db.Decimal(12, 2)
-  stockQuantity Int     @default(0)
+  price Decimal @db.Decimal(12, 2)
 
   media          ProductMedia[]
   inventoryItems InventoryItem[]
