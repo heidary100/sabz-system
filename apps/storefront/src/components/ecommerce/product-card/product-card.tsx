@@ -1,7 +1,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import type { CatalogProductCardDto } from '@sabz/types';
-import { mediaUrl } from '@/lib/catalog';
+import { mediaImageUrl } from '@/lib/catalog';
 import { formatPriceFrom } from '@/lib/format';
 
 const CONDITION_LABELS: Record<string, string> = {
@@ -18,7 +18,7 @@ const CONDITION_LABELS: Record<string, string> = {
  * price-from line in Toman. Availability is API-derived (SS-112 semantics).
  */
 export function ProductCard({ product }: { product: CatalogProductCardDto }) {
-  const image = mediaUrl(product.primaryThumbnailUrl ?? product.primaryImageUrl);
+  const image = mediaImageUrl(product.primaryThumbnailUrl ?? product.primaryImageUrl);
 
   return (
     <Link

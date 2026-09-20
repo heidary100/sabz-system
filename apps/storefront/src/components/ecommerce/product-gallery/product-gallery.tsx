@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import { useState } from 'react';
 import type { CatalogProductMediaDto } from '@sabz/types';
-import { mediaUrl } from '@/lib/catalog';
+import { mediaImageUrl, mediaUrl } from '@/lib/catalog';
 
 /**
  * Product gallery (SS-127), adapted from the ecommerce-v4 product-overview
@@ -48,7 +48,7 @@ export function ProductGallery({
           />
         ) : (
           <Image
-            src={mediaUrl(active.url) ?? ''}
+            src={mediaImageUrl(active.url) ?? ''}
             alt={name}
             fill
             priority
@@ -77,7 +77,7 @@ export function ProductGallery({
                   </span>
                 ) : (
                   <Image
-                    src={mediaUrl(item.thumbnailUrl ?? item.url) ?? ''}
+                    src={mediaImageUrl(item.thumbnailUrl ?? item.url) ?? ''}
                     alt=""
                     fill
                     sizes="80px"

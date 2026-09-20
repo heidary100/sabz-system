@@ -6,23 +6,35 @@ import type {
   CatalogProductDetailDto,
   PaginatedResult,
 } from '@sabz/types';
-import { ApiError, API_BASE_URL, request } from '@/lib/api';
+import { ApiError, API_BASE_URL, MEDIA_BASE_URL, request } from '@/lib/api';
 
 /**
  * Typed catalog data access for server components (SS-119 contract).
- * Relative media URLs returned by the API are already absolute paths under
- * the API origin — next/image resolves them through remotePatterns.
  */
 
 /**
  * Resolves a server-relative media URL from the API against the API origin so
- * next/image can load it (the storefront origin does not host media).
+ * it can be used directly by the browser (e.g. `<video>` sources, which are
+ * fetched client-side and must stay on the browser-facing host).
  */
 export function mediaUrl(path: string | null | undefined): string | null {
   if (!path) {
     return null;
   }
   return new URL(path, API_BASE_URL).toString();
+}
+
+/**
+ * Resolves a server-relative media URL against the optimizer-visible API
+ * origin for `next/image` sources. The optimizer fetches upstream media
+ * server-side, so inside Docker this must be the compose-internal hostname
+ * (see MEDIA_BASE_URL); the browser never fetches this URL itself.
+ */
+export function mediaImageUrl(path: string | null | undefined): string | null {
+  if (!path) {
+    return null;
+  }
+  return new URL(path, MEDIA_BASE_URL).toString();
 }
 
 function toQueryString(query: CatalogListQuery): string {
