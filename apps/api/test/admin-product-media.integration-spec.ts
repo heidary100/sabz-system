@@ -109,7 +109,6 @@ describe('Admin product media database integration (SS-105)', () => {
         productId,
         sku: `SKU-${Date.now()}-${Math.random()}`,
         price: '100.00',
-        stockQuantity: 0,
         createdBy: actorId,
       },
     });

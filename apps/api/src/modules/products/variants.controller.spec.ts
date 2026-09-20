@@ -52,7 +52,6 @@ describe('AdminVariantsController', () => {
     getDetail: jest.Mock;
     update: jest.Mock;
     softDelete: jest.Mock;
-    updateInventory: jest.Mock;
   };
 
   const user = { userId: 'actor-1', sessionId: 's', mobile: '+989120000000' };
@@ -62,7 +61,6 @@ describe('AdminVariantsController', () => {
       getDetail: jest.fn(),
       update: jest.fn(),
       softDelete: jest.fn(),
-      updateInventory: jest.fn(),
     };
     controller = new AdminVariantsController(
       service as unknown as VariantsService,
@@ -75,7 +73,6 @@ describe('AdminVariantsController', () => {
       AdminVariantsController.prototype.getDetail,
       AdminVariantsController.prototype.update,
       AdminVariantsController.prototype.softDelete,
-      AdminVariantsController.prototype.updateInventory,
     ]) {
       const roles = reflector.getAllAndOverride<AppRole[]>(ROLES_KEY, [
         handler,
@@ -99,16 +96,5 @@ describe('AdminVariantsController', () => {
   it('delegates softDelete with actor and ip', async () => {
     await controller.softDelete('var-1', user as never, '127.0.0.1');
     expect(service.softDelete).toHaveBeenCalledWith('var-1', 'actor-1', '127.0.0.1');
-  });
-
-  it('delegates updateInventory with actor and ip', async () => {
-    const dto = {} as never;
-    await controller.updateInventory('var-1', dto, user as never, '127.0.0.1');
-    expect(service.updateInventory).toHaveBeenCalledWith(
-      'var-1',
-      dto,
-      'actor-1',
-      '127.0.0.1',
-    );
   });
 });

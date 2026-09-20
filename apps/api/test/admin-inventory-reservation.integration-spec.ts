@@ -8,6 +8,7 @@ import {
 import { PrismaService } from '../src/common/database/prisma.service';
 import { AuditService } from '../src/modules/audit/audit.service';
 import { InventoryService } from '../src/modules/inventory/inventory.service';
+import { aggregateVariantStock } from '../src/modules/inventory/inventory-aggregate';
 
 jest.setTimeout(60_000);
 
@@ -88,7 +89,6 @@ describe('Admin inventory reservation API database integration (SS-115)', () => 
         productId,
         sku: `SKU-INVRES-${Date.now()}-${Math.random()}`,
         price: '100.00',
-        stockQuantity: 0,
         ...overrides,
       } as never,
     });
@@ -201,9 +201,9 @@ describe('Admin inventory reservation API database integration (SS-115)', () => 
   });
 
   describe('reserve', () => {
-    it('creates an ACTIVE reservation, increments quantityReserved and leaves the aggregate untouched', async () => {
+    it('creates an ACTIVE reservation, increments quantityReserved and leaves on-hand untouched', async () => {
       const productId = await createProduct();
-      const variantId = await createVariant(productId, { stockQuantity: 10 });
+      const variantId = await createVariant(productId);
       const warehouseId = await createWarehouse();
       const itemId = await createItem(variantId, warehouseId, {
         quantityOnHand: 10,
@@ -221,11 +221,8 @@ describe('Admin inventory reservation API database integration (SS-115)', () => 
       expect(item.quantityOnHand).toBe(10);
       expect(item.quantityReserved).toBe(3);
 
-      const variant = await prisma.productVariant.findUniqueOrThrow({
-        where: { id: variantId },
-        select: { stockQuantity: true },
-      });
-      expect(variant.stockQuantity).toBe(10);
+      const totals = await aggregateVariantStock(prisma, [variantId]);
+      expect(totals.get(variantId)).toBe(10);
 
       expect(result.status).toBe(ReservationStatus.ACTIVE);
       expect(result.quantity).toBe(3);
@@ -476,9 +473,9 @@ describe('Admin inventory reservation API database integration (SS-115)', () => 
   });
 
   describe('consume', () => {
-    it('reduces on-hand and reserved and keeps the aggregate synchronized', async () => {
+    it('reduces on-hand and reserved and keeps the ledger consistent', async () => {
       const productId = await createProduct();
-      const variantId = await createVariant(productId, { stockQuantity: 10 });
+      const variantId = await createVariant(productId);
       const warehouseId = await createWarehouse();
       const itemId = await createItem(variantId, warehouseId, {
         quantityOnHand: 10,
@@ -499,11 +496,8 @@ describe('Admin inventory reservation API database integration (SS-115)', () => 
       expect(result.status).toBe(ReservationStatus.CONSUMED);
       expect(result.consumedAt).not.toBeNull();
 
-      const variant = await prisma.productVariant.findUniqueOrThrow({
-        where: { id: variantId },
-        select: { stockQuantity: true },
-      });
-      expect(variant.stockQuantity).toBe(7);
+      const totals = await aggregateVariantStock(prisma, [variantId]);
+      expect(totals.get(variantId)).toBe(7);
 
       const movements = await movementsOf(itemId);
       expect(movements).toHaveLength(2);
@@ -578,9 +572,9 @@ describe('Admin inventory reservation API database integration (SS-115)', () => 
       });
     });
 
-    it('rolls back the transition, on-hand decrement, movement and aggregate when the audit write fails', async () => {
+    it('rolls back the transition, on-hand decrement and movement when the audit write fails', async () => {
       const productId = await createProduct();
-      const variantId = await createVariant(productId, { stockQuantity: 10 });
+      const variantId = await createVariant(productId);
       const warehouseId = await createWarehouse();
       const itemId = await createItem(variantId, warehouseId, {
         quantityOnHand: 10,
@@ -605,11 +599,8 @@ describe('Admin inventory reservation API database integration (SS-115)', () => 
       expect(item.quantityOnHand).toBe(10);
       expect(item.quantityReserved).toBe(3);
       expect(await movementsOf(itemId)).toHaveLength(1);
-      const variant = await prisma.productVariant.findUniqueOrThrow({
-        where: { id: variantId },
-        select: { stockQuantity: true },
-      });
-      expect(variant.stockQuantity).toBe(10);
+      const totals = await aggregateVariantStock(prisma, [variantId]);
+      expect(totals.get(variantId)).toBe(10);
     });
   });
 

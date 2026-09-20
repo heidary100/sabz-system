@@ -11,6 +11,7 @@ import {
 import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/app.setup';
 import { PrismaService } from '../src/common/database/prisma.service';
+import { aggregateVariantStock } from '../src/modules/inventory/inventory-aggregate';
 import { TokenService } from '../src/modules/auth/services/token.service';
 
 jest.setTimeout(60_000);
@@ -116,7 +117,6 @@ describe('Admin inventory reservation API (SS-115) (e2e)', () => {
         productId,
         sku: `E2E-RES-SKU-${Date.now()}-${Math.random()}`,
         price: '100.00',
-        stockQuantity: 0,
         ...overrides,
       } as never,
     });
@@ -482,10 +482,10 @@ describe('Admin inventory reservation API (SS-115) (e2e)', () => {
         .expect(404);
     });
 
-    it('consumes an ACTIVE reservation and keeps the aggregate synchronized', async () => {
+    it('consumes an ACTIVE reservation and keeps the ledger consistent', async () => {
       const operator = await createUser('OPERATOR');
       const productId = await createProduct();
-      const variantId = await createVariant(productId, { stockQuantity: 10 });
+      const variantId = await createVariant(productId);
       const warehouseId = await createWarehouse();
       const item = await createItem(variantId, warehouseId, {
         quantityOnHand: 10,
@@ -507,11 +507,8 @@ describe('Admin inventory reservation API (SS-115) (e2e)', () => {
       });
       expect(itemAfter.quantityReserved).toBe(0);
       expect(itemAfter.quantityOnHand).toBe(7);
-      const variant = await prisma.productVariant.findUniqueOrThrow({
-        where: { id: variantId },
-        select: { stockQuantity: true },
-      });
-      expect(variant.stockQuantity).toBe(7);
+      const totals = await aggregateVariantStock(prisma, [variantId]);
+      expect(totals.get(variantId)).toBe(7);
 
       const movements = await prisma.inventoryMovement.findMany({
         where: { inventoryItemId: item },

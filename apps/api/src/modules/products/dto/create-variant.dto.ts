@@ -1,13 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {
-  IsInt,
   IsNotEmpty,
   IsOptional,
   IsString,
   Matches,
   MaxLength,
-  Min,
 } from 'class-validator';
 
 export const PRICE_12_2_PATTERN = /^\d{1,10}(?:\.\d{1,2})?$/;
@@ -68,13 +66,4 @@ export class CreateVariantDto {
     message: 'price باید عدد اعشاری معتبر با حداکثر ۲ رقم اعشار باشد.',
   })
   price!: string;
-
-  @ApiPropertyOptional({
-    description:
-      'Initial stock (M1 availability snapshot). Defaults to 0. Use the inventory endpoint for later changes.',
-  })
-  @IsOptional()
-  @IsInt({ message: 'stockQuantity باید عدد صحیح باشد.' })
-  @Min(0, { message: 'stockQuantity نمیتواند منفی باشد.' })
-  stockQuantity?: number;
 }

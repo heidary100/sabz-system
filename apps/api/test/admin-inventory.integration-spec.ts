@@ -72,7 +72,6 @@ describe('Admin inventory read API database integration (SS-112)', () => {
         productId,
         sku: `SKU-INVREAD-${Date.now()}-${Math.random()}`,
         price: '100.00',
-        stockQuantity: 0,
         ...overrides,
       } as never,
     });
@@ -146,7 +145,7 @@ describe('Admin inventory read API database integration (SS-112)', () => {
 
   it('returns a paginated overview with derived available and stock status', async () => {
     const productId = await createProduct();
-    const variantId = await createVariant(productId, { stockQuantity: 12 });
+    const variantId = await createVariant(productId);
     const whA = await createWarehouse();
     const whB = await createWarehouse();
     await createItem(variantId, whA, {
@@ -347,9 +346,9 @@ describe('Admin inventory read API database integration (SS-112)', () => {
     });
   });
 
-  it('computes the aggregate stockQuantity across active warehouses only', async () => {
+  it('computes the aggregate across active warehouses only', async () => {
     const productId = await createProduct();
-    const variantId = await createVariant(productId, { stockQuantity: 0 });
+    const variantId = await createVariant(productId);
     const whA = await createWarehouse();
     const whB = await createWarehouse();
     const inactiveWh = await createWarehouse({ status: WarehouseStatus.INACTIVE });
@@ -380,7 +379,7 @@ describe('Admin inventory read API database integration (SS-112)', () => {
 
   it('defaults a variant with zero inventory items to aggregate 0', async () => {
     const productId = await createProduct();
-    const variantId = await createVariant(productId, { stockQuantity: 0 });
+    const variantId = await createVariant(productId);
 
     const totals = await aggregateVariantStock(prisma, [variantId]);
     expect(totals.get(variantId) ?? 0).toBe(0);

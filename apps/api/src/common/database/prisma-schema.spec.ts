@@ -367,7 +367,6 @@ describe('Product catalog models and relations (SS-100)', () => {
       'barcode',
       'name',
       'price',
-      'stockQuantity',
       ...AUDIT_FIELDS,
     ];
     const names = variant!.fields.map((field) => field.name);
@@ -385,13 +384,11 @@ describe('Product catalog models and relations (SS-100)', () => {
     expect(price!.isRequired).toBe(true);
   });
 
-  it('defaults ProductVariant.stockQuantity to 0', () => {
+  it('has no stockQuantity on ProductVariant (SS-130 removed the legacy projection)', () => {
     const stockQuantity = variant?.fields.find(
       (field) => field.name === 'stockQuantity',
     );
-    expect(stockQuantity).toBeDefined();
-    expect(stockQuantity!.type).toBe('Int');
-    expect(stockQuantity!.default).toBe(0);
+    expect(stockQuantity).toBeUndefined();
   });
 
   it('cascades ProductVariant on Product deletion', () => {
@@ -946,16 +943,14 @@ describe('Inventory foundation migration (SS-109)', () => {
     );
   });
 
-  it('keeps ProductVariant.stockQuantity and existing tables untouched', () => {
+  it('leaves existing tables untouched (SS-130 dropped the legacy variant projection in its own migration)', () => {
     const variant = Prisma.dmmf.datamodel.models.find(
       (model) => model.name === 'ProductVariant',
     );
     const stockQuantity = variant?.fields.find(
       (field) => field.name === 'stockQuantity',
     );
-    expect(stockQuantity).toBeDefined();
-    expect(stockQuantity!.type).toBe('Int');
-    expect(stockQuantity!.default).toBe(0);
+    expect(stockQuantity).toBeUndefined();
 
     expect(sql).not.toContain('DROP TABLE');
     expect(sql).not.toContain('DROP TYPE');

@@ -92,7 +92,6 @@ describe('Admin inventory history API database integration (SS-114)', () => {
         productId,
         sku: `SKU-HIST-${Date.now()}-${Math.random()}`,
         price: '100.00',
-        stockQuantity: 0,
         ...overrides,
       } as never,
     });

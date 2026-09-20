@@ -49,7 +49,7 @@ export function deriveStockStatus(item: StockStatusSource): InventoryStockStatus
 /**
  * Operational inventory predicate. Must stay byte-identical between the read
  * API and the aggregate so there is zero drift between authoritative
- * `InventoryItem` values and the `ProductVariant.stockQuantity` projection:
+ * `InventoryItem` reads:
  *
  * - variant not soft-deleted
  * - owning product not soft-deleted and not ARCHIVED

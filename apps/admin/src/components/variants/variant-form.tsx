@@ -25,7 +25,6 @@ interface VariantFormValue {
   barcode: string
   name: string
   price: string
-  stockQuantity: string
 }
 
 const EMPTY: VariantFormValue = {
@@ -33,7 +32,6 @@ const EMPTY: VariantFormValue = {
   barcode: '',
   name: '',
   price: '',
-  stockQuantity: '',
 }
 
 function fromVariant(variant: VariantSummary): VariantFormValue {
@@ -42,7 +40,6 @@ function fromVariant(variant: VariantSummary): VariantFormValue {
     barcode: variant.barcode ?? '',
     name: variant.name ?? '',
     price: variant.price,
-    stockQuantity: '',
   }
 }
 
@@ -80,19 +77,8 @@ export function VariantForm({
 
   const priceValid = PRICE_PATTERN.test(values.price.trim())
 
-  let stockError: string | null = null
-  if (!isEdit && values.stockQuantity.trim() !== '') {
-    const parsed = Number(values.stockQuantity)
-    if (!Number.isInteger(parsed) || parsed < 0) {
-      stockError = 'موجودی باید عدد صحیح و غیرمنفی باشد.'
-    }
-  }
-
   const canSubmit =
-    values.sku.trim().length > 0 &&
-    priceValid &&
-    stockError === null &&
-    !submitting
+    values.sku.trim().length > 0 && priceValid && !submitting
 
   const handleSubmit = async (): Promise<void> => {
     if (!values.sku.trim()) {
@@ -101,10 +87,6 @@ export function VariantForm({
     }
     if (!priceValid) {
       setError('قیمت باید عدد اعشاری معتبر با حداکثر ۲ رقم اعشار باشد.')
-      return
-    }
-    if (stockError) {
-      setError(stockError)
       return
     }
     setSubmitting(true)
@@ -123,9 +105,6 @@ export function VariantForm({
           barcode: values.barcode.trim() || undefined,
           name: values.name.trim() || undefined,
           price: values.price.trim(),
-          ...(values.stockQuantity.trim() !== ''
-            ? { stockQuantity: Number(values.stockQuantity) }
-            : {}),
         })
       }
       onSuccess()
@@ -144,8 +123,8 @@ export function VariantForm({
       <AlertTitle>{isEdit ? 'ویرایش واریانت' : 'افزودن واریانت'}</AlertTitle>
       <AlertDescription>
         {isEdit
-          ? 'SKU، بارکد، نام و قیمت واریانت را ویرایش کنید. موجودی از مسیر جداگانه تنظیم میشود.'
-          : 'واریانت جدید را برای این محصول ثبت کنید.'}
+          ? 'SKU، بارکد، نام و قیمت واریانت را ویرایش کنید. موجودی از مسیر «موجودی انبارها» تنظیم میشود.'
+          : 'واریانت جدید را برای این محصول ثبت کنید. موجودی اولیه پس از ایجاد، از مسیر «موجودی انبارها» دریافت میشود.'}
       </AlertDescription>
       <AlertBody>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -202,26 +181,6 @@ export function VariantForm({
               disabled={submitting}
             />
           </Field>
-
-          {!isEdit && (
-            <Field className="sm:col-span-2">
-              <Label>موجودی اولیه</Label>
-              <Input
-                name="stockQuantity"
-                type="number"
-                dir="ltr"
-                min={0}
-                step={1}
-                value={values.stockQuantity}
-                placeholder="۰"
-                onChange={(event) => set('stockQuantity', event.target.value)}
-                disabled={submitting}
-              />
-              <Text className="text-xs text-muted">
-                نمای کلی موجودی (M1). پس از ایجاد، موجودی از مسیر «موجودی» تنظیم میشود.
-              </Text>
-            </Field>
-          )}
 
           {error && (
             <div className="sm:col-span-2">

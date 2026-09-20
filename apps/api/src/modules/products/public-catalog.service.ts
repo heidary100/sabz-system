@@ -35,8 +35,9 @@ const PUBLIC_MEDIA_URL_PREFIX = '/api/v1/catalog/media';
  *
  * Only PUBLISHED, non-soft-deleted products and visible, non-soft-deleted
  * categories/brands are ever exposed. Availability comes exclusively from the
- * inventory read aggregate (SS-112 semantics, `activeInventoryWhere`) — never
- * from the legacy `ProductVariant.stockQuantity` column. Media URLs point at
+ * inventory read aggregate (SS-112 semantics, `activeInventoryWhere`), the
+ * single source of availability since SS-130 removed the legacy
+ * `ProductVariant.stockQuantity` column. Media URLs point at
  * the public media endpoint; storage keys are never exposed.
  */
 @Injectable()

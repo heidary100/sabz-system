@@ -93,7 +93,6 @@ export interface CreateVariantInput {
   barcode?: string;
   name?: string;
   price: string;
-  stockQuantity?: number;
 }
 
 export interface UpdateVariantInput {
@@ -101,8 +100,4 @@ export interface UpdateVariantInput {
   barcode?: string | null;
   name?: string | null;
   price?: string;
-}
-
-export interface UpdateVariantInventoryInput {
-  stockQuantity: number;
 }

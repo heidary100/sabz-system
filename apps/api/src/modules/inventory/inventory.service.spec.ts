@@ -33,7 +33,6 @@ function makeVariantRow(overrides: Record<string, unknown> = {}) {
     id: 'var-1',
     deletedAt: null,
     productId: 'prod-1',
-    stockQuantity: 0,
     ...overrides,
   };
 }
@@ -528,7 +527,7 @@ describe('InventoryService', () => {
       expect(audit.log).not.toHaveBeenCalled();
     });
 
-    it('refreshes the aggregate stockQuantity in the same transaction', async () => {
+    it('writes the absolute set without touching ProductVariant (SS-130)', async () => {
       seedActiveVariant();
       seedActiveWarehouse();
       tx.inventoryItem.findFirst.mockResolvedValue({
@@ -536,11 +535,6 @@ describe('InventoryService', () => {
         quantityOnHand: 10,
       });
       tx.inventoryItem.updateMany.mockResolvedValue({ count: 1 });
-      tx.$queryRaw.mockResolvedValueOnce([]);
-      tx.inventoryItem.groupBy.mockResolvedValue([
-        { variantId: 'var-1', _sum: { quantityOnHand: 25 } },
-      ]);
-      tx.productVariant.updateMany.mockResolvedValue({ count: 1 });
       prisma.inventoryItem.findUnique.mockResolvedValue(makeItemRow());
 
       await service.adjust(
@@ -548,10 +542,13 @@ describe('InventoryService', () => {
         actorId,
       );
 
-      expect(tx.productVariant.updateMany).toHaveBeenCalledWith(
+      expect(tx.productVariant.updateMany).not.toHaveBeenCalled();
+      expect(tx.inventoryMovement.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: 'var-1', deletedAt: null },
-          data: { stockQuantity: 25, updatedBy: actorId },
+          data: expect.objectContaining({
+            type: InventoryMovementType.MANUAL_ADJUSTMENT,
+            onHandAfter: 25,
+          }),
         }),
       );
     });
@@ -575,97 +572,6 @@ describe('InventoryService', () => {
         ),
       ).rejects.toThrow('audit down');
       expect(prisma.inventoryItem.findUnique).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('setVariantStockCompat', () => {
-    it('writes through the inventory path (default warehouse, movement, aggregate, legacy audit)', async () => {
-      seedActiveVariant();
-      tx.warehouse.upsert.mockResolvedValue({ id: 'wh-default' });
-      tx.warehouse.findFirst.mockResolvedValue({
-        id: 'wh-default',
-        status: WarehouseStatus.ACTIVE,
-      });
-      tx.productVariant.findUnique.mockResolvedValue(
-        makeVariantRow({ stockQuantity: 1 }),
-      );
-      tx.inventoryItem.findFirst.mockResolvedValue(null);
-      tx.inventoryItem.create.mockResolvedValue({ id: 'item-default' });
-      tx.$queryRaw.mockResolvedValueOnce([]);
-      tx.inventoryItem.groupBy.mockResolvedValue([
-        { variantId: 'var-1', _sum: { quantityOnHand: 7 } },
-      ]);
-      tx.productVariant.updateMany.mockResolvedValue({ count: 1 });
-
-      await service.setVariantStockCompat('var-1', 7, actorId);
-
-      expect(tx.warehouse.upsert).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { code: 'DEFAULT' },
-        }),
-      );
-      expect(tx.inventoryItem.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            warehouseId: 'wh-default',
-            quantityOnHand: 7,
-          }),
-        }),
-      );
-      expect(tx.inventoryMovement.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            type: InventoryMovementType.MANUAL_ADJUSTMENT,
-            quantity: 7,
-            onHandBefore: 0,
-            onHandAfter: 7,
-          }),
-        }),
-      );
-      expect(audit.log).toHaveBeenCalledWith(
-        expect.objectContaining({
-          action: 'PRODUCT_INVENTORY_SET',
-          entity: 'ProductVariant',
-          entityId: 'var-1',
-          before: { stockQuantity: 1 },
-          after: { stockQuantity: 7 },
-        }),
-        tx,
-      );
-    });
-
-    it('throws 409 for an archived owning product', async () => {
-      tx.productVariant.findUnique.mockResolvedValue(makeVariantRow());
-      tx.product.findUnique.mockResolvedValue(
-        makeProductRow({ status: ProductStatus.ARCHIVED }),
-      );
-
-      await expect(
-        service.setVariantStockCompat('var-1', 5, actorId),
-      ).rejects.toMatchObject({ status: 409 });
-      expect(tx.inventoryMovement.create).not.toHaveBeenCalled();
-    });
-
-    it('never creates an orphan item under a deleted or inactive default warehouse', async () => {
-      seedActiveVariant();
-      tx.warehouse.upsert.mockResolvedValue({ id: 'wh-default' });
-
-      tx.warehouse.findFirst.mockResolvedValue(null);
-      await expect(
-        service.setVariantStockCompat('var-1', 5, actorId),
-      ).rejects.toMatchObject({ status: 404 });
-
-      tx.warehouse.findFirst.mockResolvedValue({
-        id: 'wh-default',
-        status: WarehouseStatus.INACTIVE,
-      });
-      await expect(
-        service.setVariantStockCompat('var-1', 5, actorId),
-      ).rejects.toMatchObject({ status: 409 });
-
-      expect(tx.inventoryItem.create).not.toHaveBeenCalled();
-      expect(tx.inventoryMovement.create).not.toHaveBeenCalled();
-      expect(audit.log).not.toHaveBeenCalled();
     });
   });
 
@@ -1680,7 +1586,7 @@ describe('InventoryService', () => {
   });
 
   describe('consumeReservation', () => {
-    it('transitions ACTIVE to CONSUMED, decrements on-hand and refreshes the aggregate', async () => {
+    it('transitions ACTIVE to CONSUMED and decrements on-hand without touching ProductVariant', async () => {
       tx.reservation.findFirst.mockResolvedValue({
         id: 'res-1',
         inventoryItemId: 'item-1',
@@ -1758,12 +1664,7 @@ describe('InventoryService', () => {
         }),
         tx,
       );
-      expect(tx.productVariant.updateMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { id: 'var-1', deletedAt: null },
-          data: { stockQuantity: 7, updatedBy: actorId },
-        }),
-      );
+      expect(tx.productVariant.updateMany).not.toHaveBeenCalled();
       expect(result.status).toBe('CONSUMED');
     });
 
@@ -1805,7 +1706,7 @@ describe('InventoryService', () => {
       );
     });
 
-    it('rolls back the transition, on-hand decrement and aggregate when the audit fails', async () => {
+    it('rolls back the transition and on-hand decrement when the audit fails', async () => {
       tx.reservation.findFirst.mockResolvedValue({
         id: 'res-1',
         inventoryItemId: 'item-1',

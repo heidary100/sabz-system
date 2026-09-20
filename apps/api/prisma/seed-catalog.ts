@@ -17,14 +17,14 @@
  *   Fixture binaries are copied to temp files first because the pipeline
  *   deletes its input; committed fixtures are never hand-placed in storage.
  * - Idempotent: all writes are upserts keyed by slug/sku; media is uploaded
- *   only when the product has no live media rows; inventory items are created
- *   via the existing `backfillInventory` (INITIAL_STOCK ledger entries).
+ *   only when the product has no live media rows; inventory items are upserted
+ *   per fixture stock with INITIAL_STOCK ledger entries.
  * - Every product ends PUBLISHED with a primary image; the set includes one
  *   multi-variant product (priceFrom path) and one video-bearing product
  *   (gallery video path). Development-only: called from `seed.ts`, which
  *   already gates on NODE_ENV=development.
  */
-import { PrismaClient, ProductCondition, ProductStatus } from '@prisma/client';
+import { InventoryMovementType, PrismaClient, ProductCondition, ProductStatus } from '@prisma/client';
 import { copyFile, mkdir, readFile, stat } from 'fs/promises';
 import { existsSync } from 'fs';
 import { dirname, join, resolve } from 'path';
@@ -39,7 +39,10 @@ import { VideoProcessorService } from '../src/modules/products/media-processing/
 import { WatermarkOverlayService } from '../src/modules/products/media-processing/watermark-overlay.service';
 import { resolveWatermarkConfig } from '../src/modules/products/media-processing/watermark-config';
 import { LocalDiskMediaStorage } from '../src/modules/products/storage/local-disk-media.storage';
-import { backfillInventory } from './bootstrap';
+import {
+  DEFAULT_WAREHOUSE_CODE,
+  ensureDefaultWarehouse,
+} from './bootstrap';
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const MAX_SLUG_LENGTH = 200;
@@ -360,7 +363,6 @@ export async function seedCatalog(actorId: string): Promise<SeedCatalogStats> {
             sku: variant.sku,
             name: variant.name,
             price: variant.priceToman,
-            stockQuantity: variant.stock,
             createdBy: actorId,
           },
         });
@@ -424,10 +426,60 @@ export async function seedCatalog(actorId: string): Promise<SeedCatalogStats> {
       }
     }
 
-    // Inventory: variants carry the fixture stock in stockQuantity; the
-    // existing backfill creates InventoryItems + INITIAL_STOCK movements
-    // (idempotent — existing items are untouched).
-    await backfillInventory(prisma);
+    // Inventory: fixture stocks live in authoritative InventoryItem rows on the
+    // default warehouse (SS-130: no denormalized variant projection). Upserts
+    // are idempotent — existing items and their ledger history are untouched.
+    await ensureDefaultWarehouse(prisma);
+    const defaultWarehouse = await prisma.warehouse.findUniqueOrThrow({
+      where: { code: DEFAULT_WAREHOUSE_CODE },
+      select: { id: true },
+    });
+    for (const product of products) {
+      for (const variant of product.variants) {
+        const variantRow = await prisma.productVariant.findUniqueOrThrow({
+          where: { sku: variant.sku },
+          select: { id: true },
+        });
+        const item = await prisma.inventoryItem.upsert({
+          where: {
+            variantId_warehouseId: {
+              variantId: variantRow.id,
+              warehouseId: defaultWarehouse.id,
+            },
+          },
+          update: {},
+          create: {
+            warehouseId: defaultWarehouse.id,
+            variantId: variantRow.id,
+            quantityOnHand: variant.stock,
+            quantityReserved: 0,
+          },
+          select: { id: true },
+        });
+        const movementCount = await prisma.inventoryMovement.count({
+          where: {
+            inventoryItemId: item.id,
+            type: InventoryMovementType.INITIAL_STOCK,
+          },
+        });
+        if (movementCount === 0) {
+          await prisma.inventoryMovement.create({
+            data: {
+              inventoryItemId: item.id,
+              variantId: variantRow.id,
+              warehouseId: defaultWarehouse.id,
+              type: InventoryMovementType.INITIAL_STOCK,
+              quantity: variant.stock,
+              reservedDelta: 0,
+              onHandBefore: 0,
+              onHandAfter: variant.stock,
+              reservedBefore: 0,
+              reservedAfter: 0,
+            },
+          });
+        }
+      }
+    }
 
     return {
       categories: categories.length,

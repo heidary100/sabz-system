@@ -10,7 +10,6 @@ export { UpdateBrandDto } from './update-brand.dto';
 export { ListBrandsQueryDto } from './list-brands-query.dto';
 export { CreateVariantDto } from './create-variant.dto';
 export { UpdateVariantDto } from './update-variant.dto';
-export { UpdateVariantInventoryDto } from './update-inventory.dto';
 export { UploadMediaDto } from './upload-media.dto';
 export { ImportDescriptionImageDto } from './import-description-image.dto';
 export { ListCatalogBrandsQueryDto } from './list-catalog-brands-query.dto';

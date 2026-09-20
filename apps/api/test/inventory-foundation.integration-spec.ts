@@ -1,8 +1,4 @@
-import {
-  InventoryMovementType,
-  ProductCondition,
-  ProductStatus,
-} from '@prisma/client';
+import { ProductCondition, ProductStatus } from '@prisma/client';
 import { PrismaService } from '../src/common/database/prisma.service';
 import {
   bootstrap,
@@ -66,18 +62,13 @@ describe('Inventory foundation bootstrap (SS-109) integration', () => {
     return product.id;
   }
 
-  async function createVariant(
-    productId: string,
-    overrides: Record<string, unknown> = {},
-  ): Promise<string> {
+  async function createVariant(productId: string): Promise<string> {
     const variant = await prisma.productVariant.create({
       data: {
         productId,
         sku: `SKU-INV-${Date.now()}-${Math.random()}`,
         price: '100.00',
-        stockQuantity: 0,
-        ...overrides,
-      } as never,
+      },
     });
     createdVariantIds.push(variant.id);
     return variant.id;
@@ -153,11 +144,12 @@ describe('Inventory foundation bootstrap (SS-109) integration', () => {
     await prisma.$disconnect();
   });
 
-  it('ensures the default warehouse and backfills existing variants exactly once', async () => {
+  it('ensures the default warehouse and creates no inventory rows', async () => {
     const productId = await createProduct();
-    const variantA = await createVariant(productId, { stockQuantity: 10 });
-    const variantB = await createVariant(productId, { stockQuantity: 0 });
+    const variantA = await createVariant(productId);
+    const variantB = await createVariant(productId);
 
+    await bootstrap(prisma);
     await bootstrap(prisma);
 
     const warehouse = await prisma.warehouse.findUnique({
@@ -166,129 +158,16 @@ describe('Inventory foundation bootstrap (SS-109) integration', () => {
     expect(warehouse).not.toBeNull();
     expect(warehouse!.status).toBe('ACTIVE');
 
-    const warehouseId = warehouse!.id;
+    // SS-130: the legacy stockQuantity backfill is gone. New variants start
+    // with no rows; the first receive creates the item (INITIAL_STOCK).
     const items = await prisma.inventoryItem.findMany({
       where: { variantId: { in: [variantA, variantB] } },
     });
-    expect(items).toHaveLength(2);
-    const itemA = items.find((item) => item.variantId === variantA);
-    const itemB = items.find((item) => item.variantId === variantB);
-    expect(itemA?.quantityOnHand).toBe(10);
-    expect(itemA?.quantityReserved).toBe(0);
-    expect(itemA?.warehouseId).toBe(warehouseId);
-    expect(itemB?.quantityOnHand).toBe(0);
-    expect(itemB?.quantityReserved).toBe(0);
-
-    const movements = await prisma.inventoryMovement.findMany({
-      where: { inventoryItemId: { in: items.map((item) => item.id) } },
-    });
-    expect(movements).toHaveLength(2);
-    const movementA = movements.find(
-      (movement) => movement.inventoryItemId === itemA!.id,
-    );
-    const movementB = movements.find(
-      (movement) => movement.inventoryItemId === itemB!.id,
-    );
-    expect(movementA?.type).toBe(InventoryMovementType.INITIAL_STOCK);
-    expect(movementA?.quantity).toBe(10);
-    expect(movementA?.onHandBefore).toBe(0);
-    expect(movementA?.onHandAfter).toBe(10);
-    expect(movementB?.type).toBe(InventoryMovementType.INITIAL_STOCK);
-    expect(movementB?.quantity).toBe(0);
-    expect(movementB?.onHandAfter).toBe(0);
-
-    const variantArow = await prisma.productVariant.findUnique({
-      where: { id: variantA },
-    });
-    const variantBrow = await prisma.productVariant.findUnique({
-      where: { id: variantB },
-    });
-    expect(variantArow?.stockQuantity).toBe(10);
-    expect(variantBrow?.stockQuantity).toBe(0);
-  });
-
-  it('is idempotent: repeated bootstrap adds no items or movements', async () => {
-    const productId = await createProduct();
-    const variant = await createVariant(productId, { stockQuantity: 7 });
-
-    await bootstrap(prisma);
-    await bootstrap(prisma);
-
-    const items = await prisma.inventoryItem.findMany({
-      where: { variantId: variant },
-    });
-    expect(items).toHaveLength(1);
-
-    const movements = await prisma.inventoryMovement.findMany({
-      where: { inventoryItemId: items[0]!.id },
-    });
-    expect(movements).toHaveLength(1);
-    expect(movements[0]!.type).toBe(InventoryMovementType.INITIAL_STOCK);
-    expect(movements[0]!.quantity).toBe(7);
-
-    const variantRow = await prisma.productVariant.findUnique({
-      where: { id: variant },
-    });
-    expect(variantRow?.stockQuantity).toBe(7);
-  });
-
-  it('skips soft-deleted variants and archived or deleted product variants', async () => {
-    const activeProductId = await createProduct();
-    const softDeletedVariant = await createVariant(activeProductId, {
-      stockQuantity: 5,
-    });
-    await prisma.productVariant.update({
-      where: { id: softDeletedVariant },
-      data: { deletedAt: new Date() },
-    });
-
-    const archivedProductId = await createProduct({
-      status: ProductStatus.ARCHIVED,
-    });
-    const archivedVariant = await createVariant(archivedProductId, {
-      stockQuantity: 5,
-    });
-
-    const deletedProductId = await createProduct({ deletedAt: new Date() });
-    const deletedProductVariant = await createVariant(deletedProductId, {
-      stockQuantity: 5,
-    });
-
-    await bootstrap(prisma);
-
-    const items = await prisma.inventoryItem.findMany({
-      where: {
-        variantId: {
-          in: [softDeletedVariant, archivedVariant, deletedProductVariant],
-        },
-      },
-    });
     expect(items).toHaveLength(0);
-
-    for (const id of [softDeletedVariant, archivedVariant, deletedProductVariant]) {
-      const movements = await prisma.inventoryMovement.findMany({
-        where: { variantId: id },
-      });
-      expect(movements).toHaveLength(0);
-    }
-  });
-
-  it('enforces the (variantId, warehouseId) unique constraint', async () => {
-    const productId = await createProduct();
-    const variant = await createVariant(productId, { stockQuantity: 3 });
-    await bootstrap(prisma);
-
-    const warehouseId = await defaultWarehouseId();
-    await expect(
-      prisma.inventoryItem.create({
-        data: {
-          warehouseId,
-          variantId: variant,
-          quantityOnHand: 3,
-          quantityReserved: 0,
-        },
-      }),
-    ).rejects.toMatchObject({ code: 'P2002' });
+    const movements = await prisma.inventoryMovement.findMany({
+      where: { variantId: { in: [variantA, variantB] } },
+    });
+    expect(movements).toHaveLength(0);
   });
 
   it('keeps the movement ledger structurally immutable (no update/delete columns)', async () => {
@@ -303,15 +182,41 @@ describe('Inventory foundation bootstrap (SS-109) integration', () => {
     expect(names).not.toContain('deletedAt');
   });
 
+  it('enforces the (variantId, warehouseId) unique constraint', async () => {
+    const productId = await createProduct();
+    const variant = await createVariant(productId);
+    await bootstrap(prisma);
+
+    const warehouseId = await defaultWarehouseId();
+    await prisma.inventoryItem.create({
+      data: {
+        warehouseId,
+        variantId: variant,
+        quantityOnHand: 3,
+        quantityReserved: 0,
+      },
+    });
+    await expect(
+      prisma.inventoryItem.create({
+        data: {
+          warehouseId,
+          variantId: variant,
+          quantityOnHand: 3,
+          quantityReserved: 0,
+        },
+      }),
+    ).rejects.toMatchObject({ code: 'P2002' });
+  });
+
   it('handles an empty eligible variant set without side effects', async () => {
     const productId = await createProduct();
-    const variant = await createVariant(productId, { stockQuantity: 4 });
+    const variant = await createVariant(productId);
 
     await bootstrap(prisma);
     const itemsBefore = await prisma.inventoryItem.findMany({
       where: { variantId: variant },
     });
-    expect(itemsBefore).toHaveLength(1);
+    expect(itemsBefore).toHaveLength(0);
 
     await prisma.product.update({
       where: { id: productId },
@@ -322,6 +227,6 @@ describe('Inventory foundation bootstrap (SS-109) integration', () => {
     const itemsAfter = await prisma.inventoryItem.findMany({
       where: { variantId: variant },
     });
-    expect(itemsAfter).toHaveLength(1);
+    expect(itemsAfter).toHaveLength(0);
   });
 });

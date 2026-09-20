@@ -107,7 +107,6 @@ describe('Admin inventory read API (SS-112) (e2e)', () => {
         productId: product.id,
         sku: `E2E-INV-SKU-${Date.now()}`,
         price: '100.00',
-        stockQuantity: 0,
         name: 'واریانت قابلیت جستجو',
       },
     });
@@ -183,11 +182,6 @@ describe('Admin inventory read API (SS-112) (e2e)', () => {
         },
       },
     })).id);
-
-    await prisma.productVariant.update({
-      where: { id: variant.id },
-      data: { stockQuantity: 14 },
-    });
 
     seededVariantId = variant.id;
     seededWarehouseId = activeWarehouse.id;
@@ -497,8 +491,8 @@ describe('Admin inventory read API (SS-112) (e2e)', () => {
     });
   });
 
-  describe('compatibility aggregate', () => {
-    it('keeps ProductVariant.stockQuantity equal to active warehouse InventoryItem totals', async () => {
+  describe('availability aggregate (SS-130: InventoryItem rows are the single source)', () => {
+    it('sums quantityOnHand across active warehouses only', async () => {
       const items = await prisma.inventoryItem.findMany({
         where: {
           variantId: seededVariantId,
@@ -507,12 +501,14 @@ describe('Admin inventory read API (SS-112) (e2e)', () => {
         select: { quantityOnHand: true },
       });
       const total = items.reduce((sum, row) => sum + row.quantityOnHand, 0);
-      const variant = await prisma.productVariant.findUniqueOrThrow({
-        where: { id: seededVariantId },
-        select: { stockQuantity: true },
-      });
+      // 10 (active) + 4 (second active); the 100 in the inactive warehouse
+      // never contributes. No variant-level projection exists anymore.
       expect(total).toBe(14);
-      expect(variant.stockQuantity).toBe(total);
+      await expect(
+        prisma.productVariant.findUniqueOrThrow({
+          where: { id: seededVariantId },
+        }),
+      ).resolves.not.toHaveProperty('stockQuantity');
     });
   });
 

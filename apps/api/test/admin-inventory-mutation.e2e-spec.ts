@@ -10,6 +10,7 @@ import {
 import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/app.setup';
 import { PrismaService } from '../src/common/database/prisma.service';
+import { aggregateVariantStock } from '../src/modules/inventory/inventory-aggregate';
 import { TokenService } from '../src/modules/auth/services/token.service';
 
 jest.setTimeout(60_000);
@@ -115,7 +116,6 @@ describe('Admin inventory mutation API (SS-113) (e2e)', () => {
         productId,
         sku: `E2E-MUT-SKU-${Date.now()}-${Math.random()}`,
         price: '100.00',
-        stockQuantity: 0,
         ...overrides,
       } as never,
     });
@@ -316,11 +316,8 @@ describe('Admin inventory mutation API (SS-113) (e2e)', () => {
         InventoryMovementType.PURCHASE_RECEIPT,
       ]);
 
-      const variant = await prisma.productVariant.findUniqueOrThrow({
-        where: { id: variantId },
-        select: { stockQuantity: true },
-      });
-      expect(variant.stockQuantity).toBe(8);
+      const totals = await aggregateVariantStock(prisma, [variantId]);
+      expect(totals.get(variantId)).toBe(8);
     });
 
     it('returns 400 for invalid quantity and missing ids', async () => {
@@ -495,65 +492,24 @@ describe('Admin inventory mutation API (SS-113) (e2e)', () => {
     });
   });
 
-  describe('SS-104 compatibility endpoint', () => {
-    it('still sets stock via PATCH but routes through the inventory write path', async () => {
+  describe('removed SS-104 compatibility endpoint (SS-130)', () => {
+    it('returns 404 for PATCH on the removed variant inventory route', async () => {
       const operator = await createUser('OPERATOR');
       const productId = await createProduct();
-      const variantId = await createVariant(productId, { stockQuantity: 1 });
+      const variantId = await createVariant(productId);
 
-      const res = await request(app.getHttpServer())
+      // Stock is now managed exclusively through /admin/inventory/receive|adjust.
+      await request(app.getHttpServer())
         .patch(`${VARIANTS}/${variantId}/inventory`)
         .set('Authorization', `Bearer ${operator.accessToken}`)
         .send({ stockQuantity: 7 })
-        .expect(200);
-      expect(res.body.stockQuantity).toBe(7);
-
-      const defaultWarehouse = await prisma.warehouse.findUniqueOrThrow({
-        where: { code: 'DEFAULT' },
-      });
-      const item = await prisma.inventoryItem.findUniqueOrThrow({
-        where: {
-          variantId_warehouseId: {
-            variantId,
-            warehouseId: defaultWarehouse.id,
-          },
-        },
-      });
-      itemIds.push(item.id);
-      expect(item.quantityOnHand).toBe(7);
-
-      const variant = await prisma.productVariant.findUniqueOrThrow({
-        where: { id: variantId },
-        select: { stockQuantity: true },
-      });
-      expect(variant.stockQuantity).toBe(7);
-
-      const movements = await prisma.inventoryMovement.findMany({
-        where: { inventoryItemId: item.id },
-      });
-      expect(movements).toHaveLength(1);
-      expect(movements[0]!.type).toBe(InventoryMovementType.MANUAL_ADJUSTMENT);
-      expect(movements[0]!.onHandBefore).toBe(0);
-      expect(movements[0]!.onHandAfter).toBe(7);
-
-      const audits = await prisma.auditLog.findMany({
-        where: { entity: 'ProductVariant', entityId: variantId, action: 'PRODUCT_INVENTORY_SET' },
-      });
-      expect(audits).toHaveLength(1);
-      expect(audits[0]!.before).toEqual({ stockQuantity: 1 });
-      expect(audits[0]!.after).toEqual({ stockQuantity: 7 });
-    });
-
-    it('still rejects archived products with 409', async () => {
-      const operator = await createUser('OPERATOR');
-      const archivedProduct = await createProduct({ status: ProductStatus.ARCHIVED });
-      const archivedVariant = await createVariant(archivedProduct);
+        .expect(404);
 
       await request(app.getHttpServer())
-        .patch(`${VARIANTS}/${archivedVariant}/inventory`)
+        .patch(`${VARIANTS}/${variantId}/inventory`)
         .set('Authorization', `Bearer ${operator.accessToken}`)
         .send({ stockQuantity: 5 })
-        .expect(409);
+        .expect(404);
     });
   });
 });
