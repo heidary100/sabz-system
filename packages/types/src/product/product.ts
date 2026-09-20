@@ -52,6 +52,10 @@ export interface ProductMediaSummary {
   mimeType: string;
   /** Size of the stored (watermarked/processed) asset. */
   sizeBytes: number;
+  /** Origin URL for bulk-imported bytes (SS-204); null for admin uploads. */
+  sourceUrl: string | null;
+  /** SHA-256 hex of the received source bytes (SS-204); null pre-backfill. */
+  contentHash: string | null;
   sortOrder: number;
   isPrimary: boolean;
   createdAt: string;

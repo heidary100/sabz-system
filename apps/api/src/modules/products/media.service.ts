@@ -10,6 +10,8 @@ import {
 import { Prisma, ProductStatus } from '@prisma/client';
 import type { ProductMediaSummary } from '@sabz/types';
 import { randomUUID } from 'crypto';
+import { createHash } from 'node:crypto';
+import { createReadStream } from 'node:fs';
 import { mkdir, readdir, rm, stat } from 'fs/promises';
 import { join } from 'path';
 import type { Readable } from 'stream';
@@ -123,6 +125,11 @@ export class MediaService implements OnModuleInit {
       const storageKey = `products/${productId}/${mediaId}.${extension}`;
       const originalName = sanitizeMediaDisplayName(file.originalname);
 
+      // Content hash over the received source bytes (SS-204, dedup). Always
+      // server-computed so importer skip-checks and stored rows agree; it
+      // identifies source bytes, not the watermarked derivative.
+      const contentHash = await hashFileSha256(file.path);
+
       // Server-side watermark/processing. Both the input and output are temp
       // files on disk; only the processed asset is persisted below. Images
       // also get a watermarked WEBP thumbnail derivative (SS-129).
@@ -198,6 +205,8 @@ export class MediaService implements OnModuleInit {
             mimeType: detectedMime,
             sizeBytes,
             storageKey,
+            sourceUrl: dto.sourceUrl ?? null,
+            contentHash,
             thumbnailKey,
             thumbnailSizeBytes,
             sortOrder,
@@ -219,6 +228,8 @@ export class MediaService implements OnModuleInit {
               mediaType: row.mediaType,
               mimeType: row.mimeType,
               sizeBytes: row.sizeBytes,
+              sourceUrl: row.sourceUrl,
+              contentHash: row.contentHash,
               sortOrder: row.sortOrder,
               isPrimary: row.isPrimary,
             },
@@ -248,6 +259,13 @@ export class MediaService implements OnModuleInit {
             }`,
           );
         }
+      }
+      // Re-importing the same origin URL for one product is a client error
+      // (SS-204 idempotency), not a server failure.
+      if (isSourceUrlConflict(error)) {
+        throw new ConflictException(
+          'این تصویر با همین آدرس منبع قبلاً برای این محصول ثبت شده است.',
+        );
       }
       throw error;
     } finally {
@@ -595,10 +613,30 @@ export class MediaService implements OnModuleInit {
       originalName: row.originalName,
       mimeType: row.mimeType,
       sizeBytes: row.sizeBytes,
+      sourceUrl: row.sourceUrl,
+      contentHash: row.contentHash,
       sortOrder: row.sortOrder,
       isPrimary: row.isPrimary,
       createdAt: row.createdAt.toISOString(),
     };
+  }
+
+  /**
+   * Importer skip-check (SS-204): returns the live row previously stored
+   * from this origin URL for the product, or null. Callers skip download +
+   * processing on a hit, making re-imports a no-op per asset.
+   */
+  async findBySourceUrl(
+    productId: string,
+    sourceUrl: string,
+  ): Promise<ProductMediaSummary | null> {
+    const row = await this.prisma.productMedia.findUnique({
+      where: { productId_sourceUrl: { productId, sourceUrl } },
+    });
+    if (!row || row.deletedAt !== null) {
+      return null;
+    }
+    return this.toSummary(row);
   }
 
   private async assertProductExists(
@@ -687,3 +725,30 @@ export class MediaService implements OnModuleInit {
 }
 
 type MediaRow = Prisma.ProductMediaGetPayload<Record<string, never>>;
+
+/** SHA-256 hex digest of a file, streamed (SS-204 dedup identity). */
+async function hashFileSha256(path: string): Promise<string> {
+  const hash = createHash('sha256');
+  const stream = createReadStream(path);
+  await new Promise<void>((resolve, reject) => {
+    stream.on('data', (chunk) => hash.update(chunk as Buffer));
+    stream.on('end', () => resolve());
+    stream.on('error', (error) => reject(error));
+  });
+  return hash.digest('hex');
+}
+
+/**
+ * True when a P2002 targets the (productId, sourceUrl) identity (SS-204).
+ * Soft-deleted rows still hold the identity, so a re-import after delete
+ * also lands here — the importer (SS-208) owns the undelete policy.
+ */
+function isSourceUrlConflict(error: unknown): boolean {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === 'P2002' &&
+    error.meta?.modelName === 'ProductMedia' &&
+    Array.isArray(error.meta?.target) &&
+    error.meta.target.includes('sourceUrl')
+  );
+}

@@ -1,5 +1,6 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
-import { ProductStatus } from '@prisma/client';
+import { Prisma, ProductStatus } from '@prisma/client';
+import { createHash } from 'crypto';
 import { mkdtemp, rm, stat, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
@@ -45,6 +46,7 @@ describe('MediaService (SS-105)', () => {
       aggregate: jest.Mock;
       findFirst: jest.Mock;
       findMany: jest.Mock;
+      findUnique: jest.Mock;
       create: jest.Mock;
       updateMany: jest.Mock;
     };
@@ -76,6 +78,7 @@ describe('MediaService (SS-105)', () => {
         aggregate: jest.fn(),
         findFirst: jest.fn(),
         findMany: jest.fn(),
+        findUnique: jest.fn(),
         create: jest.fn(),
         updateMany: jest.fn(),
       },
@@ -336,6 +339,151 @@ describe('MediaService (SS-105)', () => {
 
       await expect(stat(file.path)).rejects.toMatchObject({ code: 'ENOENT' });
       await expect(stat(processedPath)).rejects.toMatchObject({ code: 'ENOENT' });
+    });
+  });
+
+  describe('source identity and dedup (SS-204)', () => {
+    function mockSuccessfulUpload() {
+      prisma.$queryRaw.mockResolvedValue([{ id: productId, status: 'DRAFT', deletedAt: null }]);
+      prisma.productMedia.aggregate.mockResolvedValue({ _max: { sortOrder: null } });
+      prisma.productMedia.findFirst.mockResolvedValue(null);
+      prisma.productMedia.create.mockImplementation(async ({ data }) => ({
+        id: 'media-1',
+        ...data,
+        thumbnailKey: null,
+        thumbnailSizeBytes: null,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        deletedAt: null,
+        createdBy: actorId,
+        updatedBy: null,
+      }));
+      prisma.$transaction.mockImplementation(async (cb) => cb(prisma));
+    }
+
+    it('persists sourceUrl and the server-computed content hash', async () => {
+      mockSuccessfulUpload();
+      const file = await makeFile(JPEG_BYTES, 'image/jpeg');
+      createdTempPaths.push(file.destination);
+
+      const result = await service.upload(
+        productId,
+        file,
+        { sourceUrl: 'https://sabzsistem.com/img/1.jpg' } as UploadMediaDto,
+        actorId,
+      );
+
+      const expectedHash = createHash('sha256').update(JPEG_BYTES).digest('hex');
+      expect(prisma.productMedia.create.mock.calls[0][0].data).toMatchObject({
+        sourceUrl: 'https://sabzsistem.com/img/1.jpg',
+        contentHash: expectedHash,
+      });
+      expect(result.sourceUrl).toBe('https://sabzsistem.com/img/1.jpg');
+      expect(result.contentHash).toBe(expectedHash);
+    });
+
+    it('stores null identity for direct admin uploads', async () => {
+      mockSuccessfulUpload();
+      const file = await makeFile(JPEG_BYTES, 'image/jpeg');
+      createdTempPaths.push(file.destination);
+
+      const result = await service.upload(productId, file, {}, actorId);
+
+      expect(result.sourceUrl).toBeNull();
+      expect(result.contentHash).toMatch(/^[0-9a-f]{64}$/);
+    });
+
+    it('maps a duplicate sourceUrl to 409 after orphan cleanup', async () => {
+      mockSuccessfulUpload();
+      prisma.productMedia.create.mockRejectedValue(
+        Object.assign(
+          new Prisma.PrismaClientKnownRequestError('dup', {
+            code: 'P2002',
+            clientVersion: 'test',
+          }),
+          {
+            meta: {
+              modelName: 'ProductMedia',
+              target: ['productId', 'sourceUrl'],
+            },
+          },
+        ),
+      );
+      const file = await makeFile(JPEG_BYTES, 'image/jpeg');
+      createdTempPaths.push(file.destination);
+
+      await expect(
+        service.upload(
+          productId,
+          file,
+          { sourceUrl: 'https://sabzsistem.com/img/1.jpg' } as UploadMediaDto,
+          actorId,
+        ),
+      ).rejects.toMatchObject({ status: 409 });
+      expect(storage.delete).toHaveBeenCalled();
+    });
+
+    it('rethrows non-source unique violations unwrapped', async () => {
+      mockSuccessfulUpload();
+      const raw = Object.assign(
+        new Prisma.PrismaClientKnownRequestError('dup', {
+          code: 'P2002',
+          clientVersion: 'test',
+        }),
+        { meta: { modelName: 'ProductMedia', target: ['storageKey'] } },
+      );
+      prisma.productMedia.create.mockRejectedValue(raw);
+      const file = await makeFile(JPEG_BYTES, 'image/jpeg');
+      createdTempPaths.push(file.destination);
+
+      await expect(
+        service.upload(productId, file, {}, actorId),
+      ).rejects.toBe(raw);
+    });
+
+    it('findBySourceUrl resolves live rows and hides the rest', async () => {
+      const row = {
+        id: 'media-1',
+        productId,
+        variantId: null,
+        mediaType: 'IMAGE',
+        originalName: 'photo.jpg',
+        mimeType: 'image/jpeg',
+        sizeBytes: 16,
+        sourceUrl: 'https://sabzsistem.com/img/1.jpg',
+        contentHash: 'abc',
+        sortOrder: 0,
+        isPrimary: true,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        deletedAt: null,
+      };
+      prisma.productMedia.findUnique.mockResolvedValue(row);
+      const found = await service.findBySourceUrl(
+        productId,
+        'https://sabzsistem.com/img/1.jpg',
+      );
+      expect(found?.id).toBe('media-1');
+      expect(prisma.productMedia.findUnique).toHaveBeenCalledWith({
+        where: {
+          productId_sourceUrl: {
+            productId,
+            sourceUrl: 'https://sabzsistem.com/img/1.jpg',
+          },
+        },
+      });
+
+      prisma.productMedia.findUnique.mockResolvedValue(null);
+      await expect(
+        service.findBySourceUrl(productId, 'https://example.com/nope.jpg'),
+      ).resolves.toBeNull();
+
+      prisma.productMedia.findUnique.mockResolvedValue({
+        ...row,
+        deletedAt: new Date(),
+      });
+      await expect(
+        service.findBySourceUrl(productId, 'https://sabzsistem.com/img/1.jpg'),
+      ).resolves.toBeNull();
     });
   });
 

@@ -462,6 +462,17 @@ model ProductMedia {
 
   storageKey String @unique
 
+  /// Origin URL the bytes were fetched from (SS-204). Set by bulk importers;
+  /// null for direct admin uploads. Unique per product: re-importing the same
+  /// URL updates instead of duplicating (importer skip-checks via lookup).
+  sourceUrl String?
+
+  /// SHA-256 (hex) of the received source bytes, always server-computed
+  /// (SS-204). Identifies source bytes, not the watermarked derivative, so
+  /// watermark retuning never breaks dedup. Enables cross-product reuse
+  /// detection; null only for rows predating SS-204.
+  contentHash String?
+
   /// Server-generated key of the watermarked thumbnail derivative (SS-129).
   /// Images only; null = no thumbnail (videos, or images predating SS-129
   /// that were not backfilled). Consumers fall back to the original asset.
@@ -477,6 +488,8 @@ model ProductMedia {
   createdBy String?
   updatedBy String?
 
+  @@unique([productId, sourceUrl])
+  @@index([contentHash])
   @@index([productId, deletedAt])
   @@index([productId, sortOrder])
   @@index([variantId])

@@ -1,6 +1,14 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { IsBoolean, IsEnum, IsOptional, IsUUID } from 'class-validator';
+import {
+  IsBoolean,
+  IsEnum,
+  IsOptional,
+  IsString,
+  IsUrl,
+  MaxLength,
+  IsUUID,
+} from 'class-validator';
 import { ProductMediaType } from '@prisma/client';
 
 /**
@@ -40,4 +48,20 @@ export class UploadMediaDto {
   })
   @IsBoolean({ message: 'isPrimary باید مقدار بولی باشد.' })
   isPrimary?: boolean;
+
+  @ApiPropertyOptional({
+    description:
+      'Origin URL the bytes were fetched from (SS-204, bulk importers). Unique per product: re-uploading the same URL is rejected.',
+  })
+  @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined,
+  )
+  @IsString({ message: 'sourceUrl باید رشته باشد.' })
+  @IsUrl(
+    { protocols: ['http', 'https'], require_protocol: true },
+    { message: 'sourceUrl باید آدرس اینترنتی معتبر http(s) باشد.' },
+  )
+  @MaxLength(2048, { message: 'sourceUrl باید حداکثر ۲۰۴۸ کاراکتر باشد.' })
+  sourceUrl?: string;
 }

@@ -250,6 +250,39 @@ describe('Admin product media API (SS-105) (e2e)', () => {
         .expect(400);
     });
 
+    it('returns 400 for a non-http(s) sourceUrl', async () => {
+      const operator = await createUser('OPERATOR');
+      const productId = await createProduct(operator.accessToken);
+      await request(app.getHttpServer())
+        .post(`${BASE}/${productId}/media`)
+        .set('Authorization', `Bearer ${operator.accessToken}`)
+        .field('sourceUrl', 'not-a-url')
+        .attach('file', jpegBuffer(), { filename: 'a.jpg', contentType: 'image/jpeg' })
+        .expect(400);
+    });
+
+    it('returns 409 re-uploading the same sourceUrl for one product', async () => {
+      const operator = await createUser('OPERATOR');
+      const productId = await createProduct(operator.accessToken);
+      const fields = { sourceUrl: `https://cdn.example.com/${Date.now()}.jpg` };
+      const first = await request(app.getHttpServer())
+        .post(`${BASE}/${productId}/media`)
+        .set('Authorization', `Bearer ${operator.accessToken}`)
+        .field('sourceUrl', fields.sourceUrl)
+        .attach('file', jpegBuffer(), { filename: 'a.jpg', contentType: 'image/jpeg' })
+        .expect(201);
+      mediaIds.push(first.body.id);
+      expect(first.body.sourceUrl).toBe(fields.sourceUrl);
+      expect(first.body.contentHash).toMatch(/^[0-9a-f]{64}$/);
+
+      await request(app.getHttpServer())
+        .post(`${BASE}/${productId}/media`)
+        .set('Authorization', `Bearer ${operator.accessToken}`)
+        .field('sourceUrl', fields.sourceUrl)
+        .attach('file', jpegBuffer(), { filename: 'b.jpg', contentType: 'image/jpeg' })
+        .expect(409);
+    });
+
     it('returns 404 for a missing product', async () => {
       const operator = await createUser('OPERATOR');
       const id = '00000000-0000-0000-0000-000000000000';
