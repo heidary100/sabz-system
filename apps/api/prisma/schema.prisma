@@ -329,6 +329,9 @@ model Brand {
   name        String
   slug        String   @unique
   description String?
+  /// English display name (SS-203). Replaces the former demo-seed hack of
+  /// smuggling it inside `description`; `description` is now genuinely unused.
+  nameEn      String?
   logoKey     String?
   isFeatured  Boolean  @default(false)
 
@@ -364,6 +367,19 @@ model Product {
   depthCm       Decimal? @db.Decimal(8, 2)
   originCountry String?
 
+  /// English display name for mixed FA/EN rendering and search (SS-203).
+  nameEn String?
+
+  /// Secondary title line from the source catalog (SS-203).
+  subtitle String?
+
+  /// Public SEO fields (SS-203). Titles/descriptions migrate; scores and
+  /// social-overlay settings stay in the documented ignore-list.
+  /// focusKeyword is index-only for search (SS-216), never rendered.
+  metaTitle       String?
+  metaDescription String?
+  focusKeyword    String?
+
   /// External-source identity (ADR-004). Set only by importers; never derived
   /// from slug or SKU. Null = created natively (admin UI, demo seed).
   /// Uniquely identifies one logical product across repeated imports.
@@ -374,6 +390,7 @@ model Product {
   variants ProductVariant[]
   media    ProductMedia[]
   specs    ProductAttributeValue[]
+  tags     ProductTag[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -680,4 +697,41 @@ model VariantAttributeValue {
 
   @@unique([variantId, attributeValueId])
   @@index([variantId])
+}
+
+/// Normalized product tag (SS-203).
+///
+/// `name` is the first-seen display form; `key` is the comparison form
+/// (spaces/ZWNJ stripped, Arabic letters folded, Latin lowercased) so
+/// Persian spelling variants (لپ تاپ / لپتاپ / لپ‌تاپ) converge to one row
+/// without a manual alias map. Reference data: hard-deleted when unused
+/// (service-guarded); importer provenance lives in ImportRecord.
+model Tag {
+  id   String @id @default(uuid())
+  name String
+  key  String @unique
+  slug String @unique
+
+  products ProductTag[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// Tag assignment preserving source ordering (SS-203). Derived rows:
+/// hard-deleted on unassign or with the product.
+model ProductTag {
+  id        String  @id @default(uuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  tagId     String
+  tag       Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  sortOrder Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([productId, tagId])
+  @@index([productId, sortOrder])
+  @@index([tagId])
 }

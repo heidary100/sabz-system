@@ -9,6 +9,7 @@ import type {
   CatalogProductMediaDto,
   CatalogProductSpecDto,
   CatalogProductVariantDto,
+  CatalogRefDto,
   PaginatedResult,
 } from '@sabz/types';
 import { PrismaService } from '../../common/database/prisma.service';
@@ -223,10 +224,14 @@ export class PublicCatalogService {
         id: true,
         name: true,
         slug: true,
+        nameEn: true,
+        subtitle: true,
         shortDescription: true,
         description: true,
         condition: true,
         warranty: true,
+        metaTitle: true,
+        metaDescription: true,
         weightKg: true,
         widthCm: true,
         heightCm: true,
@@ -279,6 +284,12 @@ export class PublicCatalogService {
           },
           orderBy: [{ sortOrder: 'asc' as const }, { createdAt: 'asc' as const }],
         },
+        tags: {
+          select: {
+            tag: { select: { name: true, slug: true } },
+          },
+          orderBy: [{ sortOrder: 'asc' as const }, { createdAt: 'asc' as const }],
+        },
       },
     });
 
@@ -322,14 +333,20 @@ export class PublicCatalogService {
       sortOrder: row.sortOrder,
     }));
 
+    const tags: CatalogRefDto[] = product.tags.map((row) => row.tag);
+
     return {
       id: product.id,
       name: product.name,
       slug: product.slug,
+      nameEn: product.nameEn,
+      subtitle: product.subtitle,
       shortDescription: product.shortDescription,
       description: product.description,
       condition: product.condition,
       warranty: product.warranty,
+      metaTitle: product.metaTitle,
+      metaDescription: product.metaDescription,
       weightKg: decimalToString(product.weightKg),
       widthCm: decimalToString(product.widthCm),
       heightCm: decimalToString(product.heightCm),
@@ -341,6 +358,7 @@ export class PublicCatalogService {
       variants,
       media,
       specs,
+      tags,
       inStock: variants.some((variant) => variant.inStock),
       createdAt: product.createdAt.toISOString(),
     };

@@ -12,6 +12,7 @@ import { configureApp } from '../src/app.setup';
 import { PrismaService } from '../src/common/database/prisma.service';
 import { TokenService } from '../src/modules/auth/services/token.service';
 import { AttributesService } from '../src/modules/products/attributes.service';
+import { TagsService } from '../src/modules/products/tags.service';
 
 jest.setTimeout(60_000);
 
@@ -846,6 +847,58 @@ describe('Public catalog API (SS-120/121/122) (e2e)', () => {
         .get(`${PRODUCTS_BASE}/${slug}`)
         .expect(200);
       expect(detail.body.variants[0].priceStatus).toBe(PriceStatus.CALL_FOR_PRICE);
+    });
+  });
+
+  describe('SS-203: tags and metadata on the detail DTO', () => {
+    it('exposes ordered tags', async () => {
+      const token = await createOperator();
+      const suffix = `${uniqueSuffix()}`;
+      const brand = await prisma.brand.create({
+        data: { name: `برند ${suffix}`, slug: `brand-${suffix}` },
+      });
+      brandIds.push(brand.id);
+      const category = await prisma.category.create({
+        data: { name: `دسته ${suffix}`, slug: `cat-${suffix}` },
+      });
+      categoryIds.push(category.id);
+
+      const created = await request(app.getHttpServer())
+        .post('/api/v1/admin/products')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          name: `برچسب ${suffix}`,
+          slug: `tagged-${suffix}`,
+          brandId: brand.id,
+          categoryId: category.id,
+          condition: ProductCondition.NEW,
+        })
+        .expect(201);
+      productIds.push(created.body.id);
+
+      const tagService = app.get(TagsService);
+      await tagService.assignTag(created.body.id, 'گیمینگ', `gaming-${suffix}`, 2);
+      await tagService.assignTag(created.body.id, 'لپ تاپ', `laptop-${suffix}`, 1);
+      await publishProduct(token, created.body.id);
+
+      const res = await request(app.getHttpServer())
+        .get(`${PRODUCTS_BASE}/tagged-${suffix}`)
+        .expect(200);
+      expect(res.body.tags).toEqual([
+        { name: 'لپ تاپ', slug: `laptop-${suffix}` },
+        { name: 'گیمینگ', slug: `gaming-${suffix}` },
+      ]);
+
+      await prisma.productTag.deleteMany({
+        where: { productId: created.body.id },
+      });
+      const tagIds = (
+        await prisma.tag.findMany({
+          where: { slug: { in: [`gaming-${suffix}`, `laptop-${suffix}`] } },
+          select: { id: true },
+        })
+      ).map((tag) => tag.id);
+      await prisma.tag.deleteMany({ where: { id: { in: tagIds } } });
     });
   });
 });

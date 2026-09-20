@@ -282,14 +282,16 @@ export async function seedCatalog(actorId: string): Promise<SeedCatalogStats> {
         where: { slug: brand.slug },
         update: {
           name: brand.name,
-          description: brand.nameEn,
+          description: null,
+          nameEn: brand.nameEn,
           isFeatured: brand.isFeatured,
           deletedAt: null,
         },
         create: {
           name: brand.name,
           slug: brand.slug,
-          description: brand.nameEn,
+          description: null,
+          nameEn: brand.nameEn,
           isFeatured: brand.isFeatured,
           createdBy: actorId,
         },

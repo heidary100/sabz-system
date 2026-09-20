@@ -123,6 +123,10 @@ export interface CatalogProductDetailDto {
   id: string;
   name: string;
   slug: string;
+  /** English display name for mixed FA/EN rendering (SS-203). */
+  nameEn: string | null;
+  /** Secondary title line (SS-203). */
+  subtitle: string | null;
   /** Plain text up to 500 chars. */
   shortDescription: string | null;
   /**
@@ -132,6 +136,9 @@ export interface CatalogProductDetailDto {
   description: string | null;
   condition: ProductCondition;
   warranty: string | null;
+  /** Public SEO title/description (SS-203); consumed by storefront metadata. */
+  metaTitle: string | null;
+  metaDescription: string | null;
   weightKg: string | null;
   widthCm: string | null;
   heightCm: string | null;
@@ -146,6 +153,8 @@ export interface CatalogProductDetailDto {
   media: CatalogProductMediaDto[];
   /** Ordered display specs (SS-202); empty when the product has none. */
   specs: CatalogProductSpecDto[];
+  /** Ordered tags (SS-203); empty when the product has none. */
+  tags: CatalogRefDto[];
   /** True when at least one variant has available stock in active warehouses. */
   inStock: boolean;
   createdAt: string;

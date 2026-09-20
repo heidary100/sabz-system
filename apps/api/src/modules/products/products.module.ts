@@ -13,6 +13,7 @@ import { ProductsService } from './products.service';
 import { AdminVariantsController, ProductVariantsController } from './variants.controller';
 import { VariantsService } from './variants.service';
 import { AttributesService } from './attributes.service';
+import { TagsService } from './tags.service';
 import {
   AdminMediaController,
   ProductMediaController,
@@ -80,6 +81,7 @@ export const PRODUCT_MEDIA_TEMP_DIR = 'PRODUCT_MEDIA_TEMP_DIR';
     BrandsService,
     VariantsService,
     AttributesService,
+    TagsService,
     MediaService,
     DescriptionImageService,
     PublicCatalogService,
@@ -139,6 +141,6 @@ export const PRODUCT_MEDIA_TEMP_DIR = 'PRODUCT_MEDIA_TEMP_DIR';
     },
     MediaProcessingService,
   ],
-  exports: [AttributesService, MediaService, PRODUCT_MEDIA_STORAGE],
+  exports: [AttributesService, MediaService, PRODUCT_MEDIA_STORAGE, TagsService],
 })
 export class ProductsModule {}
