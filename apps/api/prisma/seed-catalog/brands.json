@@ -8,8 +8,9 @@
     { "slug": "xiaomi", "name": "شیائومی", "nameEn": "Xiaomi", "isFeatured": true },
     { "slug": "kerbi", "name": "کربی", "nameEn": "KERBI", "isFeatured": false },
     { "slug": "sandisk", "name": "سن‌دیسک", "nameEn": "SanDisk", "isFeatured": false },
-    { "slug": "samsung", "name": "سامسونگ", "nameEn": "Samsung", "isFeatured": true },
-    { "slug": "western-digital", "name": "وسترن دیجیتال", "nameEn": "Western Digital", "isFeatured": false },
-    { "slug": "lenovo", "name": "لنوو", "nameEn": "Lenovo", "isFeatured": false }
+    { "slug": "dell", "name": "دل", "nameEn": "Dell", "isFeatured": false },
+    { "slug": "patriot", "name": "پاتریوت", "nameEn": "Patriot", "isFeatured": false },
+    { "slug": "silicon-power", "name": "سیلیکون پاور", "nameEn": "Silicon Power", "isFeatured": false },
+    { "slug": "misc", "name": "متفرقه", "nameEn": "Misc", "isFeatured": false }
   ]
 }

@@ -1,5 +1,5 @@
 {
-  "$comment": "SS-131 demo catalog — representative product snapshot of sabzsistem.com (titles/models/brands as listed on the live WooCommerce site, Sep 2026). Prices: the live site displays Rial; the storefront contract is Toman, so priceToman = priceRial / 10 (the seeder asserts this invariant). Slugs are unique ASCII kebab-case ≤200 chars. Every product is PUBLISHED with a primary image; seed-halo-beam is multi-variant (priceFrom path); seed-pdxv40 carries a video (gallery video path); seed-lint-remover has zero stock (out-of-stock path).",
+  "$comment": "SS-131 demo catalog — representative product snapshot of sabzsistem.com (titles/models/brands as listed on the live WooCommerce site, Sep 2026). Photos are the live product images (see SOURCES.md), normalized to ≤1024px JPEG and committed under images/. Prices: the live site displays Rial; the storefront contract is Toman, so priceToman = priceRial / 10 (the seeder asserts this invariant). Prices marked (est.) were hidden on the live site (call-for-price) and are plausible current-market values. The live site has no downloadable product videos, so the video-bearing product uses a generated demo clip to exercise the gallery video path. Slugs are unique ASCII kebab-case ≤200 chars. Every product is PUBLISHED with a primary image; seed-halo-beam is multi-variant (priceFrom path); seed-pdxv40 carries a video; seed-lint-remover has zero stock (out-of-stock path).",
   "products": [
     {
       "slug": "powerology-halo-beam-ppbcha92-40000",
@@ -21,32 +21,32 @@
       ]
     },
     {
-      "slug": "xiaomi-redmi-note-13-256",
-      "name": "گوشی موبایل شیائومی Redmi Note 13 حافظه ۲۵۶ رم ۸",
-      "brandSlug": "xiaomi",
+      "slug": "mobile-2690-slim",
+      "name": "گوشی موبایل مدل 2690 Slim",
+      "brandSlug": "misc",
       "categorySlug": "mobile-phones",
       "condition": "NEW",
       "warranty": "۱۸ ماه گارانتی سبز سیستم",
       "originCountry": "چین",
-      "shortDescription": "میان‌رده محبوب شیائومی با نمایشگر امولد و دوربین ۱۰۸ مگاپیکسلی.",
-      "description": "<p>گوشی <strong>Redmi Note 13</strong> با نمایشگر امولد ۱۲۰ هرتزی و باتری ۵۰۰۰ میلی‌آمپری، انتخابی مطمئن در بازه قیمتی میان‌رده است.</p>",
+      "shortDescription": "گوشی ساده و خوش‌دست با باتری قدرتمند و کاربری آسان.",
+      "description": "<p>گوشی موبایل <strong>2690 Slim</strong> با طراحی باریک و باتری بادوام، انتخابی اقتصادی برای مکالمه روزمره است.</p>",
       "variants": [
-        { "sku": "SEED-MOB-RN13-256", "name": "۲۵۶/۸ گیگ", "priceRial": 95000000, "priceToman": "9500000", "stock": 8 }
+        { "sku": "SEED-MOB-2690", "name": "تک‌سیم", "priceRial": 29000000, "priceToman": "2900000", "stock": 8 }
       ],
       "media": [{ "file": "seed-03.jpg", "mediaType": "IMAGE" }]
     },
     {
-      "slug": "porodo-soundtec-tws-earbuds",
-      "name": "هندزفری بلوتوثی پرودو مدل Soundtec با کیس شارژ",
+      "slug": "porodo-earbuds-pro3-anc-pd8002wh",
+      "name": "هندزفری بلوتوثی پرودو مدل Wireless Earbuds Pro 3 ANC PD8002WH",
       "brandSlug": "porodo",
       "categorySlug": "headphones",
       "condition": "NEW",
       "warranty": "۱۲ ماه گارانتی سبز سیستم",
       "originCountry": "چین",
-      "shortDescription": "هندزفری بلوتوثی با حذف نویز مکالمه و کیس شارژ سریع.",
+      "shortDescription": "هندزفری بلوتوثی با حذف نویز فعال و کیس شارژ سریع.",
       "description": null,
       "variants": [
-        { "sku": "SEED-HP-PD-SOUNDTEC", "name": "مشکی", "priceRial": 18000000, "priceToman": "1800000", "stock": 18 }
+        { "sku": "SEED-HP-PD-8002", "name": "سفید", "priceRial": 33500000, "priceToman": "3350000", "stock": 18 }
       ],
       "media": [{ "file": "seed-04.jpg", "mediaType": "IMAGE" }]
     },
@@ -100,7 +100,7 @@
       "variants": [
         { "sku": "SEED-AV-KXK686", "name": "مدل پایه", "priceRial": 19000000, "priceToman": "1900000", "stock": 25 }
       ],
-      "media": [{ "file": "seed-10.jpg", "mediaType": "IMAGE" }]
+      "media": [{ "file": "seed-24.jpg", "mediaType": "IMAGE" }]
     },
     {
       "slug": "kerbi-y225-lantern-speaker",
@@ -115,7 +115,7 @@
       "variants": [
         { "sku": "SEED-SP-KB-Y225", "name": "مشکی", "priceRial": 46500000, "priceToman": "4650000", "stock": 11 }
       ],
-      "media": [{ "file": "seed-01.jpg", "mediaType": "IMAGE" }]
+      "media": [{ "file": "seed-22.jpg", "mediaType": "IMAGE" }]
     },
     {
       "slug": "green-lion-snap-label-printer",
@@ -130,52 +130,52 @@
       "variants": [
         { "sku": "SEED-PC-GL-SNAP", "name": "مدل پایه", "priceRial": 57500000, "priceToman": "5750000", "stock": 5 }
       ],
-      "media": [{ "file": "seed-02.jpg", "mediaType": "IMAGE" }]
+      "media": [{ "file": "seed-25.jpg", "mediaType": "IMAGE" }]
     },
     {
       "slug": "sandisk-ultra-flash-128gb",
-      "name": "فلش مموری سن‌دیسک Ultra ظرفیت ۱۲۸ گیگابایت",
+      "name": "فلش مموری سندیسک مدل ULTRA USB 3.0 ظرفیت ۱۲۸ گیگابایت",
       "brandSlug": "sandisk",
       "categorySlug": "flash-memory",
       "condition": "NEW",
       "warranty": "۲۴ ماه گارانتی سبز سیستم",
       "originCountry": "چین",
-      "shortDescription": "فلش USB 3.2 با سرعت خواندن بالا و بدنه مقاوم.",
+      "shortDescription": "فلش USB 3.0 با سرعت خواندن بالا و بدنه مقاوم.",
       "description": null,
       "variants": [
         { "sku": "SEED-ST-SD-U128", "name": "۱۲۸ گیگ", "priceRial": 12000000, "priceToman": "1200000", "stock": 50 }
       ],
-      "media": [{ "file": "seed-03.jpg", "mediaType": "IMAGE" }]
+      "media": [{ "file": "seed-12.jpg", "mediaType": "IMAGE" }]
     },
     {
-      "slug": "samsung-870-evo-1tb-ssd",
-      "name": "حافظه SSD سامسونگ 870 EVO ظرفیت ۱ ترابایت",
-      "brandSlug": "samsung",
+      "slug": "patriot-p220-1tb-ssd",
+      "name": "حافظه SSD پاتریوت مدل P220 ظرفیت ۱ ترابایت",
+      "brandSlug": "patriot",
       "categorySlug": "ssd",
       "condition": "NEW",
       "warranty": "۳۶ ماه گارانتی سبز سیستم",
-      "originCountry": "کره جنوبی",
-      "shortDescription": "اس‌اس‌دی ساتا با سرعت و دوام اثبات‌شده برای لپ‌تاپ و کامپیوتر.",
+      "originCountry": "چین",
+      "shortDescription": "اس‌اس‌دی ساتا با سرعت و دوام مناسب برای لپ‌تاپ و کامپیوتر.",
       "description": null,
       "variants": [
-        { "sku": "SEED-ST-SS-870E1T", "name": "۱ ترابایت", "priceRial": 48000000, "priceToman": "4800000", "stock": 14 }
+        { "sku": "SEED-ST-PT-P2201T", "name": "۱ ترابایت", "priceRial": 45000000, "priceToman": "4500000", "stock": 14 }
       ],
-      "media": [{ "file": "seed-04.jpg", "mediaType": "IMAGE" }]
+      "media": [{ "file": "seed-13.jpg", "mediaType": "IMAGE" }]
     },
     {
-      "slug": "wd-elements-2tb-external-hdd",
-      "name": "هارد دیسک اکسترنال وسترن دیجیتال Elements ظرفیت ۲ ترابایت",
-      "brandSlug": "western-digital",
+      "slug": "sp-armor-a60-1tb-external-hdd",
+      "name": "هارد اکسترنال سیلیکون پاور مدل Armor A60 ظرفیت ۱ ترابایت",
+      "brandSlug": "silicon-power",
       "categorySlug": "external-hdd",
       "condition": "NEW",
       "warranty": "۲۴ ماه گارانتی سبز سیستم",
       "originCountry": "چین",
-      "shortDescription": "هارد اکسترنال قابل‌حمل با اتصال USB 3.0 برای بکاپ‌گیری.",
+      "shortDescription": "هارد اکسترنال مقاوم با اتصال USB 3.0 برای بکاپ‌گیری.",
       "description": null,
       "variants": [
-        { "sku": "SEED-ST-WD-EL2T", "name": "۲ ترابایت", "priceRial": 42000000, "priceToman": "4200000", "stock": 9 }
+        { "sku": "SEED-ST-SP-A60", "name": "۱ ترابایت", "priceRial": 38000000, "priceToman": "3800000", "stock": 9 }
       ],
-      "media": [{ "file": "seed-05.jpg", "mediaType": "IMAGE" }]
+      "media": [{ "file": "seed-14.jpg", "mediaType": "IMAGE" }]
     },
     {
       "slug": "biva-fa-01-hand-fan",
@@ -190,7 +190,7 @@
       "variants": [
         { "sku": "SEED-GD-BV-FA01", "name": "سفید", "priceRial": 14500000, "priceToman": "1450000", "stock": 30 }
       ],
-      "media": [{ "file": "seed-06.jpg", "mediaType": "IMAGE" }]
+      "media": [{ "file": "seed-16.jpg", "mediaType": "IMAGE" }]
     },
     {
       "slug": "green-lion-smart-egg-cooker",
@@ -205,7 +205,7 @@
       "variants": [
         { "sku": "SEED-GD-GL-EGG", "name": "مدل پایه", "priceRial": 56000000, "priceToman": "5600000", "stock": 8 }
       ],
-      "media": [{ "file": "seed-07.jpg", "mediaType": "IMAGE" }]
+      "media": [{ "file": "seed-17.jpg", "mediaType": "IMAGE" }]
     },
     {
       "slug": "powerology-lumu-heated-lunch-box",
@@ -220,7 +220,7 @@
       "variants": [
         { "sku": "SEED-GD-PO-LUMU", "name": "خاکستری", "priceRial": 78000000, "priceToman": "7800000", "stock": 6 }
       ],
-      "media": [{ "file": "seed-08.jpg", "mediaType": "IMAGE" }]
+      "media": [{ "file": "seed-18.jpg", "mediaType": "IMAGE" }]
     },
     {
       "slug": "portable-touch-makeup-mirror",
@@ -235,7 +235,7 @@
       "variants": [
         { "sku": "SEED-GD-GL-MIRROR", "name": "سفید", "priceRial": 23500000, "priceToman": "2350000", "stock": 15 }
       ],
-      "media": [{ "file": "seed-09.jpg", "mediaType": "IMAGE" }]
+      "media": [{ "file": "seed-19.jpg", "mediaType": "IMAGE" }]
     },
     {
       "slug": "green-lion-atomizer-spray-gun",
@@ -250,7 +250,7 @@
       "variants": [
         { "sku": "SEED-GD-GL-ATOM", "name": "مدل پایه", "priceRial": 43000000, "priceToman": "4300000", "stock": 20 }
       ],
-      "media": [{ "file": "seed-10.jpg", "mediaType": "IMAGE" }]
+      "media": [{ "file": "seed-21.jpg", "mediaType": "IMAGE" }]
     },
     {
       "slug": "green-lion-hyper-air-inflator",
@@ -266,8 +266,8 @@
         { "sku": "SEED-GD-GL-HYPER", "name": "مشکی", "priceRial": 53500000, "priceToman": "5350000", "stock": 13 }
       ],
       "media": [
-        { "file": "seed-01.jpg", "mediaType": "IMAGE" },
-        { "file": "seed-02.jpg", "mediaType": "IMAGE" }
+        { "file": "seed-10.jpg", "mediaType": "IMAGE" },
+        { "file": "seed-11.jpg", "mediaType": "IMAGE" }
       ]
     },
     {
@@ -283,7 +283,7 @@
       "variants": [
         { "sku": "SEED-SG-PO-CANNES", "name": "مشکی", "priceRial": 64000000, "priceToman": "6400000", "stock": 7 }
       ],
-      "media": [{ "file": "seed-03.jpg", "mediaType": "IMAGE" }]
+      "media": [{ "file": "seed-27.jpg", "mediaType": "IMAGE" }]
     },
     {
       "slug": "porodo-pdxv40-handheld-console",
@@ -299,7 +299,7 @@
         { "sku": "SEED-GC-PD-V40", "name": "مشکی", "priceRial": 119000000, "priceToman": "11900000", "stock": 4 }
       ],
       "media": [
-        { "file": "seed-04.jpg", "mediaType": "IMAGE" },
+        { "file": "seed-28.jpg", "mediaType": "IMAGE" },
         { "file": "demo-unboxing.mp4", "mediaType": "VIDEO" }
       ]
     },
@@ -316,7 +316,7 @@
       "variants": [
         { "sku": "SEED-MA-XM-STEAM", "name": "سفید", "priceRial": 79000000, "priceToman": "7900000", "stock": 9 }
       ],
-      "media": [{ "file": "seed-05.jpg", "mediaType": "IMAGE" }]
+      "media": [{ "file": "seed-20.jpg", "mediaType": "IMAGE" }]
     },
     {
       "slug": "kerbi-s102-accessory-pack",
@@ -331,7 +331,7 @@
       "variants": [
         { "sku": "SEED-MA-KB-S102", "name": "مدل پایه", "priceRial": 6900000, "priceToman": "690000", "stock": 40 }
       ],
-      "media": [{ "file": "seed-06.jpg", "mediaType": "IMAGE" }]
+      "media": [{ "file": "seed-26.jpg", "mediaType": "IMAGE" }]
     },
     {
       "slug": "mijia-mqxjq01kl-lint-remover",
@@ -346,22 +346,22 @@
       "variants": [
         { "sku": "SEED-MA-XM-LINT", "name": "سفید", "priceRial": 8500000, "priceToman": "850000", "stock": 0 }
       ],
-      "media": [{ "file": "seed-07.jpg", "mediaType": "IMAGE" }]
+      "media": [{ "file": "seed-23.jpg", "mediaType": "IMAGE" }]
     },
     {
-      "slug": "lenovo-thinkpad-t480-stock",
-      "name": "لپ‌تاپ استوک لنوو ThinkPad T480 تمیز و تست‌شده",
-      "brandSlug": "lenovo",
+      "slug": "dell-precision-5520-stock",
+      "name": "لپ‌تاپ استوک دل مدل Precision 5520 تمیز و تست‌شده",
+      "brandSlug": "dell",
       "categorySlug": "stock-goods",
       "condition": "STOCK_CLEARANCE",
       "warranty": "۷ روز مهلت تست سلامت",
       "originCountry": "چین",
-      "shortDescription": "استوک تمیز با پردازنده نسل ۸، رم ۸ و حافظه ۲۵۶ گیگ.",
-      "description": "<p>لپ‌تاپ استوک <strong>ThinkPad T480</strong> در وضعیت تمیز و کاملا تست‌شده، مناسب کاربری اداری و دانشجویی.</p>",
+      "shortDescription": "استوک تمیز و کاملا تست‌شده، مناسب کاربری اداری و دانشجویی.",
+      "description": "<p>لپ‌تاپ استوک <strong>Dell Precision 5520</strong> در وضعیت تمیز و کاملا تست‌شده، مناسب کاربری اداری و دانشجویی.</p>",
       "variants": [
-        { "sku": "SEED-SK-LN-T480", "name": "i5/8/256", "priceRial": 145000000, "priceToman": "14500000", "stock": 2 }
+        { "sku": "SEED-SK-DL-5520", "name": "i7/16/512", "priceRial": 1165000000, "priceToman": "116500000", "stock": 2 }
       ],
-      "media": [{ "file": "seed-08.jpg", "mediaType": "IMAGE" }]
+      "media": [{ "file": "seed-15.jpg", "mediaType": "IMAGE" }]
     }
   ]
 }
