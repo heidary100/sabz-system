@@ -10,6 +10,8 @@ function summary(overrides: Partial<ProductMediaSummary> = {}): ProductMediaSumm
     originalName: 'عکس محصول.jpg',
     mimeType: 'image/jpeg',
     sizeBytes: 100,
+    sourceUrl: null,
+    contentHash: null,
     sortOrder: 0,
     isPrimary: true,
     createdAt: '2026-01-01T00:00:00.000Z',
