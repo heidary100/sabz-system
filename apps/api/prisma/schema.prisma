@@ -87,6 +87,11 @@ enum ImportRecordStatus {
   FAILED
 }
 
+enum PriceStatus {
+  PRICED
+  CALL_FOR_PRICE
+}
+
 model User {
   id           String     @id @default(uuid())
   mobile       String     @unique
@@ -386,6 +391,16 @@ model ProductVariant {
   name       String?
 
   price Decimal @db.Decimal(12, 2)
+
+  /// Pre-discount reference price for sales (SS-201). Null = no sale.
+  /// Only meaningful when priceStatus is PRICED; enforced in VariantsService.
+  compareAtPrice Decimal? @db.Decimal(12, 2)
+
+  /// Purchasability state (SS-201, Q1: visible call-for-price). CALL_FOR_PRICE
+  /// rows (WooCommerce priceless records; importer writes price '0') are
+  /// published but non-purchasable: never displayed, sorted, or faceted by
+  /// price. Every price consumer must filter to PRICED first.
+  priceStatus PriceStatus @default(PRICED)
 
   /// External-source identity (ADR-004). Same semantics as Product's source
   /// identity, but independent: a product and a variant may legitimately

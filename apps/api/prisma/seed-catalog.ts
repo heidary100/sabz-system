@@ -66,6 +66,8 @@ interface FixtureVariant {
   name: string;
   priceRial: number;
   priceToman: string;
+  compareAtRial?: number;
+  compareAtToman?: string;
   stock: number;
 }
 
@@ -178,6 +180,23 @@ export async function seedCatalog(actorId: string): Promise<SeedCatalogStats> {
         if (Number(variant.priceToman) * 10 !== variant.priceRial) {
           throw new Error(
             `Variant "${variant.sku}": priceToman must equal priceRial/10.`,
+          );
+        }
+        if (
+          (variant.compareAtRial === undefined) !==
+          (variant.compareAtToman === undefined)
+        ) {
+          throw new Error(
+            `Variant "${variant.sku}": compareAtRial/compareAtToman must be set together.`,
+          );
+        }
+        if (
+          variant.compareAtRial !== undefined &&
+          (Number(variant.compareAtToman) * 10 !== variant.compareAtRial ||
+            variant.compareAtRial <= variant.priceRial)
+        ) {
+          throw new Error(
+            `Variant "${variant.sku}": compareAtToman must equal compareAtRial/10 and exceed priceRial.`,
           );
         }
         if (!Number.isInteger(variant.stock) || variant.stock < 0) {
@@ -363,6 +382,7 @@ export async function seedCatalog(actorId: string): Promise<SeedCatalogStats> {
             sku: variant.sku,
             name: variant.name,
             price: variant.priceToman,
+            compareAtPrice: variant.compareAtToman ?? null,
             createdBy: actorId,
           },
         });

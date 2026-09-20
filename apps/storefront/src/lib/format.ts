@@ -28,3 +28,22 @@ export function formatToman(value: string | number): string {
 export function formatPriceFrom(value: string | number): string {
   return `از ${formatToman(value)}`;
 }
+
+/** Call-for-price label (SS-201, Q1): published but non-purchasable rows. */
+export const CALL_FOR_PRICE_LABEL = 'تماس بگیرید';
+
+/**
+ * Listing-card price line (SS-201). Call-for-price whenever the API says so
+ * (or no priced minimum exists); exact price for a single priced variant;
+ * «از …» only for genuine multi-variant spreads.
+ */
+export function formatCardPrice(
+  priceFrom: string,
+  variantCount: number,
+  callForPrice: boolean,
+): string {
+  if (callForPrice || priceFrom === '') {
+    return CALL_FOR_PRICE_LABEL;
+  }
+  return variantCount > 1 ? formatPriceFrom(priceFrom) : formatToman(priceFrom);
+}

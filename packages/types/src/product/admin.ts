@@ -1,4 +1,4 @@
-import type { ProductCondition, ProductStatus } from './type';
+import type { PriceStatus, ProductCondition, ProductStatus } from './type';
 
 export interface ProductListQuery {
   page?: number;
@@ -93,6 +93,8 @@ export interface CreateVariantInput {
   barcode?: string;
   name?: string;
   price: string;
+  compareAtPrice?: string;
+  priceStatus?: PriceStatus;
 }
 
 export interface UpdateVariantInput {
@@ -100,4 +102,6 @@ export interface UpdateVariantInput {
   barcode?: string | null;
   name?: string | null;
   price?: string;
+  compareAtPrice?: string | null;
+  priceStatus?: PriceStatus;
 }

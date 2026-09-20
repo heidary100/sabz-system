@@ -1,6 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import {
+  PriceStatus,
   ProductCondition,
   ProductStatus,
   WarehouseStatus,
@@ -364,6 +365,7 @@ describe('Public catalog API (SS-120/121/122) (e2e)', () => {
       expect(card.primaryThumbnailUrl).toBeNull();
       expect(Object.keys(card).sort()).toEqual([
         'brand',
+        'callForPrice',
         'category',
         'condition',
         'id',
@@ -373,6 +375,7 @@ describe('Public catalog API (SS-120/121/122) (e2e)', () => {
         'primaryImageUrl',
         'primaryThumbnailUrl',
         'slug',
+        'variantCount',
       ]);
 
       // The card URL must actually resolve through the SS-123 endpoint.
@@ -654,6 +657,132 @@ describe('Public catalog API (SS-120/121/122) (e2e)', () => {
       await request(app.getHttpServer())
         .get(`${PRODUCTS_BASE}/${encodeURIComponent('Not A Slug!')}`)
         .expect(400);
+    });
+  });
+
+  describe('SS-201: sale and call-for-price pricing', () => {
+    async function createProductWithSlug(
+      token: string,
+      slug: string,
+    ): Promise<string> {
+      const suffix = `${uniqueSuffix()}`;
+      const brand = await prisma.brand.create({
+        data: { name: `برند ${suffix}`, slug: `brand-${suffix}` },
+      });
+      brandIds.push(brand.id);
+      const category = await prisma.category.create({
+        data: { name: `دسته ${suffix}`, slug: `cat-${suffix}` },
+      });
+      categoryIds.push(category.id);
+
+      const created = await request(app.getHttpServer())
+        .post('/api/v1/admin/products')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          name: `قیمت ${suffix}`,
+          slug,
+          brandId: brand.id,
+          categoryId: category.id,
+          condition: ProductCondition.NEW,
+        })
+        .expect(201);
+      productIds.push(created.body.id);
+      return created.body.id as string;
+    }
+
+    it('exposes compareAtPrice on sale variants and validates pricing rules', async () => {
+      const token = await createOperator();
+      const slug = `sale-${uniqueSuffix()}`;
+      const productId = await createProductWithSlug(token, slug);
+
+      const sale = await request(app.getHttpServer())
+        .post(`/api/v1/admin/products/${productId}/variants`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          sku: `SKU-${uniqueSuffix()}`,
+          price: '1500.00',
+          compareAtPrice: '1800.00',
+        })
+        .expect(201);
+      variantIds.push(sale.body.id);
+      expect(sale.body.compareAtPrice).toBe('1800');
+      expect(sale.body.priceStatus).toBe(PriceStatus.PRICED);
+
+      // Reference at/below price is rejected…
+      await request(app.getHttpServer())
+        .post(`/api/v1/admin/products/${productId}/variants`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ sku: `SKU-${uniqueSuffix()}`, price: '1500.00', compareAtPrice: '1500.00' })
+        .expect(400);
+
+      // …as is a reference price on a call-for-price variant.
+      await request(app.getHttpServer())
+        .post(`/api/v1/admin/products/${productId}/variants`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          sku: `SKU-${uniqueSuffix()}`,
+          price: '0',
+          compareAtPrice: '1800.00',
+          priceStatus: PriceStatus.CALL_FOR_PRICE,
+        })
+        .expect(400);
+
+      await request(app.getHttpServer())
+        .post(`/api/v1/admin/products/${productId}/publish`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+
+      const detail = await request(app.getHttpServer())
+        .get(`${PRODUCTS_BASE}/${slug}`)
+        .expect(200);
+      expect(detail.body.variants).toHaveLength(1);
+      expect(detail.body.variants[0].compareAtPrice).toBe('1800');
+      expect(detail.body.variants[0].priceStatus).toBe(PriceStatus.PRICED);
+
+      const card = (
+        await request(app.getHttpServer())
+          .get(`${PRODUCTS_BASE}?q=${encodeURIComponent(slug)}`)
+          .expect(200)
+      ).body.items[0];
+      expect(card.priceFrom).toBe('1500');
+      expect(card.callForPrice).toBe(false);
+      expect(card.variantCount).toBe(1);
+    });
+
+    it('marks priceless products call-for-price with empty priceFrom', async () => {
+      const token = await createOperator();
+      const slug = `cfp-${uniqueSuffix()}`;
+      const productId = await createProductWithSlug(token, slug);
+
+      const variant = await request(app.getHttpServer())
+        .post(`/api/v1/admin/products/${productId}/variants`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          sku: `SKU-${uniqueSuffix()}`,
+          price: '0',
+          priceStatus: PriceStatus.CALL_FOR_PRICE,
+        })
+        .expect(201);
+      variantIds.push(variant.body.id);
+
+      await request(app.getHttpServer())
+        .post(`/api/v1/admin/products/${productId}/publish`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+
+      const card = (
+        await request(app.getHttpServer())
+          .get(`${PRODUCTS_BASE}?q=${encodeURIComponent(slug)}`)
+          .expect(200)
+      ).body.items[0];
+      expect(card.priceFrom).toBe('');
+      expect(card.callForPrice).toBe(true);
+      expect(card.variantCount).toBe(1);
+
+      const detail = await request(app.getHttpServer())
+        .get(`${PRODUCTS_BASE}/${slug}`)
+        .expect(200);
+      expect(detail.body.variants[0].priceStatus).toBe(PriceStatus.CALL_FOR_PRICE);
     });
   });
 });

@@ -1,11 +1,13 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {
+  IsEnum,
   IsOptional,
   IsString,
   Matches,
   MaxLength,
 } from 'class-validator';
+import { PriceStatus } from '@prisma/client';
 import { PRICE_12_2_PATTERN } from './create-variant.dto';
 
 const SKU_MAX = 64;
@@ -77,4 +79,24 @@ export class UpdateVariantDto {
     message: 'price باید عدد اعشاری معتبر با حداکثر ۲ رقم اعشار باشد.',
   })
   price?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Pre-discount reference price. Pass null to clear. Requires PRICED status and must exceed price.',
+  })
+  @IsOptional()
+  @Transform(({ value }) => normalizeNullableOptional(value))
+  @IsString({ message: 'compareAtPrice باید رشته باشد.' })
+  @Matches(PRICE_12_2_PATTERN, {
+    message: 'compareAtPrice باید عدد اعشاری معتبر با حداکثر ۲ رقم اعشار باشد.',
+  })
+  compareAtPrice?: string | null;
+
+  @ApiPropertyOptional({
+    enum: PriceStatus,
+    description: 'Purchasability state (SS-201).',
+  })
+  @IsOptional()
+  @IsEnum(PriceStatus, { message: 'priceStatus معتبر نیست.' })
+  priceStatus?: PriceStatus;
 }

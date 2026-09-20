@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma, ProductStatus } from '@prisma/client';
+import { PriceStatus, Prisma, ProductStatus } from '@prisma/client';
 import type {
   CatalogBrandDto,
   CatalogCategoryCrumb,
@@ -169,7 +169,7 @@ export class PublicCatalogService {
           createdAt: true,
           variants: {
             where: { deletedAt: null },
-            select: { price: true },
+            select: { price: true, priceStatus: true },
           },
         },
       });
@@ -238,7 +238,14 @@ export class PublicCatalogService {
         },
         variants: {
           where: { deletedAt: null },
-          select: { id: true, sku: true, name: true, price: true },
+          select: {
+            id: true,
+            sku: true,
+            name: true,
+            price: true,
+            compareAtPrice: true,
+            priceStatus: true,
+          },
           orderBy: [{ createdAt: 'asc' as const }, { id: 'asc' as const }],
         },
         media: {
@@ -272,6 +279,9 @@ export class PublicCatalogService {
       sku: variant.sku,
       name: variant.name,
       price: String(variant.price),
+      compareAtPrice:
+        variant.compareAtPrice === null ? null : String(variant.compareAtPrice),
+      priceStatus: variant.priceStatus,
       inStock: (availableByVariant.get(variant.id) ?? 0) > 0,
     }));
 
@@ -366,7 +376,11 @@ export class PublicCatalogService {
       }),
       this.prisma.productVariant.groupBy({
         by: ['productId'],
-        where: { productId: { in: pageIds }, deletedAt: null },
+        where: {
+          productId: { in: pageIds },
+          deletedAt: null,
+          priceStatus: PriceStatus.PRICED,
+        },
         _min: { price: true },
       }),
     ]);
@@ -395,6 +409,8 @@ export class PublicCatalogService {
         brand: row.brand,
         category: row.category,
         priceFrom: minPrice === null ? '' : String(minPrice),
+        callForPrice: minPrice === null,
+        variantCount: row.variants.length,
         inStock: row.variants.some(
           (variant) => (availableByVariant.get(variant.id) ?? 0) > 0,
         ),
@@ -473,10 +489,15 @@ export class PublicCatalogService {
 }
 
 function minPriceOf(
-  variants: Array<{ price: Prisma.Decimal }>,
+  variants: Array<{ price: Prisma.Decimal; priceStatus: PriceStatus }>,
 ): Prisma.Decimal | null {
   let min: Prisma.Decimal | null = null;
   for (const variant of variants) {
+    // CALL_FOR_PRICE rows carry a placeholder price (SS-201): they must never
+    // influence sorting or the displayed minimum.
+    if (variant.priceStatus !== PriceStatus.PRICED) {
+      continue;
+    }
     if (min === null || variant.price.comparedTo(min) < 0) {
       min = variant.price;
     }

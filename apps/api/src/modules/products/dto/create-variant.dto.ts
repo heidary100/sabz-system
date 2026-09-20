@@ -1,12 +1,14 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {
+  IsEnum,
   IsNotEmpty,
   IsOptional,
   IsString,
   Matches,
   MaxLength,
 } from 'class-validator';
+import { PriceStatus } from '@prisma/client';
 
 export const PRICE_12_2_PATTERN = /^\d{1,10}(?:\.\d{1,2})?$/;
 
@@ -66,4 +68,26 @@ export class CreateVariantDto {
     message: 'price باید عدد اعشاری معتبر با حداکثر ۲ رقم اعشار باشد.',
   })
   price!: string;
+
+  @ApiPropertyOptional({
+    example: '1800.00',
+    description:
+      'Pre-discount reference price (SS-201). Requires PRICED status and must exceed price.',
+  })
+  @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsString({ message: 'compareAtPrice باید رشته باشد.' })
+  @Matches(PRICE_12_2_PATTERN, {
+    message: 'compareAtPrice باید عدد اعشاری معتبر با حداکثر ۲ رقم اعشار باشد.',
+  })
+  compareAtPrice?: string;
+
+  @ApiPropertyOptional({
+    enum: PriceStatus,
+    description:
+      'Purchasability state (SS-201). CALL_FOR_PRICE rows are published but non-purchasable.',
+  })
+  @IsOptional()
+  @IsEnum(PriceStatus, { message: 'priceStatus معتبر نیست.' })
+  priceStatus?: PriceStatus;
 }

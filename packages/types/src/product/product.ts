@@ -1,4 +1,5 @@
 import type {
+  PriceStatus,
   ProductCondition,
   ProductMediaType,
   ProductStatus,
@@ -37,6 +38,9 @@ export interface VariantSummary {
   barcode: string | null;
   name: string | null;
   price: string;
+  /** Pre-discount reference price (SS-201); null when no sale. */
+  compareAtPrice: string | null;
+  priceStatus: PriceStatus;
 }
 
 export interface ProductMediaSummary {
