@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { formatFaNumber, formatPriceFrom, formatToman } from './format';
+import {
+  CALL_FOR_PRICE_LABEL,
+  formatCardPrice,
+  formatFaNumber,
+  formatPriceFrom,
+  formatToman,
+} from './format';
 
 describe('formatFaNumber', () => {
   it('formats with Persian digits and separators', () => {
@@ -26,5 +32,20 @@ describe('formatToman', () => {
 describe('formatPriceFrom', () => {
   it('prefixes the range marker', () => {
     expect(formatPriceFrom('5000')).toBe('از ۵٬۰۰۰ تومان');
+  });
+});
+
+describe('formatCardPrice', () => {
+  it('shows call-for-price when flagged or when no priced minimum exists', () => {
+    expect(formatCardPrice('1500', 1, true)).toBe(CALL_FOR_PRICE_LABEL);
+    expect(formatCardPrice('', 1, false)).toBe(CALL_FOR_PRICE_LABEL);
+  });
+
+  it('shows the exact price for a single priced variant', () => {
+    expect(formatCardPrice('1500', 1, false)).toBe('۱٬۵۰۰ تومان');
+  });
+
+  it('prefixes the range marker only for multi-variant spreads', () => {
+    expect(formatCardPrice('1500', 2, false)).toBe('از ۱٬۵۰۰ تومان');
   });
 });

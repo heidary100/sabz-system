@@ -1,9 +1,10 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, ProductStatus } from '@prisma/client';
+import { PriceStatus, Prisma, ProductStatus } from '@prisma/client';
 import type { VariantSummary } from '@sabz/types';
 import { PrismaService } from '../../common/database/prisma.service';
 import { AuditService } from '../audit/audit.service';
@@ -16,6 +17,8 @@ const variantSelect = {
   barcode: true,
   name: true,
   price: true,
+  compareAtPrice: true,
+  priceStatus: true,
   deletedAt: true,
 } satisfies Prisma.ProductVariantSelect;
 
@@ -61,6 +64,11 @@ export class VariantsService {
     actorId: string,
     ipAddress?: string,
   ): Promise<VariantSummary> {
+    this.validatePricing({
+      price: dto.price,
+      compareAtPrice: dto.compareAtPrice ?? null,
+      priceStatus: dto.priceStatus ?? PriceStatus.PRICED,
+    });
     try {
       const created = await this.prisma.$transaction(async (tx) => {
         await this.assertProductForMutation(tx, productId);
@@ -72,6 +80,8 @@ export class VariantsService {
             barcode: dto.barcode ?? null,
             name: dto.name ?? null,
             price: dto.price,
+            compareAtPrice: dto.compareAtPrice ?? null,
+            priceStatus: dto.priceStatus ?? PriceStatus.PRICED,
             createdBy: actorId,
           },
           select: variantSelect,
@@ -89,6 +99,8 @@ export class VariantsService {
               barcode: row.barcode,
               name: row.name,
               price: row.price.toString(),
+              compareAtPrice: row.compareAtPrice?.toString() ?? null,
+              priceStatus: row.priceStatus,
             },
             ipAddress,
           },
@@ -119,6 +131,16 @@ export class VariantsService {
       const updated = await this.prisma.$transaction(async (tx) => {
         const target = await this.readVariantInTx(tx, variantId);
         await this.assertProductForMutation(tx, target.productId);
+
+        this.validatePricing({
+          price:
+            data.price ?? target.price.toString(),
+          compareAtPrice:
+            data.compareAtPrice !== undefined
+              ? data.compareAtPrice
+              : (target.compareAtPrice?.toString() ?? null),
+          priceStatus: data.priceStatus ?? target.priceStatus,
+        });
 
         const before = this.businessDelta(target, data, 'before');
         const after = this.businessDelta(target, data, 'after');
@@ -215,7 +237,38 @@ export class VariantsService {
       barcode: row.barcode,
       name: row.name,
       price: row.price.toString(),
+      compareAtPrice: row.compareAtPrice?.toString() ?? null,
+      priceStatus: row.priceStatus,
     };
+  }
+
+  /**
+   * Cross-field pricing rules (SS-201). Runs on effective values (DTO overlaid
+   * on the stored row) so partial updates cannot sneak past the invariants:
+   * - compareAtPrice requires PRICED status (a call-for-price row has no
+   *   meaningful reference price).
+   * - compareAtPrice must strictly exceed price (it is the pre-discount mark).
+   */
+  private validatePricing(effective: {
+    price: string;
+    compareAtPrice: string | null;
+    priceStatus: PriceStatus;
+  }): void {
+    if (effective.compareAtPrice === null) {
+      return;
+    }
+    if (effective.priceStatus !== PriceStatus.PRICED) {
+      throw new BadRequestException(
+        'قیمت فروش ویژه فقط برای واریانت قیمت‌دار مجاز است.',
+      );
+    }
+    const compareAt = new Prisma.Decimal(effective.compareAtPrice);
+    const price = new Prisma.Decimal(effective.price);
+    if (compareAt.comparedTo(price) <= 0) {
+      throw new BadRequestException(
+        'قیمت فروش ویژه باید بیشتر از قیمت فروش باشد.',
+      );
+    }
   }
 
   /**
@@ -305,6 +358,9 @@ export class VariantsService {
     if (dto.barcode !== undefined) data.barcode = dto.barcode;
     if (dto.name !== undefined) data.name = dto.name;
     if (dto.price !== undefined) data.price = dto.price;
+    if (dto.compareAtPrice !== undefined)
+      data.compareAtPrice = dto.compareAtPrice;
+    if (dto.priceStatus !== undefined) data.priceStatus = dto.priceStatus;
     return data;
   }
 
@@ -324,6 +380,14 @@ export class VariantsService {
     if (changed('price'))
       delta.price =
         side === 'before' ? target.price.toString() : (data.price as string);
+    if (changed('compareAtPrice'))
+      delta.compareAtPrice =
+        side === 'before'
+          ? (target.compareAtPrice?.toString() ?? null)
+          : (data.compareAtPrice as string | null);
+    if (changed('priceStatus'))
+      delta.priceStatus =
+        side === 'before' ? target.priceStatus : (data.priceStatus as PriceStatus);
 
     return delta;
   }
@@ -342,4 +406,6 @@ interface VariantUpdateData {
   barcode?: string | null;
   name?: string | null;
   price?: string;
+  compareAtPrice?: string | null;
+  priceStatus?: PriceStatus;
 }

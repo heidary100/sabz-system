@@ -2,7 +2,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import type { CatalogProductCardDto } from '@sabz/types';
 import { mediaImageUrl } from '@/lib/catalog';
-import { formatPriceFrom } from '@/lib/format';
+import { formatCardPrice } from '@/lib/format';
 
 const CONDITION_LABELS: Record<string, string> = {
   NEW: 'نو',
@@ -59,7 +59,7 @@ export function ProductCard({ product }: { product: CatalogProductCardDto }) {
         </h3>
         <div className="mt-auto flex items-center justify-between pt-3">
           <p className="text-sm font-bold text-sabz-800">
-            {formatPriceFrom(product.priceFrom)}
+            {formatCardPrice(product.priceFrom, product.variantCount, product.callForPrice)}
           </p>
           <span className="rounded-full bg-sand-100 px-2 py-0.5 text-[11px] text-gray-600">
             {CONDITION_LABELS[product.condition] ?? product.condition}

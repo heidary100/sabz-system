@@ -1,5 +1,5 @@
 {
-  "$comment": "SS-131 demo catalog — representative product snapshot of sabzsistem.com (titles/models/brands as listed on the live WooCommerce site, Sep 2026). Photos are the live product images (see SOURCES.md), normalized to ≤1024px JPEG and committed under images/. Prices: the live site displays Rial; the storefront contract is Toman, so priceToman = priceRial / 10 (the seeder asserts this invariant). Prices marked (est.) were hidden on the live site (call-for-price) and are plausible current-market values. The live site has no downloadable product videos, so the video-bearing product uses a generated demo clip to exercise the gallery video path. Slugs are unique ASCII kebab-case ≤200 chars. Every product is PUBLISHED with a primary image; seed-halo-beam is multi-variant (priceFrom path); seed-pdxv40 carries a video; seed-lint-remover has zero stock (out-of-stock path).",
+  "$comment": "SS-131 demo catalog — representative product snapshot of sabzsistem.com (titles/models/brands as listed on the live WooCommerce site, Sep 2026). Photos are the live product images (see SOURCES.md), normalized to ≤1024px JPEG and committed under images/. Prices: the live site displays Rial; the storefront contract is Toman, so priceToman = priceRial / 10 (the seeder asserts this invariant). Prices marked (est.) were hidden on the live site (call-for-price) and are plausible current-market values. The live site has no downloadable product videos, so the video-bearing product uses a generated demo clip to exercise the gallery video path. Slugs are unique ASCII kebab-case ≤200 chars. Every product is PUBLISHED with a primary image; seed-halo-beam is multi-variant (priceFrom path); its PLUS variant carries compareAtToman (sale path); seed-pdxv40 carries a video; seed-lint-remover has zero stock (out-of-stock path).",
   "products": [
     {
       "slug": "powerology-halo-beam-ppbcha92-40000",
@@ -13,7 +13,7 @@
       "description": "<p>پاور بانک <strong>پاورولوژی Halo Beam PPBCHA92</strong> با ظرفیت ۴۰۰۰۰ میلی‌آمپر، شارژ سریع و نمایشگر دیجیتال میزان شارژ، یکی از پرفروش‌ترین پاوربانک‌های فروشگاه سبز سیستم است.</p><ul><li>ظرفیت ۴۰۰۰۰ میلی‌آمپر ساعت</li><li>پشتیبانی از شارژ سریع</li><li>نمایشگر دیجیتال میزان شارژ</li></ul>",
       "variants": [
         { "sku": "SEED-PB-HALO92-BASE", "name": "مدل پایه", "priceRial": 155000000, "priceToman": "15500000", "stock": 12 },
-        { "sku": "SEED-PB-HALO92-PLUS", "name": "همراه کابل اضافه", "priceRial": 162000000, "priceToman": "16200000", "stock": 5 }
+        { "sku": "SEED-PB-HALO92-PLUS", "name": "همراه کابل اضافه", "priceRial": 162000000, "priceToman": "16200000", "compareAtRial": 175000000, "compareAtToman": "17500000", "stock": 5 }
       ],
       "media": [
         { "file": "seed-01.jpg", "mediaType": "IMAGE" },

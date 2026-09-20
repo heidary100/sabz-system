@@ -1,8 +1,9 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import type { CatalogProductVariantDto } from '@sabz/types';
 import { fetchProductBySlug } from '@/lib/catalog';
-import { formatFaNumber, formatToman } from '@/lib/format';
+import { CALL_FOR_PRICE_LABEL, formatFaNumber, formatToman } from '@/lib/format';
 import { RichText } from '@/components/rich-text';
 import { ProductGallery } from '@/components/ecommerce/product-gallery/product-gallery';
 
@@ -31,6 +32,21 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 /** Product detail (SS-127) over the public detail API. */
+export function VariantPrice({ variant }: { variant: CatalogProductVariantDto }) {
+  if (variant.priceStatus === 'CALL_FOR_PRICE') {
+    return <span>{CALL_FOR_PRICE_LABEL}</span>;
+  }
+  return (
+    <span className="flex flex-wrap items-baseline justify-end gap-x-2">
+      {variant.compareAtPrice ? (
+        <s className="text-xs font-normal text-gray-400">
+          {formatToman(variant.compareAtPrice)}
+        </s>
+      ) : null}
+      <span>{formatToman(variant.price)}</span>
+    </span>
+  );
+}
 // Catalog pages render per request: build-time prerendering would either
 // snapshot stale data or fail when the API is unreachable (CI).
 export const dynamic = 'force-dynamic';
@@ -96,7 +112,7 @@ export default async function ProductPage({ params }: PageProps) {
               <div className="flex items-center justify-between">
                 <dt className="text-gray-600">قیمت</dt>
                 <dd className="text-xl font-bold text-sabz-800">
-                  {formatToman(product.variants[0]!.price)}
+                  <VariantPrice variant={product.variants[0]!} />
                 </dd>
               </div>
             ) : (
@@ -108,7 +124,9 @@ export default async function ProductPage({ params }: PageProps) {
                       <span className="ms-2 text-xs text-red-600">(ناموجود)</span>
                     )}
                   </dt>
-                  <dd className="font-semibold text-sabz-800">{formatToman(variant.price)}</dd>
+                  <dd className="font-semibold text-sabz-800">
+                    <VariantPrice variant={variant} />
+                  </dd>
                 </div>
               ))
             )}

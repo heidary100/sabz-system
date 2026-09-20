@@ -1,4 +1,4 @@
-import type { ProductCondition, ProductMediaType } from '../product/type';
+import type { PriceStatus, ProductCondition, ProductMediaType } from '../product/type';
 
 /**
  * Public catalog contract (Milestone 2, SS-119).
@@ -54,7 +54,8 @@ export interface CatalogRefDto {
 
 /**
  * Listing-card projection of a published product. `priceFrom` is the minimum
- * variant price in Toman (Decimal serialized as string).
+ * *PRICED* variant price in Toman (Decimal serialized as string); CALL_FOR_PRICE
+ * variants never contribute. `callForPrice` is true when no variant is PRICED.
  */
 export interface CatalogProductCardDto {
   id: string;
@@ -64,6 +65,10 @@ export interface CatalogProductCardDto {
   brand: CatalogRefDto;
   category: CatalogRefDto;
   priceFrom: string;
+  /** True when no live variant is PRICED: show call-for-price, never a price. */
+  callForPrice: boolean;
+  /** Number of live variants; drives the «از» (from) prefix honesty. */
+  variantCount: number;
   /** True when at least one variant has available stock in active warehouses. */
   inStock: boolean;
   /** Primary image URL; null when the product has no image media. */
@@ -89,6 +94,9 @@ export interface CatalogProductVariantDto {
   name: string | null;
   /** Variant price in Toman (Decimal serialized as string). */
   price: string;
+  /** Pre-discount reference price (SS-201); null when no sale. */
+  compareAtPrice: string | null;
+  priceStatus: PriceStatus;
   /** Available stock for this variant across active warehouses. */
   inStock: boolean;
 }

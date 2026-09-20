@@ -69,7 +69,7 @@ export {
   DashboardUserCounts,
 } from './admin/dashboard';
 
-export { ProductCondition, ProductMediaType, ProductStatus } from './product/type';
+export { ProductCondition, ProductMediaType, ProductStatus, PriceStatus } from './product/type';
 
 export {
   BrandSummary,

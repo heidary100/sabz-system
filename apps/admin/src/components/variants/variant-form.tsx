@@ -10,6 +10,7 @@ import {
 import { Button } from '../catalyst/button'
 import { ErrorMessage, Field, Label } from '../catalyst/fieldset'
 import { Input } from '../catalyst/input'
+import { Select } from '../catalyst/select'
 import { Text } from '../catalyst/text'
 import { translateApiError, isConflictError } from '../../lib/error-messages'
 import { createVariant, updateVariant } from '../../services/variants'
@@ -20,11 +21,18 @@ const SKU_MAX = 64
 const BARCODE_MAX = 64
 const NAME_MAX = 255
 
+const PRICE_STATUS_LABELS: Record<'PRICED' | 'CALL_FOR_PRICE', string> = {
+  PRICED: 'قیمت‌دار (قابل خرید)',
+  CALL_FOR_PRICE: 'تماس بگیرید (بدون قیمت)',
+}
+
 interface VariantFormValue {
   sku: string
   barcode: string
   name: string
   price: string
+  compareAtPrice: string
+  priceStatus: 'PRICED' | 'CALL_FOR_PRICE'
 }
 
 const EMPTY: VariantFormValue = {
@@ -32,6 +40,8 @@ const EMPTY: VariantFormValue = {
   barcode: '',
   name: '',
   price: '',
+  compareAtPrice: '',
+  priceStatus: 'PRICED',
 }
 
 function fromVariant(variant: VariantSummary): VariantFormValue {
@@ -40,6 +50,8 @@ function fromVariant(variant: VariantSummary): VariantFormValue {
     barcode: variant.barcode ?? '',
     name: variant.name ?? '',
     price: variant.price,
+    compareAtPrice: variant.compareAtPrice ?? '',
+    priceStatus: variant.priceStatus,
   }
 }
 
@@ -76,9 +88,12 @@ export function VariantForm({
   }
 
   const priceValid = PRICE_PATTERN.test(values.price.trim())
+  const compareAtValid =
+    values.compareAtPrice.trim() === '' ||
+    PRICE_PATTERN.test(values.compareAtPrice.trim())
 
   const canSubmit =
-    values.sku.trim().length > 0 && priceValid && !submitting
+    values.sku.trim().length > 0 && priceValid && compareAtValid && !submitting
 
   const handleSubmit = async (): Promise<void> => {
     if (!values.sku.trim()) {
@@ -87,6 +102,14 @@ export function VariantForm({
     }
     if (!priceValid) {
       setError('قیمت باید عدد اعشاری معتبر با حداکثر ۲ رقم اعشار باشد.')
+      return
+    }
+    if (!compareAtValid) {
+      setError('قیمت فروش ویژه باید عدد اعشاری معتبر با حداکثر ۲ رقم اعشار باشد.')
+      return
+    }
+    if (values.priceStatus === 'CALL_FOR_PRICE' && values.compareAtPrice.trim() !== '') {
+      setError('واریانت «تماس بگیرید» نباید قیمت فروش ویژه داشته باشد.')
       return
     }
     setSubmitting(true)
@@ -98,6 +121,8 @@ export function VariantForm({
           barcode: values.barcode.trim() || null,
           name: values.name.trim() || null,
           price: values.price.trim(),
+          compareAtPrice: values.compareAtPrice.trim() || null,
+          priceStatus: values.priceStatus,
         })
       } else {
         await createVariant(productId, {
@@ -105,6 +130,8 @@ export function VariantForm({
           barcode: values.barcode.trim() || undefined,
           name: values.name.trim() || undefined,
           price: values.price.trim(),
+          compareAtPrice: values.compareAtPrice.trim() || undefined,
+          priceStatus: values.priceStatus,
         })
       }
       onSuccess()
@@ -180,6 +207,41 @@ export function VariantForm({
               onChange={(event) => set('price', event.target.value)}
               disabled={submitting}
             />
+          </Field>
+
+          <Field>
+            <Label>قیمت فروش ویژه (تومان)</Label>
+            <Input
+              name="compareAtPrice"
+              dir="ltr"
+              inputMode="decimal"
+              value={values.compareAtPrice}
+              placeholder="اختیاری؛ باید از قیمت بیشتر باشد"
+              onChange={(event) => set('compareAtPrice', event.target.value)}
+              disabled={submitting}
+            />
+            <Text className="text-xs text-muted">قیمت قبل از تخفیف؛ در صورت خالی بودن هنگام ویرایش، پاک میشود.</Text>
+          </Field>
+
+          <Field>
+            <Label>وضعیت قیمت‌گذاری</Label>
+            <Select
+              name="priceStatus"
+              value={values.priceStatus}
+              onChange={(event) =>
+                set('priceStatus', event.target.value as VariantFormValue['priceStatus'])
+              }
+              disabled={submitting}
+            >
+              {(Object.keys(PRICE_STATUS_LABELS) as Array<keyof typeof PRICE_STATUS_LABELS>).map(
+                (value) => (
+                  <option key={value} value={value}>
+                    {PRICE_STATUS_LABELS[value]}
+                  </option>
+                ),
+              )}
+            </Select>
+            <Text className="text-xs text-muted">«تماس بگیرید» برای کالای بدون قیمت (غیرقابل خرید، نمایشی).</Text>
           </Field>
 
           {error && (
