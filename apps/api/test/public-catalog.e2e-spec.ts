@@ -302,6 +302,40 @@ describe('Public catalog API (SS-120/121/122) (e2e)', () => {
       // The hidden child is not exposed anywhere in the tree.
       expect(JSON.stringify(tree)).not.toContain(hiddenChild.id);
     });
+
+    it('rolls published counts up to visible ancestors', async () => {
+      const token = await createOperator();
+      const suffix = `${uniqueSuffix()}`;
+      const parent = await prisma.category.create({
+        data: { name: `والد ${suffix}`, slug: `parent-${suffix}`, isVisible: true },
+      });
+      categoryIds.push(parent.id);
+      const child = await prisma.category.create({
+        data: { name: `فرزند ${suffix}`, slug: `child-${suffix}`, parentId: parent.id },
+      });
+      categoryIds.push(child.id);
+
+      const { productId } = await seedProduct(token, `شمارشی ${suffix}`);
+      await prisma.product.update({
+        where: { id: productId },
+        data: { categoryId: child.id },
+      });
+      await publishProduct(token, productId);
+
+      const res = await request(app.getHttpServer()).get(CATEGORIES_BASE).expect(200);
+      const nodes = res.body as Array<{
+        id: string;
+        slug: string;
+        publishedProductCount: number;
+        children: Array<{ slug: string; publishedProductCount: number }>;
+      }>;
+      const parentNode = nodes.find((node) => node.id === parent.id);
+      expect(parentNode!.publishedProductCount).toBe(1);
+      expect(
+        parentNode!.children.find((node) => node.slug === `child-${suffix}`)
+          ?.publishedProductCount,
+      ).toBe(1);
+    });
   });
 
   describe('SS-120: brands list', () => {
@@ -543,6 +577,37 @@ describe('Public catalog API (SS-120/121/122) (e2e)', () => {
       await request(app.getHttpServer()).get(`${PRODUCTS_BASE}?sort=bogus`).expect(400);
       await request(app.getHttpServer()).get(`${PRODUCTS_BASE}?condition=NOPE`).expect(400);
       await request(app.getHttpServer()).get(`${PRODUCTS_BASE}?limit=0`).expect(400);
+    });
+
+    it('lists subtree products under a parent category slug', async () => {
+      const token = await createOperator();
+      const suffix = `${uniqueSuffix()}`;
+      const parent = await prisma.category.create({
+        data: { name: `والد ${suffix}`, slug: `parent-${suffix}`, isVisible: true },
+      });
+      categoryIds.push(parent.id);
+      const child = await prisma.category.create({
+        data: { name: `فرزند ${suffix}`, slug: `child-${suffix}`, parentId: parent.id },
+      });
+      categoryIds.push(child.id);
+
+      const { productId } = await seedProduct(token, `فرزندانه ${suffix}`);
+      await prisma.product.update({
+        where: { id: productId },
+        data: { categoryId: child.id },
+      });
+      await publishProduct(token, productId);
+
+      const res = await request(app.getHttpServer())
+        .get(`${PRODUCTS_BASE}?category=parent-${suffix}`)
+        .expect(200);
+      expect(res.body.total).toBe(1);
+      expect(res.body.items[0].id).toBe(productId);
+
+      const missing = await request(app.getHttpServer())
+        .get(`${PRODUCTS_BASE}?category=nope-${suffix}`)
+        .expect(200);
+      expect(missing.body.total).toBe(0);
     });
   });
 

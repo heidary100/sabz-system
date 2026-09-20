@@ -47,9 +47,13 @@ export class PublicCatalogService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * Visible category tree with per-node published-product counts (direct
-   * children products only). Categories whose parent is hidden or missing are
-   * promoted to roots so their subtree stays reachable in navigation.
+   * Visible category tree with per-node published-product counts rolled up
+   * from descendants (SS-205). A parent therefore shows the size of its
+   * whole subtree, not just directly-assigned products. Hidden categories
+   * are excluded from the tree entirely, so products under hidden branches
+   * never roll up — hidden means hidden from storefront navigation.
+   * Categories whose parent is hidden or missing are promoted to roots so
+   * their subtree stays reachable in navigation.
    */
   async getCategoryTree(): Promise<CatalogCategoryNode[]> {
     const categories = await this.prisma.category.findMany({
@@ -98,6 +102,17 @@ export class PublicCatalogService {
       } else {
         roots.push(node);
       }
+    }
+
+    // Roll up descendant counts post-order so parents reflect subtree size.
+    const accumulate = (node: TreeNode): number => {
+      for (const child of node.children) {
+        node.publishedProductCount += accumulate(child);
+      }
+      return node.publishedProductCount;
+    };
+    for (const root of roots) {
+      accumulate(root);
     }
 
     const strip = (node: TreeNode): CatalogCategoryNode => ({
@@ -154,7 +169,7 @@ export class PublicCatalogService {
     const page = query.page ?? DEFAULT_PAGE;
     const limit = query.limit ?? DEFAULT_LIMIT;
 
-    const where = this.productVisibilityWhere(query);
+    const where = await this.productVisibilityWhere(query);
 
     const total = await this.prisma.product.count({ where });
 
@@ -365,14 +380,14 @@ export class PublicCatalogService {
   }
 
   /** Visibility + public filters shared by count and page queries. */
-  private productVisibilityWhere(
+  private async productVisibilityWhere(
     query: ListCatalogProductsQueryDto,
-  ): Prisma.ProductWhereInput {
+  ): Promise<Prisma.ProductWhereInput> {
     return {
       deletedAt: null,
       status: ProductStatus.PUBLISHED,
       ...(query.category && {
-        category: { is: { slug: query.category, deletedAt: null } },
+        categoryId: { in: await this.categorySubtreeIds(query.category) },
       }),
       ...(query.brand && {
         brand: { is: { slug: query.brand, deletedAt: null } },
@@ -385,6 +400,46 @@ export class PublicCatalogService {
         ],
       }),
     };
+  }
+
+  /**
+   * Live category ids of a slug's subtree, root first (SS-205). The listing
+   * `category` filter matches the whole subtree, so parent landing pages
+   * include descendant products. Unknown slugs resolve to [] (matches
+   * nothing, like the old exact-match miss). Hidden categories stay
+   * included here — the filter never had a visibility gate, only the tree
+   * does; changing that is out of scope.
+   *
+   * Single indexed query + in-memory walk: easily fast into the low
+   * thousands of categories; revisit with a recursive CTE past that.
+   */
+  private async categorySubtreeIds(slug: string): Promise<string[]> {
+    const rows = await this.prisma.category.findMany({
+      where: { deletedAt: null },
+      select: { id: true, slug: true, parentId: true },
+    });
+    const root = rows.find((row) => row.slug === slug);
+    if (!root) {
+      return [];
+    }
+    const childrenByParent = new Map<string, string[]>();
+    for (const row of rows) {
+      if (row.parentId !== null) {
+        const list = childrenByParent.get(row.parentId) ?? [];
+        list.push(row.id);
+        childrenByParent.set(row.parentId, list);
+      }
+    }
+    const ids = [root.id];
+    const queue = [root.id];
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      for (const child of childrenByParent.get(current) ?? []) {
+        ids.push(child);
+        queue.push(child);
+      }
+    }
+    return ids;
   }
 
   /** Builds the listing cards for an already-paginated, ordered id list. */
