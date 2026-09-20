@@ -21,3 +21,8 @@ coverage/
 
 # Graphify knowledge-graph output (local tooling)
 graphify-out/
+
+# Real-catalog import sources: large, out-of-band datasets that must never be
+# committed (SS-206 documents fetch location + checksum instead).
+wc-product-export-*.csv
+/company-logo.png

@@ -7,6 +7,7 @@ import type {
   CatalogProductCardDto,
   CatalogProductDetailDto,
   CatalogProductMediaDto,
+  CatalogProductSpecDto,
   CatalogProductVariantDto,
   PaginatedResult,
 } from '@sabz/types';
@@ -263,6 +264,21 @@ export class PublicCatalogService {
             { createdAt: 'asc' as const },
           ],
         },
+        specs: {
+          select: {
+            sortOrder: true,
+            attributeValue: {
+              select: {
+                value: true,
+                slug: true,
+                attribute: {
+                  select: { name: true, slug: true, group: true },
+                },
+              },
+            },
+          },
+          orderBy: [{ sortOrder: 'asc' as const }, { createdAt: 'asc' as const }],
+        },
       },
     });
 
@@ -297,6 +313,15 @@ export class PublicCatalogService {
       sortOrder: row.sortOrder,
     }));
 
+    const specs: CatalogProductSpecDto[] = product.specs.map((row) => ({
+      attributeName: row.attributeValue.attribute.name,
+      attributeSlug: row.attributeValue.attribute.slug,
+      attributeGroup: row.attributeValue.attribute.group,
+      value: row.attributeValue.value,
+      valueSlug: row.attributeValue.slug,
+      sortOrder: row.sortOrder,
+    }));
+
     return {
       id: product.id,
       name: product.name,
@@ -315,6 +340,7 @@ export class PublicCatalogService {
       categoryBreadcrumb: await this.categoryBreadcrumb(product.category.id),
       variants,
       media,
+      specs,
       inStock: variants.some((variant) => variant.inStock),
       createdAt: product.createdAt.toISOString(),
     };

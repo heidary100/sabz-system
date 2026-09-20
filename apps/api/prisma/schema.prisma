@@ -92,6 +92,11 @@ enum PriceStatus {
   CALL_FOR_PRICE
 }
 
+enum AttributeType {
+  VARIANT_OPTION
+  SPEC
+}
+
 model User {
   id           String     @id @default(uuid())
   mobile       String     @unique
@@ -368,6 +373,7 @@ model Product {
 
   variants ProductVariant[]
   media    ProductMedia[]
+  specs    ProductAttributeValue[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -411,6 +417,7 @@ model ProductVariant {
 
   media          ProductMedia[]
   inventoryItems InventoryItem[]
+  options        VariantAttributeValue[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -591,5 +598,86 @@ model ImportRecord {
   @@index([runId, status])
   @@index([sourceSystem, sourceId])
   @@index([productId])
+  @@index([variantId])
+}
+
+/// Reusable attribute definition (ADR-005, SS-202).
+///
+/// Two roles, distinguished by `type`: VARIANT_OPTION attributes define a
+/// purchasable variation axis (e.g. color) and are assigned to variants;
+/// SPEC attributes describe a product (e.g. CPU, capacity) and are assigned
+/// to products for display and (when `isFilterable`) faceted search.
+/// Reference data: hard-deleted when unused (service-guarded); the audit
+/// trail for importer-created rows lives in ImportRecord, not here.
+model Attribute {
+  id           String        @id @default(uuid())
+  name         String        @unique
+  slug         String        @unique
+  type         AttributeType
+  group        String?
+  isFilterable Boolean       @default(false)
+  isGlobal     Boolean       @default(false)
+
+  values AttributeValue[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([type, isFilterable])
+}
+
+/// One allowed value of an Attribute (ADR-005). Values are per-attribute
+/// (the same display string under two attributes is two rows).
+model AttributeValue {
+  id          String    @id @default(uuid())
+  attributeId String
+  attribute   Attribute @relation(fields: [attributeId], references: [id], onDelete: Restrict)
+  value       String
+  slug        String
+
+  productSpecs ProductAttributeValue[]
+  variantUses  VariantAttributeValue[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([attributeId, value])
+  @@index([attributeId])
+}
+
+/// Display/Filterable spec assignment of a value to a product (ADR-005).
+/// `source` records which importer parser produced the row (e.g. WOO_ATTR
+/// for numbered WooCommerce attributes, WOO_CUSTOM for custom_attributes
+/// lines); open vocabulary, see the WOO_* constants in AttributesService.
+/// Derived rows: hard-deleted on unassign or with the product.
+model ProductAttributeValue {
+  id               String         @id @default(uuid())
+  productId        String
+  product          Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  attributeValueId String
+  attributeValue   AttributeValue @relation(fields: [attributeValueId], references: [id], onDelete: Cascade)
+  sortOrder        Int            @default(0)
+  source           String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([productId, attributeValueId])
+  @@index([productId, sortOrder])
+}
+
+/// Variant-defining option assignment (ADR-005). Set semantics: a variant
+/// holds at most one value per attribute (enforced in AttributesService).
+model VariantAttributeValue {
+  id               String         @id @default(uuid())
+  variantId        String
+  variant          ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  attributeValueId String
+  attributeValue   AttributeValue @relation(fields: [attributeValueId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([variantId, attributeValueId])
   @@index([variantId])
 }
