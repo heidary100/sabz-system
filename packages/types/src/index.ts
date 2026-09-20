@@ -104,6 +104,8 @@ export {
   ProductSpecDto,
 } from './product/attributes';
 
+export { TagDto } from './product/tags';
+
 export {
   INVENTORY_STOCK_STATUSES,
   InventoryMovementType,
