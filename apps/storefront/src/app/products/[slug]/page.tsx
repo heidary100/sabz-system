@@ -83,12 +83,14 @@ export default async function ProductPage({ params }: PageProps) {
           <h1 className="text-2xl font-bold tracking-tight text-ink-900">{product.name}</h1>
 
           <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-            <Link
-              href={`/products?q=${encodeURIComponent(product.brand.name)}`}
-              className="rounded-full bg-sand-100 px-2.5 py-1 font-medium text-gray-600 hover:text-sabz-700"
-            >
-              برند: {product.brand.name}
-            </Link>
+            {product.brand ? (
+              <Link
+                href={`/products?brand=${encodeURIComponent(product.brand.slug)}`}
+                className="rounded-full bg-sand-100 px-2.5 py-1 font-medium text-gray-600 hover:text-sabz-700"
+              >
+                برند: {product.brand.name}
+              </Link>
+            ) : null}
             <span className="rounded-full bg-sand-100 px-2.5 py-1 text-gray-600">
               {CONDITION_LABELS[product.condition] ?? product.condition}
             </span>

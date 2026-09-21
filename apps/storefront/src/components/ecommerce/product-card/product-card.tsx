@@ -53,7 +53,7 @@ export function ProductCard({ product }: { product: CatalogProductCardDto }) {
       </div>
 
       <div className="flex flex-1 flex-col p-4">
-        <p className="text-xs text-gray-500">{product.brand.name}</p>
+        <p className="text-xs text-gray-500">{product.brand?.name ?? 'بدون برند'}</p>
         <h3 className="mt-1 line-clamp-2 text-sm font-semibold leading-6 text-ink-900 group-hover:text-sabz-700">
           {product.name}
         </h3>

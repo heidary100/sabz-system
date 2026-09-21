@@ -184,7 +184,7 @@ export function ProductDetailPage() {
               )}
             </dd>
           </div>
-          <InfoItem label="برند" value={product.brand.name} />
+            <InfoItem label="برند" value={product.brand?.name ?? 'بدون برند'} />
           <InfoItem label="دسته‌بندی" value={product.category.name} />
           <InfoItem label="وضعیت کالا" value={PRODUCT_CONDITION_LABELS[product.condition]} />
           <InfoItem label="گارانتی" value={product.warranty} />

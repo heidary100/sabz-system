@@ -67,7 +67,8 @@ export interface ProductSummary {
   slug: string;
   condition: ProductCondition;
   status: ProductStatus;
-  brand: BrandSummary;
+  /** Null for genuinely unbranded products (Q2 SS-207: no synthetic brand). */
+  brand: BrandSummary | null;
   category: CategorySummary;
   createdAt: string;
   updatedAt: string;
@@ -85,7 +86,8 @@ export interface ProductDetail {
    * display the admin-authored formatting safely.
    */
   description: string | null;
-  brand: BrandSummary;
+  /** Null for genuinely unbranded products (Q2 SS-207: no synthetic brand). */
+  brand: BrandSummary | null;
   category: CategorySummary;
   warranty: string | null;
   condition: ProductCondition;

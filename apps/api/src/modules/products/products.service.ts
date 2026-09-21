@@ -592,14 +592,16 @@ export class ProductsService {
 
   private async assertBrandAndCategory(
     tx: Prisma.TransactionClient,
-    brandId: string,
+    brandId: string | null,
     categoryId: string,
   ): Promise<void> {
     const [brand, category] = await Promise.all([
-      tx.brand.findUnique({
-        where: { id: brandId },
-        select: { id: true, deletedAt: true },
-      }),
+      brandId === null
+        ? Promise.resolve({ id: null, deletedAt: null })
+        : tx.brand.findUnique({
+            where: { id: brandId },
+            select: { id: true, deletedAt: true },
+          }),
       tx.category.findUnique({
         where: { id: categoryId },
         select: { id: true, deletedAt: true },
@@ -659,7 +661,7 @@ export class ProductsService {
     if (changed('description'))
       delta.description = side === 'before' ? target.description ?? null : (data.description as string | null);
     if (changed('brandId'))
-      delta.brandId = side === 'before' ? target.brandId : (data.brandId as string);
+      delta.brandId = side === 'before' ? target.brandId : (data.brandId as string | null);
     if (changed('categoryId'))
       delta.categoryId = side === 'before' ? target.categoryId : (data.categoryId as string);
     if (changed('warranty'))
@@ -694,7 +696,7 @@ interface UpdateTargetRow {
   slug: string;
   shortDescription: string | null;
   description: string | null;
-  brandId: string;
+  brandId: string | null;
   categoryId: string;
   warranty: string | null;
   condition: string;
@@ -710,7 +712,7 @@ interface ProductUpdateData {
   slug?: string;
   shortDescription?: string | null;
   description?: string | null;
-  brandId?: string;
+  brandId?: string | null;
   categoryId?: string;
   warranty?: string | null;
   condition?: string;
