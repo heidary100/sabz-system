@@ -41,7 +41,7 @@ export interface UpdateProductInput {
   slug?: string;
   shortDescription?: string;
   description?: string;
-  brandId?: string;
+  brandId?: string | null;
   categoryId?: string;
   warranty?: string;
   condition?: ProductCondition;

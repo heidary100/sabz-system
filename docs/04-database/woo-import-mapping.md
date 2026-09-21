@@ -44,9 +44,8 @@ keys) is read from `DATABASE_URL`.
    underscore twin.
 4. **Ancestor-chain redundancy.** `دسته‌ها` lists every level
    comma-separated; the importer resolves the deepest chain only.
-5. **Currency is undecided.** CSV prices are raw source units; SS-207 must
-   lock the Rial/Toman rule before writing (OPEN decision below). The dry-run
-   reports raw values only.
+5. **Currency decided (SS-207, O-1).** CSV prices are Rial and are written
+   verbatim (no conversion). The dry-run reports raw values only.
 6. **`_rank_math_gtin_code` is untrusted.** 451 rows hold model codes/titles
    (`HD720`), not GTINs. Never barcode. Only the single-row `GTIN…` column
    maps to `Variant.barcode`.
@@ -121,24 +120,24 @@ order used); `display_warning_text: off` (warnings disabled); empty
 | # | Policy | Status |
 |---|---|---|
 | Q1 | Priceless published rows → visible CALL_FOR_PRICE | Decided |
-| Q2 | Unbranded rows → nullable brand, no synthetic brand | Proposed |
-| Q3 | Non-published rows → DRAFT | Proposed |
-| Q4 | No-category (10) + bucket (6) rows → SKIP + review list | Proposed |
-| Q5 | Single primary category for M2 | Proposed |
-| O-1 | Rial/Toman rule for CSV prices | **OPEN — blocks SS-207 writes** |
+| Q2 | Unbranded rows → nullable brand, no synthetic brand | **Decided (SS-207)** — `Product.brandId` nullable via `ss_207_nullable_brand` |
+| Q3 | Non-published rows → DRAFT | **Decided (SS-207)** |
+| Q4 | No-category (10) + bucket (6) rows → SKIP + review list | **Decided (SS-207)** |
+| Q5 | Single primary category for M2 | **Decided (SS-207)** |
+| O-1 | Rial/Toman rule for CSV prices | **Decided (SS-207): Rial verbatim, no conversion** |
 | O-2 | Brand alias reconciliation (adata/ای دیتا, orico/اوریکو…; 33 candidates) | OPEN |
 | O-3 | Category merge review (ابزار/ابزار آلات/ابزارآلات, لپ‌تاپ variants…) | OPEN |
 
 ## 5. SS-207 writer handoff
 
 - Two-pass in-file linking (parents before variations by SKU index) is
-  primary; fallback for new-variation/known-parent across runs: scan
-  `ImportRecord.sourceData` for the parent SKU (no product-SKU column exists
-  by design).
+  primary; fallback for new-variation/known-parent across runs resolves the
+  مادر SKU against catalog variant SKUs (SS-207; a full
+  `ImportRecord.sourceData` scan remains deferred).
 - Upsert by `(sourceSystem, sourceId)`; TX per product; ledger receipts per
   variant; resume on `ImportRecord` statuses; per-row isolation with the
   report matrix as acceptance.
 - Slug freeze: never rename stored slugs; `ensureUniqueSlug` + collision
   report.
 - Brand alias + category merge passes precede the first full write.
-- Currency rule (O-1) locks the price transform.
+- Currency rule (O-1): Rial verbatim — locked in SS-207.

@@ -5,6 +5,9 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  // Dedicated shadow database for migrate/diff (session handoff §4.5):
+  // never point Prisma shadow operations at the live dev database.
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
 }
 
 enum UserStatus {
@@ -351,8 +354,11 @@ model Product {
   shortDescription String?
   description      String?
 
-  brandId  String
-  brand    Brand    @relation(fields: [brandId], references: [id])
+  /// Q2 (SS-207 sign-off): unbranded source rows import with a null brand;
+  /// no synthetic "generic" brand is ever created. Null = genuinely
+  /// unbranded (importer or operator-cleared), not missing data.
+  brandId  String?
+  brand    Brand?   @relation(fields: [brandId], references: [id])
 
   categoryId String
   category   Category @relation(fields: [categoryId], references: [id])

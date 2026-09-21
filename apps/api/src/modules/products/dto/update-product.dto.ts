@@ -75,10 +75,10 @@ export class UpdateProductDto {
   @MaxLength(50000, { message: 'description باید حداکثر ۵۰۰۰۰ کاراکتر باشد.' })
   description?: string;
 
-  @ApiPropertyOptional({ description: 'Brand id' })
+  @ApiPropertyOptional({ description: 'Brand id (null clears the brand)' })
   @IsOptional()
   @IsUUID('all', { message: 'brandId باید شناسه UUID معتبر باشد.' })
-  brandId?: string;
+  brandId?: string | null;
 
   @ApiPropertyOptional({ description: 'Category id' })
   @IsOptional()

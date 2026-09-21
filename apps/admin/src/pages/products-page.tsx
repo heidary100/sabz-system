@@ -220,7 +220,7 @@ export function ProductsPage() {
                   <TableCell dir="ltr" className="text-muted">
                     {product.slug}
                   </TableCell>
-                  <TableCell className="text-muted">{product.brand.name}</TableCell>
+                  <TableCell className="text-muted">{product.brand?.name ?? 'بدون برند'}</TableCell>
                   <TableCell className="text-muted">{product.category.name}</TableCell>
                   <TableCell>
                     <ProductStatusBadge status={product.status} />

@@ -497,7 +497,7 @@ describe('Public catalog API (SS-120/121/122) (e2e)', () => {
       );
 
       const byBrand = await request(app.getHttpServer())
-        .get(`${PRODUCTS_BASE}?brand=${product.brand.slug}`)
+        .get(`${PRODUCTS_BASE}?brand=${product.brand!.slug}`)
         .expect(200);
       expect(byBrand.body.items.map((c: { id: string }) => c.id)).toContain(
         productId,

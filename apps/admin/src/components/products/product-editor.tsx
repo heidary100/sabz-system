@@ -76,7 +76,7 @@ function fromProduct(product: ProductDetail): ProductFormValue {
     slug: product.slug,
     shortDescription: product.shortDescription ?? '',
     description: product.description ?? '',
-    brandId: product.brand.id,
+    brandId: product.brand?.id ?? '',
     categoryId: product.category.id,
     warranty: product.warranty ?? '',
     condition: product.condition,

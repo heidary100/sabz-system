@@ -62,7 +62,8 @@ export interface CatalogProductCardDto {
   name: string;
   slug: string;
   condition: ProductCondition;
-  brand: CatalogRefDto;
+  /** Null for genuinely unbranded products (Q2 SS-207: no synthetic brand). */
+  brand: CatalogRefDto | null;
   category: CatalogRefDto;
   priceFrom: string;
   /** True when no live variant is PRICED: show call-for-price, never a price. */
@@ -144,7 +145,8 @@ export interface CatalogProductDetailDto {
   heightCm: string | null;
   depthCm: string | null;
   originCountry: string | null;
-  brand: CatalogRefDto;
+  /** Null for genuinely unbranded products (Q2 SS-207: no synthetic brand). */
+  brand: CatalogRefDto | null;
   /** Leaf category of the product. */
   category: CatalogRefDto;
   /** Ancestry chain from root to the leaf category, root first. */
