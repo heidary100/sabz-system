@@ -141,3 +141,22 @@ order used); `display_warning_text: off` (warnings disabled); empty
   report.
 - Brand alias + category merge passes precede the first full write.
 - Currency rule (O-1): Rial verbatim — locked in SS-207.
+
+## 6. SS-208 media downloader handoff
+
+- CLI: `pnpm --filter @sabz/api woo:media -- --file <export.csv>`
+  (`--concurrency 6`, `--allow-host`, `--dry-run`, `--failure-threshold`,
+  `--no-resume`, `--allow-private` test-only). Report artifact
+  `<input>.media.json` with the `images`
+  (`refs/downloaded/processed/failed/skipped-dedup`) matrix.
+- Backfills SS-207 `pending-woo:*` placeholders in place (sortOrder kept);
+  creates rows in CSV order otherwise. First image → primary; `second_image`
+  is gallery position 1 (convention, no new field).
+- Dedup: skip on `(productId, sourceUrl)` and `(productId, contentHash)`;
+  re-runs are no-ops. Resume via `WOOCOMMERCE_MEDIA` ImportRecords (separate
+  source system so writer resume never cross-talks).
+- Guards: `sabzsistem.com` allowlist (+ explicit hosts), 10 MB image /
+  200 MB video caps, per-item 60 s timeout, 3 attempts with backoff,
+  per-URL dead-lettering (failed image ≠ failed product).
+- Binaries run the standard watermark + thumbnail pipeline
+  (`MediaProcessingService`); no queue/broker (in-process batching).
