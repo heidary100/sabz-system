@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { Suspense } from 'react';
 import type { CatalogCategoryNode } from '@sabz/types';
 import { formatFaNumber } from '@/lib/format';
+import { BrandLockup } from '@/components/ecommerce/brand/brand-lockup';
 import { MobileMenu } from './mobile-menu';
 import { SearchInput } from './search-input';
 
@@ -17,12 +18,7 @@ export function SiteHeader({ categories }: { categories: CatalogCategoryNode[] }
         <div className="flex h-16 items-center gap-4">
           <MobileMenu categories={categories} />
 
-          <Link href="/" className="flex items-center gap-2">
-            <span className="flex size-8 items-center justify-center rounded-md bg-sabz-700 text-sm font-bold text-white">
-              س
-            </span>
-            <span className="text-lg font-bold tracking-tight text-sabz-800">سبز سیستم</span>
-          </Link>
+          <BrandLockup />
 
           <nav aria-label="ناوبری دسته‌بندی‌ها" className="hidden flex-1 items-center gap-1 lg:flex">
             {categories.slice(0, 7).map((category) => (

@@ -1,7 +1,9 @@
+import { existsSync } from 'fs';
 import { resolve } from 'path';
 
 /**
- * Centralized company watermark/branding configuration (SS-105 + CATALOG-007).
+ * Centralized company watermark/branding configuration (SS-105 + CATALOG-007,
+ * dual-theme legibility SS-210).
  *
  * The customer-facing product media pipeline watermarks every image and video
  * with the company logo + company name. All branding parameters live here so
@@ -9,16 +11,25 @@ import { resolve } from 'path';
  * sizing in one place without touching the image/video processors.
  *
  * Branding sources:
- *   - Logo:  `apps/api/assets/watermark/logo-placeholder.svg` by default
- *            (the client's official logo replaces this file, or
- *            `WATERMARK_LOGO_PATH` points at the new asset).
+ *   - Logo:  `apps/api/assets/brand/logo.png` by default (SS-209 central
+ *            brand asset — the real company mark, 141px RGBA; the client's
+ *            official logo replaces this file, or `WATERMARK_LOGO_PATH`
+ *            points at the new asset). The legacy
+ *            `assets/watermark/logo-placeholder.svg` is kept as a fallback.
  *   - Font:  `apps/api/assets/watermark/fonts/Vazirmatn-Regular.ttf` is
  *            bundled so the Persian company name renders identically in local
  *            dev, Docker and CI regardless of the host's installed fonts.
  *
+ * Dual-theme legibility (SS-210): the overlay is a dark translucent chip, so
+ * the company name is rendered in a light fill with a light chip edge and an
+ * opaque pill behind the logo. The mark therefore reads on both
+ * light-background studio shots and near-black product photos.
+ *
  * Paths are resolved relative to the API working directory (apps/api), which
  * matches how the media storage default directories are resolved.
  */
+
+export type WatermarkLockup = 'auto' | 'horizontal' | 'vertical';
 
 export interface WatermarkConfig {
   /** Master switch; when off, uploaded media is stored as-is (no branding). */
@@ -40,9 +51,29 @@ export interface WatermarkConfig {
   maxSizePx: number;
   /** Placement corner: 'bottom-right' is the default professional position. */
   position: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left';
+  /** Company-name text fill, `#rrggbb`. Light by default (dark chip). */
+  textColor: string;
+  /** Thin light edge around the chip so it reads on near-black photos. */
+  chipEdgeColor: string;
+  /** Opaque pill behind the logo so dark logo regions survive the dark chip. */
+  logoBackground: string;
+  /**
+   * Lockup layout. `auto` renders the horizontal (logo-inline) lockup at
+   * normal sizes and the stacked vertical lockup for narrow overlays.
+   */
+  lockup: WatermarkLockup;
 }
 
+/** Light off-white used for watermark text/edges (brand background). */
+export const WATERMARK_LIGHT = '#F8F7F5';
+/** Dark chip base (alpha comes from `opacity`). */
+export const WATERMARK_CHIP_RGB = '20,26,22';
+
 function defaultLogoPath(): string {
+  const branded = resolve(process.cwd(), 'assets/brand/logo.png');
+  if (existsSync(branded)) {
+    return branded;
+  }
   return resolve(process.cwd(), 'assets/watermark/logo-placeholder.svg');
 }
 
@@ -60,6 +91,11 @@ function envNumber(name: string, fallback: number): number {
   return Number.isFinite(value) ? value : fallback;
 }
 
+function envHex(name: string, fallback: string): string {
+  const value = env(name, fallback);
+  return /^#[0-9a-fA-F]{6}$/.test(value) ? value : fallback;
+}
+
 /** Builds the watermark configuration from the process environment. */
 export function resolveWatermarkConfig(): WatermarkConfig {
   const position = env('WATERMARK_POSITION', 'bottom-right');
@@ -69,6 +105,8 @@ export function resolveWatermarkConfig(): WatermarkConfig {
     'top-right',
     'top-left',
   ];
+  const lockup = env('WATERMARK_LOCKUP', 'auto');
+  const allowedLockups: WatermarkLockup[] = ['auto', 'horizontal', 'vertical'];
   return {
     enabled: env('WATERMARK_ENABLED', 'true') === 'true',
     companyName: env('WATERMARK_COMPANY_NAME', 'سبز سیستم'),
@@ -76,14 +114,20 @@ export function resolveWatermarkConfig(): WatermarkConfig {
       ? resolve(env('WATERMARK_LOGO_PATH', ''))
       : defaultLogoPath(),
     fontPath: resolve(env('WATERMARK_FONT_PATH', defaultFontPath())),
-    opacity: Math.min(1, Math.max(0, envNumber('WATERMARK_OPACITY', 0.55))),
-    marginRatio: envNumber('WATERMARK_MARGIN_RATIO', 0.04),
-    sizeRatio: Math.min(1, Math.max(0, envNumber('WATERMARK_SIZE_RATIO', 0.3))),
-    minSizePx: envNumber('WATERMARK_MIN_SIZE_PX', 140),
-    maxSizePx: envNumber('WATERMARK_MAX_SIZE_PX', 360),
+    opacity: Math.min(1, Math.max(0, envNumber('WATERMARK_OPACITY', 0.45))),
+    marginRatio: envNumber('WATERMARK_MARGIN_RATIO', 0.05),
+    sizeRatio: Math.min(1, Math.max(0, envNumber('WATERMARK_SIZE_RATIO', 0.17))),
+    minSizePx: envNumber('WATERMARK_MIN_SIZE_PX', 100),
+    maxSizePx: envNumber('WATERMARK_MAX_SIZE_PX', 240),
     position: (allowedPositions as string[]).includes(position)
       ? (position as WatermarkConfig['position'])
       : 'bottom-right',
+    textColor: envHex('WATERMARK_TEXT_COLOR', WATERMARK_LIGHT),
+    chipEdgeColor: env('WATERMARK_CHIP_EDGE_COLOR', 'rgba(248,247,245,0.35)'),
+    logoBackground: envHex('WATERMARK_LOGO_BACKGROUND', WATERMARK_LIGHT),
+    lockup: (allowedLockups as string[]).includes(lockup)
+      ? (lockup as WatermarkLockup)
+      : 'auto',
   };
 }
 

@@ -111,10 +111,10 @@ describe('media watermark processing (CATALOG-007)', () => {
     it('watermarks a small image by scaling the overlay to fit', async () => {
       const input = join(dir, 'small.jpg');
       const output = join(dir, 'small-out.jpg');
-      // 200x150: the default overlay (min 140px wide chip) is taller than the
-      // image, so the processor must scale it down rather than fail.
+      // 120x90: the default overlay (min 100px wide chip) is taller than
+      // the image, so the processor must scale it down rather than fail.
       await sharp({
-        create: { width: 200, height: 150, channels: 3, background: { r: 120, g: 160, b: 140 } },
+        create: { width: 120, height: 90, channels: 3, background: { r: 120, g: 160, b: 140 } },
       })
         .jpeg()
         .toFile(input);
@@ -127,8 +127,8 @@ describe('media watermark processing (CATALOG-007)', () => {
 
       const meta = await sharp(output).metadata();
       expect(meta.format).toBe('jpeg');
-      expect(meta.width).toBe(200);
-      expect(meta.height).toBe(150);
+      expect(meta.width).toBe(120);
+      expect(meta.height).toBe(90);
       expect(result.sizeBytes).toBeGreaterThan(0);
     });
 
@@ -273,7 +273,7 @@ describe('media watermark processing (CATALOG-007)', () => {
       expect(result.sizeBytes).toBe(4);
     });
 
-    it('renders the overlay with the bundled Persian font and placeholder logo', async () => {
+    it('renders the overlay with the bundled Persian font and brand logo', async () => {
       const config = configFor();
       expect(existsSync(config.fontPath)).toBe(true);
       expect(existsSync(config.logoPath ?? '')).toBe(true);

@@ -48,7 +48,10 @@ export class MediaProcessingService {
         outputPath,
       );
       // The thumbnail is a resize of the watermarked asset: branded by
-      // construction, and never larger than the original.
+      // construction, and never larger than the original. SS-210 thumbnail
+      // policy is "smaller-mark, not unmarked": the retuned overlay ratio
+      // keeps the inherited mark subtle on listing cards, and the mark is
+      // never re-composited (no double watermark).
       const thumbnail = await this.imageProcessor.generateThumbnail(
         processed.outputPath,
         join(outputDir, `${randomUUID()}.thumb.webp`),
