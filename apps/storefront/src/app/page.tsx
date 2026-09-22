@@ -50,9 +50,14 @@ export default async function HomePage() {
       {/* Featured categories */}
       {categories.length > 0 ? (
         <section aria-labelledby="categories-heading" className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
-          <h2 id="categories-heading" className="text-xl font-bold tracking-tight text-ink-900">
-            دسته‌بندی‌ها
-          </h2>
+          <div className="flex items-center justify-between">
+            <h2 id="categories-heading" className="text-xl font-bold tracking-tight text-ink-900">
+              دسته‌بندی‌ها
+            </h2>
+            <Link href="/categories" className="text-sm font-medium text-sabz-700 hover:text-sabz-800">
+              مشاهده همه
+            </Link>
+          </div>
           <ul role="list" className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
             {categories.slice(0, 10).map((category) => (
               <li key={category.id}>

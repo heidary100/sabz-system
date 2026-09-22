@@ -34,7 +34,16 @@ export function SiteFooter({ categories }: { categories: CatalogCategoryNode[] }
               ))}
               {categories.length === 0 ? (
                 <li className="text-sm text-gray-400">به‌زودی</li>
-              ) : null}
+              ) : (
+                <li>
+                  <Link
+                    href="/categories"
+                    className="text-sm font-medium text-sabz-700 hover:text-sabz-800"
+                  >
+                    همه دسته‌بندی‌ها
+                  </Link>
+                </li>
+              )}
             </ul>
           </div>
 

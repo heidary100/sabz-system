@@ -1,50 +1,37 @@
 import Link from 'next/link';
 import { Suspense } from 'react';
 import type { CatalogCategoryNode } from '@sabz/types';
-import { formatFaNumber } from '@/lib/format';
 import { BrandLockup } from '@/components/ecommerce/brand/brand-lockup';
+import { DesktopNav } from './desktop-nav';
 import { MobileMenu } from './mobile-menu';
 import { SearchInput } from './search-input';
 
 /**
- * Storefront shell header (SS-124): logo, desktop category navigation with
- * published-product counts, search, cart (placeholder badge — functionality
- * arrives in a later milestone), and the account placeholder.
+ * Storefront shell header (SS-124, SS-211): two-row layout — row 1 holds the
+ * drawer toggle, brand lockup, search and account/cart icons; row 2 is the
+ * desktop two-level category nav. The cart badge was removed (honest
+ * placeholder until the commerce milestone); search is visible on mobile as
+ * its own header row instead of being drawer-buried.
  */
 export function SiteHeader({ categories }: { categories: CatalogCategoryNode[] }) {
   return (
     <header className="sticky top-0 z-40 border-b border-sand-200 bg-white/95 backdrop-blur">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="flex h-16 items-center gap-4">
+        <div className="flex h-16 items-center gap-2 sm:gap-4">
           <MobileMenu categories={categories} />
 
           <BrandLockup />
 
-          <nav aria-label="ناوبری دسته‌بندی‌ها" className="hidden flex-1 items-center gap-1 lg:flex">
-            {categories.slice(0, 7).map((category) => (
-              <Link
-                key={category.id}
-                href={`/categories/${category.slug}`}
-                className="group flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium text-gray-700 hover:bg-sabz-50 hover:text-sabz-800"
-              >
-                <span>{category.name}</span>
-                <span className="rounded-full bg-sabz-50 px-1.5 py-0.5 text-[11px] font-semibold text-sabz-600">
-                  {formatFaNumber(category.publishedProductCount)}
-                </span>
-              </Link>
-            ))}
-          </nav>
-
           <div className="hidden max-w-md flex-1 lg:flex">
             <Suspense fallback={<div className="h-9 flex-1 rounded-md bg-sand-100" />}>
-              <SearchInput compact />
+              <SearchInput inputId="search-desktop" />
             </Suspense>
           </div>
 
           <div className="flex flex-1 items-center justify-end gap-1 lg:flex-none">
             <Link
               href="/account"
-              className="rounded-md p-2 text-gray-600 hover:bg-sabz-50 hover:text-sabz-700"
+              className="flex min-h-11 min-w-11 items-center justify-center rounded-md p-2 text-gray-600 hover:bg-sabz-50 hover:text-sabz-700"
             >
               <span className="sr-only">حساب کاربری</span>
               <svg viewBox="0 0 24 24" fill="none" strokeWidth={1.5} stroke="currentColor" aria-hidden="true" className="size-6">
@@ -57,7 +44,7 @@ export function SiteHeader({ categories }: { categories: CatalogCategoryNode[] }
             </Link>
             <Link
               href="/cart"
-              className="group relative rounded-md p-2 text-gray-600 hover:bg-sabz-50 hover:text-sabz-700"
+              className="flex min-h-11 min-w-11 items-center justify-center rounded-md p-2 text-gray-600 hover:bg-sabz-50 hover:text-sabz-700"
             >
               <span className="sr-only">سبد خرید</span>
               <svg viewBox="0 0 24 24" fill="none" strokeWidth={1.5} stroke="currentColor" aria-hidden="true" className="size-6">
@@ -67,12 +54,19 @@ export function SiteHeader({ categories }: { categories: CatalogCategoryNode[] }
                   strokeLinejoin="round"
                 />
               </svg>
-              {/* Placeholder badge: the cart is populated in a later milestone. */}
-              <span className="absolute -top-0.5 -end-0.5 flex size-4 items-center justify-center rounded-full bg-sabz-600 text-[10px] font-semibold text-white">
-                ۰
-              </span>
             </Link>
           </div>
+        </div>
+
+        {/* Mobile search row: prominent, no drawer detour (SS-211). */}
+        <div className="pb-3 lg:hidden">
+          <Suspense fallback={<div className="h-9 rounded-md bg-sand-100" />}>
+            <SearchInput inputId="search-mobile" />
+          </Suspense>
+        </div>
+
+        <div className="hidden pb-2 lg:block">
+          <DesktopNav categories={categories} />
         </div>
       </div>
     </header>
