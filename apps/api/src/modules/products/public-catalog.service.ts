@@ -259,6 +259,8 @@ export class PublicCatalogService {
         depthCm: true,
         originCountry: true,
         createdAt: true,
+        brandId: true,
+        categoryId: true,
         brand: { select: { name: true, slug: true } },
         category: {
           select: { id: true, name: true, slug: true, parentId: true },
@@ -272,6 +274,17 @@ export class PublicCatalogService {
             price: true,
             compareAtPrice: true,
             priceStatus: true,
+            options: {
+              select: {
+                attributeValue: {
+                  select: {
+                    value: true,
+                    slug: true,
+                    attribute: { select: { name: true, slug: true } },
+                  },
+                },
+              },
+            },
           },
           orderBy: [{ createdAt: 'asc' as const }, { id: 'asc' as const }],
         },
@@ -283,6 +296,7 @@ export class PublicCatalogService {
             isPrimary: true,
             sortOrder: true,
             thumbnailKey: true,
+            variantId: true,
           },
           orderBy: [
             { isPrimary: 'desc' as const },
@@ -331,6 +345,18 @@ export class PublicCatalogService {
         variant.compareAtPrice === null ? null : String(variant.compareAtPrice),
       priceStatus: variant.priceStatus,
       inStock: (availableByVariant.get(variant.id) ?? 0) > 0,
+      options: variant.options
+        .map((option) => ({
+          attributeName: option.attributeValue.attribute.name,
+          attributeSlug: option.attributeValue.attribute.slug,
+          value: option.attributeValue.value,
+          valueSlug: option.attributeValue.slug,
+        }))
+        .sort(
+          (a, b) =>
+            a.attributeName.localeCompare(b.attributeName) ||
+            a.value.localeCompare(b.value),
+        ),
     }));
 
     const media: CatalogProductMediaDto[] = product.media.map((row) => ({
@@ -343,6 +369,7 @@ export class PublicCatalogService {
           : null,
       isPrimary: row.isPrimary,
       sortOrder: row.sortOrder,
+      variantId: row.variantId,
     }));
 
     const specs: CatalogProductSpecDto[] = product.specs.map((row) => ({
@@ -355,6 +382,12 @@ export class PublicCatalogService {
     }));
 
     const tags: CatalogRefDto[] = product.tags.map((row) => row.tag);
+
+    const related = await this.getRelatedCards({
+      productId: product.id,
+      categoryId: product.categoryId,
+      brandId: product.brandId,
+    });
 
     return {
       id: product.id,
@@ -381,8 +414,89 @@ export class PublicCatalogService {
       specs,
       tags,
       inStock: variants.some((variant) => variant.inStock),
+      related,
       createdAt: product.createdAt.toISOString(),
     };
+  }
+
+  /**
+   * Related-product rail (SS-214): deterministic, bounded, no recommendation
+   * engine. Primary pool is the exact leaf category (never the subtree);
+   * same-brand rows come first; when the leaf yields fewer than 4 rows and
+   * the product is branded, same-brand rows from other categories backfill
+   * up to RELATED_LIMIT. Current product excluded, published/non-deleted
+   * only. Hydration reuses hydrateCards() so price/stock/media truth is
+   * identical to listing cards; at most 3 bounded queries, never the catalog.
+   */
+  private async getRelatedCards(args: {
+    productId: string;
+    categoryId: string;
+    brandId: string | null;
+  }): Promise<CatalogProductCardDto[]> {
+    const RELATED_LIMIT = 8;
+    const BACKFILL_MINIMUM = 4;
+    const visibility = {
+      deletedAt: null,
+      status: ProductStatus.PUBLISHED,
+    } satisfies Prisma.ProductWhereInput;
+    const newestFirst = [
+      { createdAt: 'desc' as const },
+      { id: 'desc' as const },
+    ] as Prisma.ProductOrderByWithRelationInput[];
+
+    const ids: string[] = [];
+
+    if (args.brandId !== null) {
+      const sameBrand = await this.prisma.product.findMany({
+        where: {
+          ...visibility,
+          id: { not: args.productId },
+          categoryId: args.categoryId,
+          brandId: args.brandId,
+        },
+        select: { id: true },
+        orderBy: newestFirst,
+        take: RELATED_LIMIT,
+      });
+      ids.push(...sameBrand.map((row) => row.id));
+    }
+
+    if (ids.length < RELATED_LIMIT) {
+      const others = await this.prisma.product.findMany({
+        where: {
+          ...visibility,
+          id:
+            ids.length > 0
+              ? { not: args.productId, notIn: ids }
+              : { not: args.productId },
+          categoryId: args.categoryId,
+        },
+        select: { id: true },
+        orderBy: newestFirst,
+        take: RELATED_LIMIT - ids.length,
+      });
+      ids.push(...others.map((row) => row.id));
+    }
+
+    if (ids.length < BACKFILL_MINIMUM && args.brandId !== null) {
+      const backfill = await this.prisma.product.findMany({
+        where: {
+          ...visibility,
+          id: { not: args.productId, notIn: ids },
+          categoryId: { not: args.categoryId },
+          brandId: args.brandId,
+        },
+        select: { id: true },
+        orderBy: newestFirst,
+        take: RELATED_LIMIT - ids.length,
+      });
+      ids.push(...backfill.map((row) => row.id));
+    }
+
+    if (ids.length === 0) {
+      return [];
+    }
+    return this.hydrateCards(ids);
   }
 
   /** Visibility + public filters shared by count and page queries. */

@@ -4,11 +4,17 @@ import Image from 'next/image';
 import { useState } from 'react';
 import type { CatalogProductMediaDto } from '@sabz/types';
 import { mediaImageUrl, mediaUrl } from '@/lib/catalog';
+import { formatFaNumber } from '@/lib/format';
 
 /**
  * Product gallery (SS-127), adapted from the ecommerce-v4 product-overview
  * gallery: primary image first, thumbnails strip, and inline video playback
  * for VIDEO media.
+ *
+ * SS-214 accessibility: thumbnail buttons expose `aria-pressed` and
+ * position labels («تصویر N از M»); the stage is a labelled region with a
+ * polite live position announcement; videos carry an accessible name and a
+ * poster when available. Gallery stays product-level (variantId reserved).
  */
 export function ProductGallery({
   name,
@@ -18,8 +24,6 @@ export function ProductGallery({
   media: CatalogProductMediaDto[];
 }) {
   const [activeIndex, setActiveIndex] = useState(0);
-  // The media.length === 0 branch above guarantees at least one item.
-  const active = (media[activeIndex] ?? media[0])!;
 
   if (media.length === 0) {
     return (
@@ -35,13 +39,28 @@ export function ProductGallery({
     );
   }
 
+  // Non-empty from here on: the active item always resolves.
+  const active = (media[activeIndex] ?? media[0])!;
+  const total = media.length;
+  const positionLabel =
+    active.mediaType === 'VIDEO'
+      ? `ویدیو ${formatFaNumber(activeIndex + 1)} از ${formatFaNumber(total)}`
+      : `تصویر ${formatFaNumber(activeIndex + 1)} از ${formatFaNumber(total)}`;
+
   return (
     <div>
-      <div className="relative aspect-square overflow-hidden rounded-2xl bg-sand-100">
+      <div
+        role="region"
+        aria-roledescription="نگارخانه محصول"
+        aria-label={`${name}: ${positionLabel}`}
+        className="relative aspect-square overflow-hidden rounded-2xl bg-sand-100"
+      >
         {active.mediaType === 'VIDEO' ? (
           <video
             key={active.id}
             src={mediaUrl(active.url) ?? undefined}
+            poster={mediaUrl(active.thumbnailUrl) ?? undefined}
+            aria-label={`ویدیو محصول: ${name}`}
             controls
             preload="metadata"
             className="size-full"
@@ -57,15 +76,29 @@ export function ProductGallery({
           />
         )}
       </div>
+      <p aria-live="polite" className="sr-only">
+        {positionLabel}
+      </p>
 
       {media.length > 1 ? (
-        <ul role="list" className="mt-4 flex gap-3 overflow-x-auto pb-1">
-          {media.map((item, index) => (
-            <li key={item.id}>
+        <div
+          role="group"
+          aria-label="تصاویر محصول"
+          className="mt-4 flex gap-3 overflow-x-auto pb-1"
+        >
+          {media.map((item, index) => {
+            const thumbLabel =
+              item.mediaType === 'VIDEO'
+                ? `نمایش ویدیو ${formatFaNumber(index + 1)} از ${formatFaNumber(total)}`
+                : `تصویر ${formatFaNumber(index + 1)} از ${formatFaNumber(total)}`;
+            return (
               <button
+                key={item.id}
                 type="button"
                 onClick={() => setActiveIndex(index)}
-                className={`relative block size-20 overflow-hidden rounded-lg border-2 ${
+                aria-pressed={index === activeIndex}
+                aria-label={thumbLabel}
+                className={`relative block size-20 shrink-0 overflow-hidden rounded-lg border-2 focus-visible:ring-2 focus-visible:ring-sabz-600 focus-visible:outline-none ${
                   index === activeIndex ? 'border-sabz-600' : 'border-transparent'
                 }`}
               >
@@ -84,13 +117,10 @@ export function ProductGallery({
                     className="object-cover"
                   />
                 )}
-                <span className="sr-only">
-                  {item.mediaType === 'VIDEO' ? 'نمایش ویدیو' : `تصویر ${index + 1}`}
-                </span>
               </button>
-            </li>
-          ))}
-        </ul>
+            );
+          })}
+        </div>
       ) : null}
     </div>
   );
