@@ -2,7 +2,12 @@ import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common'
 import sharp from 'sharp';
 import { WatermarkOverlayService } from './watermark-overlay.service';
 import { watermarkOffsetFor } from './watermark-position';
-import { WATERMARK_CONFIG, WatermarkConfig } from './watermark-config';
+import {
+  thumbnailOverlayWidthFor,
+  WATERMARK_CONFIG,
+  WatermarkConfig,
+  watermarkOverlayWidthFor,
+} from './watermark-config';
 import type { AllowedMediaMimeType } from '../media-validation';
 
 export interface ProcessedAsset {
@@ -53,12 +58,7 @@ export class ImageProcessorService {
         throw new BadRequestException('پردازش تصویر ناموفق بود.');
       }
 
-      const overlayWidth = Math.round(
-        Math.min(
-          this.config.maxSizePx,
-          Math.max(this.config.minSizePx, sourceWidth * this.config.sizeRatio),
-        ),
-      );
+      const overlayWidth = watermarkOverlayWidthFor(sourceWidth, this.config);
       const overlay = await this.overlay.renderOverlay(overlayWidth);
 
       // The overlay must never exceed the image dimensions (sharp rejects a
@@ -114,23 +114,91 @@ export class ImageProcessorService {
   }
 
   /**
-   * Generates the listing thumbnail (SS-129) from the ALREADY-watermarked
-   * asset, so the derivative carries the branding by construction and is
-   * never re-composited (no double watermark). Fitted inside a
-   * THUMBNAIL_MAX_EDGE_PX square without enlargement, always WEBP.
+   * Generates the listing thumbnail (SS-129 + SS-210 thumbnail policy),
+   * always WEBP fitted inside a THUMBNAIL_MAX_EDGE_PX square without
+   * enlargement.
+   *
+   * - `smaller` (default): rendered from the pre-watermark `originalPath`
+   *   with its own smaller overlay (thumbnail ratio/clamps), so cards carry
+   *   a subtle brand instead of the shrunken full-size mark. The mark is
+   *   composited exactly once (no double watermark).
+   * - `inherit`: legacy fallback — a plain resize of the already-watermarked
+   *   asset (`watermarkedPath`, falling back to `originalPath`).
    */
   async generateThumbnail(
-    watermarkedPath: string,
+    originalPath: string,
     thumbnailPath: string,
+    watermarkedPath?: string,
   ): Promise<{ thumbnailPath: string; thumbnailSizeBytes: number }> {
     try {
-      await sharp(watermarkedPath)
+      if (this.config.thumbnailMode !== 'smaller') {
+        await sharp(watermarkedPath ?? originalPath)
+          .resize({
+            width: THUMBNAIL_MAX_EDGE_PX,
+            height: THUMBNAIL_MAX_EDGE_PX,
+            fit: 'inside',
+            withoutEnlargement: true,
+          })
+          .webp({ quality: 80 })
+          .toFile(thumbnailPath);
+        return {
+          thumbnailPath,
+          thumbnailSizeBytes: await this.fileSize(thumbnailPath),
+        };
+      }
+
+      const thumbBase = await sharp(originalPath)
         .resize({
           width: THUMBNAIL_MAX_EDGE_PX,
           height: THUMBNAIL_MAX_EDGE_PX,
           fit: 'inside',
           withoutEnlargement: true,
         })
+        .toBuffer();
+      const baseMeta = await sharp(thumbBase).metadata();
+      const thumbWidth = baseMeta.width ?? 0;
+      const thumbHeight = baseMeta.height ?? 0;
+      if (thumbWidth === 0 || thumbHeight === 0) {
+        throw new BadRequestException('پردازش تصویر ناموفق بود.');
+      }
+
+      const overlayWidth = thumbnailOverlayWidthFor(thumbWidth, this.config);
+      const overlay = await this.overlay.renderOverlay(overlayWidth);
+
+      // Same fit guard as the full-size path: the overlay must never exceed
+      // the thumbnail dimensions (sharp rejects oversized composite layers).
+      const scale = Math.min(
+        1,
+        thumbWidth / overlay.width,
+        thumbHeight / overlay.height,
+      );
+      let overlayBuffer = overlay.buffer;
+      let overlayW = overlay.width;
+      let overlayH = overlay.height;
+      if (scale < 1) {
+        const scaled = await sharp(overlay.buffer)
+          .resize({
+            width: Math.max(1, Math.round(overlay.width * scale)),
+            height: Math.max(1, Math.round(overlay.height * scale)),
+          })
+          .png()
+          .toBuffer();
+        const scaledMeta = await sharp(scaled).metadata();
+        overlayBuffer = scaled;
+        overlayW = scaledMeta.width ?? overlayW;
+        overlayH = scaledMeta.height ?? overlayH;
+      }
+
+      const { left, top } = watermarkOffsetFor(
+        this.config,
+        thumbWidth,
+        thumbHeight,
+        overlayW,
+        overlayH,
+      );
+
+      await sharp(thumbBase)
+        .composite([{ input: overlayBuffer, left, top }])
         .webp({ quality: 80 })
         .toFile(thumbnailPath);
       return {
@@ -138,6 +206,9 @@ export class ImageProcessorService {
         thumbnailSizeBytes: await this.fileSize(thumbnailPath),
       };
     } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
       this.logger.error(
         `Thumbnail generation failed: ${
           error instanceof Error ? error.message : String(error)

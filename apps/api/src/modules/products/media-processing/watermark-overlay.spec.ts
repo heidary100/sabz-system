@@ -28,6 +28,10 @@ const WATERMARK_ENV_KEYS = [
   'WATERMARK_CHIP_EDGE_COLOR',
   'WATERMARK_LOGO_BACKGROUND',
   'WATERMARK_LOCKUP',
+  'WATERMARK_THUMBNAIL_MODE',
+  'WATERMARK_THUMBNAIL_SIZE_RATIO',
+  'WATERMARK_THUMBNAIL_MIN_SIZE_PX',
+  'WATERMARK_THUMBNAIL_MAX_SIZE_PX',
 ];
 
 function withCleanWatermarkEnv<T>(fn: () => T): T {
@@ -89,7 +93,7 @@ describe('watermark dual-theme legibility (SS-210)', () => {
 
   it('resolves dual-theme defaults and falls back on invalid env', () => {
     const config = withCleanWatermarkEnv(() => resolveWatermarkConfig());
-    expect(config.opacity).toBe(0.45);
+    expect(config.opacity).toBe(0.38);
     expect(config.marginRatio).toBe(0.05);
     expect(config.sizeRatio).toBe(0.17);
     expect(config.minSizePx).toBe(100);
@@ -97,6 +101,20 @@ describe('watermark dual-theme legibility (SS-210)', () => {
     expect(config.textColor).toBe('#F8F7F5');
     expect(config.lockup).toBe('auto');
     expect(config.logoPath?.endsWith('assets/brand/logo.png')).toBe(true);
+    expect(config.thumbnailMode).toBe('smaller');
+    expect(config.thumbnailSizeRatio).toBe(0.12);
+    expect(config.thumbnailMinSizePx).toBe(64);
+    expect(config.thumbnailMaxSizePx).toBe(140);
+  });
+
+  it('falls back to smaller thumbnails on invalid thumbnail env values', () => {
+    process.env.WATERMARK_THUMBNAIL_MODE = 'diagonal';
+    try {
+      const config = resolveWatermarkConfig();
+      expect(config.thumbnailMode).toBe('smaller');
+    } finally {
+      delete process.env.WATERMARK_THUMBNAIL_MODE;
+    }
   });
 
   it('rejects invalid lockup and text-color env values', () => {
@@ -158,9 +176,9 @@ describe('watermark dual-theme legibility (SS-210)', () => {
   });
 
   it('builds a stroked chip so the mark reads on near-black photos', () => {
-    const svg = chipSvg(200, 100, 0.45, 'rgba(248,247,245,0.35)');
+    const svg = chipSvg(200, 100, 0.38, 'rgba(248,247,245,0.35)');
     expect(svg).toContain('stroke="rgba(248,247,245,0.35)"');
-    expect(svg).toContain('rgba(20,26,22,0.45)');
+    expect(svg).toContain('rgba(20,26,22,0.38)');
     expect(hexToRgb('#F8F7F5')).toEqual({ r: 248, g: 247, b: 245 });
   });
 
