@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { CatalogCategoryNode } from '@sabz/types';
 import { formatFaNumber } from '@/lib/format';
 import { navRoots } from '@/lib/nav';
@@ -82,7 +83,8 @@ export function MobileMenu({ categories }: { categories: CatalogCategoryNode[] }
       </button>
 
       {open ? (
-        <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="منوی فروشگاه" className="fixed inset-0 z-50">
+        createPortal(
+          <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="منوی فروشگاه" className="fixed inset-0 z-50">
           <div aria-hidden="true" onClick={() => close(false)} className="fixed inset-0 bg-ink-900/40" />
           <div className="fixed inset-y-0 start-0 flex w-80 max-w-[85vw] flex-col overflow-hidden rounded-e-2xl bg-white shadow-2xl">
             <div className="flex items-center justify-between border-b border-sand-100 bg-sand-50 px-4 py-3">
@@ -136,7 +138,13 @@ export function MobileMenu({ categories }: { categories: CatalogCategoryNode[] }
               </ul>
             </nav>
           </div>
-        </div>
+          </div>,
+          // Portalled out of the sticky header: its `backdrop-blur` would
+          // otherwise become the containing block for these `fixed` nodes and
+          // squash the drawer to header height. `open` starts false, so this
+          // never diverges from the server render.
+          document.body,
+        )
       ) : null}
     </div>
   );
