@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { CatalogCategoryNode } from '@sabz/types';
+import { navRoots } from '@/lib/nav';
 import { BrandLockup } from '@/components/ecommerce/brand/brand-lockup';
 
 /**
@@ -7,6 +8,8 @@ import { BrandLockup } from '@/components/ecommerce/brand/brand-lockup';
  * placeholders. Adapted from the ecommerce-v4 footer idiom (Tailwind Plus).
  */
 export function SiteFooter({ categories }: { categories: CatalogCategoryNode[] }) {
+  // Unwrap the sole catalog root so footer links are browsable (SS-211).
+  const roots = navRoots(categories);
   return (
     <footer className="mt-16 border-t border-sand-200 bg-sand-50">
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
@@ -22,7 +25,7 @@ export function SiteFooter({ categories }: { categories: CatalogCategoryNode[] }
           <div>
             <p className="text-sm font-semibold text-ink-900">دسته‌بندی‌ها</p>
             <ul role="list" className="mt-4 space-y-2.5">
-              {categories.slice(0, 5).map((category) => (
+              {roots.slice(0, 5).map((category) => (
                 <li key={category.id}>
                   <Link
                     href={`/categories/${category.slug}`}
@@ -32,7 +35,7 @@ export function SiteFooter({ categories }: { categories: CatalogCategoryNode[] }
                   </Link>
                 </li>
               ))}
-              {categories.length === 0 ? (
+              {roots.length === 0 ? (
                 <li className="text-sm text-gray-400">به‌زودی</li>
               ) : (
                 <li>

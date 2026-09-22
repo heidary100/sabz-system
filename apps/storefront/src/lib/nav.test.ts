@@ -4,6 +4,7 @@ import {
   buildSearchSubmitParams,
   categoryHasChildren,
   DESKTOP_NAV_LIMIT,
+  navRoots,
   splitNavCategories,
 } from './nav';
 
@@ -38,6 +39,23 @@ describe('categoryHasChildren', () => {
   it('detects parent vs leaf nodes', () => {
     expect(categoryHasChildren(node('leaf'))).toBe(false);
     expect(categoryHasChildren(node('parent', [node('child')]))).toBe(true);
+  });
+});
+
+describe('navRoots', () => {
+  it('unwraps a sole parent to its children', () => {
+    const tree = [node('root', [node('a'), node('b')])];
+    expect(navRoots(tree).map((n) => n.slug)).toEqual(['a', 'b']);
+  });
+
+  it('passes multi-root trees through untouched', () => {
+    const tree = [node('a'), node('b')];
+    expect(navRoots(tree)).toBe(tree);
+  });
+
+  it('keeps a childless sole root (nothing to unwrap)', () => {
+    const tree = [node('root')];
+    expect(navRoots(tree)).toBe(tree);
   });
 });
 

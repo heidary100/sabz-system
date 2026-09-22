@@ -1,62 +1,78 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { usePathname } from 'next/navigation';
+import { useEffect, useRef, useState } from 'react';
 import type { CatalogCategoryNode } from '@sabz/types';
 import { formatFaNumber } from '@/lib/format';
-import { categoryHasChildren, splitNavCategories } from '@/lib/nav';
+import { categoryHasChildren, navRoots, splitNavCategories } from '@/lib/nav';
 
 /**
- * Desktop two-level navigation (SS-211): top-level links with a JS-controlled
- * disclosure toggle for parents (`aria-expanded`, Escape closes, outside click
- * closes). Childless categories render as plain links. Overflow beyond
+ * Desktop two-level navigation (SS-211): the browsable roots open a full-width
+ * mega panel on hover *and* on keyboard focus, with a chevron toggle for
+ * touch/keyboard users (`aria-expanded`, Escape closes and refocuses the
+ * toggle). Leaf roots render as plain links. Overflow beyond
  * DESKTOP_NAV_LIMIT links to the `/categories` index.
  */
 export function DesktopNav({ categories }: { categories: CatalogCategoryNode[] }) {
-  const { visible, hasOverflow } = splitNavCategories(categories);
+  const { visible, hasOverflow } = splitNavCategories(navRoots(categories));
   const [openSlug, setOpenSlug] = useState<string | null>(null);
-  const openRef = useRef<string | null>(null);
   const toggleRefs = useRef(new Map<string, HTMLButtonElement>());
+  const pathname = usePathname();
 
   function openMenu(slug: string) {
-    openRef.current = slug;
     setOpenSlug(slug);
   }
 
-  const closeMenu = useCallback(() => {
-    const prev = openRef.current;
-    openRef.current = null;
+  function closeMenu(returnFocus: boolean, slug: string | null) {
     setOpenSlug(null);
-    if (prev) {
-      toggleRefs.current.get(prev)?.focus();
+    if (returnFocus && slug) {
+      toggleRefs.current.get(slug)?.focus();
     }
-  }, []);
+  }
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
-        closeMenu();
+      if (event.key === 'Escape' && openSlug) {
+        closeMenu(true, openSlug);
       }
     }
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [closeMenu]);
+  }, [openSlug]);
+
+  useEffect(() => {
+    // Route change with an open panel (browser back/forward while the layout
+    // stays mounted): reset. Intentional external sync, not derived state.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setOpenSlug(null);
+  }, [pathname]);
+
+  const openCategory = visible.find((category) => category.slug === openSlug) ?? null;
 
   if (visible.length === 0) {
     return null;
   }
 
   return (
-    <nav aria-label="ناوبری دسته‌بندی‌ها" className="hidden lg:block">
+    <nav aria-label="ناوبری دسته‌بندی‌ها" className="relative hidden lg:block" onMouseLeave={() => closeMenu(false, null)}>
       <ul role="list" className="flex items-center gap-1">
         {visible.map((category) =>
           categoryHasChildren(category) ? (
-            <li key={category.id} className="relative">
-              <span className="group flex items-center rounded-md px-3 py-2 text-sm font-medium text-gray-700 hover:bg-sabz-50 hover:text-sabz-800">
+            <li
+              key={category.id}
+              onMouseEnter={() => openMenu(category.slug)}
+              onFocus={() => openMenu(category.slug)}
+            >
+              <span
+                className={`relative flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-sabz-50 hover:text-sabz-800 ${
+                  openSlug === category.slug ? 'bg-sabz-50 text-sabz-800' : 'text-gray-700'
+                }`}
+              >
                 <Link
                   href={`/categories/${category.slug}`}
                   className="rounded-sm"
-                  onClick={() => openRef.current !== null && closeMenu()}
+                  onClick={() => closeMenu(false, null)}
                 >
                   {category.name}
                 </Link>
@@ -70,10 +86,10 @@ export function DesktopNav({ categories }: { categories: CatalogCategoryNode[] }
                   }}
                   type="button"
                   aria-expanded={openSlug === category.slug}
-                  aria-controls={`submenu-${category.slug}`}
+                  aria-controls={`megamenu-${category.slug}`}
                   aria-label={`زیرمجموعه‌های ${category.name}`}
                   onClick={() =>
-                    openSlug === category.slug ? closeMenu() : openMenu(category.slug)
+                    openSlug === category.slug ? closeMenu(false, null) : openMenu(category.slug)
                   }
                   className="-me-1 rounded-sm p-1 text-gray-500 hover:text-sabz-700"
                 >
@@ -90,42 +106,13 @@ export function DesktopNav({ categories }: { categories: CatalogCategoryNode[] }
                     />
                   </svg>
                 </button>
+                <span
+                  aria-hidden="true"
+                  className={`absolute inset-x-3 -bottom-0.5 h-0.5 rounded-full bg-sabz-600 transition-opacity ${
+                    openSlug === category.slug ? 'opacity-100' : 'opacity-0'
+                  }`}
+                />
               </span>
-              {openSlug === category.slug ? (
-                <div
-                  id={`submenu-${category.slug}`}
-                  className="absolute top-full start-0 z-50 min-w-60 rounded-xl border border-sand-200 bg-white p-2 shadow-lg"
-                >
-                  <ul role="list" className="max-h-96 overflow-y-auto">
-                    <li>
-                      <Link
-                        href={`/categories/${category.slug}`}
-                        onClick={() => closeMenu()}
-                        className="flex items-center justify-between rounded-md px-3 py-2 text-sm font-semibold text-sabz-800 hover:bg-sabz-50"
-                      >
-                        <span>همه {category.name}</span>
-                        <span className="text-xs font-normal text-gray-400">
-                          {formatFaNumber(category.publishedProductCount)}
-                        </span>
-                      </Link>
-                    </li>
-                    {category.children.map((child) => (
-                      <li key={child.id}>
-                        <Link
-                          href={`/categories/${child.slug}`}
-                          onClick={() => closeMenu()}
-                          className="flex items-center justify-between rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-sabz-50 hover:text-sabz-800"
-                        >
-                          <span>{child.name}</span>
-                          <span className="text-xs text-gray-400">
-                            {formatFaNumber(child.publishedProductCount)}
-                          </span>
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
             </li>
           ) : (
             <li key={category.id}>
@@ -152,6 +139,64 @@ export function DesktopNav({ categories }: { categories: CatalogCategoryNode[] }
           </li>
         ) : null}
       </ul>
+
+      {openCategory ? (
+        <div id={`megamenu-${openCategory.slug}`} className="absolute inset-x-0 top-full z-50">
+          <div className="overflow-hidden rounded-2xl border border-sand-200 bg-white shadow-xl shadow-sabz-900/5">
+            <div className="h-1 bg-sabz-700" aria-hidden="true" />
+            <div className="grid grid-cols-2 gap-x-8 gap-y-6 p-6 xl:grid-cols-3">
+              {openCategory.children.map((child) => (
+                <div key={child.id}>
+                  <Link
+                    href={`/categories/${child.slug}`}
+                    onClick={() => closeMenu(false, null)}
+                    className="flex items-center justify-between rounded-sm border-b border-sand-100 pb-2 text-sm font-bold text-ink-900 hover:text-sabz-700"
+                  >
+                    <span>{child.name}</span>
+                    <span className="rounded-full bg-sabz-50 px-2 py-0.5 text-[11px] font-semibold text-sabz-600">
+                      {formatFaNumber(child.publishedProductCount)}
+                    </span>
+                  </Link>
+                  {child.children.length > 0 ? (
+                    <ul role="list" className="mt-2 space-y-0.5">
+                      {child.children.map((grandchild) => (
+                        <li key={grandchild.id}>
+                          <Link
+                            href={`/categories/${grandchild.slug}`}
+                            onClick={() => closeMenu(false, null)}
+                            className="flex items-center justify-between rounded-md px-2 py-1.5 text-[13px] text-gray-600 hover:bg-sabz-50 hover:text-sabz-800"
+                          >
+                            <span>{grandchild.name}</span>
+                            <span className="text-xs text-gray-400">
+                              {formatFaNumber(grandchild.publishedProductCount)}
+                            </span>
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center justify-between border-t border-sand-100 bg-sand-50 px-6 py-3">
+              <Link
+                href={`/categories/${openCategory.slug}`}
+                onClick={() => closeMenu(false, null)}
+                className="text-sm font-semibold text-sabz-700 hover:text-sabz-800"
+              >
+                مشاهده همه {openCategory.name} ←
+              </Link>
+              <Link
+                href="/categories"
+                onClick={() => closeMenu(false, null)}
+                className="text-sm text-gray-500 hover:text-sabz-700"
+              >
+                همه دسته‌بندی‌ها
+              </Link>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </nav>
   );
 }

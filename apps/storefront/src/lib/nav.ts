@@ -31,6 +31,19 @@ export function categoryHasChildren(node: CatalogCategoryNode): boolean {
 }
 
 /**
+ * Resolves the nodes the nav actually renders. The real catalog is a single
+ * root ("کالای دیجیتال") with the browsable tree underneath — rendering the
+ * lone root as one pill would hide the whole store. So a sole parent unwraps
+ * to its children; multi-root trees (tests, future data) pass through.
+ */
+export function navRoots(categories: CatalogCategoryNode[]): CatalogCategoryNode[] {
+  if (categories.length === 1 && categories[0]!.children.length > 0) {
+    return categories[0]!.children;
+  }
+  return categories;
+}
+
+/**
  * Builds the query string for a search submit that stays on the current route:
  * preserves every existing param (category/brand/condition/sort), replaces `q`
  * (or drops it when empty) and resets `page`.

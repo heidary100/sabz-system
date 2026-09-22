@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { fetchCategoryTree, fetchProducts } from '@/lib/catalog';
+import { navRoots } from '@/lib/nav';
 import { ProductCard } from '@/components/ecommerce/product-card/product-card';
 
 /**
@@ -15,6 +16,8 @@ export default async function HomePage() {
     fetchCategoryTree(),
     fetchProducts({ sort: 'newest', limit: 8 }),
   ]);
+  // Unwrap the sole catalog root so featured tiles are browsable (SS-211).
+  const roots = navRoots(categories);
 
   return (
     <div>
@@ -37,10 +40,10 @@ export default async function HomePage() {
             </Link>
             {categories.length > 0 ? (
               <Link
-                href={`/categories/${categories[0]!.slug}`}
+                href={`/categories/${roots[0]!.slug}`}
                 className="rounded-md border border-sabz-200 bg-white px-6 py-3 text-sm font-semibold text-sabz-800 hover:bg-sabz-50"
               >
-                {categories[0]!.name}
+                {roots[0]!.name}
               </Link>
             ) : null}
           </div>
@@ -48,7 +51,7 @@ export default async function HomePage() {
       </section>
 
       {/* Featured categories */}
-      {categories.length > 0 ? (
+      {roots.length > 0 ? (
         <section aria-labelledby="categories-heading" className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between">
             <h2 id="categories-heading" className="text-xl font-bold tracking-tight text-ink-900">
@@ -59,7 +62,7 @@ export default async function HomePage() {
             </Link>
           </div>
           <ul role="list" className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-            {categories.slice(0, 10).map((category) => (
+            {roots.slice(0, 10).map((category) => (
               <li key={category.id}>
                 <Link
                   href={`/categories/${category.slug}`}

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { fetchCategoryTree } from '@/lib/catalog';
+import { navRoots } from '@/lib/nav';
 import { CategoryTile } from '@/components/ecommerce/category/category-tile';
 
 export const metadata: Metadata = {
@@ -12,9 +13,11 @@ export const metadata: Metadata = {
 // snapshot stale data or fail when the API is unreachable (CI).
 export const dynamic = 'force-dynamic';
 
-/** Category index (SS-211): every top-level category as a tile, no truncation. */
+/** Category index (SS-211): every browsable root as a tile, no truncation. */
 export default async function CategoriesPage() {
   const categories = await fetchCategoryTree();
+  // The real tree hides behind a sole root — unwrap it like the header nav.
+  const roots = navRoots(categories);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -23,7 +26,7 @@ export default async function CategoriesPage() {
         <h1 className="text-2xl font-bold tracking-tight text-ink-900">دسته‌بندی‌ها</h1>
       </div>
 
-      {categories.length === 0 ? (
+      {roots.length === 0 ? (
         <div className="mt-8 rounded-xl border border-sand-200 bg-white px-6 py-20 text-center">
           <h2 className="text-lg font-semibold text-ink-900">دسته‌بندی‌ای ثبت نشده است</h2>
           <p className="mt-2 text-sm text-gray-500">
@@ -38,7 +41,7 @@ export default async function CategoriesPage() {
         </div>
       ) : (
         <ul role="list" className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {categories.map((category) => (
+          {roots.map((category) => (
             <CategoryTile key={category.id} category={category} />
           ))}
         </ul>
