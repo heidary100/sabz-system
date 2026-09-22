@@ -50,8 +50,14 @@ export default async function RootLayout({
   return (
     <html lang="fa" dir="rtl">
       <body className="flex min-h-dvh flex-col bg-sand-50 font-sans text-ink-900 antialiased">
+        <a
+          href="#main"
+          className="sr-only focus:not-sr-only focus:absolute focus:start-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-sabz-700 focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white"
+        >
+          پرش به محتوای اصلی
+        </a>
         <SiteHeader categories={categories} />
-        <main className="flex-1">{children}</main>
+        <main id="main" className="flex-1">{children}</main>
         <SiteFooter categories={categories} />
       </body>
     </html>

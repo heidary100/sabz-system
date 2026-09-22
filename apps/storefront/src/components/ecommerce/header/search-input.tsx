@@ -1,26 +1,64 @@
 'use client';
 
-import { useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
+import { buildSearchSubmitParams } from '@/lib/nav';
 
 /**
- * Header search entry (SS-124): submits to the listing page with the `q`
- * URL param, which is the single source of truth for listing state.
+ * Header search entry (SS-124, SS-211): submits on the current route with the
+ * `q` URL param while preserving every other listing param
+ * (category/brand/condition/sort) — the URL stays the single source of truth
+ * for listing state. The form remounts on external `q` changes so back/forward
+ * navigation never leaves stale text (no state-sync effect needed).
  */
-export function SearchInput({ compact = false }: { compact?: boolean }) {
-  const router = useRouter();
+export function SearchInput({
+  compact = false,
+  inputId = 'search',
+}: {
+  compact?: boolean;
+  inputId?: string;
+}) {
+  const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [value, setValue] = useState(searchParams.get('q') ?? '');
+  const initialQ = searchParams.get('q') ?? '';
+
+  return (
+    <SearchForm
+      key={initialQ}
+      pathname={pathname}
+      searchParams={searchParams}
+      initialQ={initialQ}
+      compact={compact}
+      inputId={inputId}
+    />
+  );
+}
+
+function SearchForm({
+  pathname,
+  searchParams,
+  initialQ,
+  compact,
+  inputId,
+}: {
+  pathname: string;
+  searchParams: URLSearchParams;
+  initialQ: string;
+  compact: boolean;
+  inputId: string;
+}) {
+  const router = useRouter();
+  const [value, setValue] = useState(initialQ);
 
   function submit(event: React.FormEvent) {
     event.preventDefault();
-    const trimmed = value.trim();
-    router.push(trimmed ? `/products?q=${encodeURIComponent(trimmed)}` : '/products');
+    const query = buildSearchSubmitParams(searchParams, value.trim());
+    router.push(query ? `${pathname}?${query}` : pathname);
   }
 
   return (
-    <form onSubmit={submit} role="search" className="flex flex-1">
-      <label htmlFor="search" className="sr-only">
+    <form onSubmit={submit} role="search" className="flex flex-1 gap-2">
+      <label htmlFor={inputId} className="sr-only">
         جستجوی محصولات
       </label>
       <div className="relative w-full">
@@ -34,7 +72,7 @@ export function SearchInput({ compact = false }: { compact?: boolean }) {
           </svg>
         </div>
         <input
-          id="search"
+          id={inputId}
           name="q"
           type="search"
           value={value}
@@ -45,6 +83,12 @@ export function SearchInput({ compact = false }: { compact?: boolean }) {
           }`}
         />
       </div>
+      <button
+        type="submit"
+        className="min-h-11 shrink-0 rounded-md bg-sabz-700 px-4 text-sm font-semibold text-white hover:bg-sabz-800"
+      >
+        جستجو
+      </button>
     </form>
   );
 }

@@ -109,6 +109,14 @@ body {
   }
 }
 
+/* Visible keyboard focus for header/nav interactive elements (SS-211).
+   The broader focus/contrast pass lands in SS-218. */
+header a:focus-visible,
+header button:focus-visible {
+  outline: 2px solid var(--color-sabz-600);
+  outline-offset: 2px;
+}
+
 /* Sabz brand palette (AGENTS.md): greens for actions/accents, warm neutrals
    for surfaces. Defined as Tailwind v4 theme colors so utilities like
    bg-sabz-700 are available everywhere. */
