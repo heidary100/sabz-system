@@ -11,7 +11,13 @@ const SORT_LABELS: Record<string, string> = {
   name: 'الفبایی',
 };
 
-export function SortSelect({ state }: { state: ListingState }) {
+export function SortSelect({
+  state,
+  basePath = '/products',
+}: {
+  state: ListingState;
+  basePath?: string;
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
@@ -27,7 +33,7 @@ export function SortSelect({ state }: { state: ListingState }) {
           const sort = event.target.value as ListingState['sort'];
           startTransition(() => {
             const query = buildListingQuery(state, { sort });
-            router.push(query ? `/products?${query}` : '/products');
+            router.push(query ? `${basePath}?${query}` : basePath);
           });
         }}
         className="rounded-md border-0 bg-white py-2 pe-8 ps-3 text-sm ring-1 ring-inset ring-sand-200 focus:ring-2 focus:ring-sabz-600"

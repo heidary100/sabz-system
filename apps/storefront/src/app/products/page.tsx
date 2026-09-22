@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import type { ProductCondition } from '@sabz/types';
 import { fetchBrands, fetchCategoryTree, fetchProducts } from '@/lib/catalog';
+import { formatFaNumber } from '@/lib/format';
 import { parseListingState } from '@/lib/listing';
 import { ProductCard } from '@/components/ecommerce/product-card/product-card';
 import { FiltersPanel } from '@/components/ecommerce/filters/filters-panel';
@@ -54,14 +55,20 @@ export default async function ProductsPage({
             {state.q ? `نتایج جستجو: ${state.q}` : 'همه محصولات'}
           </h1>
           <p className="mt-1 text-sm text-gray-500">
-            {new Intl.NumberFormat('fa-IR').format(result.total)} کالا
+            {formatFaNumber(result.total)} کالا
           </p>
         </div>
         <SortSelect state={state} />
       </div>
 
       <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-[260px_1fr]">
-        <FiltersPanel state={state} categories={categories} brands={brands.items} />
+        <FiltersPanel
+          state={state}
+          categories={categories}
+          brands={brands.items}
+          brandsTotal={brands.total}
+          basePath="/products"
+        />
 
         <section aria-label="فهرست محصولات">
           {result.items.length === 0 ? (

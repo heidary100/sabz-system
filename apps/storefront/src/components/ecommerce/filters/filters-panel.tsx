@@ -1,34 +1,59 @@
 'use client';
 
+import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTransition } from 'react';
 import type { CatalogBrandDto, CatalogCategoryNode } from '@sabz/types';
 import { buildListingQuery, type ListingState } from '@/lib/listing';
+import { formatFaNumber } from '@/lib/format';
+import { FACET_DEFAULT_VISIBLE, findCategoryNode, navRoots } from '@/lib/nav';
+import { FacetSection } from './facet-section';
+import { BrandFacetSearch, filterBrandsByQuery } from './brand-facet-search';
 
 /**
- * Listing filter controls (SS-125): URL search params are the single source
- * of truth — every change pushes a new query string and resets the page.
+ * Listing filter controls (SS-125, SS-212): URL search params are the single
+ * source of truth — every change pushes a new query string and resets the
+ * page. `basePath` keeps the same component mountable at `/products` and
+ * `/categories/<slug>` (SS-212 plumbing only; full context preservation is
+ * SS-213). Facets never truncate silently: overflow always gets an explicit
+ * show-more toggle, and brand search filters the loaded list locally.
  */
 export function FiltersPanel({
   state,
   categories,
   brands,
+  brandsTotal,
+  basePath = '/products',
 }: {
   state: ListingState;
   categories: CatalogCategoryNode[];
   brands: CatalogBrandDto[];
+  /** Total brand count from the API (may exceed the loaded page). */
+  brandsTotal?: number;
+  basePath?: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [brandQuery, setBrandQuery] = useState('');
 
   function apply(changes: Partial<ListingState>) {
     startTransition(() => {
       const query = buildListingQuery(state, changes);
-      router.push(query ? `/products?${query}` : '/products');
+      router.push(query ? `${basePath}?${query}` : basePath);
     });
   }
 
-  const selectedCategory = findCategory(categories, state.category);
+  const roots = navRoots(categories);
+  const selectedCategory = state.category
+    ? findCategoryNode(categories, state.category)
+    : null;
+
+  const filteredBrands = useMemo(
+    () => filterBrandsByQuery(brands, brandQuery),
+    [brands, brandQuery],
+  );
+
+  const completeTotal = brandsTotal ?? brands.length;
 
   return (
     <aside className={pending ? 'opacity-60' : ''} aria-busy={pending}>
@@ -39,7 +64,7 @@ export function FiltersPanel({
             <button
               type="button"
               onClick={() => apply({ category: '' })}
-              className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-sabz-700 px-3 py-1 text-xs font-medium text-white hover:bg-sabz-800"
+              className="mt-2 inline-flex min-h-11 items-center gap-1.5 rounded-full bg-sabz-700 px-3 py-1 text-xs font-medium text-white hover:bg-sabz-800"
             >
               {selectedCategory.name}
               <span aria-hidden="true">×</span>
@@ -47,43 +72,91 @@ export function FiltersPanel({
           </div>
         ) : (
           <div className="mb-5">
-            <p className="text-sm font-semibold text-ink-900">دسته‌بندی</p>
-            <ul role="list" className="mt-3 space-y-2">
-              {categories.slice(0, 8).map((category) => (
-                <li key={category.id}>
-                  <button
-                    type="button"
-                    onClick={() => apply({ category: category.slug })}
-                    className="text-sm text-gray-600 hover:text-sabz-700"
-                  >
-                    {category.name}
-                    <span className="ms-1.5 text-xs text-gray-400">
-                      {new Intl.NumberFormat('fa-IR').format(category.publishedProductCount)}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
+            <FacetSection title="دسته‌بندی" total={roots.length}>
+              {(visibleCount) => (
+                <ul role="list" className="mt-3 space-y-2">
+                  {roots.slice(0, visibleCount).map((category) => (
+                    <li key={category.id}>
+                      <button
+                        type="button"
+                        onClick={() => apply({ category: category.slug })}
+                        className="inline-flex min-h-11 items-center rounded-sm py-1 text-start text-sm text-gray-600 hover:text-sabz-700"
+                      >
+                        {category.name}
+                        <span className="ms-1.5 text-xs text-gray-400">
+                          {formatFaNumber(category.publishedProductCount)}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </FacetSection>
           </div>
         )}
 
         <div className="border-t border-sand-200 pt-4">
-          <label htmlFor="brand-filter" className="text-sm font-semibold text-ink-900">
-            برند
-          </label>
-          <select
-            id="brand-filter"
-            value={state.brand}
-            onChange={(event) => apply({ brand: event.target.value })}
-            className="mt-2 w-full rounded-md border-0 bg-sand-100 py-2 pe-8 ps-3 text-sm ring-1 ring-inset ring-sand-200 focus:ring-2 focus:ring-sabz-600"
-          >
-            <option value="">همه برندها</option>
-            {brands.map((brand) => (
-              <option key={brand.id} value={brand.slug}>
-                {brand.name}
-              </option>
-            ))}
-          </select>
+          <p className="text-sm font-semibold text-ink-900">برند</p>
+          <BrandFacetSearch query={brandQuery} onQueryChange={setBrandQuery} />
+          {filteredBrands.length === 0 ? (
+            <p role="status" className="mt-2 text-xs leading-5 text-gray-500">
+              برندی با این نام یافت نشد.{' '}
+              <button
+                type="button"
+                onClick={() => setBrandQuery('')}
+                className="font-semibold text-sabz-700 hover:text-sabz-800"
+              >
+                پاک کردن جستجو
+              </button>
+            </p>
+          ) : (
+            <FacetSection
+              title=""
+              total={filteredBrands.length}
+              initialVisible={FACET_DEFAULT_VISIBLE}
+            >
+              {(visibleCount) => (
+                <ul role="list" className="mt-3 space-y-2">
+                  {filteredBrands.slice(0, visibleCount).map((brand) => {
+                    const selected = state.brand === brand.slug;
+                    return (
+                      <li key={brand.id}>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            apply({ brand: selected ? '' : brand.slug })
+                          }
+                          aria-pressed={selected}
+                          className={`inline-flex min-h-11 items-center gap-2 rounded-sm py-1 text-start text-sm ${
+                            selected
+                              ? 'font-semibold text-sabz-800'
+                              : 'text-gray-600 hover:text-sabz-700'
+                          }`}
+                        >
+                          <span
+                            aria-hidden="true"
+                            className={`flex size-4 items-center justify-center rounded-sm border text-[10px] leading-none ${
+                              selected
+                                ? 'border-sabz-700 bg-sabz-700 text-white'
+                                : 'border-sand-200 bg-white text-transparent'
+                            }`}
+                          >
+                            ✓
+                          </span>
+                          {brand.name}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </FacetSection>
+          )}
+          {completeTotal > brands.length ? (
+            <p className="mt-2 text-xs text-gray-400">
+              نمایش {formatFaNumber(brands.length)} از {formatFaNumber(completeTotal)} برند
+            </p>
+          ) : null}
         </div>
 
         <fieldset className="mt-4 border-t border-sand-200 pt-4">
@@ -97,7 +170,7 @@ export function FiltersPanel({
               ['USED', 'کارکرده'],
               ['STOCK_CLEARANCE', 'کلیرنس'],
             ].map(([value, label]) => (
-              <label key={value} className="flex items-center gap-2 text-sm text-gray-600">
+              <label key={value} className="flex min-h-11 items-center gap-2 text-sm text-gray-600">
                 <input
                   type="radio"
                   name="condition"
@@ -114,20 +187,4 @@ export function FiltersPanel({
       </div>
     </aside>
   );
-}
-
-function findCategory(
-  categories: { name: string; slug: string; children: unknown[] }[],
-  slug: string,
-): { name: string } | null {
-  for (const category of categories) {
-    if (category.slug === slug) {
-      return category;
-    }
-    const child = findCategory(category.children as Parameters<typeof findCategory>[0], slug);
-    if (child) {
-      return child;
-    }
-  }
-  return null;
 }

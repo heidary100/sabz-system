@@ -5,6 +5,7 @@ import {
   formatFaNumber,
   formatPriceFrom,
   formatToman,
+  normalizeFa,
 } from './format';
 
 describe('formatFaNumber', () => {
@@ -47,5 +48,23 @@ describe('formatCardPrice', () => {
 
   it('prefixes the range marker only for multi-variant spreads', () => {
     expect(formatCardPrice('1500', 2, false)).toBe('از ۱٬۵۰۰ تومان');
+  });
+});
+
+describe('normalizeFa', () => {
+  it('folds ZWNJ to a space', () => {
+    expect(normalizeFa('لپ‌تاپ')).toBe('لپ تاپ');
+  });
+
+  it('folds Arabic ي and ك to Persian ی and ک', () => {
+    expect(normalizeFa('علي كالا')).toBe('علی کالا');
+  });
+
+  it('folds case, collapses whitespace, and trims', () => {
+    expect(normalizeFa('  ANKER   Pro  ')).toBe('anker pro');
+  });
+
+  it('returns an empty string for blank input', () => {
+    expect(normalizeFa('   ')).toBe('');
   });
 });
