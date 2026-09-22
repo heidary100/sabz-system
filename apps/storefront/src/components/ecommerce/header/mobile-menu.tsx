@@ -84,7 +84,7 @@ export function MobileMenu({ categories }: { categories: CatalogCategoryNode[] }
       {open ? (
         <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="منوی فروشگاه" className="fixed inset-0 z-50">
           <div aria-hidden="true" onClick={() => close(false)} className="fixed inset-0 bg-ink-900/40" />
-          <div className="fixed inset-y-0 end-0 flex w-80 max-w-[85vw] flex-col overflow-hidden rounded-s-2xl bg-white shadow-2xl">
+          <div className="fixed inset-y-0 start-0 flex w-80 max-w-[85vw] flex-col overflow-hidden rounded-e-2xl bg-white shadow-2xl">
             <div className="flex items-center justify-between border-b border-sand-100 bg-sand-50 px-4 py-3">
               <BrandLockup />
               <button
