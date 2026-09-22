@@ -98,19 +98,25 @@ services:
       PRODUCT_MEDIA_IMAGE_MAX_SIZE_BYTES: ${PRODUCT_MEDIA_IMAGE_MAX_SIZE_BYTES:-}
       PRODUCT_MEDIA_VIDEO_MAX_SIZE_BYTES: ${PRODUCT_MEDIA_VIDEO_MAX_SIZE_BYTES:-}
       PRODUCT_DESCRIPTION_IMAGE_MAX_SIZE_BYTES: ${PRODUCT_DESCRIPTION_IMAGE_MAX_SIZE_BYTES:-}
-      # Company watermarking (CATALOG-007). FFmpeg is installed in the API
-      # image for the video watermark; branding assets are bundled under
-      # apps/api/assets/watermark and can be overridden from the root .env.
+      # Company watermarking (CATALOG-007, dual-theme SS-210). FFmpeg is
+      # installed in the API image for the video watermark; the brand master
+      # lives at apps/api/assets/brand/logo.svg and can be overridden from
+      # the root .env. The dark-chip/light-text overlay reads on both light
+      # studio shots and near-black product photos.
       WATERMARK_ENABLED: ${WATERMARK_ENABLED:-true}
       WATERMARK_COMPANY_NAME: ${WATERMARK_COMPANY_NAME:-سبز سیستم}
-      WATERMARK_LOGO_PATH: ${WATERMARK_LOGO_PATH:-assets/watermark/logo-placeholder.svg}
+      WATERMARK_LOGO_PATH: ${WATERMARK_LOGO_PATH:-assets/brand/logo.png}
       WATERMARK_FONT_PATH: ${WATERMARK_FONT_PATH:-assets/watermark/fonts/Vazirmatn-Regular.ttf}
-      WATERMARK_OPACITY: ${WATERMARK_OPACITY:-0.55}
+      WATERMARK_OPACITY: ${WATERMARK_OPACITY:-0.45}
       WATERMARK_POSITION: ${WATERMARK_POSITION:-bottom-right}
-      WATERMARK_MARGIN_RATIO: ${WATERMARK_MARGIN_RATIO:-0.04}
-      WATERMARK_SIZE_RATIO: ${WATERMARK_SIZE_RATIO:-0.3}
-      WATERMARK_MIN_SIZE_PX: ${WATERMARK_MIN_SIZE_PX:-140}
-      WATERMARK_MAX_SIZE_PX: ${WATERMARK_MAX_SIZE_PX:-360}
+      WATERMARK_MARGIN_RATIO: ${WATERMARK_MARGIN_RATIO:-0.05}
+      WATERMARK_SIZE_RATIO: ${WATERMARK_SIZE_RATIO:-0.17}
+      WATERMARK_MIN_SIZE_PX: ${WATERMARK_MIN_SIZE_PX:-100}
+      WATERMARK_MAX_SIZE_PX: ${WATERMARK_MAX_SIZE_PX:-240}
+      WATERMARK_TEXT_COLOR: ${WATERMARK_TEXT_COLOR:-#F8F7F5}
+      WATERMARK_CHIP_EDGE_COLOR: ${WATERMARK_CHIP_EDGE_COLOR:-rgba(248,247,245,0.35)}
+      WATERMARK_LOGO_BACKGROUND: ${WATERMARK_LOGO_BACKGROUND:-#F8F7F5}
+      WATERMARK_LOCKUP: ${WATERMARK_LOCKUP:-auto}
       FFMPEG_PATH: ${FFMPEG_PATH:-ffmpeg}
     volumes:
       - ./apps/api:/app/apps/api

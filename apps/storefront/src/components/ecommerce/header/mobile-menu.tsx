@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { Suspense, useState } from 'react';
 import type { CatalogCategoryNode } from '@sabz/types';
 import { formatFaNumber } from '@/lib/format';
+import { BrandLockup } from '@/components/ecommerce/brand/brand-lockup';
 import { SearchInput } from './search-input';
 
 /**
@@ -41,7 +42,7 @@ export function MobileMenu({ categories }: { categories: CatalogCategoryNode[] }
           />
           <div className="fixed inset-y-0 end-0 flex max-w-full flex-col overflow-y-auto bg-white shadow-xl">
             <div className="flex items-center justify-between px-4 pt-5 pb-2">
-              <span className="text-lg font-bold text-sabz-800">سبز سیستم</span>
+              <BrandLockup />
               <button
                 type="button"
                 onClick={close}

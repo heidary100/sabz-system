@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { CatalogCategoryNode } from '@sabz/types';
+import { BrandLockup } from '@/components/ecommerce/brand/brand-lockup';
 
 /**
  * Storefront footer (SS-124): brand blurb, category links and static-page
@@ -11,7 +12,7 @@ export function SiteFooter({ categories }: { categories: CatalogCategoryNode[] }
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-4">
           <div>
-            <p className="text-base font-bold text-sabz-800">سبز سیستم</p>
+            <BrandLockup wordmarkClassName="text-base font-bold text-sabz-800" />
             <p className="mt-3 text-sm leading-6 text-gray-600">
               فروشگاه آنلاین کالای دیجیتال و لوازم جانبی در مازندران — برای
               مشتریان خرد و همکاران.

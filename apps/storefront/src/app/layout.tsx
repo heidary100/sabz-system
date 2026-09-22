@@ -1,16 +1,43 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import '@fontsource-variable/vazirmatn';
 import './globals.css';
+import { brand } from '@/lib/brand';
 import { fetchCategoryTree } from '@/lib/catalog';
 import { SiteHeader } from '@/components/ecommerce/header/site-header';
 import { SiteFooter } from '@/components/ecommerce/footer/site-footer';
 
+const siteUrl =
+  process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3001';
+
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
   title: {
     default: 'سبز سیستم',
     template: '%s | سبز سیستم',
   },
   description: 'فروشگاه آنلاین کالای دیجیتال و لوازم جانبی — خرده و عمده.',
+  icons: {
+    icon: [{ url: brand.icons.icon32, sizes: '32x32', type: 'image/png' }],
+    apple: [{ url: brand.icons.appleTouchIcon, sizes: '180x180' }],
+  },
+  openGraph: {
+    title: 'سبز سیستم',
+    description: 'فروشگاه آنلاین کالای دیجیتال و لوازم جانبی — خرده و عمده.',
+    locale: 'fa_IR',
+    siteName: brand.nameFa,
+    images: [
+      {
+        url: brand.openGraph.image,
+        width: brand.openGraph.width,
+        height: brand.openGraph.height,
+        alt: brand.logoAlt,
+      },
+    ],
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: brand.themeColor,
 };
 
 export default async function RootLayout({

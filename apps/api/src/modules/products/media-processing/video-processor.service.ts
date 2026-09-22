@@ -9,19 +9,24 @@ import { watermarkFilterPosition } from './watermark-position';
 import { WatermarkConfig } from './watermark-config';
 import type { ProcessedAsset } from './image-processor.service';
 
-/** Reference overlay width used for videos; FFmpeg rescales it to the media. */
+/** Reference overlay width the PNG is rendered at; scale2ref downsamples it
+ * to the per-video target below. 720px covers up to 4K widths at the default
+ * size ratio (3840 * 0.17 = 653) without ever upscaling the mark. */
 const VIDEO_OVERLAY_WIDTH = 720;
 
 /**
  * Server-side product video watermarking (CATALOG-007) via FFmpeg.
  *
- * The watermark (logo + company name) is overlaid on every frame through the
- * `overlay` filter and the video is re-encoded with libx264 (crf 20) while the
- * audio track is copied untouched. The overlay is scaled to a fraction of the
- * video width so it adapts across resolutions.
+ * The watermark (logo + company name) is overlaid on every frame and the
+ * video is re-encoded with libx264 (crf 20) while the audio track is copied
+ * untouched. The overlay is sized from the *video* width (`main_w`) through
+ * `scale2ref` with the same ratio/clamps as images (SS-210 shared
+ * `WatermarkSpec`), so the mark stays proportional from small clips to 4K.
  *
  * FFmpeg is always invoked through `FfmpegRunner` with an argument array and
  * fixed filter strings — no shell, no user-controlled filenames in arguments.
+ * The interpolated filter values are server-side numerics (ratio to 3
+ * decimals, integer clamps), never client input.
  */
 @Injectable()
 export class VideoProcessorService {
@@ -42,14 +47,19 @@ export class VideoProcessorService {
       await writeFile(overlayPath, overlay.buffer);
 
       const { x, y } = watermarkFilterPosition(this.config);
+      // Size the mark from the video width with the shared image clamps:
+      // in scale2ref, main_w/main_h are the reference (main video) dims.
       const ratio = this.config.sizeRatio.toFixed(3);
+      const minPx = Math.round(this.config.minSizePx);
+      const maxPx = Math.round(this.config.maxSizePx);
+      const widthExpr = `max(${minPx},min(${maxPx},trunc(main_w*${ratio}/2)*2))`;
 
       await this.ffmpeg.run([
         '-y',
         '-i', inputPath,
         '-i', overlayPath,
         '-filter_complex',
-        `[1:v]scale='trunc(iw*${ratio}/2)*2':-2[wm];[0:v][wm]overlay=${x}:${y}:format=auto[outv]`,
+        `[1:v][0:v]scale2ref=w='${widthExpr}':h=-2[wm][base];[base][wm]overlay=${x}:${y}:format=auto[outv]`,
         '-map', '[outv]',
         '-map', '0:a?',
         '-c:v', 'libx264',
