@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { fetchCategoryTree, fetchProducts } from '@/lib/catalog';
 import { navRoots } from '@/lib/nav';
+import { CategoryTile } from '@/components/ecommerce/category/category-tile';
 import { ProductCard } from '@/components/ecommerce/product-card/product-card';
 
 /**
@@ -63,19 +64,7 @@ export default async function HomePage() {
           </div>
           <ul role="list" className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
             {roots.slice(0, 10).map((category) => (
-              <li key={category.id}>
-                <Link
-                  href={`/categories/${category.slug}`}
-                  className="group flex h-full flex-col justify-between rounded-xl border border-sand-200 bg-white p-5 transition hover:border-sabz-300"
-                >
-                  <span className="text-sm font-semibold text-ink-900 group-hover:text-sabz-700">
-                    {category.name}
-                  </span>
-                  <span className="mt-3 text-xs text-gray-500">
-                    {new Intl.NumberFormat('fa-IR').format(category.publishedProductCount)} کالا
-                  </span>
-                </Link>
-              </li>
+              <CategoryTile key={category.id} category={category} variant="child" />
             ))}
           </ul>
         </section>

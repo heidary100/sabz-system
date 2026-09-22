@@ -109,10 +109,15 @@ body {
   }
 }
 
-/* Visible keyboard focus for header/nav interactive elements (SS-211).
+/* Visible keyboard focus for header/nav interactive elements (SS-211),
+   extended to the SS-212 category/facet controls in main.
    The broader focus/contrast pass lands in SS-218. */
 header a:focus-visible,
-header button:focus-visible {
+header button:focus-visible,
+main a:focus-visible,
+main button:focus-visible,
+main input:focus-visible,
+main select:focus-visible {
   outline: 2px solid var(--color-sabz-600);
   outline-offset: 2px;
 }

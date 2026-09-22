@@ -33,6 +33,21 @@ export function formatPriceFrom(value: string | number): string {
 export const CALL_FOR_PRICE_LABEL = 'تماس بگیرید';
 
 /**
+ * Normalizes Persian text for local facet matching (SS-212 only — not the
+ * SS-216 global search normalizer): ZWNJ becomes a space, Arabic ي/ك fold to
+ * Persian ی/ک, case folds, whitespace collapses, ends trim.
+ */
+export function normalizeFa(value: string): string {
+  return value
+    .replace(/[\u200C\u200D]/g, ' ')
+    .replace(/[ي]/g, 'ی')
+    .replace(/[ك]/g, 'ک')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
  * Listing-card price line (SS-201). Call-for-price whenever the API says so
  * (or no priced minimum exists); exact price for a single priced variant;
  * «از …» only for genuine multi-variant spreads.
