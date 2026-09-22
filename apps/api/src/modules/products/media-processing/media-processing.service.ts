@@ -47,14 +47,16 @@ export class MediaProcessingService {
         detectedMime,
         outputPath,
       );
-      // The thumbnail is a resize of the watermarked asset: branded by
-      // construction, and never larger than the original. SS-210 thumbnail
-      // policy is "smaller-mark, not unmarked": the retuned overlay ratio
-      // keeps the inherited mark subtle on listing cards, and the mark is
-      // never re-composited (no double watermark).
+      // SS-210 thumbnail policy ("smaller", not unmarked): the thumbnail is
+      // rendered from the pre-watermark original (`inputPath`) with its own
+      // smaller mark, so listing cards stay subtle. `inherit` fallback
+      // resizes the watermarked asset instead. The mark is composited
+      // exactly once per derivative (no double watermark). Existing stored
+      // assets keep their old marks — no retroactive reprocessing (#182).
       const thumbnail = await this.imageProcessor.generateThumbnail(
-        processed.outputPath,
+        inputPath,
         join(outputDir, `${randomUUID()}.thumb.webp`),
+        processed.outputPath,
       );
       return { ...processed, ...thumbnail };
     }

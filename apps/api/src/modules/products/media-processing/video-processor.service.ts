@@ -6,7 +6,7 @@ import { readFileHeader } from '../media-file';
 import { FfmpegError, FfmpegRunner } from './ffmpeg.runner';
 import { WatermarkOverlayService } from './watermark-overlay.service';
 import { watermarkFilterPosition } from './watermark-position';
-import { WatermarkConfig } from './watermark-config';
+import { WatermarkConfig, watermarkVideoWidthExpr } from './watermark-config';
 import type { ProcessedAsset } from './image-processor.service';
 
 /** Reference overlay width the PNG is rendered at; scale2ref downsamples it
@@ -47,12 +47,10 @@ export class VideoProcessorService {
       await writeFile(overlayPath, overlay.buffer);
 
       const { x, y } = watermarkFilterPosition(this.config);
-      // Size the mark from the video width with the shared image clamps:
-      // in scale2ref, main_w/main_h are the reference (main video) dims.
-      const ratio = this.config.sizeRatio.toFixed(3);
-      const minPx = Math.round(this.config.minSizePx);
-      const maxPx = Math.round(this.config.maxSizePx);
-      const widthExpr = `max(${minPx},min(${maxPx},trunc(main_w*${ratio}/2)*2))`;
+      // Size the mark from the video width with the shared image clamps
+      // (SS-210 shared sizing helper): in scale2ref, main_w/main_h are the
+      // reference (main video) dims.
+      const widthExpr = watermarkVideoWidthExpr(this.config);
 
       await this.ffmpeg.run([
         '-y',

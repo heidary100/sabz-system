@@ -31,6 +31,20 @@ import { resolve } from 'path';
 
 export type WatermarkLockup = 'auto' | 'horizontal' | 'vertical';
 
+/**
+ * Listing-thumbnail watermark policy (SS-210, audit Q6 decided: smaller mark).
+ *
+ * - `smaller`: the thumbnail is rendered from the pre-watermark original with
+ *   its own smaller overlay (thumbnail ratio/clamps), so listing cards carry
+ *   a subtle brand instead of the shrunken full-size mark.
+ * - `inherit`: legacy fallback — the thumbnail is a plain resize of the
+ *   already-watermarked asset. Kept for env override / rollback only.
+ *
+ * Existing stored assets keep their old marks in both modes (no retroactive
+ * reprocessing — recorded #182 decision).
+ */
+export type WatermarkThumbnailMode = 'smaller' | 'inherit';
+
 export interface WatermarkConfig {
   /** Master switch; when off, uploaded media is stored as-is (no branding). */
   enabled: boolean;
@@ -62,6 +76,17 @@ export interface WatermarkConfig {
    * normal sizes and the stacked vertical lockup for narrow overlays.
    */
   lockup: WatermarkLockup;
+  /**
+   * Thumbnail policy (`smaller` default). See `WatermarkThumbnailMode`.
+   * The thumbnail overlay uses its own ratio/clamps below, sized from the
+   * *thumbnail* width — never a shrunken copy of the full-size mark.
+   */
+  thumbnailMode: WatermarkThumbnailMode;
+  /** Overlay width as a fraction of the thumbnail width (0..1). */
+  thumbnailSizeRatio: number;
+  /** Clamp for the rendered thumbnail overlay width in pixels. */
+  thumbnailMinSizePx: number;
+  thumbnailMaxSizePx: number;
 }
 
 /** Light off-white used for watermark text/edges (brand background). */
@@ -107,6 +132,8 @@ export function resolveWatermarkConfig(): WatermarkConfig {
   ];
   const lockup = env('WATERMARK_LOCKUP', 'auto');
   const allowedLockups: WatermarkLockup[] = ['auto', 'horizontal', 'vertical'];
+  const thumbnailMode = env('WATERMARK_THUMBNAIL_MODE', 'smaller');
+  const allowedThumbnailModes: WatermarkThumbnailMode[] = ['smaller', 'inherit'];
   return {
     enabled: env('WATERMARK_ENABLED', 'true') === 'true',
     companyName: env('WATERMARK_COMPANY_NAME', 'سبز سیستم'),
@@ -114,7 +141,7 @@ export function resolveWatermarkConfig(): WatermarkConfig {
       ? resolve(env('WATERMARK_LOGO_PATH', ''))
       : defaultLogoPath(),
     fontPath: resolve(env('WATERMARK_FONT_PATH', defaultFontPath())),
-    opacity: Math.min(1, Math.max(0, envNumber('WATERMARK_OPACITY', 0.45))),
+    opacity: Math.min(1, Math.max(0, envNumber('WATERMARK_OPACITY', 0.38))),
     marginRatio: envNumber('WATERMARK_MARGIN_RATIO', 0.05),
     sizeRatio: Math.min(1, Math.max(0, envNumber('WATERMARK_SIZE_RATIO', 0.17))),
     minSizePx: envNumber('WATERMARK_MIN_SIZE_PX', 100),
@@ -128,7 +155,76 @@ export function resolveWatermarkConfig(): WatermarkConfig {
     lockup: (allowedLockups as string[]).includes(lockup)
       ? (lockup as WatermarkLockup)
       : 'auto',
+    thumbnailMode: (allowedThumbnailModes as string[]).includes(thumbnailMode)
+      ? (thumbnailMode as WatermarkThumbnailMode)
+      : 'smaller',
+    thumbnailSizeRatio: Math.min(
+      1,
+      Math.max(0, envNumber('WATERMARK_THUMBNAIL_SIZE_RATIO', 0.12)),
+    ),
+    thumbnailMinSizePx: envNumber('WATERMARK_THUMBNAIL_MIN_SIZE_PX', 64),
+    thumbnailMaxSizePx: envNumber('WATERMARK_THUMBNAIL_MAX_SIZE_PX', 140),
   };
+}
+
+/**
+ * Shared overlay-width math (SS-210 `WatermarkSpec`): clamps
+ * `sourceWidthPx * sizeRatio` into `[minSizePx, maxSizePx]`. Both the sharp
+ * image processor and the FFmpeg video filter expression derive from here so
+ * the mark stays proportional from tiny uploads to 4K video.
+ */
+export function computeOverlayWidth(
+  sourceWidthPx: number,
+  sizeRatio: number,
+  minSizePx: number,
+  maxSizePx: number,
+): number {
+  return Math.round(
+    Math.min(maxSizePx, Math.max(minSizePx, sourceWidthPx * sizeRatio)),
+  );
+}
+
+/** Full-size overlay width for a source image/video width. */
+export function watermarkOverlayWidthFor(
+  sourceWidthPx: number,
+  config: Pick<WatermarkConfig, 'sizeRatio' | 'minSizePx' | 'maxSizePx'>,
+): number {
+  return computeOverlayWidth(
+    sourceWidthPx,
+    config.sizeRatio,
+    config.minSizePx,
+    config.maxSizePx,
+  );
+}
+
+/** Thumbnail overlay width for a rendered thumbnail width. */
+export function thumbnailOverlayWidthFor(
+  thumbnailWidthPx: number,
+  config: Pick<
+    WatermarkConfig,
+    'thumbnailSizeRatio' | 'thumbnailMinSizePx' | 'thumbnailMaxSizePx'
+  >,
+): number {
+  return computeOverlayWidth(
+    thumbnailWidthPx,
+    config.thumbnailSizeRatio,
+    config.thumbnailMinSizePx,
+    config.thumbnailMaxSizePx,
+  );
+}
+
+/**
+ * FFmpeg `scale2ref` width expression sizing the video mark from the video
+ * width (`main_w`) with the shared ratio/clamps. Values are server-side
+ * numerics (ratio to 3 decimals, integer clamps), never client input.
+ */
+export function watermarkVideoWidthExpr(
+  config: Pick<WatermarkConfig, 'sizeRatio' | 'minSizePx' | 'maxSizePx'>,
+): string {
+  const ratio = config.sizeRatio.toFixed(3);
+  const minPx = Math.round(config.minSizePx);
+  const maxPx = Math.round(config.maxSizePx);
+  return `max(${minPx},min(${maxPx},trunc(main_w*${ratio}/2)*2))`;
 }
 
 /** Constants shared by the image and video watermark processors. */

@@ -236,8 +236,9 @@ describe('media watermark processing (CATALOG-007)', () => {
       const result = await service.process('in.bin', 'image/png', dir);
       expect(imageProc.process).toHaveBeenCalled();
       expect(imageProc.generateThumbnail).toHaveBeenCalledWith(
-        'img-out',
+        'in.bin',
         expect.stringMatching(/\.thumb\.webp$/),
+        'img-out',
       );
       expect(videoProc.process).not.toHaveBeenCalled();
       expect(result.outputPath).toBe('img-out');

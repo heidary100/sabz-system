@@ -7,9 +7,10 @@ import { WatermarkOverlayService } from './watermark-overlay.service';
 import { resolveWatermarkConfig } from './watermark-config';
 
 /**
- * SS-129 thumbnail generation (real sharp, no mocks): the thumbnail is a WEBP
- * resize of the already-watermarked asset, capped at THUMBNAIL_MAX_EDGE_PX on
- * its longest edge and never enlarged.
+ * SS-129 thumbnail generation (real sharp, no mocks) + SS-210 thumbnail
+ * policy: by default the thumbnail is rendered from the pre-watermark
+ * original with its own smaller mark (never a shrunken full-size mark, never
+ * double-composited). `inherit` keeps the legacy resize-of-watermarked path.
  */
 describe('ImageProcessorService.generateThumbnail (SS-129)', () => {
   let processor: ImageProcessorService;
@@ -86,5 +87,85 @@ describe('ImageProcessorService.generateThumbnail (SS-129)', () => {
     await expect(
       processor.generateThumbnail(notAnImage, join(tempDir, 'out.webp')),
     ).rejects.toThrow();
+  });
+
+  it('brands the smaller-mode thumbnail from the original (no double mark)', async () => {
+    const source = await createJpeg(1200, 800);
+    const thumbnailPath = join(tempDir, 'thumb-branded.webp');
+    await processor.generateThumbnail(source, thumbnailPath);
+
+    const plain = await sharp(source)
+      .resize({
+        width: THUMBNAIL_MAX_EDGE_PX,
+        height: THUMBNAIL_MAX_EDGE_PX,
+        fit: 'inside',
+        withoutEnlargement: true,
+      })
+      .webp({ quality: 80 })
+      .toBuffer();
+    const branded = await sharp(thumbnailPath).toBuffer();
+    // The smaller mark is composited exactly once: the derivative differs
+    // from a plain resize of the same original.
+    expect(branded.equals(plain)).toBe(false);
+  });
+
+  it('keeps the thumbnail mark smaller than the full-size mark', async () => {
+    const source = await createJpeg(1200, 800);
+    const fullOut = join(tempDir, 'full.jpg');
+    await processor.process(source, 'image/jpeg', fullOut);
+    const thumbOut = join(tempDir, 'thumb-small-mark.webp');
+    await processor.generateThumbnail(source, thumbOut);
+
+    const fullPixels = await sharp(fullOut)
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    const thumbPixels = await sharp(thumbOut)
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    // Full-size overlay for a 1200px source is 204px wide; the 640px-edge
+    // thumbnail overlay is 77px wide — the card mark is strictly smaller.
+    expect(thumbPixels.info.width).toBeLessThan(fullPixels.info.width);
+  });
+
+  it('supports the inherit fallback (plain resize of the watermarked asset)', async () => {
+    const inheritConfig = {
+      ...resolveWatermarkConfig(),
+      thumbnailMode: 'inherit' as const,
+    };
+    const inheritProcessor = new ImageProcessorService(
+      new WatermarkOverlayService(inheritConfig),
+      inheritConfig,
+    );
+    const source = await createJpeg(1200, 800);
+    const watermarked = join(tempDir, 'wm.jpg');
+    await inheritProcessor.process(source, 'image/jpeg', watermarked);
+
+    const thumbnailPath = join(tempDir, 'thumb-inherit.webp');
+    await inheritProcessor.generateThumbnail(source, thumbnailPath, watermarked);
+
+    const expectedPath = join(tempDir, 'thumb-expected.webp');
+    await sharp(watermarked)
+      .resize({
+        width: THUMBNAIL_MAX_EDGE_PX,
+        height: THUMBNAIL_MAX_EDGE_PX,
+        fit: 'inside',
+        withoutEnlargement: true,
+      })
+      .webp({ quality: 80 })
+      .toFile(expectedPath);
+    const expected = await sharp(expectedPath)
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    const actual = await sharp(thumbnailPath)
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    // Compare decoded pixels (not encoded bytes): identical pipelines must
+    // produce identical pixels.
+    expect(actual.info).toMatchObject({
+      width: expected.info.width,
+      height: expected.info.height,
+      channels: expected.info.channels,
+    });
+    expect(actual.data.equals(expected.data)).toBe(true);
   });
 });
