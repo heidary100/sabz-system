@@ -90,6 +90,9 @@ export class PublicCatalogProductsController {
     required: false,
     enum: ['newest', 'price_asc', 'price_desc', 'name'],
   })
+  @ApiQuery({ name: 'priceFrom', required: false, type: String })
+  @ApiQuery({ name: 'priceTo', required: false, type: String })
+  @ApiQuery({ name: 'inStockOnly', required: false, type: Boolean })
   @ApiResponse({ status: 200, description: 'Paginated product cards returned.' })
   @ApiResponse({ status: 400, description: 'Invalid query parameters.' })
   async list(@Query() query: ListCatalogProductsQueryDto) {

@@ -169,7 +169,13 @@ export class PublicCatalogService {
     const page = query.page ?? DEFAULT_PAGE;
     const limit = query.limit ?? DEFAULT_LIMIT;
 
-    const where = await this.productVisibilityWhere(query);
+    let where = await this.productVisibilityWhere(query);
+
+    // Stock narrowing feeds product ids into the SAME visibility query, so
+    // totals, pagination, sorting, and the category-subtree scope stay exact.
+    if (query.inStockOnly) {
+      where = { ...where, id: { in: await this.inStockProductIds(query) } };
+    }
 
     const total = await this.prisma.product.count({ where });
 
@@ -384,6 +390,21 @@ export class PublicCatalogService {
     query: ListCatalogProductsQueryDto,
   ): Promise<Prisma.ProductWhereInput> {
     return {
+      ...(await this.visibleProductWhere(query)),
+      ...priceVariantPredicate(normalizedPriceRange(query)),
+    };
+  }
+
+  /**
+   * Product visibility without the price predicate (SS-213): the shared scope
+   * for the listing, the price sort, and the in-stock variant prefilter, so a
+   * price or stock filter can never narrow the category subtree or leak
+   * hidden/unpublished products.
+   */
+  private async visibleProductWhere(
+    query: ListCatalogProductsQueryDto,
+  ): Promise<Prisma.ProductWhereInput> {
+    return {
       deletedAt: null,
       status: ProductStatus.PUBLISHED,
       ...(query.category && {
@@ -400,6 +421,55 @@ export class PublicCatalogService {
         ],
       }),
     };
+  }
+
+  /**
+   * Product ids with at least one genuinely available variant (SS-213).
+   *
+   * Prisma cannot express `quantityOnHand − quantityReserved > 0` as a column
+   * comparison, so candidates are prefetched and availability is derived with
+   * the existing `deriveAvailable()` under `activeInventoryWhere()` — the same
+   * helpers as every other inventory read. Fully-reserved stock
+   * (`onHand == reserved`) is therefore excluded. An empty result matches
+   * nothing (same convention as unknown category slugs).
+   *
+   * The variant prefilter mirrors the listing visibility scope, and when a
+   * price range is present the SAME variant must satisfy both the range and
+   * availability (a cheap out-of-stock variant cannot qualify its product).
+   */
+  private async inStockProductIds(
+    query: ListCatalogProductsQueryDto,
+  ): Promise<string[]> {
+    const range = normalizedPriceRange(query);
+    const candidates = await this.prisma.productVariant.findMany({
+      where: {
+        deletedAt: null,
+        ...(range.from !== undefined || range.to !== undefined
+          ? {
+              priceStatus: PriceStatus.PRICED,
+              price: {
+                ...(range.from !== undefined ? { gte: range.from } : {}),
+                ...(range.to !== undefined ? { lte: range.to } : {}),
+              },
+            }
+          : {}),
+        product: { is: await this.visibleProductWhere(query) },
+      },
+      select: { id: true, productId: true },
+    });
+    if (candidates.length === 0) {
+      return [];
+    }
+    const availableByVariant = await this.availableByVariant(
+      candidates.map((variant) => variant.id),
+    );
+    const productIds = new Set<string>();
+    for (const variant of candidates) {
+      if ((availableByVariant.get(variant.id) ?? 0) > 0) {
+        productIds.add(variant.productId);
+      }
+    }
+    return [...productIds];
   }
 
   /**
@@ -606,6 +676,54 @@ function minPriceOf(
 
 function decimalToString(value: Prisma.Decimal | null): string | null {
   return value === null ? null : String(value);
+}
+
+/**
+ * Normalizes the SS-213 price bounds to Decimals. An inverted range is
+ * normalized by swapping — the same single policy as the storefront
+ * `parseListingState`, so frontend and API never validate ranges twice under
+ * different rules. The DTO guarantees the numeric format; this only orders.
+ */
+function normalizedPriceRange(query: {
+  priceFrom?: string;
+  priceTo?: string;
+}): { from?: Prisma.Decimal; to?: Prisma.Decimal } {
+  let from =
+    query.priceFrom !== undefined
+      ? new Prisma.Decimal(query.priceFrom)
+      : undefined;
+  let to =
+    query.priceTo !== undefined ? new Prisma.Decimal(query.priceTo) : undefined;
+  if (from !== undefined && to !== undefined && from.comparedTo(to) > 0) {
+    [from, to] = [to, from];
+  }
+  return { from, to };
+}
+
+/**
+ * Product-level price predicate (SS-213): at least one PRICED, live variant
+ * satisfies the range. CALL_FOR_PRICE placeholder prices never contribute
+ * (SS-201). With both bounds the SAME variant must satisfy the range.
+ */
+function priceVariantPredicate(range: {
+  from?: Prisma.Decimal;
+  to?: Prisma.Decimal;
+}): Prisma.ProductWhereInput {
+  if (range.from === undefined && range.to === undefined) {
+    return {};
+  }
+  return {
+    variants: {
+      some: {
+        deletedAt: null,
+        priceStatus: PriceStatus.PRICED,
+        price: {
+          ...(range.from !== undefined ? { gte: range.from } : {}),
+          ...(range.to !== undefined ? { lte: range.to } : {}),
+        },
+      },
+    },
+  };
 }
 
 /**

@@ -4,18 +4,21 @@ import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTransition } from 'react';
 import type { CatalogBrandDto, CatalogCategoryNode } from '@sabz/types';
-import { buildListingQuery, type ListingState } from '@/lib/listing';
+import { buildListingHref, type ListingState } from '@/lib/listing';
+import { CONDITION_OPTIONS } from '@/lib/condition';
 import { formatFaNumber } from '@/lib/format';
 import { FACET_DEFAULT_VISIBLE, findCategoryNode, navRoots } from '@/lib/nav';
 import { FacetSection } from './facet-section';
 import { BrandFacetSearch, filterBrandsByQuery } from './brand-facet-search';
+import { PriceFacet } from './price-facet';
 
 /**
- * Listing filter controls (SS-125, SS-212): URL search params are the single
- * source of truth — every change pushes a new query string and resets the
- * page. `basePath` keeps the same component mountable at `/products` and
- * `/categories/<slug>` (SS-212 plumbing only; full context preservation is
- * SS-213). Facets never truncate silently: overflow always gets an explicit
+ * Listing filter controls (SS-125, SS-212, SS-213): URL search params are the
+ * single source of truth — every change pushes a new href via the canonical
+ * `buildListingHref(basePath, …)` and resets the page. `basePath` keeps the
+ * same component mountable at `/products` and `/categories/<slug>` with the
+ * category context preserved (the slug never leaks into the query string).
+ * Facets never truncate silently: overflow always gets an explicit
  * show-more toggle, and brand search filters the loaded list locally.
  */
 export function FiltersPanel({
@@ -38,8 +41,7 @@ export function FiltersPanel({
 
   function apply(changes: Partial<ListingState>) {
     startTransition(() => {
-      const query = buildListingQuery(state, changes);
-      router.push(query ? `${basePath}?${query}` : basePath);
+      router.push(buildListingHref(basePath, state, changes));
     });
   }
 
@@ -162,14 +164,7 @@ export function FiltersPanel({
         <fieldset className="mt-4 border-t border-sand-200 pt-4">
           <legend className="text-sm font-semibold text-ink-900">وضعیت کالا</legend>
           <div className="mt-2 space-y-2">
-            {[
-              ['', 'همه'],
-              ['NEW', 'نو'],
-              ['OPEN_BOX', 'جعبه‌باز'],
-              ['REFURBISHED', 'بازسازی‌شده'],
-              ['USED', 'کارکرده'],
-              ['STOCK_CLEARANCE', 'کلیرنس'],
-            ].map(([value, label]) => (
+            {CONDITION_OPTIONS.map(({ value, label }) => (
               <label key={value} className="flex min-h-11 items-center gap-2 text-sm text-gray-600">
                 <input
                   type="radio"
@@ -184,6 +179,24 @@ export function FiltersPanel({
             ))}
           </div>
         </fieldset>
+
+        <div className="mt-4 border-t border-sand-200 pt-4">
+          <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm text-gray-600">
+            <input
+              type="checkbox"
+              checked={state.inStockOnly}
+              onChange={(event) => apply({ inStockOnly: event.target.checked })}
+              className="size-4 accent-sabz-700"
+            />
+            فقط موجود
+          </label>
+        </div>
+
+        <PriceFacet
+          key={`${state.priceFrom}|${state.priceTo}`}
+          state={state}
+          basePath={basePath}
+        />
       </div>
     </aside>
   );

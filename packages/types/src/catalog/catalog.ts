@@ -28,6 +28,25 @@ export interface CatalogListQuery {
   brand?: string;
   condition?: ProductCondition;
   sort?: CatalogProductSort;
+  /**
+   * Minimum priced-variant price in Toman (API Decimal-as-string, SS-213).
+   * A product matches when at least one PRICED, live variant has
+   * `price >= priceFrom`. CALL_FOR_PRICE rows never contribute.
+   */
+  priceFrom?: string;
+  /**
+   * Maximum priced-variant price in Toman (API Decimal-as-string, SS-213).
+   * A product matches when at least one PRICED, live variant has
+   * `price <= priceTo`. With both bounds present, the SAME variant must
+   * satisfy the range.
+   */
+  priceTo?: string;
+  /**
+   * When true, only products with at least one genuinely available variant
+   * (`deriveAvailable(quantityOnHand, quantityReserved) > 0` under
+   * `activeInventoryWhere`) are returned (SS-213).
+   */
+  inStockOnly?: boolean;
 }
 
 /** Visible category with the published-product count of its whole subtree (SS-205 roll-up). */

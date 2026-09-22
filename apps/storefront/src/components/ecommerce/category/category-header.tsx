@@ -27,7 +27,7 @@ export function CategoryHeader({
         {formatFaNumber(rollUpCount)} کالا
       </p>
       {showFiltered ? (
-        <p className="mt-1 text-xs text-gray-400">
+        <p className="mt-1 text-xs text-gray-400" aria-live="polite">
           {formatFaNumber(filteredTotal!)} کالا با فیلترهای فعلی
         </p>
       ) : null}

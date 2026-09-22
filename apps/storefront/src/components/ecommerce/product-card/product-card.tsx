@@ -2,15 +2,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import type { CatalogProductCardDto } from '@sabz/types';
 import { mediaImageUrl } from '@/lib/catalog';
+import { conditionLabel, CONDITION_LABELS } from '@/lib/condition';
 import { formatCardPrice } from '@/lib/format';
-
-const CONDITION_LABELS: Record<string, string> = {
-  NEW: 'نو',
-  OPEN_BOX: 'جعبه‌باز',
-  REFURBISHED: 'بازسازی‌شده',
-  USED: 'کارکرده',
-  STOCK_CLEARANCE: 'کلیرنس',
-};
 
 /**
  * Listing card (SS-125), adapted from the ecommerce-v4 product-list markup:
@@ -19,12 +12,18 @@ const CONDITION_LABELS: Record<string, string> = {
  */
 export function ProductCard({ product }: { product: CatalogProductCardDto }) {
   const image = mediaImageUrl(product.primaryThumbnailUrl ?? product.primaryImageUrl);
+  const stockLabel = product.inStock ? 'موجود' : 'ناموجود';
 
   return (
     <Link
       href={`/products/${product.slug}`}
       className="group flex flex-col overflow-hidden rounded-xl border border-sand-200 bg-white transition hover:border-sabz-300 hover:shadow-sm"
     >
+      {/* Stock truth for assistive tech: the visual badge (or its absence)
+          is never the sole signal. Kept inside the link — no nested buttons. */}
+      <span className="sr-only">
+        {product.name}، {stockLabel}
+      </span>
       <div className="relative aspect-square overflow-hidden bg-sand-100">
         {image ? (
           <Image
@@ -52,17 +51,17 @@ export function ProductCard({ product }: { product: CatalogProductCardDto }) {
         ) : null}
       </div>
 
-      <div className="flex flex-1 flex-col p-4">
+      <div className="flex flex-1 flex-col p-3 sm:p-4">
         <p className="text-xs text-gray-500">{product.brand?.name ?? 'بدون برند'}</p>
-        <h3 className="mt-1 line-clamp-2 text-sm font-semibold leading-6 text-ink-900 group-hover:text-sabz-700">
+        <h3 className="mt-1 line-clamp-2 min-h-12 text-[13px] font-semibold leading-6 text-ink-900 group-hover:text-sabz-700 sm:text-sm">
           {product.name}
         </h3>
-        <div className="mt-auto flex items-center justify-between pt-3">
-          <p className="text-sm font-bold text-sabz-800">
+        <div className="mt-auto flex items-center justify-between gap-2 pt-3">
+          <p className="min-w-0 text-[13px] font-bold text-sabz-800 sm:text-sm">
             {formatCardPrice(product.priceFrom, product.variantCount, product.callForPrice)}
           </p>
-          <span className="rounded-full bg-sand-100 px-2 py-0.5 text-[11px] text-gray-600">
-            {CONDITION_LABELS[product.condition] ?? product.condition}
+          <span className="shrink-0 rounded-full bg-sand-100 px-2 py-0.5 text-[11px] whitespace-nowrap text-gray-600">
+            {conditionLabel(product.condition)}
           </span>
         </div>
       </div>
