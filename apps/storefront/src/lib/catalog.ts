@@ -45,6 +45,9 @@ function toQueryString(query: CatalogListQuery): string {
   if (query.category) params.set('category', query.category);
   if (query.brand) params.set('brand', query.brand);
   if (query.condition) params.set('condition', query.condition);
+  if (query.priceFrom) params.set('priceFrom', query.priceFrom);
+  if (query.priceTo) params.set('priceTo', query.priceTo);
+  if (query.inStockOnly) params.set('inStockOnly', 'true');
   if (query.sort) params.set('sort', query.sort);
   return params.toString();
 }

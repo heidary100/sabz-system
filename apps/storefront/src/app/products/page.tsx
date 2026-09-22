@@ -2,9 +2,12 @@ import type { Metadata } from 'next';
 import type { ProductCondition } from '@sabz/types';
 import { fetchBrands, fetchCategoryTree, fetchProducts } from '@/lib/catalog';
 import { formatFaNumber } from '@/lib/format';
-import { parseListingState } from '@/lib/listing';
+import { buildListingHref, isFiltering, parseListingState } from '@/lib/listing';
 import { ProductCard } from '@/components/ecommerce/product-card/product-card';
+import { ActivePills } from '@/components/ecommerce/filters/active-pills';
+import { EmptyState } from '@/components/ecommerce/filters/empty-state';
 import { FiltersPanel } from '@/components/ecommerce/filters/filters-panel';
+import { PerPageSelect } from '@/components/ecommerce/filters/per-page-select';
 import { SortSelect } from '@/components/ecommerce/filters/sort-select';
 import { Pagination } from '@/components/ecommerce/filters/pagination';
 
@@ -36,16 +39,21 @@ export default async function ProductsPage({
       category: state.category || undefined,
       brand: state.brand || undefined,
       condition: (state.condition || undefined) as ProductCondition | undefined,
+      priceFrom: state.priceFrom || undefined,
+      priceTo: state.priceTo || undefined,
+      inStockOnly: state.inStockOnly || undefined,
       sort: state.sort,
       page: state.page,
-      limit: 24,
+      limit: state.perPage,
     }),
   ]);
 
-  const makeHref = (page: number) => {
-    const query = buildQuery(state, page);
-    return query ? `/products?${query}` : '/products';
-  };
+  const makeHref = (page: number) => buildListingHref('/products', state, { page });
+
+  const filtering = isFiltering(state);
+  const brandName = state.brand
+    ? brands.items.find((brand) => brand.slug === state.brand)?.name
+    : undefined;
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -54,11 +62,15 @@ export default async function ProductsPage({
           <h1 className="text-2xl font-bold tracking-tight text-ink-900">
             {state.q ? `نتایج جستجو: ${state.q}` : 'همه محصولات'}
           </h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="mt-1 text-sm text-gray-500" aria-live="polite">
             {formatFaNumber(result.total)} کالا
+            {filtering ? ' با فیلترهای فعلی' : null}
           </p>
         </div>
-        <SortSelect state={state} />
+        <div className="flex flex-wrap items-center gap-2">
+          <PerPageSelect state={state} basePath="/products" />
+          <SortSelect state={state} basePath="/products" />
+        </div>
       </div>
 
       <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-[260px_1fr]">
@@ -71,17 +83,16 @@ export default async function ProductsPage({
         />
 
         <section aria-label="فهرست محصولات">
+          <ActivePills state={state} basePath="/products" brandName={brandName} />
           {result.items.length === 0 ? (
-            <div className="rounded-xl border border-sand-200 bg-white px-6 py-20 text-center">
-              <h2 className="text-lg font-semibold text-ink-900">محصولی یافت نشد</h2>
-              <p className="mt-2 text-sm text-gray-500">
-                با این فیلترها محصولی پیدا نشد. فیلترها را تغییر دهید یا جستجوی
-                دیگری را امتحان کنید.
-              </p>
-            </div>
+            <EmptyState
+              state={state}
+              basePath="/products"
+              emptyCategoryMessage="هنوز محصولی منتشر نشده است."
+            />
           ) : (
             <>
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
                 {result.items.map((product) => (
                   <ProductCard key={product.id} product={product} />
                 ))}
@@ -95,16 +106,3 @@ export default async function ProductsPage({
   );
 }
 
-function buildQuery(
-  state: ReturnType<typeof parseListingState>,
-  page: number,
-): string {
-  const params = new URLSearchParams();
-  if (state.q) params.set('q', state.q);
-  if (state.category) params.set('category', state.category);
-  if (state.brand) params.set('brand', state.brand);
-  if (state.condition) params.set('condition', state.condition);
-  if (state.sort !== 'newest') params.set('sort', state.sort);
-  if (page > 1) params.set('page', String(page));
-  return params.toString();
-}

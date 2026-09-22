@@ -6,11 +6,14 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  IsBoolean,
+  Matches,
   Max,
   MaxLength,
   Min,
 } from 'class-validator';
 import { ProductCondition } from '@prisma/client';
+import { PRICE_12_2_PATTERN } from './create-variant.dto';
 
 /** Whitelisted public sort options (contract: CatalogProductSort). */
 export const CATALOG_PRODUCT_SORTS = [
@@ -80,4 +83,44 @@ export class ListCatalogProductsQueryDto {
   @IsOptional()
   @IsIn(CATALOG_PRODUCT_SORTS, { message: 'sort معتبر نیست.' })
   sort?: (typeof CATALOG_PRODUCT_SORTS)[number];
+
+  @ApiPropertyOptional({
+    example: '1500000',
+    description:
+      'Minimum price in Toman (SS-213). Matches products with at least one PRICED, live variant priced at or above this value. CALL_FOR_PRICE rows never contribute.',
+  })
+  @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsString({ message: 'priceFrom باید رشته باشد.' })
+  @Matches(PRICE_12_2_PATTERN, {
+    message: 'priceFrom باید عدد اعشاری معتبر با حداکثر ۲ رقم اعشار باشد.',
+  })
+  priceFrom?: string;
+
+  @ApiPropertyOptional({
+    example: '20000000',
+    description:
+      'Maximum price in Toman (SS-213). Matches products with at least one PRICED, live variant priced at or below this value. With both bounds present, the SAME variant must satisfy the range (normalized by swapping when inverted).',
+  })
+  @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsString({ message: 'priceTo باید رشته باشد.' })
+  @Matches(PRICE_12_2_PATTERN, {
+    message: 'priceTo باید عدد اعشاری معتبر با حداکثر ۲ رقم اعشار باشد.',
+  })
+  priceTo?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'When true, only products with at least one genuinely available variant (SS-213, inventory aggregate truth).',
+    default: false,
+  })
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (value === 'true' || value === true || value === '1') return true;
+    if (value === 'false' || value === false || value === '0') return false;
+    return value;
+  })
+  @IsBoolean({ message: 'inStockOnly باید مقدار بولی باشد.' })
+  inStockOnly?: boolean;
 }

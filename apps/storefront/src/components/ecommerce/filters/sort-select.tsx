@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useTransition } from 'react';
-import { buildListingQuery, CATALOG_SORTS, type ListingState } from '@/lib/listing';
+import { buildListingHref, CATALOG_SORTS, type ListingState } from '@/lib/listing';
 
 const SORT_LABELS: Record<string, string> = {
   newest: 'جدیدترین',
@@ -32,8 +32,7 @@ export function SortSelect({
         onChange={(event) => {
           const sort = event.target.value as ListingState['sort'];
           startTransition(() => {
-            const query = buildListingQuery(state, { sort });
-            router.push(query ? `${basePath}?${query}` : basePath);
+            router.push(buildListingHref(basePath, state, { sort }));
           });
         }}
         className="rounded-md border-0 bg-white py-2 pe-8 ps-3 text-sm ring-1 ring-inset ring-sand-200 focus:ring-2 focus:ring-sabz-600"

@@ -6,10 +6,13 @@ import {
   fetchCategoryTree,
   fetchProducts,
 } from '@/lib/catalog';
-import { withCategoryPreset } from '@/lib/listing';
+import { withCategoryPreset, buildListingHref } from '@/lib/listing';
 import { findCategoryNode, findCategoryPath, findSiblings } from '@/lib/nav';
 import { ProductCard } from '@/components/ecommerce/product-card/product-card';
+import { ActivePills } from '@/components/ecommerce/filters/active-pills';
+import { EmptyState } from '@/components/ecommerce/filters/empty-state';
 import { FiltersPanel } from '@/components/ecommerce/filters/filters-panel';
+import { PerPageSelect } from '@/components/ecommerce/filters/per-page-select';
 import { SortSelect } from '@/components/ecommerce/filters/sort-select';
 import { Pagination } from '@/components/ecommerce/filters/pagination';
 import { CategoryBreadcrumb } from '@/components/ecommerce/category/category-breadcrumb';
@@ -53,23 +56,21 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
       category: state.category,
       brand: state.brand || undefined,
       condition: (state.condition || undefined) as ProductCondition | undefined,
+      priceFrom: state.priceFrom || undefined,
+      priceTo: state.priceTo || undefined,
+      inStockOnly: state.inStockOnly || undefined,
       sort: state.sort,
       page: state.page,
-      limit: 24,
+      limit: state.perPage,
     }),
   ]);
 
   const basePath = `/categories/${slug}`;
-  const makeHref = (page: number) => {
-    const search = new URLSearchParams();
-    if (state.q) search.set('q', state.q);
-    if (state.brand) search.set('brand', state.brand);
-    if (state.condition) search.set('condition', state.condition);
-    if (state.sort !== 'newest') search.set('sort', state.sort);
-    if (page > 1) search.set('page', String(page));
-    const qs = search.toString();
-    return qs ? `${basePath}?${qs}` : basePath;
-  };
+  const makeHref = (page: number) => buildListingHref(basePath, state, { page });
+
+  const brandName = state.brand
+    ? brands.items.find((brand) => brand.slug === state.brand)?.name
+    : undefined;
 
   const trail = findCategoryPath(categories, slug);
   const { siblings } = findSiblings(categories, slug);
@@ -84,7 +85,10 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
           rollUpCount={category.publishedProductCount}
           filteredTotal={result.total}
         />
-        <SortSelect state={state} basePath={basePath} />
+        <div className="flex flex-wrap items-center gap-2">
+          <PerPageSelect state={state} basePath={basePath} />
+          <SortSelect state={state} basePath={basePath} />
+        </div>
       </div>
 
       <CategoryDescription html={null} />
@@ -111,16 +115,12 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
         />
 
         <section aria-label={`محصولات دسته ${category.name}`}>
+          <ActivePills state={state} basePath={basePath} brandName={brandName} />
           {result.items.length === 0 ? (
-            <div className="rounded-xl border border-sand-200 bg-white px-6 py-20 text-center">
-              <h2 className="text-lg font-semibold text-ink-900">محصولی یافت نشد</h2>
-              <p className="mt-2 text-sm text-gray-500">
-                هنوز محصولی در این دسته‌بندی منتشر نشده است.
-              </p>
-            </div>
+            <EmptyState state={state} basePath={basePath} />
           ) : (
             <>
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
                 {result.items.map((product) => (
                   <ProductCard key={product.id} product={product} />
                 ))}
