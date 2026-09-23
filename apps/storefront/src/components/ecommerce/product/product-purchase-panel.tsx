@@ -1,13 +1,9 @@
 'use client';
 
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import type { CatalogProductVariantDto } from '@sabz/types';
-import {
-  defaultVariantId,
-  getSelectedVariant,
-  parseVariantParam,
-} from '@/lib/variant';
+import { getSelectedVariant, parseVariantParam } from '@/lib/variant';
 import { ProductPrice } from './product-price';
 import { ProductPurchaseSlot } from './product-purchase-slot';
 import { ProductSku } from './product-sku';
@@ -22,41 +18,39 @@ import { ProductVariantSelector } from './product-variant-selector';
  * URL contract: `/products/<slug>?variant=<id>` (push on select so
  * Back/Forward restores selection; replace once to clean an invalid param).
  * Canonical identity stays `/products/<slug>`.
+ *
+ * Back/Forward needs no state-sync effect: the page remounts this island
+ * (via `key`) whenever the variant param changes, so the server-computed
+ * `initialVariantId` is always fresh. The single effect below only cleans
+ * an invalid param through the router (external-system sync, never state).
  */
 export function ProductPurchasePanel({
   variants,
   initialVariantId,
+  rawVariantParam,
 }: {
   variants: CatalogProductVariantDto[];
   initialVariantId: string | null;
+  /** Raw `?variant=` value from the URL; used only for one-time cleanup. */
+  rawVariantParam: string | string[] | undefined;
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const [selectedId, setSelectedId] = useState<string | null>(initialVariantId);
-  const rawParam = searchParams.get('variant');
-  const fallbackId = defaultVariantId(variants, null);
+
+  const parsedParam = parseVariantParam(rawVariantParam);
+  const needsUrlCleanup =
+    rawVariantParam != null &&
+    (parsedParam === null || parsedParam !== initialVariantId);
 
   useEffect(() => {
-    if (rawParam === null) {
-      // Back/forward to the clean URL restores the deterministic default.
-      if (selectedId !== fallbackId) {
-        setSelectedId(fallbackId);
-      }
-      return;
-    }
-    if (rawParam === selectedId) {
-      return;
-    }
-    const parsed = parseVariantParam(rawParam);
-    if (parsed !== null && variants.some((variant) => variant.id === parsed)) {
-      setSelectedId(parsed);
-    } else {
-      // Invalid param: render stays on the valid default, clean the URL
-      // once without pushing history and without redirect loops.
+    if (needsUrlCleanup) {
+      // Invalid or unknown variant param: the visible selection already
+      // falls back to the deterministic default — drop the param without
+      // pushing history and without redirect loops.
       router.replace(pathname, { scroll: false });
     }
-  }, [rawParam, selectedId, fallbackId, variants, pathname, router]);
+  }, [needsUrlCleanup, pathname, router]);
 
   function handleSelect(id: string) {
     setSelectedId(id);

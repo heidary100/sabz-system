@@ -1186,6 +1186,11 @@ describe('Public catalog API (SS-120/121/122) (e2e)', () => {
         brandId: brandA.id,
         categoryId: leaf.id,
       });
+      // Soft-delete requires ARCHIVED status first (domain lifecycle rule).
+      await request(app.getHttpServer())
+        .post(`/api/v1/admin/products/${deletedId}/archive`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
       await request(app.getHttpServer())
         .delete(`/api/v1/admin/products/${deletedId}`)
         .set('Authorization', `Bearer ${token}`)

@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { Suspense } from 'react';
 import { brand } from '@/lib/brand';
 import { fetchProductBySlug, mediaImageUrl } from '@/lib/catalog';
 import { conditionLabel } from '@/lib/condition';
@@ -69,11 +68,13 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
     notFound();
   }
 
-  // Server-computed default keeps SSR deterministic; the client island syncs
-  // Back/Forward navigation and cleans invalid params without refetching.
+  // Server-computed default keeps SSR deterministic. The panel remounts
+  // (via key) whenever the variant param changes, so Back/Forward restores
+  // selection without client state syncing or refetching.
+  const rawVariantParam = query.variant;
   const initialVariantId = defaultVariantId(
     product.variants,
-    parseVariantParam(query.variant),
+    parseVariantParam(rawVariantParam),
   );
 
   const trail = [
@@ -149,12 +150,12 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
           ) : null}
 
           <div className="mt-6">
-            <Suspense>
-              <ProductPurchasePanel
-                variants={product.variants}
-                initialVariantId={initialVariantId}
-              />
-            </Suspense>
+            <ProductPurchasePanel
+              key={parseVariantParam(rawVariantParam) ?? 'default'}
+              variants={product.variants}
+              initialVariantId={initialVariantId}
+              rawVariantParam={rawVariantParam}
+            />
           </div>
         </div>
       </div>
