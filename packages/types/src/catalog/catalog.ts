@@ -106,6 +106,20 @@ export interface CatalogProductMediaDto {
   thumbnailUrl: string | null;
   isPrimary: boolean;
   sortOrder: number;
+  /**
+   * Owning variant for variant-scoped media (SS-214); null = product-level.
+   * Exposed for future-safe variant/media association; the SS-214 gallery
+   * stays product-level.
+   */
+  variantId: string | null;
+}
+
+/** One variant-defining option axis value (SS-202 domain, SS-214 exposure). */
+export interface CatalogProductVariantOptionDto {
+  attributeName: string;
+  attributeSlug: string;
+  value: string;
+  valueSlug: string;
 }
 
 export interface CatalogProductVariantDto {
@@ -119,6 +133,13 @@ export interface CatalogProductVariantDto {
   priceStatus: PriceStatus;
   /** Available stock for this variant across active warehouses. */
   inStock: boolean;
+  /**
+   * Variant-defining options from VariantAttributeValue (SS-202 set
+   * semantics: at most one value per attribute). Ordered by attribute name,
+   * then value. Empty when the variant has no structured options (e.g. seed
+   * data) — never null.
+   */
+  options: CatalogProductVariantOptionDto[];
 }
 
 /** Ordered display spec (SS-202): attribute/value pair with grouping. */
@@ -178,5 +199,11 @@ export interface CatalogProductDetailDto {
   tags: CatalogRefDto[];
   /** True when at least one variant has available stock in active warehouses. */
   inStock: boolean;
+  /**
+   * Related products rail (SS-214): same leaf-category first with same-brand
+   * preference and same-brand backfill, bounded (max 8), current product
+   * excluded. Card projections reuse CatalogProductCardDto verbatim.
+   */
+  related: CatalogProductCardDto[];
   createdAt: string;
 }

@@ -966,4 +966,336 @@ describe('Public catalog API (SS-120/121/122) (e2e)', () => {
       await prisma.tag.deleteMany({ where: { id: { in: tagIds } } });
     });
   });
+
+  describe('SS-214: variant options, media variantId, and related products', () => {
+    async function createPublishedProduct(
+      token: string,
+      opts: {
+        name: string;
+        slug: string;
+        brandId: string;
+        categoryId: string;
+        price?: string;
+        publish?: boolean;
+      },
+    ): Promise<string> {
+      const created = await request(app.getHttpServer())
+        .post('/api/v1/admin/products')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          name: opts.name,
+          slug: opts.slug,
+          brandId: opts.brandId,
+          categoryId: opts.categoryId,
+          condition: ProductCondition.NEW,
+        })
+        .expect(201);
+      productIds.push(created.body.id);
+      const variant = await request(app.getHttpServer())
+        .post(`/api/v1/admin/products/${created.body.id}/variants`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ sku: `SKU-${uniqueSuffix()}`, price: opts.price ?? '100.00' })
+        .expect(201);
+      variantIds.push(variant.body.id);
+      if (opts.publish !== false) {
+        await request(app.getHttpServer())
+          .post(`/api/v1/admin/products/${created.body.id}/publish`)
+          .set('Authorization', `Bearer ${token}`)
+          .expect(200);
+      }
+      return created.body.id as string;
+    }
+
+    async function cleanupAttributes(names: string[]): Promise<void> {
+      const attributeIds = (
+        await prisma.attribute.findMany({
+          where: { name: { in: names } },
+          select: { id: true },
+        })
+      ).map((attribute) => attribute.id);
+      await prisma.variantAttributeValue.deleteMany({
+        where: { attributeValue: { attributeId: { in: attributeIds } } },
+      });
+      await prisma.attributeValue.deleteMany({
+        where: { attributeId: { in: attributeIds } },
+      });
+      await prisma.attribute.deleteMany({
+        where: { id: { in: attributeIds } },
+      });
+    }
+
+    it('exposes ordered variant options and [] for option-less variants', async () => {
+      const token = await createOperator();
+      const suffix = `${uniqueSuffix()}`;
+      const { productId, variantIds: vIds } = await seedProduct(
+        token,
+        `گزینه ${suffix}`,
+        { prices: ['10.00', '20.00'] },
+      );
+      const attrs = app.get(AttributesService);
+      await attrs.setVariantOption(vIds[0]!, {
+        attributeName: 'Memory',
+        attributeSlug: `memory-${suffix}`,
+        value: '256GB',
+        valueSlug: '256gb',
+      });
+      await attrs.setVariantOption(vIds[0]!, {
+        attributeName: 'Color',
+        attributeSlug: `color-${suffix}`,
+        value: 'White',
+        valueSlug: 'white',
+      });
+      await request(app.getHttpServer())
+        .post(`/api/v1/admin/products/${productId}/publish`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+      const row = await prisma.product.findUniqueOrThrow({
+        where: { id: productId },
+        select: { slug: true },
+      });
+
+      const res = await request(app.getHttpServer())
+        .get(`${PRODUCTS_BASE}/${row.slug}`)
+        .expect(200);
+      expect(res.body.variants).toHaveLength(2);
+      const withOptions = res.body.variants.find(
+        (variant: { id: string }) => variant.id === vIds[0],
+      );
+      // Deterministic ordering: attribute name, then value.
+      expect(withOptions.options).toEqual([
+        {
+          attributeName: 'Color',
+          attributeSlug: `color-${suffix}`,
+          value: 'White',
+          valueSlug: 'white',
+        },
+        {
+          attributeName: 'Memory',
+          attributeSlug: `memory-${suffix}`,
+          value: '256GB',
+          valueSlug: '256gb',
+        },
+      ]);
+      const withoutOptions = res.body.variants.find(
+        (variant: { id: string }) => variant.id === vIds[1],
+      );
+      expect(withoutOptions.options).toEqual([]);
+
+      await cleanupAttributes(['Color', 'Memory']);
+    });
+
+    it('exposes media variantId for variant-scoped media and null otherwise', async () => {
+      const token = await createOperator();
+      const suffix = `${uniqueSuffix()}`;
+      const { productId, variantIds: vIds } = await seedProduct(
+        token,
+        `رسانه ${suffix}`,
+        { prices: ['10.00'] },
+      );
+      const productMedia = await request(app.getHttpServer())
+        .post(`/api/v1/admin/products/${productId}/media`)
+        .set('Authorization', `Bearer ${token}`)
+        .attach('file', jpegBuffer(), {
+          filename: 'product.jpg',
+          contentType: 'image/jpeg',
+        })
+        .expect(201);
+      mediaIds.push(productMedia.body.id);
+      const variantMedia = await request(app.getHttpServer())
+        .post(`/api/v1/admin/products/${productId}/media`)
+        .set('Authorization', `Bearer ${token}`)
+        .field('variantId', vIds[0]!)
+        .attach('file', jpegBuffer(), {
+          filename: 'variant.jpg',
+          contentType: 'image/jpeg',
+        })
+        .expect(201);
+      mediaIds.push(variantMedia.body.id);
+      await request(app.getHttpServer())
+        .post(`/api/v1/admin/products/${productId}/publish`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+      const row = await prisma.product.findUniqueOrThrow({
+        where: { id: productId },
+        select: { slug: true },
+      });
+
+      const res = await request(app.getHttpServer())
+        .get(`${PRODUCTS_BASE}/${row.slug}`)
+        .expect(200);
+      const byId = new Map(
+        res.body.media.map((item: { id: string; variantId: string | null }) => [
+          item.id,
+          item.variantId,
+        ]),
+      );
+      expect(byId.get(productMedia.body.id)).toBeNull();
+      expect(byId.get(variantMedia.body.id)).toBe(vIds[0]);
+    });
+
+    it('returns brand-preferred same-leaf related cards, bounded and exclusive', async () => {
+      const token = await createOperator();
+      const suffix = `${uniqueSuffix()}`;
+      const leaf = await prisma.category.create({
+        data: { name: `برگ ${suffix}`, slug: `leaf-${suffix}` },
+      });
+      categoryIds.push(leaf.id);
+      const otherCategory = await prisma.category.create({
+        data: { name: `سایر ${suffix}`, slug: `other-${suffix}` },
+      });
+      categoryIds.push(otherCategory.id);
+      const brandA = await prisma.brand.create({
+        data: { name: `آلفا ${suffix}`, slug: `brand-a-${suffix}` },
+      });
+      brandIds.push(brandA.id);
+      const brandB = await prisma.brand.create({
+        data: { name: `بتا ${suffix}`, slug: `brand-b-${suffix}` },
+      });
+      brandIds.push(brandB.id);
+
+      const mainSlug = `main-${suffix}`;
+      const mainId = await createPublishedProduct(token, {
+        name: `اصلی ${suffix}`,
+        slug: mainSlug,
+        brandId: brandA.id,
+        categoryId: leaf.id,
+      });
+      const sameBrandLeaf = await createPublishedProduct(token, {
+        name: `هم‌برند ${suffix}`,
+        slug: `same-brand-${suffix}`,
+        brandId: brandA.id,
+        categoryId: leaf.id,
+      });
+      const otherBrandLeaf = await createPublishedProduct(token, {
+        name: `برند-دیگر ${suffix}`,
+        slug: `other-brand-${suffix}`,
+        brandId: brandB.id,
+        categoryId: leaf.id,
+      });
+      // Draft rows in the same leaf must never leak into related.
+      await createPublishedProduct(token, {
+        name: `پیشنویس ${suffix}`,
+        slug: `draft-${suffix}`,
+        brandId: brandA.id,
+        categoryId: leaf.id,
+        publish: false,
+      });
+      const deletedId = await createPublishedProduct(token, {
+        name: `حذفی ${suffix}`,
+        slug: `deleted-${suffix}`,
+        brandId: brandA.id,
+        categoryId: leaf.id,
+      });
+      // Soft-delete requires ARCHIVED status first (domain lifecycle rule).
+      await request(app.getHttpServer())
+        .post(`/api/v1/admin/products/${deletedId}/archive`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+      await request(app.getHttpServer())
+        .delete(`/api/v1/admin/products/${deletedId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+      // Same brand in another category: not needed here (the leaf already
+      // yields enough rows), so it stays out of this response.
+      await createPublishedProduct(token, {
+        name: `دور ${suffix}`,
+        slug: `far-${suffix}`,
+        brandId: brandA.id,
+        categoryId: otherCategory.id,
+      });
+
+      const res = await request(app.getHttpServer())
+        .get(`${PRODUCTS_BASE}/${mainSlug}`)
+        .expect(200);
+      const related = res.body.related as Array<{
+        id: string;
+        slug: string;
+        brand: { slug: string } | null;
+        priceFrom: string;
+      }>;
+      const relatedIds = related.map((item) => item.id);
+      // Current product excluded, no duplicates, bounded.
+      expect(relatedIds).not.toContain(mainId);
+      expect(new Set(relatedIds).size).toBe(relatedIds.length);
+      expect(related.length).toBeLessThanOrEqual(8);
+      expect(relatedIds).toContain(sameBrandLeaf);
+      expect(relatedIds).toContain(otherBrandLeaf);
+      expect(relatedIds).not.toContain(deletedId);
+      // Same-brand rows rank before other-brand rows.
+      expect(relatedIds.indexOf(sameBrandLeaf)).toBeLessThan(
+        relatedIds.indexOf(otherBrandLeaf),
+      );
+      // Card projection carries listing truth (price/media hydration).
+      for (const item of related) {
+        expect(typeof item.slug).toBe('string');
+        expect(typeof item.priceFrom).toBe('string');
+      }
+    });
+
+    it('backfills same-brand products from other categories when the leaf is thin', async () => {
+      const token = await createOperator();
+      const suffix = `${uniqueSuffix()}-b`;
+      const leaf = await prisma.category.create({
+        data: { name: `برگ ${suffix}`, slug: `leaf-${suffix}` },
+      });
+      categoryIds.push(leaf.id);
+      const elsewhere = await prisma.category.create({
+        data: { name: `جای دیگر ${suffix}`, slug: `elsewhere-${suffix}` },
+      });
+      categoryIds.push(elsewhere.id);
+      const brand = await prisma.brand.create({
+        data: { name: `گاما ${suffix}`, slug: `brand-g-${suffix}` },
+      });
+      brandIds.push(brand.id);
+
+      const mainSlug = `thin-${suffix}`;
+      const mainId = await createPublishedProduct(token, {
+        name: `تک ${suffix}`,
+        slug: mainSlug,
+        brandId: brand.id,
+        categoryId: leaf.id,
+      });
+      const backfillId = await createPublishedProduct(token, {
+        name: `هم‌برند دور ${suffix}`,
+        slug: `backfill-${suffix}`,
+        brandId: brand.id,
+        categoryId: elsewhere.id,
+      });
+
+      const res = await request(app.getHttpServer())
+        .get(`${PRODUCTS_BASE}/${mainSlug}`)
+        .expect(200);
+      const relatedIds = (res.body.related as Array<{ id: string }>).map(
+        (item) => item.id,
+      );
+      expect(relatedIds).toContain(backfillId);
+      expect(relatedIds).not.toContain(mainId);
+    });
+
+    it('returns an empty related list when nothing else is published', async () => {
+      const token = await createOperator();
+      const suffix = `${uniqueSuffix()}-solo`;
+      const leaf = await prisma.category.create({
+        data: { name: `تنها ${suffix}`, slug: `solo-${suffix}` },
+      });
+      categoryIds.push(leaf.id);
+      const brand = await prisma.brand.create({
+        data: { name: `سولو ${suffix}`, slug: `solo-brand-${suffix}` },
+      });
+      brandIds.push(brand.id);
+      const slug = `solo-${suffix}`;
+      await createPublishedProduct(token, {
+        name: `تنها ${suffix}`,
+        slug,
+        brandId: brand.id,
+        categoryId: leaf.id,
+      });
+
+      const res = await request(app.getHttpServer())
+        .get(`${PRODUCTS_BASE}/${slug}`)
+        .expect(200);
+      expect(res.body.related).toEqual([]);
+      expect(res.body.variants[0].options).toEqual([]);
+    });
+  });
 });

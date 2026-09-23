@@ -83,7 +83,16 @@ export async function fetchProductBySlug(
   slug: string,
 ): Promise<CatalogProductDetailDto | null> {
   try {
-    return await request<CatalogProductDetailDto>(`/catalog/products/${slug}`);
+    const product =
+      await request<CatalogProductDetailDto>(`/catalog/products/${slug}`);
+    // Back-compat: API deployments predating SS-214 omit `related` and
+    // variant `options`. Default them so the detail page renders instead of
+    // throwing on `undefined.length`.
+    product.related ??= [];
+    for (const variant of product.variants ?? []) {
+      variant.options ??= [];
+    }
+    return product;
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) {
       return null;
