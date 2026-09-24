@@ -1,83 +1,111 @@
 import Link from 'next/link';
+import { homeConfig } from '@/config/home';
 import { fetchCategoryTree, fetchProducts } from '@/lib/catalog';
-import { navRoots } from '@/lib/nav';
+import {
+  resolveAnnouncement,
+  resolveFeaturedCategories,
+  shouldShowSection,
+} from '@/lib/home';
 import { CategoryTile } from '@/components/ecommerce/category/category-tile';
+import { Hero } from '@/components/ecommerce/hero/hero';
+import { AnnouncementBar } from '@/components/ecommerce/promo/announcement-bar';
 import { ProductCard } from '@/components/ecommerce/product-card/product-card';
+import { TrustStrip } from '@/components/ecommerce/trust/trust-strip';
 
 /**
- * Home page (SS-128): hero, featured categories with counts, and the latest
- * published products. Degrades gracefully when the catalog is empty.
+ * Home page (SS-128, SS-215 reality): announcement, factual hero, curated
+ * categories, in-stock + latest product rails, and the configured trust
+ * strip. Queries stay bounded (`newest` only — never price sorts, never the
+ * full catalog); empty rails and unconfigured sections hide instead of
+ * rendering placeholders.
  */
 // Catalog pages render per request: build-time prerendering would either
 // snapshot stale data or fail when the API is unreachable (CI).
 export const dynamic = 'force-dynamic';
 
 export default async function HomePage() {
-  const [categories, latest] = await Promise.all([
+  // Three bounded, independent queries in parallel: the tree plus one
+  // `newest` page for each rail (latest + in-stock availability truth).
+  const [categories, latest, inStock] = await Promise.all([
     fetchCategoryTree(),
-    fetchProducts({ sort: 'newest', limit: 8 }),
+    fetchProducts({ sort: 'newest', limit: homeConfig.latestLimit }),
+    fetchProducts({
+      sort: 'newest',
+      limit: homeConfig.inStockLimit,
+      inStockOnly: true,
+    }),
   ]);
-  // Unwrap the sole catalog root so featured tiles are browsable (SS-211).
-  const roots = navRoots(categories);
+  // Curated category selection in config order with a deterministic
+  // tree-order fallback when nothing is curated (SS-215 foundation).
+  const featuredCategories = resolveFeaturedCategories(
+    categories,
+    homeConfig.featuredCategorySlugs,
+    homeConfig.maxCategoryTiles,
+  );
+  const announcement = resolveAnnouncement(homeConfig.announcement);
 
   return (
     <div>
-      {/* Hero — adapted from the ecommerce-v4 storefront hero idiom. */}
-      <section className="border-b border-sand-200 bg-white">
-        <div className="mx-auto max-w-7xl px-4 py-16 text-center sm:px-6 lg:px-8">
-          <h1 className="text-3xl font-bold tracking-tight text-ink-900 sm:text-4xl">
-            کالای دیجیتال، اصل و با ضمانت
-          </h1>
-          <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-gray-600">
-            موبایل، لوازم جانبی، کامپیوتر و گجتهای هوشمند — با قیمت ویژه برای
-            همکاران عمده. از میان دسته‌بندیها محصولات مورد نظرتان را پیدا کنید.
-          </p>
-          <div className="mt-8 flex items-center justify-center gap-3">
-            <Link
-              href="/products"
-              className="rounded-md bg-sabz-700 px-6 py-3 text-sm font-semibold text-white hover:bg-sabz-800"
-            >
-              مشاهده محصولات
-            </Link>
-            {categories.length > 0 ? (
-              <Link
-                href={`/categories/${roots[0]!.slug}`}
-                className="rounded-md border border-sabz-200 bg-white px-6 py-3 text-sm font-semibold text-sabz-800 hover:bg-sabz-50"
-              >
-                {roots[0]!.name}
-              </Link>
-            ) : null}
-          </div>
-        </div>
-      </section>
+      {announcement ? <AnnouncementBar announcement={announcement} /> : null}
+
+      <Hero />
 
       {/* Featured categories */}
-      {roots.length > 0 ? (
-        <section aria-labelledby="categories-heading" className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between">
+      {shouldShowSection(featuredCategories) ? (
+        <section aria-labelledby="categories-heading" className="mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-14 lg:px-8">
+          <div className="flex items-center justify-between gap-4">
             <h2 id="categories-heading" className="text-xl font-bold tracking-tight text-ink-900">
               دسته‌بندی‌ها
             </h2>
-            <Link href="/categories" className="text-sm font-medium text-sabz-700 hover:text-sabz-800">
+            <Link href="/categories" className="shrink-0 rounded-sm text-sm font-medium text-sabz-700 hover:text-sabz-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700">
               مشاهده همه
             </Link>
           </div>
-          <ul role="list" className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-            {roots.slice(0, 10).map((category) => (
+          <ul role="list" className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            {featuredCategories.map((category) => (
               <CategoryTile key={category.id} category={category} variant="child" />
             ))}
           </ul>
         </section>
       ) : null}
 
-      {/* Latest products */}
-      {latest.items.length > 0 ? (
-        <section aria-labelledby="latest-heading" className="mx-auto max-w-7xl px-4 pb-16 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between">
-            <h2 id="latest-heading" className="text-xl font-bold tracking-tight text-ink-900">
-              جدیدترین محصولات
-            </h2>
-            <Link href="/products?sort=newest" className="text-sm font-medium text-sabz-700 hover:text-sabz-800">
+      {/* In-stock products: what the customer can actually get now */}
+      {shouldShowSection(inStock.items) ? (
+        <section aria-labelledby="instock-heading" className="mx-auto max-w-7xl px-4 pb-12 sm:px-6 sm:pb-14 lg:px-8">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h2 id="instock-heading" className="text-xl font-bold tracking-tight text-ink-900">
+                موجود در انبار
+              </h2>
+              <p className="mt-1 text-sm text-gray-500">
+                محصولاتی که هم‌اکنون موجودی دارند
+              </p>
+            </div>
+            <Link href="/products?inStockOnly=true" className="shrink-0 rounded-sm text-sm font-medium text-sabz-700 hover:text-sabz-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700">
+              مشاهده همه
+            </Link>
+          </div>
+          <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            {inStock.items.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {/* Latest products: newest published rows */}
+      {shouldShowSection(latest.items) ? (
+        <section aria-labelledby="latest-heading" className="mx-auto max-w-7xl px-4 pb-12 sm:px-6 sm:pb-14 lg:px-8">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h2 id="latest-heading" className="text-xl font-bold tracking-tight text-ink-900">
+                جدیدترین محصولات
+              </h2>
+              <p className="mt-1 text-sm text-gray-500">
+                تازه‌ترین کالاهای منتشرشده در فروشگاه
+              </p>
+            </div>
+            <Link href="/products?sort=newest" className="shrink-0 rounded-sm text-sm font-medium text-sabz-700 hover:text-sabz-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700">
               مشاهده همه
             </Link>
           </div>
@@ -87,13 +115,18 @@ export default async function HomePage() {
             ))}
           </div>
         </section>
-      ) : (
+      ) : null}
+
+      {/* Catalog pending notice: only when both rails are empty. */}
+      {!shouldShowSection(inStock.items) && !shouldShowSection(latest.items) ? (
         <section className="mx-auto max-w-7xl px-4 py-16 text-center sm:px-6 lg:px-8">
           <p className="text-sm text-gray-500">
             کاتالوگ محصولات بهزودی تکمیل میشود.
           </p>
         </section>
-      )}
+      ) : null}
+
+      <TrustStrip items={homeConfig.trustItems} />
     </div>
   );
 }

@@ -1,102 +1,181 @@
 import Link from 'next/link';
 import type { CatalogCategoryNode } from '@sabz/types';
-import { navRoots } from '@/lib/nav';
+import { homeConfig } from '@/config/home';
 import { BrandLockup } from '@/components/ecommerce/brand/brand-lockup';
+import { brand } from '@/lib/brand';
+import { formatFaNumber } from '@/lib/format';
+import { resolveFeaturedCategories } from '@/lib/home';
+import { filterValidFooterLinks, siteConfig } from '@/lib/site';
 
 /**
- * Storefront footer (SS-124): brand blurb, category links and static-page
- * placeholders. Adapted from the ecommerce-v4 footer idiom (Tailwind Plus).
+ * Storefront footer (SS-124, SS-215 reality). Config-driven and honest:
+ * brand + curated navigation always; contact, social, and legal groups render
+ * only from verified `siteConfig` values. Placeholder routes (`/cart`,
+ * `/account`, `/about`, `/contact`, `/terms`) are never advertised — those
+ * pages stay reachable by URL for their milestone owners, but the footer
+ * links only to real customer functionality.
  */
 export function SiteFooter({ categories }: { categories: CatalogCategoryNode[] }) {
-  // Unwrap the sole catalog root so footer links are browsable (SS-211).
-  const roots = navRoots(categories);
+  // Same curation source as the home page — no second slicing policy. Falls
+  // back to the deterministic tree order when nothing is curated.
+  const featuredCategories = resolveFeaturedCategories(
+    categories,
+    homeConfig.featuredCategorySlugs,
+    homeConfig.maxCategoryTiles,
+  );
+  const socials = filterValidFooterLinks(siteConfig.socials);
+  const legalLinks = filterValidFooterLinks(siteConfig.legalLinks);
+  const hasContact =
+    siteConfig.address !== null ||
+    siteConfig.phone !== null ||
+    siteConfig.hours !== null ||
+    siteConfig.email !== null;
+
   return (
     <footer className="mt-16 border-t border-sand-200 bg-sand-50">
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-4">
           <div>
             <BrandLockup wordmarkClassName="text-base font-bold text-sabz-800" />
-            <p className="mt-3 text-sm leading-6 text-gray-600">
-              فروشگاه آنلاین کالای دیجیتال و لوازم جانبی در مازندران — برای
-              مشتریان خرد و همکاران.
-            </p>
+            {siteConfig.blurb ? (
+              <p className="mt-3 text-sm leading-6 text-gray-600">
+                {siteConfig.blurb}
+              </p>
+            ) : null}
+            {socials.length > 0 ? (
+              <nav aria-label="شبکه‌های اجتماعی" className="mt-4">
+                <ul role="list" className="flex flex-wrap gap-x-4 gap-y-2">
+                  {socials.map((social) => (
+                    <li key={social.href}>
+                      <a
+                        href={social.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="rounded-sm text-sm text-gray-600 underline-offset-4 hover:text-sabz-700 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700"
+                      >
+                        {social.label}
+                        <span className="sr-only"> (باز شدن در پنجره جدید)</span>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </nav>
+            ) : null}
           </div>
 
-          <div>
+          <nav aria-label="دسته‌بندی‌های فروشگاه">
             <p className="text-sm font-semibold text-ink-900">دسته‌بندی‌ها</p>
             <ul role="list" className="mt-4 space-y-2.5">
-              {roots.slice(0, 5).map((category) => (
+              {featuredCategories.map((category) => (
                 <li key={category.id}>
                   <Link
                     href={`/categories/${category.slug}`}
-                    className="text-sm text-gray-600 hover:text-sabz-700"
+                    className="rounded-sm text-sm text-gray-600 hover:text-sabz-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700"
                   >
                     {category.name}
                   </Link>
                 </li>
               ))}
-              {roots.length === 0 ? (
-                <li className="text-sm text-gray-400">به‌زودی</li>
-              ) : (
-                <li>
-                  <Link
-                    href="/categories"
-                    className="text-sm font-medium text-sabz-700 hover:text-sabz-800"
-                  >
-                    همه دسته‌بندی‌ها
-                  </Link>
-                </li>
-              )}
+              <li>
+                <Link
+                  href="/categories"
+                  className="rounded-sm text-sm font-medium text-sabz-700 hover:text-sabz-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700"
+                >
+                  همه دسته‌بندی‌ها
+                </Link>
+              </li>
             </ul>
-          </div>
+          </nav>
 
-          <div>
+          <nav aria-label="فروشگاه">
             <p className="text-sm font-semibold text-ink-900">فروشگاه</p>
             <ul role="list" className="mt-4 space-y-2.5">
               <li>
-                <Link href="/products" className="text-sm text-gray-600 hover:text-sabz-700">
+                <Link href="/products" className="rounded-sm text-sm text-gray-600 hover:text-sabz-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700">
                   همه محصولات
                 </Link>
               </li>
               <li>
-                <Link href="/cart" className="text-sm text-gray-600 hover:text-sabz-700">
-                  سبد خرید
-                </Link>
-              </li>
-              <li>
-                <Link href="/account" className="text-sm text-gray-600 hover:text-sabz-700">
-                  حساب کاربری
+                <Link href="/categories" className="rounded-sm text-sm text-gray-600 hover:text-sabz-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700">
+                  همه دسته‌بندی‌ها
                 </Link>
               </li>
             </ul>
-          </div>
+          </nav>
 
-          <div>
-            <p className="text-sm font-semibold text-ink-900">اطلاعات</p>
-            <ul role="list" className="mt-4 space-y-2.5">
-              <li>
-                <Link href="/about" className="text-sm text-gray-600 hover:text-sabz-700">
-                  درباره ما
-                </Link>
-              </li>
-              <li>
-                <Link href="/contact" className="text-sm text-gray-600 hover:text-sabz-700">
-                  تماس با ما
-                </Link>
-              </li>
-              <li>
-                <Link href="/terms" className="text-sm text-gray-600 hover:text-sabz-700">
-                  قوانین و مقررات
-                </Link>
-              </li>
-            </ul>
-          </div>
+          {hasContact ? (
+            <div>
+              <p className="text-sm font-semibold text-ink-900">تماس</p>
+              <ul role="list" className="mt-4 space-y-2.5 text-sm text-gray-600">
+                {siteConfig.address ? (
+                  <li className="leading-6">{siteConfig.address}</li>
+                ) : null}
+                {siteConfig.phone ? (
+                  <li>
+                    <a
+                      href={`tel:${siteConfig.phone.replace(/[\s-]/g, '')}`}
+                      dir="ltr"
+                      className="rounded-sm hover:text-sabz-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700"
+                    >
+                      {siteConfig.phone}
+                    </a>
+                  </li>
+                ) : null}
+                {siteConfig.hours ? (
+                  <li className="leading-6">{siteConfig.hours}</li>
+                ) : null}
+                {siteConfig.email ? (
+                  <li>
+                    <a
+                      href={`mailto:${siteConfig.email}`}
+                      dir="ltr"
+                      className="rounded-sm break-all hover:text-sabz-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700"
+                    >
+                      {siteConfig.email}
+                    </a>
+                  </li>
+                ) : null}
+              </ul>
+            </div>
+          ) : null}
+
+          {legalLinks.length > 0 ? (
+            <nav aria-label="اطلاعات حقوقی">
+              <p className="text-sm font-semibold text-ink-900">اطلاعات</p>
+              <ul role="list" className="mt-4 space-y-2.5">
+                {legalLinks.map((link) =>
+                  link.external ? (
+                    <li key={link.href}>
+                      <a
+                        href={link.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="rounded-sm text-sm text-gray-600 hover:text-sabz-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700"
+                      >
+                        {link.label}
+                        <span className="sr-only"> (باز شدن در پنجره جدید)</span>
+                      </a>
+                    </li>
+                  ) : (
+                    <li key={link.href}>
+                      <Link
+                        href={link.href}
+                        className="rounded-sm text-sm text-gray-600 hover:text-sabz-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700"
+                      >
+                        {link.label}
+                      </Link>
+                    </li>
+                  ),
+                )}
+              </ul>
+            </nav>
+          ) : null}
         </div>
 
         <div className="mt-12 border-t border-sand-200 pt-6">
           <p className="text-center text-xs leading-5 text-gray-500">
-            © {new Intl.DateTimeFormat('fa-IR', { year: 'numeric' }).format(new Date())} سبز
-            سیستم — تمامی حقوق محفوظ است.
+            © {formatFaNumber(new Date().getFullYear())} {brand.nameFa} — تمامی
+            حقوق محفوظ است.
           </p>
         </div>
       </div>
