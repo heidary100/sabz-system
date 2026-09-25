@@ -142,9 +142,12 @@ export const fetchProductBySlug = cache(async (
       }),
     );
     // Back-compat: API deployments predating SS-214 omit `related` and
-    // variant `options`. Default them so the detail page renders instead of
+    // variant `options`; deployments predating SS-227 omit the neighbour
+    // navigation. Default them so the detail page renders instead of
     // throwing on `undefined.length`.
     product.related ??= [];
+    product.previous ??= null;
+    product.next ??= null;
     for (const variant of product.variants ?? []) {
       variant.options ??= [];
     }

@@ -495,6 +495,8 @@ export class PublicCatalogService {
       brandId: product.brandId,
     });
 
+    const { previous, next } = await this.getAdjacentProducts(product);
+
     return {
       id: product.id,
       name: product.name,
@@ -521,8 +523,96 @@ export class PublicCatalogService {
       tags,
       inStock: variants.some((variant) => variant.inStock),
       related,
+      previous,
+      next,
       createdAt: product.createdAt.toISOString(),
     };
+  }
+
+  /**
+   * Previous/next product navigation (SS-227): the nearest newer (previous)
+   * and older (next) published products in the listing-default order
+   * (newest first). Scoped to the leaf category first; the global catalog is
+   * the fallback so single-product categories still navigate. Bounded: at
+   * most four take-1 queries, never an unbounded scan.
+   */
+  private async getAdjacentProducts(product: {
+    id: string;
+    categoryId: string;
+    createdAt: Date;
+  }): Promise<{ previous: CatalogRefDto | null; next: CatalogRefDto | null }> {
+    const neighbourSelect = { name: true, slug: true };
+    const baseWhere: Prisma.ProductWhereInput = {
+      deletedAt: null,
+      status: ProductStatus.PUBLISHED,
+      id: { not: product.id },
+    };
+    const createdAt = product.createdAt;
+
+    const newerInCategory = () =>
+      this.prisma.product.findFirst({
+        where: {
+          ...baseWhere,
+          categoryId: product.categoryId,
+          OR: [
+            { createdAt: { gt: createdAt } },
+            { createdAt: { equals: createdAt }, id: { gt: product.id } },
+          ],
+        },
+        orderBy: [{ createdAt: 'asc' as const }, { id: 'asc' as const }],
+        select: neighbourSelect,
+      });
+    const olderInCategory = () =>
+      this.prisma.product.findFirst({
+        where: {
+          ...baseWhere,
+          categoryId: product.categoryId,
+          OR: [
+            { createdAt: { lt: createdAt } },
+            { createdAt: { equals: createdAt }, id: { lt: product.id } },
+          ],
+        },
+        orderBy: [{ createdAt: 'desc' as const }, { id: 'desc' as const }],
+        select: neighbourSelect,
+      });
+    const newerGlobal = () =>
+      this.prisma.product.findFirst({
+        where: {
+          ...baseWhere,
+          OR: [
+            { createdAt: { gt: createdAt } },
+            { createdAt: { equals: createdAt }, id: { gt: product.id } },
+          ],
+        },
+        orderBy: [{ createdAt: 'asc' as const }, { id: 'asc' as const }],
+        select: neighbourSelect,
+      });
+    const olderGlobal = () =>
+      this.prisma.product.findFirst({
+        where: {
+          ...baseWhere,
+          OR: [
+            { createdAt: { lt: createdAt } },
+            { createdAt: { equals: createdAt }, id: { lt: product.id } },
+          ],
+        },
+        orderBy: [{ createdAt: 'desc' as const }, { id: 'desc' as const }],
+        select: neighbourSelect,
+      });
+
+    const [previousInCategory, nextInCategory] = await Promise.all([
+      newerInCategory(),
+      olderInCategory(),
+    ]);
+    const [previous, next] =
+      previousInCategory && nextInCategory
+        ? [previousInCategory, nextInCategory]
+        : await Promise.all([
+            previousInCategory ?? newerGlobal(),
+            nextInCategory ?? olderGlobal(),
+          ]);
+
+    return { previous: previous ?? null, next: next ?? null };
   }
 
   /**

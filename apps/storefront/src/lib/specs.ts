@@ -104,3 +104,52 @@ export function physicalSpecRows(input: PhysicalSpecInput): SpecRow[] {
   }
   return rows;
 }
+
+/**
+ * Persian display labels for imported spec keys (SS-227). The Woo import
+ * stores many attribute names in English (CPU, RAM, GPU, …); a Persian-first
+ * storefront maps the common keys and falls back to the raw name — unknown
+ * keys must still render, never disappear. Matching is case-insensitive on
+ * the trimmed key.
+ */
+const SPEC_LABEL_FA: Record<string, string> = {
+  cpu: 'پردازنده',
+  processor: 'پردازنده',
+  gpu: 'پردازنده گرافیکی',
+  graphics: 'پردازنده گرافیکی',
+  ram: 'حافظه رم',
+  rom: 'حافظه داخلی',
+  ssd: 'حافظه SSD',
+  hdd: 'هارد دیسک',
+  storage: 'حافظه',
+  memory: 'حافظه',
+  monitor: 'نمایشگر',
+  display: 'نمایشگر',
+  screen: 'نمایشگر',
+  ports: 'پورت‌ها',
+  port: 'پورت',
+  os: 'سیستم‌عامل',
+  operating: 'سیستم‌عامل',
+  battery: 'باتری',
+  camera: 'دوربین',
+  resolution: 'وضوح',
+  size: 'اندازه',
+  type: 'نوع',
+  color: 'رنگ',
+  material: 'جنس',
+  capacity: 'ظرفیت',
+  weight: 'وزن',
+  dimensions: 'ابعاد',
+  speed: 'سرعت',
+  power: 'توان',
+  model: 'مدل',
+  brand: 'برند',
+  warranty: 'گارانتی',
+  connectivity: 'اتصال',
+  interface: 'رابط',
+};
+
+export function specLabelFa(key: string): string {
+  const mapped = SPEC_LABEL_FA[key.trim().toLowerCase()];
+  return mapped ?? key;
+}

@@ -225,5 +225,13 @@ export interface CatalogProductDetailDto {
    * excluded. Card projections reuse CatalogProductCardDto verbatim.
    */
   related: CatalogProductCardDto[];
+  /**
+   * Neighbour navigation (SS-227): nearest newer/older published product.
+   * Scoped to the leaf category first with a global-catalog fallback; null
+   * when no neighbour exists on that side. Order matches the listing default
+   * (newest first).
+   */
+  previous: CatalogRefDto | null;
+  next: CatalogRefDto | null;
   createdAt: string;
 }
