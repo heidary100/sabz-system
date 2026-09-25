@@ -8,6 +8,11 @@ import { PrismaService } from '../../common/database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { ProductsService } from './products.service';
 
+import { StorefrontCacheService } from '../../common/storefront-cache/storefront-cache.service';
+
+const makeStorefrontCacheMock = (): StorefrontCacheService =>
+  ({ invalidate: jest.fn().mockResolvedValue(undefined) }) as unknown as StorefrontCacheService;
+
 const now = new Date('2026-08-19T00:00:00.000Z');
 
 function makeListRow(overrides: Record<string, unknown> = {}) {
@@ -135,6 +140,7 @@ describe('ProductsService', () => {
     service = new ProductsService(
       prisma as unknown as PrismaService,
       audit as unknown as AuditService,
+      makeStorefrontCacheMock(),
     );
   });
 

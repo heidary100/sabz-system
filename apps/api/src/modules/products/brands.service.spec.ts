@@ -4,6 +4,11 @@ import { PrismaService } from '../../common/database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { BrandsService } from './brands.service';
 
+import { StorefrontCacheService } from '../../common/storefront-cache/storefront-cache.service';
+
+const makeStorefrontCacheMock = (): StorefrontCacheService =>
+  ({ invalidate: jest.fn().mockResolvedValue(undefined) }) as unknown as StorefrontCacheService;
+
 const now = new Date('2026-08-19T00:00:00.000Z');
 
 function makeSummaryRow(overrides: Record<string, unknown> = {}) {
@@ -77,6 +82,7 @@ describe('BrandsService', () => {
     service = new BrandsService(
       prisma as unknown as PrismaService,
       audit as unknown as AuditService,
+      makeStorefrontCacheMock(),
     );
   });
 

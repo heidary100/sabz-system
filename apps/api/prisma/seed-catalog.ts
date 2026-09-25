@@ -39,6 +39,8 @@ import { VideoProcessorService } from '../src/modules/products/media-processing/
 import { WatermarkOverlayService } from '../src/modules/products/media-processing/watermark-overlay.service';
 import { resolveWatermarkConfig } from '../src/modules/products/media-processing/watermark-config';
 import { LocalDiskMediaStorage } from '../src/modules/products/storage/local-disk-media.storage';
+import { StorefrontCacheService } from '../src/common/storefront-cache/storefront-cache.service';
+import { ConfigService } from '@nestjs/config';
 import {
   DEFAULT_WAREHOUSE_CODE,
   ensureDefaultWarehouse,
@@ -325,6 +327,7 @@ export async function seedCatalog(actorId: string): Promise<SeedCatalogStats> {
       storage,
       mediaProcessing,
       tempDir,
+      new StorefrontCacheService(new ConfigService()),
     );
     const uploadScratch = join(tempDir, 'seed-catalog');
     await mkdir(uploadScratch, { recursive: true });

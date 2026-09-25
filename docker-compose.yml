@@ -122,6 +122,11 @@ services:
       WATERMARK_THUMBNAIL_MIN_SIZE_PX: ${WATERMARK_THUMBNAIL_MIN_SIZE_PX:-64}
       WATERMARK_THUMBNAIL_MAX_SIZE_PX: ${WATERMARK_THUMBNAIL_MAX_SIZE_PX:-140}
       FFMPEG_PATH: ${FFMPEG_PATH:-ffmpeg}
+      # Storefront cache invalidation (SS-217). The shared token must match
+      # the storefront's REVALIDATE_TOKEN; override both from the root .env
+      # with a long random string outside local development.
+      STOREFRONT_REVALIDATE_URL: ${STOREFRONT_REVALIDATE_URL:-http://storefront:3001/api/revalidate}
+      STOREFRONT_REVALIDATE_TOKEN: ${REVALIDATE_TOKEN:-dev_revalidate_secret_change_me}
     volumes:
       - ./apps/api:/app/apps/api
       - api_node_modules:/app/apps/api/node_modules
@@ -180,6 +185,10 @@ services:
       # Server-side catalog fetches run inside the Compose network, where the
       # API is reachable only by its service name (not localhost).
       API_INTERNAL_BASE_URL: ${API_INTERNAL_BASE_URL:-http://api:3000/api/v1}
+      # Cache invalidation endpoint auth (SS-217). Must match the API's
+      # STOREFRONT_REVALIDATE_TOKEN. When unset the endpoint refuses all
+      # requests (503).
+      REVALIDATE_TOKEN: ${REVALIDATE_TOKEN:-dev_revalidate_secret_change_me}
     command: ["pnpm", "--filter", "@sabz/storefront", "dev", "--hostname", "0.0.0.0"]
     volumes:
       - ./apps/storefront:/app/apps/storefront

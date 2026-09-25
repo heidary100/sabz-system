@@ -7,7 +7,13 @@ import {
 import { PriceStatus, Prisma, ProductStatus } from '@prisma/client';
 import type { VariantSummary } from '@sabz/types';
 import { PrismaService } from '../../common/database/prisma.service';
+import { StorefrontCacheService } from '../../common/storefront-cache/storefront-cache.service';
+import {
+  CATALOG_PRODUCTS_TAG,
+  productDetailTag,
+} from '../../common/storefront-cache/catalog-tags';
 import { AuditService } from '../audit/audit.service';
+import { recomputeProductMinPrice } from './min-price';
 import { CreateVariantDto, UpdateVariantDto } from './dto';
 
 const variantSelect = {
@@ -33,7 +39,16 @@ export class VariantsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
+    private readonly storefrontCache: StorefrontCacheService,
   ) {}
+
+  /** Listing + detail tags of the product a variant mutation touched. */
+  private productCacheTags(productSlug: string | null): string[] {
+    return [
+      CATALOG_PRODUCTS_TAG,
+      ...(productSlug !== null ? [productDetailTag(productSlug)] : []),
+    ];
+  }
 
   async list(productId: string): Promise<VariantSummary[]> {
     const product = await this.prisma.product.findUnique({
@@ -70,8 +85,9 @@ export class VariantsService {
       priceStatus: dto.priceStatus ?? PriceStatus.PRICED,
     });
     try {
+      let productSlug: string | null = null;
       const created = await this.prisma.$transaction(async (tx) => {
-        await this.assertProductForMutation(tx, productId);
+        productSlug = await this.assertProductForMutation(tx, productId);
 
         const row = await tx.productVariant.create({
           data: {
@@ -107,9 +123,12 @@ export class VariantsService {
           tx,
         );
 
+        await recomputeProductMinPrice(tx, productId);
+
         return row;
       });
 
+      void this.storefrontCache.invalidate(this.productCacheTags(productSlug));
       return this.toSummary(created);
     } catch (error) {
       if (this.isUniqueViolation(error)) {
@@ -128,9 +147,10 @@ export class VariantsService {
     const data = this.buildUpdateData(dto);
 
     try {
+      let productSlug: string | null = null;
       const updated = await this.prisma.$transaction(async (tx) => {
         const target = await this.readVariantInTx(tx, variantId);
-        await this.assertProductForMutation(tx, target.productId);
+        productSlug = await this.assertProductForMutation(tx, target.productId);
 
         this.validatePricing({
           price:
@@ -174,6 +194,8 @@ export class VariantsService {
           tx,
         );
 
+        await recomputeProductMinPrice(tx, target.productId);
+
         const current = await tx.productVariant.findUnique({
           where: { id: variantId },
           select: variantSelect,
@@ -184,6 +206,7 @@ export class VariantsService {
         return current;
       });
 
+      void this.storefrontCache.invalidate(this.productCacheTags(productSlug));
       return this.toSummary(updated);
     } catch (error) {
       if (this.isUniqueViolation(error)) {
@@ -198,8 +221,15 @@ export class VariantsService {
     actorId: string,
     ipAddress?: string,
   ): Promise<VariantSummary> {
+    let productSlug: string | null = null;
     const deleted = await this.prisma.$transaction(async (tx) => {
       const target = await this.readVariantInTx(tx, variantId);
+      productSlug = await tx.product
+        .findUnique({
+          where: { id: target.productId },
+          select: { slug: true },
+        })
+        .then((row) => row?.slug ?? null);
 
       const deletedAt = new Date();
       const updatedRows = await tx.productVariant.updateMany({
@@ -223,9 +253,12 @@ export class VariantsService {
         tx,
       );
 
+      await recomputeProductMinPrice(tx, target.productId);
+
       return target;
     });
 
+    void this.storefrontCache.invalidate(this.productCacheTags(productSlug));
     return this.toSummary(deleted);
   }
 
@@ -279,10 +312,10 @@ export class VariantsService {
   private async assertProductForMutation(
     tx: Prisma.TransactionClient,
     productId: string,
-  ): Promise<void> {
+  ): Promise<string> {
     const product = await tx.product.findUnique({
       where: { id: productId },
-      select: { id: true, status: true, deletedAt: true },
+      select: { id: true, slug: true, status: true, deletedAt: true },
     });
 
     if (!product || product.deletedAt !== null) {
@@ -293,6 +326,7 @@ export class VariantsService {
         'محصول آرشیوشده قابل ویرایش نیست؛ ابتدا وضعیت آن را بازگردانید.',
       );
     }
+    return product.slug;
   }
 
   private async readVariant(variantId: string): Promise<VariantRow> {

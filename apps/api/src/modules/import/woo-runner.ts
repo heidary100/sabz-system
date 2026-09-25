@@ -14,6 +14,13 @@ import {
 import { PrismaService } from '../../common/database/prisma.service';
 import { generateSlug, ensureUniqueSlug, slugify } from '../products/slug';
 import { normalizeTagName } from '../products/tags-normalize';
+import { recomputeProductMinPrice } from '../products/min-price';
+import { StorefrontCacheService } from '../../common/storefront-cache/storefront-cache.service';
+import {
+  CATALOG_PRODUCTS_TAG,
+  CATALOG_TREE_TAG,
+  productDetailTag,
+} from '../../common/storefront-cache/catalog-tags';
 import {
   ATTRIBUTE_SOURCE_WOO_ATTR,
   ATTRIBUTE_SOURCE_WOO_CUSTOM,
@@ -131,7 +138,10 @@ function shortHash(input: string): string {
 
 @Injectable()
 export class WooRunner {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storefrontCache: StorefrontCacheService,
+  ) {}
 
   async runImport(options: RunImportOptions): Promise<{ report: WriteReport; exitCode: number }> {
     const threshold = options.failureThreshold ?? 0;
@@ -285,6 +295,21 @@ export class WooRunner {
       failures: state.failures,
       decisions: WRITE_DECISIONS,
     };
+    // One batched invalidation for the whole run — never per row (SS-217).
+    // Detail tags resolve from the affected product ids in a single query.
+    const affectedProductIds = [...new Set(state.productIdBySourceKey.values())];
+    if (affectedProductIds.length > 0) {
+      const slugRows = await this.prisma.product.findMany({
+        where: { id: { in: affectedProductIds } },
+        select: { slug: true },
+      });
+      void this.storefrontCache.invalidate([
+        CATALOG_PRODUCTS_TAG,
+        CATALOG_TREE_TAG,
+        ...slugRows.map((row) => productDetailTag(row.slug)),
+      ]);
+    }
+
     return { report, exitCode: failed > threshold ? 1 : 0 };
   }
 
@@ -435,6 +460,8 @@ export class WooRunner {
         const variantId = await this.upsertVariant(tx, state, productId, plan, null);
         await this.applyVariantAxes(tx, state, variantId, plan.variantAxes);
         await this.applyInventory(tx, state, variantId, plan.stockQty, plan.sourceId, warehouseId, plan.actor);
+        // One tx touches one product: recompute once per tx (SS-217).
+        await recomputeProductMinPrice(tx, productId);
       }
 
       const specs = [...plan.specs, ...plan.customSpecs];
@@ -480,6 +507,8 @@ export class WooRunner {
       if (includeMediaRefs) {
         await this.applyMediaRefs(tx, state, parentProductId, variantId, plan);
       }
+      // One tx touches one parent's variants: recompute once per tx (SS-217).
+      await recomputeProductMinPrice(tx, parentProductId);
     });
   }
 

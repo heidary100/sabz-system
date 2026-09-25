@@ -9,6 +9,7 @@ import {
   MAX_QUERY_GRAPHEMES,
 } from '@sabz/search';
 import { PrismaService } from '../src/common/database/prisma.service';
+import { recomputeProductMinPrice } from '../src/modules/products/min-price';
 import { PublicCatalogService } from '../src/modules/products/public-catalog.service';
 
 jest.setTimeout(60_000);
@@ -108,6 +109,9 @@ describe('Catalog search (SS-216)', () => {
     });
     createdProductIds.push(product.id);
     createdVariantIds.push(...product.variants.map((variant) => variant.id));
+    // SS-217: raw fixture writes bypass the service writer, so maintain the
+    // denormalized minPrice column explicitly.
+    await recomputeProductMinPrice(prisma, product.id);
     for (const [index, tagName] of (spec.tags ?? []).entries()) {
       const tag = await prisma.tag.create({
         data: {

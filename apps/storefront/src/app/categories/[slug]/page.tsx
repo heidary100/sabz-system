@@ -36,9 +36,12 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return { title: category?.name ?? 'دسته‌بندی' };
 }
 
-// Catalog pages render per request: build-time prerendering would either
-// snapshot stale data or fail when the API is unreachable (CI).
-export const dynamic = 'force-dynamic';
+/**
+ * Category landing (SS-126, SS-212): breadcrumb + header + child/sibling nav
+ * + listing. Reading `searchParams` keeps rendering dynamic per request
+ * while the catalog reads come from the Data Cache (SS-217) — no
+ * `force-dynamic`, which would disable caching for the whole route.
+ */
 
 export default async function CategoryPage({ params, searchParams }: PageProps) {
   const [{ slug }, rawSearchParams] = await Promise.all([params, searchParams]);

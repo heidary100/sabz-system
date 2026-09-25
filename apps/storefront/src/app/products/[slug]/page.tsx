@@ -56,11 +56,11 @@ export async function generateMetadata({
   };
 }
 
-// Catalog pages render per request: build-time prerendering would either
-// snapshot stale data or fail when the API is unreachable (CI).
-export const dynamic = 'force-dynamic';
-
-/** Product detail (SS-127, completed SS-214) over the public detail API. */
+/**
+ * Product detail (SS-127, completed SS-214) over the public detail API.
+ * Reading `searchParams` (variant UI state) keeps rendering dynamic per
+ * request while the catalog reads come from the Data Cache (SS-217).
+ */
 export default async function ProductPage({ params, searchParams }: PageProps) {
   const [{ slug }, query] = await Promise.all([params, searchParams]);
   const product = await fetchProductBySlug(slug);

@@ -6,6 +6,8 @@ import { PrismaService } from '../src/common/database/prisma.service';
 import { parseWooCsvFile } from '../src/modules/import/woo-parse';
 import { WooRunner } from '../src/modules/import/woo-runner';
 
+import { StorefrontCacheService } from '../src/common/storefront-cache/storefront-cache.service';
+import { ConfigService } from '@nestjs/config';
 jest.setTimeout(120_000);
 
 /**
@@ -34,7 +36,7 @@ describe('WooCommerce writer integration (SS-207)', () => {
   beforeAll(async () => {
     prisma = new PrismaService();
     await prisma.$connect();
-    runner = new WooRunner(prisma);
+    runner = new WooRunner(prisma, new StorefrontCacheService(new ConfigService()));
   });
 
   afterAll(async () => {

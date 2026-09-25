@@ -11,6 +11,12 @@ import type {
   ProductSummary,
 } from '@sabz/types';
 import { PrismaService } from '../../common/database/prisma.service';
+import { StorefrontCacheService } from '../../common/storefront-cache/storefront-cache.service';
+import {
+  CATALOG_PRODUCTS_TAG,
+  CATALOG_TREE_TAG,
+  productDetailTag,
+} from '../../common/storefront-cache/catalog-tags';
 import { AuditService } from '../audit/audit.service';
 import { generateSlug } from './slug';
 import { sanitizeRichText } from './description-sanitize';
@@ -134,6 +140,7 @@ export class ProductsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
+    private readonly storefrontCache: StorefrontCacheService,
   ) {}
 
   async list(
@@ -252,6 +259,8 @@ export class ProductsService {
         return created;
       });
 
+      // No storefront invalidation: products are always created DRAFT, which
+      // is invisible to the public catalog (publish does the invalidating).
       return this.toDetail(product);
     } catch (error) {
       if (this.isUniqueViolation(error)) {
@@ -268,6 +277,7 @@ export class ProductsService {
     ipAddress?: string,
   ): Promise<ProductDetail> {
     const data = this.buildUpdateData(dto);
+    let previousSlug: string | null = null;
 
     try {
       const product = await this.prisma.$transaction(async (tx) => {
@@ -296,6 +306,7 @@ export class ProductsService {
         if (!target || target.deletedAt !== null) {
           throw new NotFoundException('محصول یافت نشد.');
         }
+        previousSlug = target.slug;
         if (target.status === ProductStatus.ARCHIVED) {
           throw new ConflictException(
             'محصول آرشیوشده قابل ویرایش نیست؛ ابتدا وضعیت آن را بازگردانید.',
@@ -356,6 +367,14 @@ export class ProductsService {
 
       if (!product) {
         throw new NotFoundException('محصول یافت نشد.');
+      }
+      if (previousSlug !== null) {
+        const tags = [CATALOG_PRODUCTS_TAG, productDetailTag(product.slug)];
+        if (previousSlug !== product.slug) {
+          // A renamed slug leaves the old detail cache entry orphaned.
+          tags.push(productDetailTag(previousSlug));
+        }
+        void this.storefrontCache.invalidate(tags);
       }
       return this.toDetail(product);
     } catch (error) {
@@ -517,6 +536,11 @@ export class ProductsService {
     if (!deleted) {
       throw new NotFoundException('محصول یافت نشد.');
     }
+    void this.storefrontCache.invalidate([
+      CATALOG_PRODUCTS_TAG,
+      CATALOG_TREE_TAG,
+      productDetailTag(deleted.slug),
+    ]);
     return this.toDetail(deleted);
   }
 
@@ -583,10 +607,15 @@ export class ProductsService {
   private async readLifecycleTarget(
     tx: Prisma.TransactionClient,
     productId: string,
-  ): Promise<{ id: string; status: ProductStatus; deletedAt: Date | null } | null> {
+  ): Promise<{
+    id: string;
+    slug: string;
+    status: ProductStatus;
+    deletedAt: Date | null;
+  } | null> {
     return tx.product.findUnique({
       where: { id: productId },
-      select: { id: true, status: true, deletedAt: true },
+      select: { id: true, slug: true, status: true, deletedAt: true },
     });
   }
 

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { connection } from 'next/server';
 import { homeConfig } from '@/config/home';
 import { fetchCategoryTree, fetchProducts } from '@/lib/catalog';
 import {
@@ -18,12 +19,13 @@ import { TrustStrip } from '@/components/ecommerce/trust/trust-strip';
  * strip. Queries stay bounded (`newest` only — never price sorts, never the
  * full catalog); empty rails and unconfigured sections hide instead of
  * rendering placeholders.
+ *
+ * `connection()` keeps rendering at request time (build-time prerendering
+ * would snapshot stale data or fail when the API is unreachable in CI)
+ * without `force-dynamic`, which would disable the Data Cache (SS-217).
  */
-// Catalog pages render per request: build-time prerendering would either
-// snapshot stale data or fail when the API is unreachable (CI).
-export const dynamic = 'force-dynamic';
-
 export default async function HomePage() {
+  await connection();
   // Three bounded, independent queries in parallel: the tree plus one
   // `newest` page for each rail (latest + in-stock availability truth).
   const [categories, latest, inStock] = await Promise.all([

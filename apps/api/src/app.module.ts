@@ -4,6 +4,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { PrismaModule } from './common/database/prisma.module';
 import { RedisModule } from './common/redis/redis.module';
+import { StorefrontCacheModule } from './common/storefront-cache/storefront-cache.module';
 import { HealthModule } from './health/health.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
@@ -33,6 +34,7 @@ import { UsersModule } from './modules/users/users.module';
     }),
     PrismaModule,
     RedisModule,
+    StorefrontCacheModule,
     HealthModule,
     AuthModule,
     DashboardModule,

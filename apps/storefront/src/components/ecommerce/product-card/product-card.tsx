@@ -30,7 +30,10 @@ export function ProductCard({ product }: { product: CatalogProductCardDto }) {
             src={image}
             alt={product.name}
             fill
-            sizes="(min-width: 1280px) 20vw, (min-width: 768px) 25vw, 50vw"
+            // Grid is 2 columns below xl (50vw) and 4 columns at xl+
+            // (~20vw inside the max-w-7xl container). The previous
+            // 768px+ 25vw hint undersized tablet images.
+            sizes="(min-width: 1280px) 20vw, 50vw"
             className="object-cover transition group-hover:scale-105"
           />
         ) : (

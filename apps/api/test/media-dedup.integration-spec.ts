@@ -8,6 +8,8 @@ import { AuditService } from '../src/modules/audit/audit.service';
 import { MediaService } from '../src/modules/products/media.service';
 import { LocalDiskMediaStorage } from '../src/modules/products/storage/local-disk-media.storage';
 
+import { StorefrontCacheService } from '../src/common/storefront-cache/storefront-cache.service';
+import { ConfigService } from '@nestjs/config';
 jest.setTimeout(30_000);
 
 function jpegBuffer(): Buffer {
@@ -93,7 +95,7 @@ describe('Media dedup database integration (SS-204)', () => {
       }),
     };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    service = new MediaService(prisma, audit, storage, processing as any, tempDir);
+    service = new MediaService(prisma, audit, storage, processing as any, tempDir, new StorefrontCacheService(new ConfigService()));
   });
 
   afterAll(async () => {
