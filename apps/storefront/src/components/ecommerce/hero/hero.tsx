@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { buttonVariants } from '@/components/ecommerce/ui/button';
 
 /**
  * Home hero (SS-215). Deliberately factual and media-independent: a
@@ -28,15 +29,12 @@ export function Hero() {
           خرد نمایش داده می‌شود.
         </p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-          <Link
-            href="/products"
-            className="inline-flex min-h-11 items-center justify-center rounded-md bg-sabz-700 px-6 py-3 text-sm font-semibold text-white hover:bg-sabz-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700"
-          >
+          <Link href="/products" className={buttonVariants({ size: 'lg' })}>
             مشاهده محصولات
           </Link>
           <Link
             href="/categories"
-            className="inline-flex min-h-11 items-center justify-center rounded-md border border-sabz-200 bg-white px-6 py-3 text-sm font-semibold text-sabz-800 hover:bg-sabz-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700"
+            className={buttonVariants({ variant: 'outline', size: 'lg' })}
           >
             مشاهده دسته‌بندی‌ها
           </Link>
