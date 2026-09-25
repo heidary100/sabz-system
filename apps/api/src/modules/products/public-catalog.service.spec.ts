@@ -10,6 +10,7 @@ import { PublicCatalogService } from './public-catalog.service';
 describe('PublicCatalogService listing facets', () => {
   let service: PublicCatalogService;
   let prisma: {
+    $queryRaw: jest.Mock;
     category: { findMany: jest.Mock };
     product: { count: jest.Mock; findMany: jest.Mock };
     productVariant: { findMany: jest.Mock; groupBy: jest.Mock };
@@ -18,6 +19,7 @@ describe('PublicCatalogService listing facets', () => {
 
   beforeEach(() => {
     prisma = {
+      $queryRaw: jest.fn().mockResolvedValue([]),
       category: { findMany: jest.fn().mockResolvedValue([]) },
       product: {
         count: jest.fn().mockResolvedValue(0),
@@ -77,11 +79,10 @@ describe('PublicCatalogService listing facets', () => {
     expect(String(where.variants.some.price.lte)).toBe('5000');
   });
 
-  it('composes q + brand + condition + price + stock in one where', async () => {
+  it('composes brand + condition + price + stock in one where (q absent)', async () => {
     prisma.productVariant.findMany.mockResolvedValue([]);
 
     await service.listProducts({
-      q: 'ssd',
       brand: 'orico',
       condition: 'NEW',
       priceFrom: '100',
@@ -91,12 +92,50 @@ describe('PublicCatalogService listing facets', () => {
     const where = prisma.product.count.mock.calls[0][0].where;
     expect(where.brand).toEqual({ is: { slug: 'orico', deletedAt: null } });
     expect(where.condition).toBe('NEW');
-    expect(where.OR).toHaveLength(2);
+    expect(where.OR).toBeUndefined();
     expect(where.variants.some.priceStatus).toBe(PriceStatus.PRICED);
     // No available variant exists in the mocked inventory → matches nothing,
     // but the visibility scope must survive the stock narrowing.
     expect(where.id).toEqual({ in: [] });
     expect(where.status).toBe(ProductStatus.PUBLISHED);
+  });
+
+  it('routes a meaningful q to the PostgreSQL search query (SS-216)', async () => {
+    prisma.$queryRaw.mockResolvedValue([{ id: 'p1', total: 1n }]);
+    prisma.product.findMany.mockResolvedValue([
+      {
+        id: 'p1',
+        name: 'n',
+        slug: 's',
+        condition: 'NEW',
+        brand: null,
+        category: null,
+        variants: [],
+        media: [],
+      },
+    ]);
+    prisma.productVariant.groupBy.mockResolvedValue([]);
+
+    const result = await service.listProducts({
+      q: 'ssd',
+      brand: 'orico',
+      condition: 'NEW',
+      priceFrom: '100',
+    });
+
+    // The search SQL owns matching/ordering; the legacy Prisma count path is
+    // not used at all.
+    expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
+    expect(prisma.product.count).not.toHaveBeenCalled();
+    expect(result.total).toBe(1);
+    expect(result.items).toHaveLength(1);
+  });
+
+  it('treats a whitespace-only q as absent (no search branch)', async () => {
+    await service.listProducts({ q: '   ' });
+
+    expect(prisma.$queryRaw).not.toHaveBeenCalled();
+    expect(prisma.product.count).toHaveBeenCalledTimes(1);
   });
 
   it('includes genuinely available variants and excludes fully-reserved ones', async () => {

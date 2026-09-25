@@ -13,6 +13,7 @@
   "dependencies": {
     "@fontsource-variable/vazirmatn": "^5.3.0",
     "@sabz/api-client": "workspace:*",
+    "@sabz/search": "workspace:*",
     "@sabz/types": "workspace:*",
     "next": "^16.3.0",
     "react": "^19.2.8",

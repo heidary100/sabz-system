@@ -1298,4 +1298,67 @@ describe('Public catalog API (SS-120/121/122) (e2e)', () => {
       expect(res.body.variants[0].options).toEqual([]);
     });
   });
+
+  describe('SS-216: Persian Postgres search', () => {
+    it('matches ZWNJ/space compound variants and Arabic letter forms', async () => {
+      const token = await createOperator();
+      const suffix = uniqueSuffix();
+      const created = await seedProduct(token, `کیبورد مکانیکال ${suffix}`, {
+        prices: ['10.00'],
+      });
+      await publishProduct(token, created.productId);
+
+      // Plain form finds the product…
+      const plain = await request(app.getHttpServer())
+        .get(`${PRODUCTS_BASE}?q=${encodeURIComponent(`کیبورد ${suffix}`)}`)
+        .expect(200);
+      expect(plain.body.items.map((c: { id: string }) => c.id)).toContain(
+        created.productId,
+      );
+
+      // …so does the Arabic kaf (ك) spelling of the same query.
+      const arabicKaf = await request(app.getHttpServer())
+        .get(
+          `${PRODUCTS_BASE}?q=${encodeURIComponent(`\u0643\u06cc\u0628\u0648\u0631\u062f ${suffix}`)}`,
+        )
+        .expect(200);
+      expect(
+        arabicKaf.body.items.map((c: { id: string }) => c.id),
+      ).toContain(created.productId);
+    });
+
+    it('finds published products by exact SKU', async () => {
+      const token = await createOperator();
+      const created = await seedProduct(token, `کدآزون ${uniqueSuffix()}`, {
+        prices: ['10.00'],
+      });
+      await publishProduct(token, created.productId);
+
+      const variant = await prisma.productVariant.findUniqueOrThrow({
+        where: { id: created.variantIds[0] ?? '' },
+        select: { sku: true },
+      });
+
+      const res = await request(app.getHttpServer())
+        .get(`${PRODUCTS_BASE}?q=${encodeURIComponent(variant.sku)}`)
+        .expect(200);
+      expect(res.body.total).toBeGreaterThanOrEqual(1);
+      expect(res.body.items[0].id).toBe(created.productId);
+    });
+
+    it('accepts a 64-grapheme emoji query and rejects 65 graphemes', async () => {
+      await createOperator();
+      const emoji = '🖱️';
+      // 64 graphemes = 192 UTF-16 code units: rejected by the old
+      // code-unit cap, accepted by the grapheme-aware SS-216 policy.
+      const ok = await request(app.getHttpServer())
+        .get(`${PRODUCTS_BASE}?q=${encodeURIComponent(emoji.repeat(64))}`)
+        .expect(200);
+      expect(ok.body.items).toEqual([]);
+
+      await request(app.getHttpServer())
+        .get(`${PRODUCTS_BASE}?q=${encodeURIComponent(emoji.repeat(65))}`)
+        .expect(400);
+    });
+  });
 });

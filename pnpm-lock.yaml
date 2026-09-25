@@ -156,6 +156,9 @@ importers:
       '@prisma/client':
         specifier: ^6.19.3
         version: 6.19.3(prisma@6.19.3(typescript@5.9.3))(typescript@5.9.3)
+      '@sabz/search':
+        specifier: workspace:*
+        version: link:../../packages/search
       '@sabz/types':
         specifier: workspace:*
         version: link:../../packages/types
@@ -256,6 +259,9 @@ importers:
       '@sabz/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
+      '@sabz/search':
+        specifier: workspace:*
+        version: link:../../packages/search
       '@sabz/types':
         specifier: workspace:*
         version: link:../../packages/types
@@ -320,6 +326,18 @@ importers:
         version: 5.9.3
 
   packages/config: {}
+
+  packages/search:
+    devDependencies:
+      eslint:
+        specifier: ^9.18.0
+        version: 9.39.5(jiti@2.7.0)
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vitest:
+        specifier: ^5.0.0
+        version: 5.0.0(@types/node@22.20.1)(vite@8.2.1(@types/node@22.20.1)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.2)(tsx@4.23.12))
 
   packages/types:
     devDependencies:
