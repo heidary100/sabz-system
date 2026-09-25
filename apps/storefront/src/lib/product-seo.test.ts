@@ -50,6 +50,8 @@ function detail(
     tags: [],
     inStock: false,
     related: [],
+    previous: null,
+    next: null,
     createdAt: new Date(0).toISOString(),
     ...overrides,
   };

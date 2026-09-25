@@ -1,7 +1,8 @@
 'use client';
 
 import Image from 'next/image';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { CatalogProductMediaDto } from '@sabz/types';
 import { mediaImageUrl, mediaUrl } from '@/lib/catalog';
 import { formatFaNumber } from '@/lib/format';
@@ -24,6 +25,30 @@ export function ProductGallery({
   media: CatalogProductMediaDto[];
 }) {
   const [activeIndex, setActiveIndex] = useState(0);
+  const [zoomed, setZoomed] = useState(false);
+  const lightboxCloseRef = useRef<HTMLButtonElement>(null);
+  const zoomTriggerRef = useRef<HTMLButtonElement>(null);
+
+  // Lightbox dialog behaviour: Escape closes, body scroll locks while open,
+  // and focus returns to the zoom trigger on close (whatever closed it).
+  useEffect(() => {
+    if (!zoomed) {
+      return;
+    }
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setZoomed(false);
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', onKeyDown);
+      zoomTriggerRef.current?.focus();
+    };
+  }, [zoomed]);
 
   if (media.length === 0) {
     return (
@@ -46,6 +71,12 @@ export function ProductGallery({
     active.mediaType === 'VIDEO'
       ? `ویدیو ${formatFaNumber(activeIndex + 1)} از ${formatFaNumber(total)}`
       : `تصویر ${formatFaNumber(activeIndex + 1)} از ${formatFaNumber(total)}`;
+
+  const step = (delta: number) => {
+    setActiveIndex((index) => (index + delta + total) % total);
+  };
+  const isImage = active.mediaType === 'IMAGE';
+  const showLightbox = zoomed && isImage;
 
   return (
     <div>
@@ -75,6 +106,47 @@ export function ProductGallery({
             className="object-cover"
           />
         )}
+        {/* SS-227: stage arrows — image stages only (videos have controls). */}
+        {total > 1 && active.mediaType !== 'VIDEO' ? (
+          <>
+            <button
+              type="button"
+              onClick={() => step(-1)}
+              className="absolute end-3 top-1/2 inline-flex min-h-11 min-w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/80 text-ink-900 shadow-sm backdrop-blur-sm transition-colors hover:bg-white"
+            >
+              <span className="sr-only">تصویر قبلی</span>
+              <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="size-5">
+                <path fillRule="evenodd" d="M12.78 5.22a.75.75 0 0 1 0 1.06L9.06 10l3.72 3.72a.75.75 0 1 1-1.06 1.06l-4.25-4.25a.75.75 0 0 1 0-1.06l4.25-4.25a.75.75 0 0 1 1.06 0Z" clipRule="evenodd" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              onClick={() => step(1)}
+              className="absolute start-3 top-1/2 inline-flex min-h-11 min-w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/80 text-ink-900 shadow-sm backdrop-blur-sm transition-colors hover:bg-white"
+            >
+              <span className="sr-only">تصویر بعدی</span>
+              <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="size-5">
+                <path fillRule="evenodd" d="M7.22 14.78a.75.75 0 0 1 0-1.06L10.94 10 7.22 6.28a.75.75 0 1 1 1.06-1.06l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0Z" clipRule="evenodd" />
+              </svg>
+            </button>
+          </>
+        ) : null}
+        {/* SS-227: zoom affordance over image stages — opens the lightbox. */}
+        {isImage ? (
+          <button
+            ref={zoomTriggerRef}
+            type="button"
+            onClick={() => setZoomed(true)}
+            aria-haspopup="dialog"
+            className="absolute bottom-3 end-3 inline-flex min-h-11 items-center gap-1.5 rounded-full bg-white/80 px-3 text-xs font-semibold text-ink-900 shadow-sm backdrop-blur-sm transition-colors hover:bg-white"
+          >
+            <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="size-4">
+              <path d="M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM2 9a7 7 0 1 1 12.452 4.391l3.328 3.329a.75.75 0 1 1-1.06 1.06l-3.329-3.328A7 7 0 0 1 2 9Z" />
+              <path d="M9 6.5a.75.75 0 0 1 .75.75v1.25H11a.75.75 0 0 1 0 1.5H9.75v1.25a.75.75 0 0 1-1.5 0V10H7a.75.75 0 0 1 0-1.5h1.25V7.25A.75.75 0 0 1 9 6.5Z" />
+            </svg>
+            بزرگنمایی تصویر
+          </button>
+        ) : null}
       </div>
       <p aria-live="polite" className="sr-only">
         {positionLabel}
@@ -122,6 +194,73 @@ export function ProductGallery({
           })}
         </div>
       ) : null}
+
+      {/* SS-227 lightbox: full-bleed original in a dialog. Escape/backdrop
+          close, arrows step the (image) media, focus lands on close and
+          returns to the zoom trigger. Image-only — video playback stays on
+          the stage where controls live. */}
+      {showLightbox
+        ? createPortal(
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label={`بزرگنمایی: ${name}`}
+              className="fixed inset-0 z-50 flex items-center justify-center bg-ink-950/90 p-4"
+              onClick={() => setZoomed(false)}
+            >
+              <button
+                ref={lightboxCloseRef}
+                type="button"
+                onClick={() => setZoomed(false)}
+                autoFocus
+                className="absolute end-4 top-4 inline-flex min-h-11 min-w-11 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur-sm transition-colors hover:bg-white/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+              >
+                <span className="sr-only">بستن بزرگنمایی</span>
+                <svg viewBox="0 0 24 24" fill="none" strokeWidth={1.5} stroke="currentColor" aria-hidden="true" className="size-6">
+                  <path d="M6 18 18 6M6 6l12 12" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+              {total > 1 ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      step(-1);
+                    }}
+                    className="absolute end-4 top-1/2 inline-flex min-h-12 min-w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur-sm transition-colors hover:bg-white/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                  >
+                    <span className="sr-only">تصویر قبلی</span>
+                    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="size-6">
+                      <path fillRule="evenodd" d="M12.78 5.22a.75.75 0 0 1 0 1.06L9.06 10l3.72 3.72a.75.75 0 1 1-1.06 1.06l-4.25-4.25a.75.75 0 0 1 0-1.06l4.25-4.25a.75.75 0 0 1 1.06 0Z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      step(1);
+                    }}
+                    className="absolute start-4 top-1/2 inline-flex min-h-12 min-w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur-sm transition-colors hover:bg-white/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                  >
+                    <span className="sr-only">تصویر بعدی</span>
+                    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="size-6">
+                      <path fillRule="evenodd" d="M7.22 14.78a.75.75 0 0 1 0-1.06L10.94 10 7.22 6.28a.75.75 0 1 1 1.06-1.06l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0Z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                </>
+              ) : null}
+              {/* eslint-disable-next-line @next/next/no-img-element -- the lightbox needs the unoptimized original beyond next/image sizes. */}
+              <img
+                src={mediaImageUrl(active.url) ?? ''}
+                alt={name}
+                onClick={(event) => event.stopPropagation()}
+                className="max-h-full max-w-full rounded-lg object-contain shadow-overlay"
+              />
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }

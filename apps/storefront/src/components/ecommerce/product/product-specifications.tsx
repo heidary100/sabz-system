@@ -1,5 +1,5 @@
 import type { CatalogProductDetailDto } from '@sabz/types';
-import { groupSpecs, physicalSpecRows } from '@/lib/specs';
+import { groupSpecs, physicalSpecRows, specLabelFa } from '@/lib/specs';
 
 /**
  * Product specifications (SS-214, server). Groups the SS-202 `specs[]`
@@ -43,7 +43,7 @@ export function ProductSpecifications({
                   index % 2 === 1 ? 'bg-sand-50' : 'bg-white'
                 }`}
               >
-                <dt className="text-gray-600">{row.key}</dt>
+                <dt className="text-gray-600">{specLabelFa(row.key)}</dt>
                 <dd dir="auto" className="text-ink-900">
                   {row.value}
                 </dd>
@@ -65,7 +65,7 @@ export function ProductSpecifications({
                   (groups.length + index) % 2 === 1 ? 'bg-sand-50' : 'bg-white'
                 }`}
               >
-                <dt className="text-gray-600">{row.key}</dt>
+                <dt className="text-gray-600">{specLabelFa(row.key)}</dt>
                 <dd dir="auto" className="text-ink-900">
                   {row.value}
                 </dd>

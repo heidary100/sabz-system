@@ -16,6 +16,8 @@ import { ProductPurchasePanel } from '@/components/ecommerce/product/product-pur
 import { ProductSpecifications } from '@/components/ecommerce/product/product-specifications';
 import { RelatedProducts } from '@/components/ecommerce/product/related-products';
 import { Badge, badgeVariants } from '@/components/ecommerce/ui/badge';
+import { ProductConsultation } from '@/components/ecommerce/product/product-consultation';
+import { ProductShare } from '@/components/ecommerce/product/product-share';
 
 const siteUrl =
   process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3001';
@@ -109,22 +111,60 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
       />
       <CategoryBreadcrumb trail={trail} />
 
+      {/* SS-227: neighbour navigation — previous / back to category / next. */}
+      {product.previous || product.next ? (
+        <nav
+          aria-label="ناوبری محصولات مجاور"
+          className="mt-3 flex items-center justify-between gap-2 text-xs"
+        >
+          {product.previous ? (
+            <Link
+              href={`/products/${product.previous.slug}`}
+              className="min-h-9 rounded-sm text-gray-500 hover:text-sabz-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700"
+            >
+              ← {product.previous.name}
+            </Link>
+          ) : (
+            <span aria-hidden="true" />
+          )}
+          <Link
+            href={`/categories/${product.category.slug}`}
+            className="min-h-9 rounded-sm text-gray-500 hover:text-sabz-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700"
+          >
+            بازگشت به {product.category.name}
+          </Link>
+          {product.next ? (
+            <Link
+              href={`/products/${product.next.slug}`}
+              className="min-h-9 rounded-sm text-gray-500 hover:text-sabz-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700"
+            >
+              {product.next.name} →
+            </Link>
+          ) : (
+            <span aria-hidden="true" />
+          )}
+        </nav>
+      ) : null}
+
       <div className="mt-6 grid grid-cols-1 gap-10 lg:grid-cols-2">
         <ProductGallery name={product.name} media={product.media} />
 
-        <div>
+        <div className="lg:sticky lg:top-24 lg:self-start">
           {product.brand ? (
             <p className="text-sm text-gray-500">{product.brand.name}</p>
           ) : null}
           <h1 className="mt-1 text-2xl font-bold tracking-tight text-ink-900">
             {product.name}
           </h1>
-          {product.nameEn ? (
+          {/* SS-227 dedup: the import often fills subtitle with the same
+              string as nameEn — rendering both duplicated the line. Each
+              secondary line renders only when it differs from the ones above. */}
+          {product.nameEn && product.nameEn !== product.subtitle ? (
             <p dir="auto" className="mt-1 text-sm text-gray-500">
               {product.nameEn}
             </p>
           ) : null}
-          {product.subtitle ? (
+          {product.subtitle && product.subtitle !== product.name ? (
             <p dir="auto" className="mt-1 text-sm leading-6 text-gray-600">
               {product.subtitle}
             </p>
@@ -155,6 +195,14 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
               initialVariantId={initialVariantId}
               rawVariantParam={rawVariantParam}
             />
+          </div>
+
+          <div className="mt-4">
+            <ProductConsultation />
+          </div>
+
+          <div className="mt-4">
+            <ProductShare canonicalUrl={canonicalUrl} />
           </div>
         </div>
       </div>

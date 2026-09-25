@@ -3,6 +3,7 @@ import type { CatalogProductSpecDto } from '@sabz/types';
 import {
   groupSpecs,
   physicalSpecRows,
+  specLabelFa,
   UNGROUPED_SPECS_TITLE,
 } from './specs';
 
@@ -92,5 +93,23 @@ describe('physicalSpecRows', () => {
     const rows = physicalSpecRows({ ...empty, widthCm: '12.5' });
     expect(rows).toHaveLength(1);
     expect(rows[0]!.key).toContain('عرض');
+  });
+});
+
+describe('specLabelFa', () => {
+  it('maps common imported EN keys to Persian labels', () => {
+    expect(specLabelFa('CPU')).toBe('پردازنده');
+    expect(specLabelFa('RAM')).toBe('حافظه رم');
+    expect(specLabelFa('Monitor')).toBe('نمایشگر');
+    expect(specLabelFa('Ports')).toBe('پورت‌ها');
+  });
+
+  it('folds whitespace and case before matching', () => {
+    expect(specLabelFa('  gpu ')).toBe('پردازنده گرافیکی');
+  });
+
+  it('returns unknown keys unchanged so specs never disappear', () => {
+    expect(specLabelFa('مادربرد')).toBe('مادربرد');
+    expect(specLabelFa('Something Rare')).toBe('Something Rare');
   });
 });
