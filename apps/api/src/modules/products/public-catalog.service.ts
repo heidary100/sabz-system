@@ -159,14 +159,32 @@ export class PublicCatalogService {
       this.prisma.brand.count({ where }),
       this.prisma.brand.findMany({
         where,
-        select: { id: true, name: true, slug: true },
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          // SS-226: facet counts — published, non-deleted products per brand,
+          // the same visibility predicate the product listing applies.
+          _count: {
+            select: {
+              products: { where: { deletedAt: null, status: 'PUBLISHED' } },
+            },
+          },
+        },
         orderBy: [{ name: 'asc' as const }, { id: 'asc' as const }],
         skip: (page - 1) * limit,
         take: limit,
       }),
     ]);
 
-    return { items: rows, total, page, limit };
+    const items: CatalogBrandDto[] = rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      slug: row.slug,
+      productCount: row._count.products,
+    }));
+
+    return { items, total, page, limit };
   }
 
   async listProducts(

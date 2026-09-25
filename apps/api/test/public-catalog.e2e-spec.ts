@@ -360,7 +360,14 @@ describe('Public catalog API (SS-120/121/122) (e2e)', () => {
       expect(ids).toContain(brand.id);
       expect(ids).not.toContain(deleted.id);
       for (const item of res.body.items) {
-        expect(Object.keys(item).sort()).toEqual(['id', 'name', 'slug']);
+        expect(Object.keys(item).sort()).toEqual([
+          'id',
+          'name',
+          'productCount',
+          'slug',
+        ]);
+        expect(typeof item.productCount).toBe('number');
+        expect(item.productCount).toBeGreaterThanOrEqual(0);
       }
     });
 
