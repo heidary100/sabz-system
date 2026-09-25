@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { connection } from 'next/server';
 import Link from 'next/link';
 import { fetchCategoryTree } from '@/lib/catalog';
 import { navRoots } from '@/lib/nav';
@@ -10,12 +11,14 @@ export const metadata: Metadata = {
   description: 'مرور همه دسته‌بندی‌های کالای دیجیتال سبز سیستم.',
 };
 
-// Catalog pages render per request: build-time prerendering would either
-// snapshot stale data or fail when the API is unreachable (CI).
-export const dynamic = 'force-dynamic';
-
-/** Category index (SS-211): every browsable root as a tile, no truncation. */
+/**
+ * Category index (SS-211): every browsable root as a tile, no truncation.
+ * `connection()` keeps rendering at request time (build-time prerendering
+ * would snapshot stale data or fail when the API is unreachable in CI)
+ * without `force-dynamic`, which would disable the Data Cache (SS-217).
+ */
 export default async function CategoriesPage() {
+  await connection();
   const categories = await fetchCategoryTree();
   // The real tree hides behind a sole root — unwrap it like the header nav.
   const roots = navRoots(categories);
