@@ -30,9 +30,13 @@ export interface ListingState {
   category: string;
   brand: string;
   condition: string;
-  /** Raw Toman bound from the URL (API Decimal-as-string); '' = absent. */
+  /**
+   * Toman bound bound from the URL (user-facing, shareable). `fetchProducts`
+   * converts ×10 to the API's Rial unit at the query boundary (SS-222).
+   * '' = absent.
+   */
   priceFrom: string;
-  /** Raw Toman bound from the URL (API Decimal-as-string); '' = absent. */
+  /** Toman bound from the URL; converted ×10 at the API boundary. '' = absent. */
   priceTo: string;
   inStockOnly: boolean;
   sort: CatalogProductSort;

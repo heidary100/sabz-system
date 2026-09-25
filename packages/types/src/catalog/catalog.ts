@@ -7,7 +7,10 @@ import type { PriceStatus, ProductCondition, ProductMediaType } from '../product
  * the customer storefront consumes. Binding rules:
  * - Only PUBLISHED, non-deleted products and visible, non-deleted categories
  *   are ever exposed.
- * - Prices are Toman, persisted as Prisma `Decimal` and serialized as strings.
+ * - Prices are persisted as Prisma `Decimal` and serialized as strings, in
+ *   **Rial** verbatim (SS-207 "O-1"). The storefront presents **Toman** (÷10,
+ *   SS-222) and converts its filter bounds ×10 at the fetch boundary; other
+ *   consumers (admin, integrations) operate in Rial.
  * - Media URLs are server-provided (`/api/v1/catalog/media/...` or absolute);
  *   storage keys are never exposed.
  * - Availability is derived from the inventory read aggregate (SS-112), the
@@ -29,16 +32,21 @@ export interface CatalogListQuery {
   condition?: ProductCondition;
   sort?: CatalogProductSort;
   /**
-   * Minimum priced-variant price in Toman (API Decimal-as-string, SS-213).
+   * Minimum priced-variant price bound (API Decimal-as-string, SS-213).
    * A product matches when at least one PRICED, live variant has
    * `price >= priceFrom`. CALL_FOR_PRICE rows never contribute.
+   *
+   * Unit contract (SS-222): the API stores and filters **Rial** verbatim
+   * (SS-207 "O-1"); the storefront presents Toman (÷10) and converts its
+   * Toman URL bounds ×10 at the `fetchProducts` boundary before calling the
+   * API. Direct API consumers must send Rial.
    */
   priceFrom?: string;
   /**
-   * Maximum priced-variant price in Toman (API Decimal-as-string, SS-213).
+   * Maximum priced-variant price bound (API Decimal-as-string, SS-213).
    * A product matches when at least one PRICED, live variant has
    * `price <= priceTo`. With both bounds present, the SAME variant must
-   * satisfy the range.
+   * satisfy the range. Rial units — see `priceFrom` (SS-222).
    */
   priceTo?: string;
   /**
