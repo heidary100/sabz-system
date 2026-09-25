@@ -16,13 +16,13 @@ describe('formatFaNumber', () => {
 });
 
 describe('formatToman', () => {
-  it('formats decimal-string prices from the API as whole Tomans', () => {
-    expect(formatToman('750.5')).toBe('۷۵۰ تومان');
-    expect(formatToman('155000000')).toBe('۱۵۵٬۰۰۰٬۰۰۰ تومان');
+  it('converts API Rial strings ÷10 and formats whole Tomans', () => {
+    expect(formatToman('750.5')).toBe('۷۵ تومان');
+    expect(formatToman('155000000')).toBe('۱۵٬۵۰۰٬۰۰۰ تومان');
   });
 
-  it('accepts numbers directly', () => {
-    expect(formatToman(250000)).toBe('۲۵۰٬۰۰۰ تومان');
+  it('accepts Rial numbers directly', () => {
+    expect(formatToman(250000)).toBe('۲۵٬۰۰۰ تومان');
   });
 
   it('falls back to zero for invalid input', () => {
@@ -32,7 +32,7 @@ describe('formatToman', () => {
 
 describe('formatPriceFrom', () => {
   it('prefixes the range marker', () => {
-    expect(formatPriceFrom('5000')).toBe('از ۵٬۰۰۰ تومان');
+    expect(formatPriceFrom('5000')).toBe('از ۵۰۰ تومان');
   });
 });
 
@@ -43,11 +43,11 @@ describe('formatCardPrice', () => {
   });
 
   it('shows the exact price for a single priced variant', () => {
-    expect(formatCardPrice('1500', 1, false)).toBe('۱٬۵۰۰ تومان');
+    expect(formatCardPrice('1500', 1, false)).toBe('۱۵۰ تومان');
   });
 
   it('prefixes the range marker only for multi-variant spreads', () => {
-    expect(formatCardPrice('1500', 2, false)).toBe('از ۱٬۵۰۰ تومان');
+    expect(formatCardPrice('1500', 2, false)).toBe('از ۱۵۰ تومان');
   });
 });
 

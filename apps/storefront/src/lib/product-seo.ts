@@ -3,6 +3,7 @@ import type {
   CatalogProductMediaDto,
   CatalogProductVariantDto,
 } from '@sabz/types';
+import { rialToTomanString } from './currency';
 import { seoDescriptionFromHtml } from './seo';
 
 /**
@@ -40,7 +41,9 @@ function offerOf(
   return {
     '@type': 'Offer',
     priceCurrency: 'IRT',
-    price: variant.price,
+    // Toman (IRT) presentation price — the same value the customer sees
+    // (SS-222); the API's Rial value is never emitted raw.
+    price: rialToTomanString(variant.price),
     availability: variant.inStock
       ? 'https://schema.org/InStock'
       : 'https://schema.org/OutOfStock',
@@ -73,13 +76,19 @@ export function buildProductJsonLd({
   if (priced.length === 1) {
     offers = offerOf(priced[0]!, canonicalUrl);
   } else if (priced.length > 1) {
-    const prices = priced.map((variant) => Number(variant.price));
     offers = {
       '@type': 'AggregateOffer',
       priceCurrency: 'IRT',
       offerCount: priced.length,
-      lowPrice: String(Math.min(...prices)),
-      highPrice: String(Math.max(...prices)),
+      // Toman bounds (SS-222) — min/max order is invariant under ÷10.
+      lowPrice: rialToTomanString(
+        priced.reduce((min, v) => (Number(v.price) < Number(min.price) ? v : min))
+          .price,
+      ),
+      highPrice: rialToTomanString(
+        priced.reduce((max, v) => (Number(v.price) > Number(max.price) ? v : max))
+          .price,
+      ),
       offers: priced.map((variant) => offerOf(variant, canonicalUrl)),
     };
   }

@@ -8,6 +8,7 @@ import type {
   PaginatedResult,
 } from '@sabz/types';
 import { ApiError, API_BASE_URL, MEDIA_BASE_URL, request } from '@/lib/api';
+import { tomanToRialString } from '@/lib/currency';
 import {
   CATALOG_BRANDS_TAG,
   CATALOG_PRODUCTS_TAG,
@@ -87,8 +88,11 @@ function toQueryString(query: CatalogListQuery): string {
   if (query.category) params.set('category', query.category);
   if (query.brand) params.set('brand', query.brand);
   if (query.condition) params.set('condition', query.condition);
-  if (query.priceFrom) params.set('priceFrom', query.priceFrom);
-  if (query.priceTo) params.set('priceTo', query.priceTo);
+  // URL bounds are Toman (user-facing, shareable); the API persists Rial —
+  // convert at this single boundary (SS-222) so filter semantics match the
+  // ÷10 presentation layer.
+  if (query.priceFrom) params.set('priceFrom', tomanToRialString(query.priceFrom));
+  if (query.priceTo) params.set('priceTo', tomanToRialString(query.priceTo));
   if (query.inStockOnly) params.set('inStockOnly', 'true');
   if (query.sort) params.set('sort', query.sort);
   return params.toString();

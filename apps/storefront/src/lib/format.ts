@@ -1,6 +1,10 @@
+import { rialToToman } from './currency';
+
 /**
- * Persian display formatting (Decision 1: all prices are Toman, fa-IR
- * numerals). Pure helpers — no API or React dependencies.
+ * Persian display formatting (Decision 1: prices present as Toman, fa-IR
+ * numerals). The API persists Rial verbatim (SS-207 "O-1"), so every
+ * presentation helper converts ÷10 through `lib/currency.ts` — the single
+ * conversion point (SS-222). Pure helpers — no API or React dependencies.
  */
 
 const faIrNumber = new Intl.NumberFormat('fa-IR');
@@ -11,17 +15,17 @@ export function formatFaNumber(value: number): string {
 }
 
 /**
- * Formats a catalog price (Toman) for display: Persian numerals with
- * thousand separators, followed by the تومان unit. The API serializes
- * `Decimal` values as strings ('750.5'), so the fractional part — always
- * zero in Toman retail prices — is dropped.
+ * Formats a catalog price for display: API Rial → Toman (÷10), Persian
+ * numerals with thousand separators, followed by the تومان unit. The API
+ * serializes `Decimal` values as strings ('750.5'); the fractional part —
+ * always zero after conversion in retail prices — is dropped.
  */
 export function formatToman(value: string | number): string {
-  const numeric = typeof value === 'string' ? Number(value) : value;
-  if (!Number.isFinite(numeric)) {
+  const rial = typeof value === 'string' ? Number(value) : value;
+  if (!Number.isFinite(rial)) {
     return formatToman(0);
   }
-  return `${faIrNumber.format(Math.floor(numeric))} تومان`;
+  return `${faIrNumber.format(rialToToman(rial))} تومان`;
 }
 
 /** «از ۲۵۰٬۰۰۰ تومان» — used on listing cards with multiple variants. */
