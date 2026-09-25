@@ -6,6 +6,7 @@ import {
   formatPriceFrom,
   formatToman,
   normalizeFa,
+  salePercentFrom,
 } from './format';
 
 describe('formatFaNumber', () => {
@@ -66,5 +67,19 @@ describe('normalizeFa', () => {
 
   it('returns an empty string for blank input', () => {
     expect(normalizeFa('   ')).toBe('');
+  });
+});
+
+describe('salePercentFrom', () => {
+  it('computes the whole-percent drop from reference to selling price', () => {
+    expect(salePercentFrom('13200000', '16500000')).toBe(20);
+    expect(salePercentFrom('9900', '10000')).toBe(1);
+  });
+
+  it('returns null without a reference price or a real discount', () => {
+    expect(salePercentFrom('15000', null)).toBeNull();
+    expect(salePercentFrom('15000', '15000')).toBeNull();
+    expect(salePercentFrom('15000', '10000')).toBeNull();
+    expect(salePercentFrom('15000', 'not-a-number')).toBeNull();
   });
 });

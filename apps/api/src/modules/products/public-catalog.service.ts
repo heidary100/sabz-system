@@ -732,7 +732,12 @@ export class PublicCatalogService {
         category: { select: { name: true, slug: true } },
         variants: {
           where: { deletedAt: null },
-          select: { id: true },
+          select: {
+            id: true,
+            price: true,
+            compareAtPrice: true,
+            priceStatus: true,
+          },
           orderBy: [{ createdAt: 'asc' as const }, { id: 'asc' as const }],
         },
         media: {
@@ -760,6 +765,7 @@ export class PublicCatalogService {
         continue;
       }
       const minPrice = row.minPrice;
+      const priceFrom = minPrice == null ? null : String(minPrice);
       cards.push({
         id: row.id,
         name: row.name,
@@ -767,8 +773,9 @@ export class PublicCatalogService {
         condition: row.condition,
         brand: row.brand,
         category: row.category,
-        priceFrom: minPrice === null ? '' : String(minPrice),
-        callForPrice: minPrice === null,
+        priceFrom: priceFrom ?? '',
+        compareAtPrice: pickCardCompareAtPrice(row.variants, priceFrom),
+        callForPrice: minPrice == null,
         variantCount: row.variants.length,
         inStock: row.variants.some(
           (variant) => (availableByVariant.get(variant.id) ?? 0) > 0,
@@ -849,6 +856,50 @@ export class PublicCatalogService {
 
 function decimalToString(value: Prisma.Decimal | null): string | null {
   return value === null ? null : String(value);
+}
+
+/**
+ * The compareAtPrice shown on a listing card (SS-225): that of the
+ * minimum-priced PRICED variant — the same variant whose price becomes
+ * `priceFrom` via the denormalized minPrice. Ties resolve to the first
+ * variant in the load order, mirroring the card's price semantics. Null
+ * when the product is call-for-price or the winning variant has no
+ * reference price, so a discount badge can never invent a discount.
+ */
+export function pickCardCompareAtPrice(
+  variants: ReadonlyArray<{
+    price?: Prisma.Decimal | string;
+    compareAtPrice: Prisma.Decimal | string | null;
+    priceStatus: string;
+  }>,
+  priceFrom: string | null | undefined,
+): string | null {
+  // `priceFrom` comes from the denormalized column; defensive over `undefined`
+  // keeps partial test projections harmless.
+  if (priceFrom === null || priceFrom === undefined) {
+    return null;
+  }
+  const min = new Prisma.Decimal(priceFrom);
+  let winner: string | null = null;
+  for (const variant of variants) {
+    if (variant.priceStatus !== 'PRICED' || variant.price === undefined) {
+      continue;
+    }
+    if (new Prisma.Decimal(variant.price).comparedTo(min) !== 0) {
+      continue;
+    }
+    winner =
+      variant.compareAtPrice === null ? null : String(variant.compareAtPrice);
+    break;
+  }
+  // A reference price at or below the selling price is not a discount.
+  if (
+    winner !== null &&
+    new Prisma.Decimal(winner).comparedTo(new Prisma.Decimal(priceFrom)) <= 0
+  ) {
+    return null;
+  }
+  return winner;
 }
 
 /**
