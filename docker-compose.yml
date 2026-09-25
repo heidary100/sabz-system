@@ -100,7 +100,7 @@ services:
       PRODUCT_DESCRIPTION_IMAGE_MAX_SIZE_BYTES: ${PRODUCT_DESCRIPTION_IMAGE_MAX_SIZE_BYTES:-}
       # Company watermarking (CATALOG-007, dual-theme SS-210). FFmpeg is
       # installed in the API image for the video watermark; the brand master
-      # lives at apps/api/assets/brand/logo.svg and can be overridden from
+      # lives at apps/api/assets/brand/logo.png and can be overridden from
       # the root .env. The dark-chip/light-text overlay reads on both light
       # studio shots and near-black product photos.
       WATERMARK_ENABLED: ${WATERMARK_ENABLED:-true}

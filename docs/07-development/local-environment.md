@@ -17,7 +17,7 @@ If you prefer a fully containerized setup, use the [Docker Development Environme
 
 | Tool | Version | Purpose |
 |------|---------|--------|
-| Node.js | 20+ | Runtime |
+| Node.js | 22 (see `.nvmrc`; `engines` floor is 20) | Runtime |
 | pnpm | 11+ (see root `package.json` `packageManager`) | Package manager |
 | Docker | 24+ | Container runtime |
 | Docker Compose | 2.20+ | Multi-container orchestration |

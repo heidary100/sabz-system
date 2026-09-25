@@ -23,6 +23,6 @@ coverage/
 graphify-out/
 
 # Real-catalog import sources: large, out-of-band datasets that must never be
-# committed (SS-206 documents fetch location + checksum instead).
+# committed (the SS-219 runbook records the fetch location + checksum).
 wc-product-export-*.csv
 /company-logo.png

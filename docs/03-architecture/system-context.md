@@ -24,18 +24,22 @@ This document describes the system context — the external actors, dependencies
 
 ## External Systems
 
+Systems marked **(future)** are planned integrations — none is connected in
+the current implementation. The current catalog data source is WooCommerce
+(offline CSV import; see ADR-004 and the import runbook).
+
 | System | Role |
 |--------|------|
 | PostgreSQL | Primary relational database |
 | Redis | Caching layer and session storage |
-| Payment Gateway | Online payment processing |
-| SMS Provider | OTP delivery and notifications |
-| Holo System | Legacy accounting and product data source |
-| Torob | Price comparison marketplace integration |
-| S3 Storage | Object storage for product media |
-| Email Provider | Transactional email delivery |
-| Tipax | Shipping carrier integration |
-| Iran Post | Shipping carrier integration |
+| Payment Gateway | Online payment processing (future) |
+| SMS Provider | OTP delivery and notifications (SMS OTP is implemented; email is future) |
+| Holo System | Legacy accounting and product data source (future source-adapter possibility; current source is WooCommerce) |
+| Torob | Price comparison marketplace integration (future) |
+| S3 Storage | Object storage for product media (future — current implementation stores media on local disk) |
+| Email Provider | Transactional email delivery (future) |
+| Tipax | Shipping carrier integration (future) |
+| Iran Post | Shipping carrier integration (future) |
 
 ---
 
@@ -60,10 +64,13 @@ This document describes the system context — the external actors, dependencies
               +--------------+-------------+
               |              |             |
          +----+----+  +-----+----+  +---+----+
-         |PostgreSQL|  |  Redis   |  |  S3    |
+         |PostgreSQL|  |  Redis   |  | local  |
+         |          |  |          |  |  disk  |
          +---------+  +----------+  +--------+
+         (S3 object storage is a future replacement
+          for the local-disk media driver)
 
-  External Integrations:
+  External Integrations (all future):
   +----------+ +----------+ +------+ +------+
   | Payment  | |   SMS    | | Holo | |Torob |
   | Gateway  | | Provider | |      | |      |

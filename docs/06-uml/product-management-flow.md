@@ -23,10 +23,13 @@ DRAFT -> PUBLISHED -> ARCHIVED
     - title (string)
     - description (text)
     - categoryId (UUID)
-    - brandId (UUID)
-    - sku (string)
+    - brandId (UUID, optional — products may be unbranded)
     - specifications: [{ key, value }]
     - status: DRAFT
+
+    Note: SKUs live on ProductVariant, not on Product — a simple product
+    carries its SKU on its single variant; variable products carry one SKU
+    per variation.
 
     -> [System] validates input
     -> [System] generates slug from title
@@ -42,8 +45,9 @@ DRAFT -> PUBLISHED -> ARCHIVED
     - files (images/videos)
     - type (IMAGE | VIDEO)
 
-    -> [System] uploads to S3 storage
-    -> [System] applies watermark to images (if enabled)
+    -> [System] stores binaries through the local-disk product-media
+       storage driver (object storage is future work)
+    -> [System] applies watermark to images/videos (if enabled)
     -> [System] creates ProductMedia records
     -> [System] updates product media order
 ```
@@ -71,7 +75,9 @@ DRAFT -> PUBLISHED -> ARCHIVED
     -> [System] validates product has at least one image
     -> [System] validates inventory is set
     -> [System] updates product status
-    -> [System] clears product cache in Redis
+    -> [System] invalidates the storefront catalog cache by POSTing the
+       affected cache tags to the storefront's /api/revalidate endpoint
+       (SS-217; authenticated by a shared token, not Redis)
 ```
 
 ---
@@ -90,20 +96,34 @@ DRAFT -> PUBLISHED -> ARCHIVED
 
 ```
 [Admin] -> POST /admin/brands
-    - name, slug, logo (file)
+    - name, slug
 
 -> Brand slugs are unique
--> Logo is uploaded to S3 storage
+-> Brand logo upload is not implemented yet (the schema has a nullable
+   Brand.logoKey reserved for future use; the product watermark instead
+   uses the centralized brand asset — see
+   apps/storefront/public/brand/README.md)
 ```
 
-# Holo Data Migration
+# Catalog Data Import
+
+The current production source is **WooCommerce** (per ADR-004). The import
+runs as repeatable CLI scripts with dry-run, resume and reporting — see the
+[import runbook](../07-development/import-runbook.md) and the
+[field mapping](../04-database/woo-import-mapping.md).
 
 ```
-[Admin] -> POST /admin/migrations/holo/import
-    -> [System] reads product data from Holo API
-    -> [System] maps Holo categories to platform categories
-    -> [System] creates Product, Category, Brand records
-    -> [System] imports product images
-    -> [System] sets initial inventory levels
-    -> [System] generates import report
+[Operator] -> pnpm --filter @sabz/api woo:dry-run -- --file <export.csv>
+[Operator] -> pnpm --filter @sabz/api woo:import  -- --file <export.csv>
+[Operator] -> pnpm --filter @sabz/api woo:media   -- --file <export.csv>
+    -> [System] parses the WooCommerce CSV export
+    -> [System] maps Woo categories/brands/attributes to platform records
+    -> [System] upserts Product, ProductVariant, Category, Brand records
+    -> [System] imports product images through the watermark pipeline
+    -> [System] records inventory receipts on the DEFAULT warehouse
+    -> [System] writes the import report (ImportRun/ImportRecord)
 ```
+
+A Holo import adapter remains a possible future source (the source-identity
+model is source-agnostic: `sourceSystem`/`sourceId`); no Holo integration
+exists today.

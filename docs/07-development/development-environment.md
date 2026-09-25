@@ -28,7 +28,7 @@ Application source directories are bind-mounted into the containers, so edits on
 - Docker 24+
 - Docker Compose v2.20+ (included with Docker Desktop)
 - Git
-- `pnpm` 8+ on the host (only required for commands that must run outside the containers)
+- `pnpm` 11.3 (see root `package.json` `packageManager`) on the host (only required for commands that must run outside the containers)
 
 No local Node.js, PostgreSQL, or Redis installation is required.
 
