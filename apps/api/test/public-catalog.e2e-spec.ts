@@ -394,6 +394,7 @@ describe('Public catalog API (SS-120/121/122) (e2e)', () => {
       expect(card.id).toBe(draft.productId);
       expect(card.name).toBe(name);
       expect(card.priceFrom).toBe('5000');
+      expect(card.compareAtPrice).toBeNull();
       expect(card.inStock).toBe(false);
       expect(card.primaryImageUrl).toBe(
         `/api/v1/catalog/media/${draft.mediaId}`,
@@ -403,6 +404,7 @@ describe('Public catalog API (SS-120/121/122) (e2e)', () => {
         'brand',
         'callForPrice',
         'category',
+        'compareAtPrice',
         'condition',
         'id',
         'inStock',
