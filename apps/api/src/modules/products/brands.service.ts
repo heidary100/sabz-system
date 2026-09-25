@@ -7,6 +7,11 @@ import { Prisma } from '@prisma/client';
 import type { BrandSummary, PaginatedResult } from '@sabz/types';
 import { PrismaService } from '../../common/database/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { StorefrontCacheService } from '../../common/storefront-cache/storefront-cache.service';
+import {
+  CATALOG_BRANDS_TAG,
+  CATALOG_PRODUCTS_TAG,
+} from '../../common/storefront-cache/catalog-tags';
 import { generateSlug } from './slug';
 import {
   CreateBrandDto,
@@ -33,6 +38,7 @@ export class BrandsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
+    private readonly storefrontCache: StorefrontCacheService,
   ) {}
 
   async list(query: ListBrandsQueryDto): Promise<PaginatedResult<BrandSummary>> {
@@ -115,6 +121,7 @@ export class BrandsService {
         return row;
       });
 
+      void this.storefrontCache.invalidate([CATALOG_BRANDS_TAG]);
       return this.toSummary(created);
     } catch (error) {
       if (this.isUniqueViolation(error)) {
@@ -197,6 +204,7 @@ export class BrandsService {
       if (!updated) {
         throw new NotFoundException('برند یافت نشد.');
       }
+      void this.storefrontCache.invalidate([CATALOG_BRANDS_TAG]);
       return this.toSummary(updated);
     } catch (error) {
       if (this.isUniqueViolation(error)) {
@@ -264,6 +272,9 @@ export class BrandsService {
     if (!deleted) {
       throw new NotFoundException('برند یافت نشد.');
     }
+    // A deleted brand changes which products match the storefront brand
+    // filter, so listings need dropping too — not just the facet list.
+    void this.storefrontCache.invalidate([CATALOG_BRANDS_TAG, CATALOG_PRODUCTS_TAG]);
     return this.toSummary(deleted);
   }
 

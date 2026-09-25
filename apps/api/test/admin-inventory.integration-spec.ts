@@ -8,6 +8,8 @@ import { AuditService } from '../src/modules/audit/audit.service';
 import { InventoryService } from '../src/modules/inventory/inventory.service';
 import { aggregateVariantStock } from '../src/modules/inventory/inventory-aggregate';
 
+import { StorefrontCacheService } from '../src/common/storefront-cache/storefront-cache.service';
+import { ConfigService } from '@nestjs/config';
 jest.setTimeout(30_000);
 
 describe('Admin inventory read API database integration (SS-112)', () => {
@@ -116,7 +118,7 @@ describe('Admin inventory read API database integration (SS-112)', () => {
     prisma = new PrismaService();
     await prisma.$connect();
     const audit = new AuditService(prisma);
-    service = new InventoryService(prisma, audit);
+    service = new InventoryService(prisma, audit, new StorefrontCacheService(new ConfigService()));
   });
 
   afterAll(async () => {

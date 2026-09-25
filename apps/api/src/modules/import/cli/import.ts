@@ -20,6 +20,8 @@ import { resolve } from 'node:path';
 import { PrismaService } from '../../../common/database/prisma.service';
 import { renderWriteSummary, WooRunner } from '../woo-runner';
 
+import { StorefrontCacheService } from '../../../common/storefront-cache/storefront-cache.service';
+import { ConfigService } from '@nestjs/config';
 function arg(name: string): string | undefined {
   const index = process.argv.indexOf(`--${name}`);
   return index === -1 ? undefined : process.argv[index + 1];
@@ -56,7 +58,7 @@ async function main(): Promise<void> {
   const prisma = new PrismaService();
   await prisma.$connect();
   try {
-    const runner = new WooRunner(prisma);
+    const runner = new WooRunner(prisma, new StorefrontCacheService(new ConfigService()));
     const { report, exitCode } = await runner.runImport({
       file: input,
       limit,

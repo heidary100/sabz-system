@@ -16,6 +16,11 @@ import { mkdir, readdir, rm, stat } from 'fs/promises';
 import { join } from 'path';
 import type { Readable } from 'stream';
 import { PrismaService } from '../../common/database/prisma.service';
+import { StorefrontCacheService } from '../../common/storefront-cache/storefront-cache.service';
+import {
+  CATALOG_PRODUCTS_TAG,
+  productDetailTag,
+} from '../../common/storefront-cache/catalog-tags';
 import { AuditService } from '../audit/audit.service';
 import { readFileHeader } from './media-file';
 import {
@@ -47,6 +52,7 @@ export class MediaService implements OnModuleInit {
     @Inject(PRODUCT_MEDIA_STORAGE) private readonly storage: ProductMediaStorage,
     private readonly mediaProcessing: MediaProcessingService,
     @Inject('PRODUCT_MEDIA_TEMP_DIR') private readonly tempDir: string,
+    private readonly storefrontCache: StorefrontCacheService,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -153,10 +159,11 @@ export class MediaService implements OnModuleInit {
         await this.storage.putFile(thumbnailKey, processed.thumbnailPath);
       }
 
+      let productSlug: string | null = null;
       const created = await this.prisma.$transaction(async (tx) => {
         // Row-lock the owning product: serializes concurrent uploads so the
         // exactly-one-primary invariant and sortOrder assignment are safe.
-        await this.assertProductForMutation(tx, productId);
+        productSlug = await this.assertProductForMutation(tx, productId);
         if (dto.variantId !== undefined) {
           await this.assertVariantOwnership(tx, productId, dto.variantId);
         }
@@ -241,6 +248,11 @@ export class MediaService implements OnModuleInit {
         return row;
       });
 
+      // Card thumbnails and detail galleries both come from cached reads.
+      void this.storefrontCache.invalidate([
+        CATALOG_PRODUCTS_TAG,
+        ...(productSlug !== null ? [productDetailTag(productSlug)] : []),
+      ]);
       return this.toSummary(created);
     } catch (error) {
       // The database write failed after the binaries were persisted:
@@ -660,9 +672,9 @@ export class MediaService implements OnModuleInit {
   private async assertProductForMutation(
     tx: Prisma.TransactionClient,
     productId: string,
-  ): Promise<void> {
-    const rows = await tx.$queryRaw<Array<{ id: string; status: string; deletedAt: Date | null }>>`
-      SELECT "id", "status", "deletedAt" FROM "Product" WHERE "id" = ${productId} FOR UPDATE
+  ): Promise<string> {
+    const rows = await tx.$queryRaw<Array<{ id: string; slug: string; status: string; deletedAt: Date | null }>>`
+      SELECT "id", "slug", "status", "deletedAt" FROM "Product" WHERE "id" = ${productId} FOR UPDATE
     `;
     const product = rows[0];
 
@@ -674,6 +686,7 @@ export class MediaService implements OnModuleInit {
         'محصول آرشیوشده قابل ویرایش نیست؛ ابتدا وضعیت آن را بازگردانید.',
       );
     }
+    return product.slug;
   }
 
   /**

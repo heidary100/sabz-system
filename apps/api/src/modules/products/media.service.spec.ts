@@ -12,6 +12,11 @@ import type { AuditService } from '../audit/audit.service';
 import type { ProductMediaStorage } from './storage/product-media-storage';
 import type { MediaProcessingService } from './media-processing/media-processing.service';
 
+import { StorefrontCacheService } from '../../common/storefront-cache/storefront-cache.service';
+
+const makeStorefrontCacheMock = (): StorefrontCacheService =>
+  ({ invalidate: jest.fn().mockResolvedValue(undefined) }) as unknown as StorefrontCacheService;
+
 const JPEG_BYTES = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46]);
 const MP4_BYTES = Buffer.from([0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70]);
 
@@ -107,6 +112,7 @@ describe('MediaService (SS-105)', () => {
       storage as unknown as ProductMediaStorage,
       processing as unknown as MediaProcessingService,
       tempDir,
+      makeStorefrontCacheMock(),
     );
   });
 

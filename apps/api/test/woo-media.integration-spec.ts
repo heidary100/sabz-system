@@ -15,6 +15,8 @@ import type { DownloadedMedia } from '../src/modules/import/woo-media';
 import { WooMediaRunner } from '../src/modules/import/woo-media-runner';
 import { WooRunner } from '../src/modules/import/woo-runner';
 
+import { StorefrontCacheService } from '../src/common/storefront-cache/storefront-cache.service';
+import { ConfigService } from '@nestjs/config';
 jest.setTimeout(180_000);
 
 /**
@@ -77,7 +79,7 @@ describe('WooCommerce media downloader integration (SS-208)', () => {
   beforeAll(async () => {
     prisma = new PrismaService();
     await prisma.$connect();
-    writer = new WooRunner(prisma);
+    writer = new WooRunner(prisma, new StorefrontCacheService(new ConfigService()));
     storageDir = mkdtempSync(join(tmpdir(), 'sabz-media-store-'));
     const tempDir = join(storageDir, 'tmp');
     storage = new LocalDiskMediaStorage(storageDir);

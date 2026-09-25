@@ -4,6 +4,8 @@ import { AuditService } from '../src/modules/audit/audit.service';
 import { PublicCatalogService } from '../src/modules/products/public-catalog.service';
 import { VariantsService } from '../src/modules/products/variants.service';
 
+import { StorefrontCacheService } from '../src/common/storefront-cache/storefront-cache.service';
+import { ConfigService } from '@nestjs/config';
 jest.setTimeout(60_000);
 
 /**
@@ -104,7 +106,7 @@ describe('Product minPrice denormalization (SS-217)', () => {
     prisma = new PrismaService();
     await prisma.$connect();
     const audit = new AuditService(prisma);
-    variants = new VariantsService(prisma, audit);
+    variants = new VariantsService(prisma, audit, new StorefrontCacheService(new ConfigService()));
     catalog = new PublicCatalogService(prisma);
   });
 

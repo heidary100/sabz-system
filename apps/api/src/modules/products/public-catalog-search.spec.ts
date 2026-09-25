@@ -56,16 +56,28 @@ describe('buildCatalogSearchPageSql (SS-216)', () => {
     expect(built.sql).toContain('ORDER BY p."name" ASC, p."id" ASC');
   });
 
-  it('price sorts use the PRICED-only lateral and NULLS-last semantics', () => {
+  it('price sorts order by the denormalized minPrice column, NULLS last both ways (SS-217)', () => {
     const asc = buildCatalogSearchPageSql({ ...base, sort: 'price_asc' });
-    expect(asc.sql).toContain("pv.\"priceStatus\" = 'PRICED'");
-    expect(asc.sql).toMatch(/\* \? ASC/);
-    expect(asc.values).toContain(1);
-    expect(asc.sql).toContain('(vp."minPrice" IS NULL) ASC');
-    expect(asc.sql).toContain('p."createdAt" DESC, p."id" DESC');
+    expect(asc.sql).toContain(
+      'ORDER BY p."minPrice" ASC NULLS LAST, p."createdAt" DESC, p."id" DESC',
+    );
+    // The pre-SS-217 LATERAL min(price) join is gone; the price-range
+    // predicate stays variant-level in the WHERE clause (asserted below with
+    // a range present — without one there is no variant predicate at all).
+    expect(asc.sql).not.toContain('LATERAL');
+
+    const ranged = buildCatalogSearchPageSql({
+      ...base,
+      sort: 'price_asc',
+      filters: { priceFrom: '200' },
+    });
+    expect(ranged.sql).toContain("pv.\"priceStatus\" = 'PRICED'");
+    expect(ranged.sql).toContain('pv."price" >= ?');
 
     const desc = buildCatalogSearchPageSql({ ...base, sort: 'price_desc' });
-    expect(desc.values).toContain(-1);
+    expect(desc.sql).toContain(
+      'ORDER BY p."minPrice" DESC NULLS LAST, p."createdAt" DESC, p."id" DESC',
+    );
   });
 
   it('computes the exact total of the full matching set via window count', () => {

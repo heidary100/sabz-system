@@ -2,6 +2,8 @@ import { PrismaService } from '../src/common/database/prisma.service';
 import { AuditService } from '../src/modules/audit/audit.service';
 import { CategoriesService } from '../src/modules/products/categories.service';
 
+import { StorefrontCacheService } from '../src/common/storefront-cache/storefront-cache.service';
+import { ConfigService } from '@nestjs/config';
 jest.setTimeout(30_000);
 
 describe('Admin category API database integration (SS-103)', () => {
@@ -33,7 +35,7 @@ describe('Admin category API database integration (SS-103)', () => {
     prisma = new PrismaService();
     await prisma.$connect();
     const audit = new AuditService(prisma);
-    service = new CategoriesService(prisma, audit);
+    service = new CategoriesService(prisma, audit, new StorefrontCacheService(new ConfigService()));
   });
 
   afterAll(async () => {

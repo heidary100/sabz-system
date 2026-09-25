@@ -20,6 +20,11 @@ import type {
   WarehouseSummary,
 } from '@sabz/types';
 import { PrismaService } from '../../common/database/prisma.service';
+import { StorefrontCacheService } from '../../common/storefront-cache/storefront-cache.service';
+import {
+  CATALOG_PRODUCTS_TAG,
+  productDetailTag,
+} from '../../common/storefront-cache/catalog-tags';
 import { AuditService } from '../audit/audit.service';
 import {
   activeInventoryWhere,
@@ -162,7 +167,32 @@ export class InventoryService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
+    private readonly storefrontCache: StorefrontCacheService,
   ) {}
+
+  /**
+   * SS-217: stock truth feeds storefront card badges, availability and the
+   * in-stock filter, so every committed inventory mutation drops the cached
+   * listing collection and the owning product's detail entry. Best-effort
+   * and never part of the transaction.
+   */
+  private invalidateCatalogForVariant(variantId: string): void {
+    void this.prisma.productVariant
+      .findUnique({
+        where: { id: variantId },
+        select: { product: { select: { slug: true } } },
+      })
+      .then((row) => {
+        if (!row) {
+          return undefined;
+        }
+        return this.storefrontCache.invalidate([
+          CATALOG_PRODUCTS_TAG,
+          productDetailTag(row.product.slug),
+        ]);
+      })
+      .catch(() => undefined);
+  }
 
   // ---------------------------------------------------------------------------
   // SS-113 mutations
@@ -234,6 +264,7 @@ export class InventoryService {
       }),
     );
 
+    this.invalidateCatalogForVariant((await this.readItemSummary(itemId)).variant.id);
     return this.readItemSummary(itemId);
   }
 
@@ -291,6 +322,7 @@ export class InventoryService {
       }),
     );
 
+    this.invalidateCatalogForVariant((await this.readItemSummary(itemId)).variant.id);
     return this.readItemSummary(itemId);
   }
 
@@ -718,7 +750,9 @@ export class InventoryService {
       }),
     );
 
-    return this.readReservationSummary(reservationId);
+    const reserved = await this.readReservationSummary(reservationId);
+    this.invalidateCatalogForVariant(reserved.variant.id);
+    return reserved;
   }
 
   /**
@@ -750,7 +784,9 @@ export class InventoryService {
       }),
     );
 
-    return this.readReservationSummary(id);
+    const released = await this.readReservationSummary(id);
+    this.invalidateCatalogForVariant(released.variant.id);
+    return released;
   }
 
   /**
@@ -779,7 +815,9 @@ export class InventoryService {
       }),
     );
 
-    return this.readReservationSummary(id);
+    const consumed = await this.readReservationSummary(id);
+    this.invalidateCatalogForVariant(consumed.variant.id);
+    return consumed;
   }
 
   /**

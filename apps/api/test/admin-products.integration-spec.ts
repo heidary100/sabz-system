@@ -3,6 +3,8 @@ import { PrismaService } from '../src/common/database/prisma.service';
 import { AuditService } from '../src/modules/audit/audit.service';
 import { ProductsService } from '../src/modules/products/products.service';
 
+import { StorefrontCacheService } from '../src/common/storefront-cache/storefront-cache.service';
+import { ConfigService } from '@nestjs/config';
 jest.setTimeout(30_000);
 
 describe('Admin product API database integration (SS-102)', () => {
@@ -70,7 +72,7 @@ describe('Admin product API database integration (SS-102)', () => {
     prisma = new PrismaService();
     await prisma.$connect();
     const audit = new AuditService(prisma);
-    service = new ProductsService(prisma, audit);
+    service = new ProductsService(prisma, audit, new StorefrontCacheService(new ConfigService()));
   });
 
   afterAll(async () => {

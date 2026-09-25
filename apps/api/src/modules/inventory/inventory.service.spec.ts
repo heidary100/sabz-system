@@ -9,6 +9,11 @@ import { PrismaService } from '../../common/database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { InventoryService } from './inventory.service';
 
+import { StorefrontCacheService } from '../../common/storefront-cache/storefront-cache.service';
+
+const makeStorefrontCacheMock = (): StorefrontCacheService =>
+  ({ invalidate: jest.fn().mockResolvedValue(undefined) }) as unknown as StorefrontCacheService;
+
 const now = new Date('2026-08-21T00:00:00.000Z');
 const actorId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 
@@ -104,7 +109,7 @@ describe('InventoryService', () => {
       count: jest.Mock;
       findMany: jest.Mock;
     };
-    productVariant: { findFirst: jest.Mock };
+    productVariant: { findFirst: jest.Mock; findUnique: jest.Mock };
     warehouse: { findFirst: jest.Mock };
     user: { findMany: jest.Mock };
     reservation: {
@@ -170,7 +175,7 @@ describe('InventoryService', () => {
         count: jest.fn(),
         findMany: jest.fn(),
       },
-      productVariant: { findFirst: jest.fn() },
+      productVariant: { findFirst: jest.fn(), findUnique: jest.fn().mockResolvedValue(null) },
       warehouse: { findFirst: jest.fn() },
       user: { findMany: jest.fn() },
       reservation: {
@@ -195,6 +200,7 @@ describe('InventoryService', () => {
     service = new InventoryService(
       prisma as unknown as PrismaService,
       audit as unknown as AuditService,
+      makeStorefrontCacheMock(),
     );
   });
 

@@ -10,6 +10,8 @@ import { AuditService } from '../src/modules/audit/audit.service';
 import { InventoryService } from '../src/modules/inventory/inventory.service';
 import { aggregateVariantStock } from '../src/modules/inventory/inventory-aggregate';
 
+import { StorefrontCacheService } from '../src/common/storefront-cache/storefront-cache.service';
+import { ConfigService } from '@nestjs/config';
 jest.setTimeout(60_000);
 
 class FailingAuditService extends AuditService {
@@ -157,9 +159,9 @@ describe('Admin inventory reservation API database integration (SS-115)', () => 
     prisma = new PrismaService();
     await prisma.$connect();
     const audit = new AuditService(prisma);
-    service = new InventoryService(prisma, audit);
+    service = new InventoryService(prisma, audit, new StorefrontCacheService(new ConfigService()));
     failingAudit = new FailingAuditService(prisma);
-    failingService = new InventoryService(prisma, failingAudit);
+    failingService = new InventoryService(prisma, failingAudit, new StorefrontCacheService(new ConfigService()));
   });
 
   afterAll(async () => {

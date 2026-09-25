@@ -3,6 +3,11 @@ import { PrismaService } from '../../common/database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { VariantsService } from './variants.service';
 
+import { StorefrontCacheService } from '../../common/storefront-cache/storefront-cache.service';
+
+const makeStorefrontCacheMock = (): StorefrontCacheService =>
+  ({ invalidate: jest.fn().mockResolvedValue(undefined) }) as unknown as StorefrontCacheService;
+
 function makeVariantRow(overrides: Record<string, unknown> = {}) {
   return {
     id: 'var-1',
@@ -28,14 +33,17 @@ function makeProductRow(overrides: Record<string, unknown> = {}) {
 }
 
 type TxMock = {
+  $queryRaw: jest.Mock;
   product: {
     findUnique: jest.Mock;
+    update: jest.Mock;
   };
   productVariant: {
     findUnique: jest.Mock;
     findMany: jest.Mock;
     create: jest.Mock;
     updateMany: jest.Mock;
+    aggregate: jest.Mock;
   };
   auditLog: { create: jest.Mock };
 };
@@ -57,12 +65,14 @@ describe('VariantsService', () => {
 
   beforeEach(() => {
     tx = {
-      product: { findUnique: jest.fn() },
+      $queryRaw: jest.fn().mockResolvedValue([]),
+      product: { findUnique: jest.fn(), update: jest.fn().mockResolvedValue({}) },
       productVariant: {
         findUnique: jest.fn(),
         findMany: jest.fn(),
         create: jest.fn(),
         updateMany: jest.fn(),
+        aggregate: jest.fn().mockResolvedValue({ _min: { price: null } }),
       },
       auditLog: { create: jest.fn() },
     };
@@ -91,6 +101,7 @@ describe('VariantsService', () => {
     service = new VariantsService(
       prisma as unknown as PrismaService,
       audit as unknown as AuditService,
+      makeStorefrontCacheMock(),
     );
   });
 
@@ -435,6 +446,7 @@ describe('VariantsService', () => {
         makeVariantRow({ price: { toString: () => '100.00' } }),
       );
       tx.productVariant.updateMany.mockResolvedValue({ count: 1 });
+      tx.product.findUnique.mockResolvedValue({ slug: 'prod-1' });
 
       const result = await service.softDelete('var-1', 'actor-1');
 

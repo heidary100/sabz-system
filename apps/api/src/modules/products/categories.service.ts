@@ -12,6 +12,8 @@ import type {
 } from '@sabz/types';
 import { PrismaService } from '../../common/database/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { StorefrontCacheService } from '../../common/storefront-cache/storefront-cache.service';
+import { CATALOG_TREE_TAG } from '../../common/storefront-cache/catalog-tags';
 import { generateSlug } from './slug';
 import {
   CreateCategoryDto,
@@ -50,6 +52,7 @@ export class CategoriesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
+    private readonly storefrontCache: StorefrontCacheService,
   ) {}
 
   async list(
@@ -195,6 +198,7 @@ export class CategoriesService {
         return row;
       });
 
+      void this.storefrontCache.invalidate([CATALOG_TREE_TAG]);
       return this.toDetail(created);
     } catch (error) {
       if (this.isUniqueViolation(error)) {
@@ -289,6 +293,7 @@ export class CategoriesService {
       if (!updated) {
         throw new NotFoundException('دسته بندی یافت نشد.');
       }
+      void this.storefrontCache.invalidate([CATALOG_TREE_TAG]);
       return this.toDetail(updated);
     } catch (error) {
       if (this.isUniqueViolation(error)) {
@@ -412,6 +417,7 @@ export class CategoriesService {
     if (!updated) {
       throw new NotFoundException('دسته بندی یافت نشد.');
     }
+    void this.storefrontCache.invalidate([CATALOG_TREE_TAG]);
     return this.toDetail(updated);
   }
 
@@ -482,6 +488,7 @@ export class CategoriesService {
     if (!deleted) {
       throw new NotFoundException('دسته بندی یافت نشد.');
     }
+    void this.storefrontCache.invalidate([CATALOG_TREE_TAG]);
     return this.toDetail(deleted);
   }
 
