@@ -7,18 +7,23 @@ import {
   shouldShowSection,
 } from '@/lib/home';
 import { CategoryTile } from '@/components/ecommerce/category/category-tile';
-import { Hero } from '@/components/ecommerce/hero/hero';
+import { CategoryBanners } from '@/components/ecommerce/category/category-banners';
+import { HeroSlider } from '@/components/ecommerce/hero/hero-slider';
 import { AnnouncementBar } from '@/components/ecommerce/promo/announcement-bar';
+import { SaleBanner } from '@/components/ecommerce/promo/sale-banner';
 import { ProductCard } from '@/components/ecommerce/product-card/product-card';
 import { SectionHeader } from '@/components/ecommerce/ui/section-header';
+import { BrandShowcase } from '@/components/ecommerce/brand/brand-showcase';
+import { AppSection } from '@/components/ecommerce/app/app-section';
 import { TrustStrip } from '@/components/ecommerce/trust/trust-strip';
 
 /**
- * Home page (SS-128, SS-215 reality): announcement, factual hero, curated
- * categories, in-stock + latest product rails, and the configured trust
- * strip. Queries stay bounded (`newest` only — never price sorts, never the
- * full catalog); empty rails and unconfigured sections hide instead of
- * rendering placeholders.
+ * Home page (SS-128, SS-215, rebuilt SS-224): announcement, configured sale
+ * countdown bar, cinematic hero slider, collection banners, the verified
+ * trust strip, curated categories, brand-showcase tabs, in-stock + latest +
+ * alphabetical rails, and the (verified-only) app section. Queries stay
+ * bounded (`newest`/`name`, never unbounded price sorts); empty rails and
+ * unconfigured sections hide instead of rendering placeholders.
  *
  * `connection()` keeps rendering at request time (build-time prerendering
  * would snapshot stale data or fail when the API is unreachable in CI)
@@ -26,9 +31,16 @@ import { TrustStrip } from '@/components/ecommerce/trust/trust-strip';
  */
 export default async function HomePage() {
   await connection();
-  // Three bounded, independent queries in parallel: the tree plus one
-  // `newest` page for each rail (latest + in-stock availability truth).
-  const [categories, latest, inStock] = await Promise.all([
+  // Bounded, independent queries in parallel: the tree, one `newest` page per
+  // rail (latest + in-stock availability truth), one `name` page for the
+  // alphabetical browse rail, and one newest page per configured brand tab.
+  const brandRails = await Promise.all(
+    homeConfig.brandTabs.map(async (tab) => ({
+      ...tab,
+      products: await fetchProducts({ brand: tab.slug, limit: 4, sort: 'newest' }),
+    })),
+  );
+  const [categories, latest, inStock, alphabetical] = await Promise.all([
     fetchCategoryTree(),
     fetchProducts({ sort: 'newest', limit: homeConfig.latestLimit }),
     fetchProducts({
@@ -36,6 +48,7 @@ export default async function HomePage() {
       limit: homeConfig.inStockLimit,
       inStockOnly: true,
     }),
+    fetchProducts({ sort: 'name', limit: homeConfig.alphabeticalLimit }),
   ]);
   // Curated category selection in config order with a deterministic
   // tree-order fallback when nothing is curated (SS-215 foundation).
@@ -45,12 +58,27 @@ export default async function HomePage() {
     homeConfig.maxCategoryTiles,
   );
   const announcement = resolveAnnouncement(homeConfig.announcement);
+  const showcaseGroups = brandRails.map((rail) => ({
+    name: rail.name,
+    slug: rail.slug,
+    products: rail.products.items,
+  }));
 
   return (
     <div>
       {announcement ? <AnnouncementBar announcement={announcement} /> : null}
+      {homeConfig.saleBanner ? <SaleBanner banner={homeConfig.saleBanner} /> : null}
 
-      <Hero />
+      {/* Hero: slider when configured, static typographic hero otherwise. */}
+      {homeConfig.heroSlides.length > 0 ? (
+        <HeroSlider slides={homeConfig.heroSlides} />
+      ) : null}
+
+      {/* Collection banners (verified catalog routes only). */}
+      <CategoryBanners banners={homeConfig.categoryBanners} />
+
+      {/* Trust strip: the store's own verified claims. */}
+      <TrustStrip items={homeConfig.trustItems} />
 
       {/* Featured categories */}
       {shouldShowSection(featuredCategories) ? (
@@ -64,26 +92,31 @@ export default async function HomePage() {
         </section>
       ) : null}
 
+      {/* Brand showcase tabs */}
+      <BrandShowcase groups={showcaseGroups} />
+
       {/* In-stock products: what the customer can actually get now */}
       {shouldShowSection(inStock.items) ? (
-        <section aria-labelledby="instock-heading" className="mx-auto max-w-7xl px-4 pb-12 sm:px-6 sm:pb-14 lg:px-8">
-          <SectionHeader
-            id="instock-heading"
-            title="موجود در انبار"
-            subtitle="محصولاتی که هم‌اکنون موجودی دارند"
-            actionHref="/products?inStockOnly=true"
-          />
-          <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-            {inStock.items.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
+        <section aria-labelledby="instock-heading" className="border-t border-sand-200 bg-white">
+          <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-14 lg:px-8">
+            <SectionHeader
+              id="instock-heading"
+              title="موجود در انبار"
+              subtitle="محصولاتی که هم‌اکنون موجودی دارند"
+              actionHref="/products?inStockOnly=true"
+            />
+            <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+              {inStock.items.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
           </div>
         </section>
       ) : null}
 
       {/* Latest products: newest published rows */}
       {shouldShowSection(latest.items) ? (
-        <section aria-labelledby="latest-heading" className="mx-auto max-w-7xl px-4 pb-12 sm:px-6 sm:pb-14 lg:px-8">
+        <section aria-labelledby="latest-heading" className="mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-14 lg:px-8">
           <SectionHeader
             id="latest-heading"
             title="جدیدترین محصولات"
@@ -98,7 +131,32 @@ export default async function HomePage() {
         </section>
       ) : null}
 
-      {/* Catalog pending notice: only when both rails are empty. */}
+      {/* Alphabetical browse rail: the live site's A–Z directory, compact. */}
+      {shouldShowSection(alphabetical.items) ? (
+        <section aria-labelledby="alphabetical-heading" className="border-t border-sand-200 bg-white">
+          <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-14 lg:px-8">
+            <SectionHeader
+              id="alphabetical-heading"
+              title="مرور الفبایی محصولات"
+              subtitle="مرور همه کالاها بر اساس نام"
+              actionLabel="مرور الفبایی کامل"
+              actionHref="/products?sort=name"
+            />
+            <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+              {alphabetical.items.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      {/* Verified app distribution links only; hidden until supplied. */}
+      <div className="pt-12 sm:pt-14">
+        <AppSection links={homeConfig.appLinks} />
+      </div>
+
+      {/* Catalog pending notice: only when every rail is empty. */}
       {!shouldShowSection(inStock.items) && !shouldShowSection(latest.items) ? (
         <section className="mx-auto max-w-7xl px-4 py-16 text-center sm:px-6 lg:px-8">
           <p className="text-sm text-gray-500">
@@ -106,8 +164,6 @@ export default async function HomePage() {
           </p>
         </section>
       ) : null}
-
-      <TrustStrip items={homeConfig.trustItems} />
     </div>
   );
 }
