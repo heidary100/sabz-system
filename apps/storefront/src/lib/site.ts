@@ -60,6 +60,7 @@ export const siteConfig: SiteConfig = {
     { label: 'بله', href: 'https://web.bale.ai/@sabzsistem' },
   ],
   legalLinks: [
+    { label: 'شرایط و قوانین', href: '/terms' },
     { label: 'نماد اعتماد الکترونیکی', href: 'https://trustseal.enamad.ir/?id=147499&Code=L40xHynZjPMelCe7vsbe' },
     { label: 'تضمین قیمت در ترب', href: 'https://torob.com/shop/5732' },
   ],
@@ -95,15 +96,11 @@ export interface FooterLink {
  * Routes that exist in the app router but are placeholders without real
  * customer functionality (later milestones own them). They must resolve by
  * URL but must NOT be advertised in the footer — advertising them would be
- * fake navigation.
+ * fake navigation. SS-229 made /about, /contact and /terms real content
+ * pages, so they are advertised again; /cart and /account remain until the
+ * commerce stage.
  */
-const PLACEHOLDER_ROUTES = new Set([
-  '/cart',
-  '/account',
-  '/about',
-  '/contact',
-  '/terms',
-]);
+const PLACEHOLDER_ROUTES = new Set(['/cart', '/account']);
 
 /** Minimal external-URL safety: absolute URL with an expected protocol only. */
 export function isSafeExternalUrl(href: string): boolean {
