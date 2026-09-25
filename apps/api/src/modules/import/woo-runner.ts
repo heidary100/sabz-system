@@ -14,6 +14,7 @@ import {
 import { PrismaService } from '../../common/database/prisma.service';
 import { generateSlug, ensureUniqueSlug, slugify } from '../products/slug';
 import { normalizeTagName } from '../products/tags-normalize';
+import { recomputeProductMinPrice } from '../products/min-price';
 import {
   ATTRIBUTE_SOURCE_WOO_ATTR,
   ATTRIBUTE_SOURCE_WOO_CUSTOM,
@@ -435,6 +436,8 @@ export class WooRunner {
         const variantId = await this.upsertVariant(tx, state, productId, plan, null);
         await this.applyVariantAxes(tx, state, variantId, plan.variantAxes);
         await this.applyInventory(tx, state, variantId, plan.stockQty, plan.sourceId, warehouseId, plan.actor);
+        // One tx touches one product: recompute once per tx (SS-217).
+        await recomputeProductMinPrice(tx, productId);
       }
 
       const specs = [...plan.specs, ...plan.customSpecs];
@@ -480,6 +483,8 @@ export class WooRunner {
       if (includeMediaRefs) {
         await this.applyMediaRefs(tx, state, parentProductId, variantId, plan);
       }
+      // One tx touches one parent's variants: recompute once per tx (SS-217).
+      await recomputeProductMinPrice(tx, parentProductId);
     });
   }
 

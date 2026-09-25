@@ -393,6 +393,15 @@ model Product {
   sourceId     String?
   sourceType   String?
 
+  /// SS-217 denormalization: minimum price among live (deletedAt IS NULL)
+  /// variants whose priceStatus is PRICED. compareAtPrice never contributes
+  /// (it is a static reference price). NULL = no live priced variant
+  /// (call-for-price product). Maintained transactionally by
+  /// recomputeProductMinPrice() on every variant write; ordering indexes are
+  /// partial raw-SQL objects in the ss_217 migration (Prisma cannot express
+  /// partial indexes — same drift policy as SS-216, ADR-006).
+  minPrice Decimal? @db.Decimal(12, 2)
+
   variants ProductVariant[]
   media    ProductMedia[]
   specs    ProductAttributeValue[]

@@ -8,6 +8,7 @@ import { PriceStatus, Prisma, ProductStatus } from '@prisma/client';
 import type { VariantSummary } from '@sabz/types';
 import { PrismaService } from '../../common/database/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { recomputeProductMinPrice } from './min-price';
 import { CreateVariantDto, UpdateVariantDto } from './dto';
 
 const variantSelect = {
@@ -107,6 +108,8 @@ export class VariantsService {
           tx,
         );
 
+        await recomputeProductMinPrice(tx, productId);
+
         return row;
       });
 
@@ -174,6 +177,8 @@ export class VariantsService {
           tx,
         );
 
+        await recomputeProductMinPrice(tx, target.productId);
+
         const current = await tx.productVariant.findUnique({
           where: { id: variantId },
           select: variantSelect,
@@ -222,6 +227,8 @@ export class VariantsService {
         },
         tx,
       );
+
+      await recomputeProductMinPrice(tx, target.productId);
 
       return target;
     });
