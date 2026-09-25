@@ -7,7 +7,7 @@ import { truncateQuery } from '@sabz/search';
  */
 
 /** Max top-level categories shown in the desktop nav bar before overflow. */
-export const DESKTOP_NAV_LIMIT = 6;
+export const DESKTOP_NAV_LIMIT = 8;
 
 /** Max child links previewed inside an index tile before the overflow link. */
 export const CHILD_PREVIEW_LIMIT = 5;
@@ -38,16 +38,35 @@ export function categoryHasChildren(node: CatalogCategoryNode): boolean {
 }
 
 /**
- * Resolves the nodes the nav actually renders. The real catalog is a single
- * root ("کالای دیجیتال") with the browsable tree underneath — rendering the
- * lone root as one pill would hide the whole store. So a sole parent unwraps
- * to its children; multi-root trees (tests, future data) pass through.
+ * Resolves the nodes the nav actually renders (SS-223).
+ *
+ * The real catalog is a single artificial trunk («کالای دیجیتال», ~99% of
+ * products) plus stray minor roots — rendering the trunk as one pill would
+ * hide the whole store. So a root holding at least DOMINANT_ROOT_SHARE of
+ * all published products is unwrapped to its children, which become the
+ * effective roots; the minor roots stay visible after them (reachable until
+ * the SS-228 category merge). Balanced multi-root trees and a childless
+ * sole root pass through untouched.
  */
+const DOMINANT_ROOT_SHARE = 0.9;
+
 export function navRoots(categories: CatalogCategoryNode[]): CatalogCategoryNode[] {
-  if (categories.length === 1 && categories[0]!.children.length > 0) {
-    return categories[0]!.children;
+  const total = categories.reduce(
+    (sum, category) => sum + category.publishedProductCount,
+    0,
+  );
+  if (total === 0) {
+    return categories;
   }
-  return categories;
+  const trunk = categories.find(
+    (category) =>
+      category.children.length > 0 &&
+      category.publishedProductCount / total >= DOMINANT_ROOT_SHARE,
+  );
+  if (!trunk) {
+    return categories;
+  }
+  return [...trunk.children, ...categories.filter((category) => category !== trunk)];
 }
 
 /**

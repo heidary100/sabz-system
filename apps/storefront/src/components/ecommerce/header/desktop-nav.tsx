@@ -76,7 +76,7 @@ export function DesktopNav({ categories }: { categories: CatalogCategoryNode[] }
               onFocus={() => openMenu(category.slug)}
             >
               <span
-                className={`relative flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-sabz-50 hover:text-sabz-800 ${
+                className={`relative flex items-center whitespace-nowrap rounded-md px-2.5 py-2 text-sm font-medium transition-colors hover:bg-sabz-50 hover:text-sabz-800 ${
                   openSlug === category.slug ? 'bg-sabz-50 text-sabz-800' : 'text-gray-700'
                 }`}
               >
@@ -129,7 +129,7 @@ export function DesktopNav({ categories }: { categories: CatalogCategoryNode[] }
             <li key={category.id}>
               <Link
                 href={`/categories/${category.slug}`}
-                className="group flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium text-gray-700 hover:bg-sabz-50 hover:text-sabz-800"
+                className="group flex items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-2 text-sm font-medium text-gray-700 hover:bg-sabz-50 hover:text-sabz-800"
               >
                 <span>{category.name}</span>
                 <span className="rounded-full bg-sabz-50 px-1.5 py-0.5 text-[11px] font-semibold text-sabz-600">

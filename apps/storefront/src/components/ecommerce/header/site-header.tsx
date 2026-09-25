@@ -5,26 +5,28 @@ import { BrandLockup } from '@/components/ecommerce/brand/brand-lockup';
 import { DesktopNav } from './desktop-nav';
 import { MobileMenu } from './mobile-menu';
 import { SearchInput } from './search-input';
+import { SearchOverlay } from './search-overlay';
 
 /**
- * Storefront shell header (SS-124, SS-211): two-row layout — row 1 holds the
- * drawer toggle, brand lockup, search and account/cart icons; row 2 is the
- * desktop two-level category nav. The cart badge was removed (honest
- * placeholder until the commerce milestone); search is visible on mobile as
- * its own header row instead of being drawer-buried.
+ * Storefront shell header (SS-124, SS-211, SS-223): two-row layout — row 1
+ * holds the drawer toggle, brand lockup, the desktop search trigger (opens
+ * the full-screen overlay) and account/cart icons; row 2 is the desktop
+ * category nav over the unwrapped effective roots. The cart badge was
+ * removed (honest placeholder until the commerce milestone); search is
+ * visible on mobile as its own header row instead of being drawer-buried.
  */
 export function SiteHeader({ categories }: { categories: CatalogCategoryNode[] }) {
   return (
-    <header className="sticky top-0 z-40 border-b border-sand-200 bg-white/95 backdrop-blur">
+    <header className="sticky top-0 z-40 border-b border-sand-200 bg-white/85 backdrop-blur-md">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center gap-2 sm:gap-4">
           <MobileMenu categories={categories} />
 
           <BrandLockup />
 
-          <div className="hidden max-w-md flex-1 lg:flex">
-            <Suspense fallback={<div className="h-9 flex-1 rounded-md bg-sand-100" />}>
-              <SearchInput inputId="search-desktop" />
+          <div className="hidden max-w-md flex-1 lg:block">
+            <Suspense fallback={<div className="h-10 flex-1 rounded-full bg-sand-100" />}>
+              <SearchOverlay categories={categories} />
             </Suspense>
           </div>
 

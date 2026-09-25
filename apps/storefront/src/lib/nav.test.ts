@@ -51,13 +51,31 @@ describe('navRoots', () => {
     expect(navRoots(tree).map((n) => n.slug)).toEqual(['a', 'b']);
   });
 
-  it('passes multi-root trees through untouched', () => {
-    const tree = [node('a'), node('b')];
+  it('unwraps a dominant trunk and keeps minor roots after its children (SS-223)', () => {
+    const trunk = {
+      ...node('trunk', [node('c1'), node('c2'), node('c3')]),
+      publishedProductCount: 1000,
+    };
+    const minor = { ...node('minor'), publishedProductCount: 9 };
+    const roots = navRoots([trunk, minor]);
+    expect(roots.map((n) => n.slug)).toEqual(['c1', 'c2', 'c3', 'minor']);
+  });
+
+  it('keeps a balanced multi-root tree untouched (no dominant trunk)', () => {
+    const a = { ...node('a', [node('a1')]), publishedProductCount: 50 };
+    const b = { ...node('b', [node('b1')]), publishedProductCount: 50 };
+    const tree = [a, b];
     expect(navRoots(tree)).toBe(tree);
   });
 
   it('keeps a childless sole root (nothing to unwrap)', () => {
     const tree = [node('root')];
+    expect(navRoots(tree)).toBe(tree);
+  });
+
+  it('never unwraps when all counts are zero', () => {
+    const empty = { ...node('root', [node('a')]), publishedProductCount: 0 };
+    const tree = [empty];
     expect(navRoots(tree)).toBe(tree);
   });
 });
