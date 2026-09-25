@@ -653,6 +653,13 @@ Returns the operational summary.
 
 # 6. Product API
 
+> **Status: future/aspirational (not implemented as written).** The storefront
+> product routes sketched in §6–§7 and the commerce routes in §8–§12 (cart,
+> wishlist, checkout, orders, payment) are planned for later milestones —
+> nothing implements these paths today. The implemented product surfaces are:
+> administration under `/admin/products` (§14, §14.1) and the public
+> read-only catalog under `/catalog/*` (§29).
+
 GET /products
 
 Retrieve paginated product list.
@@ -708,6 +715,11 @@ Products within category.
 ---
 
 # 8. Shopping Cart API
+
+> **Status: future/aspirational (Milestone 3+).** No cart, wishlist,
+> checkout, order or payment endpoint exists in the current implementation;
+> the sketches below are the planned shapes. Commerce actions are out of
+> scope until Milestone 3.
 
 GET /cart
 
@@ -912,7 +924,8 @@ Pricing boundary: `Product` has no price and no SKU; the retail/base price and
 the sellable SKU live on `ProductVariant` (created in SS-104). Tier pricing,
 discounts and pricing rules are out of scope for SS-102.
 
-Deferred: product media/storage (SS-105), storefront/public product APIs.
+Deferred: product media/storage (SS-105). The public/storefront catalog API
+is implemented as of Milestone 2 — see §29 (Public Catalog API, `/catalog/*`).
 
 ## 14.1 Variant & Minimal Inventory Administration (SS-104)
 

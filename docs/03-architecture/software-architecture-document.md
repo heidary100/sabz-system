@@ -81,13 +81,16 @@ Infrastructure Layer
 
 - PostgreSQL
 - Redis
-- Object Storage
-- Search Engine
-- Background Jobs
+
+The following infrastructure pieces appear in target designs but are **not
+part of the current implementation**: object storage, a dedicated search
+engine, and background-job processing. Media and documents are stored on
+local disk through storage-driver abstractions; search runs in PostgreSQL;
+media/import processing is in-process.
 
 ↓
 
-External Services
+External Services (future integrations — none are currently connected)
 
 - Payment Gateway
 - Holo Accounting
@@ -101,13 +104,20 @@ External Services
 
 # 5. Technology Stack
 
-Frontend
+Frontend (Storefront)
 
-- Next.js
+- Next.js (App Router)
 - React
 - TypeScript
+- Tailwind CSS (Tailwind Plus Ecommerce components)
+
+Frontend (Admin)
+
+- React (Vite)
+- TypeScript
 - Tailwind CSS
-- shadcn/ui
+- Catalyst UI Kit
+- Persian-first, RTL
 
 Backend
 
@@ -129,11 +139,15 @@ ORM
 
 Storage
 
-- S3-compatible Object Storage
+- Current implementation: local-disk storage drivers (business documents and
+  product media) behind storage abstractions.
+- Future/planned: S3-compatible object storage.
 
 Background Processing
 
-- BullMQ
+- Current implementation: none — media watermarking and catalog-import
+  batching run in-process.
+- Future/planned: a job queue (e.g. BullMQ).
 
 Authentication
 
@@ -143,9 +157,8 @@ Authentication
 
 Deployment
 
-- Docker
-- Docker Compose
-- Nginx
+- Current implementation: Docker, Docker Compose (local development).
+- Future/planned: production deployment behind a reverse proxy (e.g. Nginx).
 
 ---
 
@@ -276,7 +289,7 @@ The following concerns apply to every module:
 - Pagination
 - Image optimization
 - CDN-ready media delivery
-- Background job processing
+- Background job processing (future — processing is in-process today)
 - API response caching
 
 ---

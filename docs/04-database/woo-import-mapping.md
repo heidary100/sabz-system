@@ -2,8 +2,10 @@
 
 Source dataset: `wc-product-export-20-9-2026-*.csv` (14 MB, Persian-language
 WooCommerce export, **1152 rows × 243 columns**). The file lives outside Git;
-fetch location + checksum are recorded with the release process (SS-219
-runbook). The executable source of truth for column dispositions is
+the fetch procedure and the SHA-256 checksum of the current canonical export
+are recorded in the
+[import runbook](../07-development/import-runbook.md) (SS-219). The
+executable source of truth for column dispositions is
 `apps/api/src/modules/import/woo-columns.ts` — this document explains the
 reasoning; the code enforces it (a spec asserts zero unmapped headers).
 

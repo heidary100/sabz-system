@@ -28,10 +28,12 @@ The repository ships a complete, reproducible Docker development/demo environmen
 | [Database Design](docs/04-database/database-design-specification.md) | Database schema (DDS) |
 | [Entity Relationship Model](docs/04-database/entity-relationship-model.md) | Entity relationships |
 | [Migrations Guide](docs/04-database/migrations-guide.md) | Database migration workflow |
+| [Woo Import Mapping](docs/04-database/woo-import-mapping.md) | WooCommerce → Sabz field mapping, dataset traps, import policies |
 | [API Specification](docs/05-api/api-specification.md) | REST API endpoints |
 | [Authentication API](docs/05-api/authentication-api.md) | Auth API reference |
 | [UML Diagrams](docs/06-uml/) | Use cases, domain model, flows |
 | [Development Guide](docs/07-development/development-guide.md) | Local setup and project structure |
+| [Catalog Import Runbook](docs/07-development/import-runbook.md) | Empty machine → demo catalog or real WooCommerce import → storefront |
 | [Docker Development Environment](docs/07-development/development-environment.md) | Containerized local development — deep dive |
 | [Local Environment Setup](docs/07-development/local-environment.md) | Environment variable contract and host-native setup |
 | [Coding Standards](docs/07-development/coding-standards.md) | Code style and conventions |

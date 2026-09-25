@@ -13,10 +13,10 @@ This guide covers the local development environment setup and day-to-day develop
 
 # Prerequisites
 
-- Node.js 20+
-- pnpm 8+
+- Node.js 22 (see `.nvmrc`; `engines` floor is 20)
+- pnpm 11.3 (see root `package.json` `packageManager`)
 - Docker and Docker Compose
-- PostgreSQL 15+
+- PostgreSQL 16 (provided by the Docker Compose `postgres` service)
 - Git
 
 ---
@@ -66,24 +66,33 @@ pnpm --filter @sabz/api prisma:generate
 ## 6. Seed Development Data
 
 ```bash
-npx prisma db seed
+pnpm --filter @sabz/api prisma:seed
 ```
+
+> The seed is development-only (it refuses to run unless
+> `NODE_ENV=development`) and is idempotent. Inside Docker Compose the API
+> container runs migrations and the seed automatically at startup.
 
 ## 7. Start Development Servers
 
 ```bash
-# Start API (NestJS)
-cd apps/api
-pnpm dev:start
-
-# Start Storefront (Next.js)
-cd apps/storefront
+# Everything at once (API :3000, admin :5173, storefront :3001):
 pnpm dev
 
-# Start Admin (React)
-cd apps/admin
-pnpm dev
+# Or per app:
+pnpm --filter @sabz/api dev        # API (NestJS, watch mode)
+pnpm --filter @sabz/storefront dev # Storefront (Next.js)
+pnpm --filter @sabz/admin dev      # Admin (React + Vite)
 ```
+
+---
+
+# Importing the Real Catalog
+
+The WooCommerce import CLIs (`woo:dry-run`, `woo:import`, `woo:media`) are
+documented step by step in the
+[Catalog Import Runbook](import-runbook.md) — including CSV acquisition,
+checksum verification, dry-run/resume semantics and media download.
 
 ---
 
