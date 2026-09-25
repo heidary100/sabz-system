@@ -93,6 +93,13 @@ export interface CatalogProductCardDto {
   brand: CatalogRefDto | null;
   category: CatalogRefDto;
   priceFrom: string;
+  /**
+   * Reference (pre-discount) price of the minimum-priced PRICED variant, in
+   * Rial (SS-225); null when that variant has no compareAtPrice or the
+   * product is call-for-price. Lets listing cards show a truthful discount
+   * badge without extra requests.
+   */
+  compareAtPrice: string | null;
   /** True when no live variant is PRICED: show call-for-price, never a price. */
   callForPrice: boolean;
   /** Number of live variants; drives the «از» (from) prefix honesty. */

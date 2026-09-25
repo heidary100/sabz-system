@@ -3,21 +3,25 @@ import Link from 'next/link';
 import type { CatalogProductCardDto } from '@sabz/types';
 import { mediaImageUrl } from '@/lib/catalog';
 import { conditionLabel, CONDITION_LABELS } from '@/lib/condition';
-import { formatCardPrice } from '@/lib/format';
+import { formatCardPrice, salePercentFrom } from '@/lib/format';
+import { Badge } from '@/components/ecommerce/ui/badge';
 
 /**
- * Listing card (SS-125), adapted from the ecommerce-v4 product-list markup:
- * thumbnail (SS-129 derivative) with aspect-ratio box, name, brand and the
- * price-from line in Toman. Availability is API-derived (SS-112 semantics).
+ * Listing card (SS-125, rebuilt SS-225): elevated card surface with
+ * hover-lift, truthful badges (discount % from the card's compareAtPrice,
+ * stock state), an inquiry chip for call-for-price rows, and no noise —
+ * unbranded products omit the brand line entirely instead of printing
+ * «بدون برند» (55% of the real catalog). Availability is API-derived
+ * (SS-112 semantics).
  */
 export function ProductCard({ product }: { product: CatalogProductCardDto }) {
   const image = mediaImageUrl(product.primaryThumbnailUrl ?? product.primaryImageUrl);
-  const stockLabel = product.inStock ? 'موجود' : 'ناموجود';
+  const salePercent = salePercentFrom(product.priceFrom, product.compareAtPrice);
 
   return (
     <Link
       href={`/products/${product.slug}`}
-      className="group flex flex-col overflow-hidden rounded-xl border border-sand-200 bg-white transition hover:border-sabz-300 hover:shadow-sm"
+      className="hover-lift group flex flex-col overflow-hidden rounded-xl border border-sand-200 bg-white shadow-card hover:border-sabz-300"
     >
       {/* Stock truth for assistive tech: the visual badge (or its absence)
           is never the sole signal. Kept inside the link — no nested buttons.
@@ -25,7 +29,7 @@ export function ProductCard({ product }: { product: CatalogProductCardDto }) {
           the sr-only span AND the image alt made screen readers read it twice
           (SS-218), so the image is decorative (`alt=""`). */}
       <span className="sr-only">
-        {product.name}، {stockLabel}
+        {product.name}، {product.inStock ? 'موجود' : 'ناموجود'}
       </span>
       <div className="relative aspect-square overflow-hidden bg-sand-100">
         {image ? (
@@ -37,7 +41,7 @@ export function ProductCard({ product }: { product: CatalogProductCardDto }) {
             // (~20vw inside the max-w-7xl container). The previous
             // 768px+ 25vw hint undersized tablet images.
             sizes="(min-width: 1280px) 20vw, 50vw"
-            className="object-cover transition group-hover:scale-105 motion-reduce:group-hover:scale-100"
+            className="object-cover transition-transform duration-300 group-hover:scale-105 motion-reduce:group-hover:scale-100"
           />
         ) : (
           <div className="flex h-full items-center justify-center text-sabz-300">
@@ -51,24 +55,33 @@ export function ProductCard({ product }: { product: CatalogProductCardDto }) {
           </div>
         )}
         {!product.inStock ? (
-          <span className="absolute top-2 start-2 rounded-full bg-gray-900/80 px-2 py-0.5 text-[11px] font-medium text-white">
-            ناموجود
-          </span>
+          <Badge variant="outOfStock" className="absolute top-2 start-2">
+            اتمام موجودی
+          </Badge>
+        ) : null}
+        {salePercent !== null ? (
+          <Badge variant="sale" className="absolute top-2 end-2">
+            تخفیف {salePercent.toLocaleString('fa-IR', { useGrouping: false })}٪
+          </Badge>
         ) : null}
       </div>
 
       <div className="flex flex-1 flex-col p-3 sm:p-4">
-        <p className="text-xs text-gray-500">{product.brand?.name ?? 'بدون برند'}</p>
+        {product.brand ? (
+          <p className="text-xs text-gray-500">{product.brand.name}</p>
+        ) : null}
         <h3 className="mt-1 line-clamp-2 min-h-12 text-[13px] font-semibold leading-6 text-ink-900 group-hover:text-sabz-700 sm:text-sm">
           {product.name}
         </h3>
         <div className="mt-auto flex items-center justify-between gap-2 pt-3">
-          <p className="min-w-0 text-[13px] font-bold text-sabz-800 sm:text-sm">
-            {formatCardPrice(product.priceFrom, product.variantCount, product.callForPrice)}
-          </p>
-          <span className="shrink-0 rounded-full bg-sand-100 px-2 py-0.5 text-[11px] whitespace-nowrap text-gray-600">
-            {conditionLabel(product.condition)}
-          </span>
+          {product.callForPrice ? (
+            <Badge variant="callForPrice">استعلام قیمت</Badge>
+          ) : (
+            <p className="min-w-0 text-[13px] font-bold text-sabz-800 sm:text-sm">
+              {formatCardPrice(product.priceFrom, product.variantCount, product.callForPrice)}
+            </p>
+          )}
+          <Badge variant="condition">{conditionLabel(product.condition)}</Badge>
         </div>
       </div>
     </Link>

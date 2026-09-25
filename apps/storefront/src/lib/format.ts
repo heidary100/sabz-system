@@ -66,3 +66,29 @@ export function formatCardPrice(
   }
   return variantCount > 1 ? formatPriceFrom(priceFrom) : formatToman(priceFrom);
 }
+
+/**
+ * Truthful card discount percent (SS-225): the drop from the reference
+ * (compare-at) price to the selling price of the same variant, rounded to a
+ * whole percent. Null when there is no reference price or the pair does not
+ * describe a real discount — a badge must never invent one.
+ */
+export function salePercentFrom(
+  priceFrom: string,
+  compareAtPrice: string | null,
+): number | null {
+  if (!compareAtPrice) {
+    return null;
+  }
+  const price = Number(priceFrom);
+  const reference = Number(compareAtPrice);
+  if (
+    !Number.isFinite(price) ||
+    !Number.isFinite(reference) ||
+    reference <= 0 ||
+    price >= reference
+  ) {
+    return null;
+  }
+  return Math.round(((reference - price) / reference) * 100);
+}
