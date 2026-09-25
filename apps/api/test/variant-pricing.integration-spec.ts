@@ -1,6 +1,7 @@
 import { PriceStatus, ProductCondition, ProductStatus } from '@prisma/client';
 import { PrismaService } from '../src/common/database/prisma.service';
 import { AuditService } from '../src/modules/audit/audit.service';
+import { recomputeProductMinPrice } from '../src/modules/products/min-price';
 import { PublicCatalogService } from '../src/modules/products/public-catalog.service';
 import { VariantsService } from '../src/modules/products/variants.service';
 
@@ -72,6 +73,9 @@ describe('Variant pricing database integration (SS-201)', () => {
       },
     });
     createdVariantIds.push(variant.id);
+    // SS-217: raw fixture writes bypass the service writer, so maintain the
+    // denormalized column explicitly.
+    await recomputeProductMinPrice(prisma, productId);
     return { id: variant.id };
   }
 

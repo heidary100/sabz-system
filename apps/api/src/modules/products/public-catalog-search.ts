@@ -209,12 +209,11 @@ function tokenMatch(q: Prisma.Sql): Prisma.Sql {
   )`;
 }
 
-/** Same effective min-price semantics as the service's in-memory price sort. */
-const MIN_PRICE_LATERAL = Prisma.sql`LEFT JOIN LATERAL (
-  SELECT min(pv."price") AS "minPrice"
-  FROM "ProductVariant" pv
-  WHERE pv."productId" = p."id" AND pv."deletedAt" IS NULL AND pv."priceStatus" = 'PRICED'
-) vp ON TRUE`;
+// SS-217: ordering uses the denormalized Product.minPrice (kept in sync
+// transactionally by recomputeProductMinPrice), so the pre-SS-217 LATERAL
+// min(price) join is gone. The price-RANGE predicate below stays
+// variant-level: "some live variant in range" is not equivalent to
+// "minPrice in range" (variants {50, 250} match priceFrom=200).
 
 /**
  * Builds the page query: one statement returning the ordered page of product
@@ -280,16 +279,15 @@ export function buildCatalogSearchPageSql(query: CatalogSearchQuery): Prisma.Sql
     orderBy = Prisma.sql`ORDER BY p."name" ASC, p."id" ASC`;
   } else {
     // price_asc / price_desc: NULLS LAST regardless of direction, then the
-    // newest-first tiebreak — the existing in-memory sort semantics.
-    const direction = sort === 'price_asc' ? 1 : -1;
-    orderBy = Prisma.sql`ORDER BY (vp."minPrice" IS NULL) ASC, vp."minPrice" * ${direction} ASC, p."createdAt" DESC, p."id" DESC`;
+    // newest-first tiebreak — the shared catalog ordering contract.
+    const direction = sort === 'price_asc' ? 'ASC' : 'DESC';
+    orderBy = Prisma.sql`ORDER BY p."minPrice" ${Prisma.raw(direction)} NULLS LAST, p."createdAt" DESC, p."id" DESC`;
   }
 
   return Prisma.sql`SELECT "id", "total" FROM (
     SELECT p."id" AS "id", count(*) OVER () AS "total"${scoreSelect}
     FROM "Product" p
     ${Prisma.join(tokenSources, '\n    ')}
-    ${sort === 'price_asc' || sort === 'price_desc' ? MIN_PRICE_LATERAL : Prisma.empty}
     WHERE ${Prisma.join(predicates, '\n      AND ')}
     ${orderBy}
     LIMIT ${limit} OFFSET ${offset}

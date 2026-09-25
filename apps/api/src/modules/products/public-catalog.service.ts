@@ -199,41 +199,29 @@ export class PublicCatalogService {
 
     let pageIds: string[];
     if (query.sort === 'price_asc' || query.sort === 'price_desc') {
-      // Ordering by minimum variant price is not expressible as a Prisma
-      // orderBy, so the matching set is sorted in memory. The full matching
-      // (id, prices) tuple set is loaded — acceptable at catalog scale and
-      // the documented trigger for the Decision-5 minPrice denormalization.
-      const candidates = await this.prisma.product.findMany({
+      // SS-217: PostgreSQL orders by the denormalized Product.minPrice — the
+      // pre-SS-217 implementation loaded every matching (id, createdAt,
+      // variants) tuple and sorted in JavaScript. NULLs last in BOTH
+      // directions and the newest-first tie-break preserve the old contract;
+      // the (minPrice, createdAt DESC, id DESC) key is byte-identical to the
+      // SS-216 search-path ordering.
+      const rows = await this.prisma.product.findMany({
         where,
-        select: {
-          id: true,
-          createdAt: true,
-          variants: {
-            where: { deletedAt: null },
-            select: { price: true, priceStatus: true },
+        select: { id: true },
+        orderBy: [
+          {
+            minPrice: {
+              sort: query.sort === 'price_asc' ? 'asc' : 'desc',
+              nulls: 'last',
+            },
           },
-        },
+          { createdAt: 'desc' as const },
+          { id: 'desc' as const },
+        ],
+        skip: (page - 1) * limit,
+        take: limit,
       });
-      const direction = query.sort === 'price_asc' ? 1 : -1;
-      pageIds = candidates
-        .map((row) => ({
-          id: row.id,
-          createdAt: row.createdAt,
-          minPrice: minPriceOf(row.variants),
-        }))
-        .sort((a, b) => {
-          if (a.minPrice === null && b.minPrice === null) {
-            return b.createdAt.getTime() - a.createdAt.getTime();
-          }
-          if (a.minPrice === null) return 1;
-          if (b.minPrice === null) return -1;
-          return (
-            direction * a.minPrice.comparedTo(b.minPrice) ||
-            b.createdAt.getTime() - a.createdAt.getTime()
-          );
-        })
-        .slice((page - 1) * limit, page * limit)
-        .map((row) => row.id);
+      pageIds = rows.map((row) => row.id);
     } else {
       const rows = await this.prisma.product.findMany({
         where,
@@ -730,47 +718,35 @@ export class PublicCatalogService {
   private async hydrateCards(
     pageIds: string[],
   ): Promise<CatalogProductCardDto[]> {
-    const [rows, priceRows] = await Promise.all([
-      this.prisma.product.findMany({
-        where: { id: { in: pageIds } },
-        select: {
-          id: true,
-          name: true,
-          slug: true,
-          condition: true,
-          brand: { select: { name: true, slug: true } },
-          category: { select: { name: true, slug: true } },
-          variants: {
-            where: { deletedAt: null },
-            select: { id: true },
-            orderBy: [{ createdAt: 'asc' as const }, { id: 'asc' as const }],
-          },
-          media: {
-            where: publicMediaWhere({ mediaType: 'IMAGE' }),
-            select: { id: true, thumbnailKey: true },
-            orderBy: [
-              { isPrimary: 'desc' as const },
-              { sortOrder: 'asc' as const },
-              { createdAt: 'asc' as const },
-            ],
-            take: 1,
-          },
+    // SS-217: minPrice comes from the denormalized Product column — the same
+    // single source of truth as the price sorts and the search SQL.
+    const rows = await this.prisma.product.findMany({
+      where: { id: { in: pageIds } },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        condition: true,
+        minPrice: true,
+        brand: { select: { name: true, slug: true } },
+        category: { select: { name: true, slug: true } },
+        variants: {
+          where: { deletedAt: null },
+          select: { id: true },
+          orderBy: [{ createdAt: 'asc' as const }, { id: 'asc' as const }],
         },
-      }),
-      this.prisma.productVariant.groupBy({
-        by: ['productId'],
-        where: {
-          productId: { in: pageIds },
-          deletedAt: null,
-          priceStatus: PriceStatus.PRICED,
+        media: {
+          where: publicMediaWhere({ mediaType: 'IMAGE' }),
+          select: { id: true, thumbnailKey: true },
+          orderBy: [
+            { isPrimary: 'desc' as const },
+            { sortOrder: 'asc' as const },
+            { createdAt: 'asc' as const },
+          ],
+          take: 1,
         },
-        _min: { price: true },
-      }),
-    ]);
-
-    const minPriceByProduct = new Map(
-      priceRows.map((row) => [row.productId, row._min.price]),
-    );
+      },
+    });
 
     // Collect every live variant of the page once for the availability map.
     const variantIds = rows.flatMap((row) => row.variants.map((v) => v.id));
@@ -783,7 +759,7 @@ export class PublicCatalogService {
       if (!row) {
         continue;
       }
-      const minPrice = minPriceByProduct.get(id) ?? null;
+      const minPrice = row.minPrice;
       cards.push({
         id: row.id,
         name: row.name,
@@ -869,23 +845,6 @@ export class PublicCatalogService {
     }
     return crumbs;
   }
-}
-
-function minPriceOf(
-  variants: Array<{ price: Prisma.Decimal; priceStatus: PriceStatus }>,
-): Prisma.Decimal | null {
-  let min: Prisma.Decimal | null = null;
-  for (const variant of variants) {
-    // CALL_FOR_PRICE rows carry a placeholder price (SS-201): they must never
-    // influence sorting or the displayed minimum.
-    if (variant.priceStatus !== PriceStatus.PRICED) {
-      continue;
-    }
-    if (min === null || variant.price.comparedTo(min) < 0) {
-      min = variant.price;
-    }
-  }
-  return min;
 }
 
 function decimalToString(value: Prisma.Decimal | null): string | null {
