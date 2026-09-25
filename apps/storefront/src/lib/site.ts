@@ -42,18 +42,48 @@ export interface SiteConfig {
 }
 
 /**
- * Empty-safe defaults: no company facts are known to the repository yet.
- * The footer renders brand + navigation only until facts are supplied.
+ * Company facts (SS-224) — verified from the client's live website
+ * (sabzsistem.com, contact-us page and product consult links, 2026-09-25).
+ * Anti-fabrication rule unchanged: fields without a verified value stay
+ * null/absent and consumers omit them.
  */
 export const siteConfig: SiteConfig = {
-  blurb: null,
-  address: null,
-  phone: null,
-  hours: null,
-  email: null,
-  socials: [],
-  legalLinks: [],
+  blurb:
+    'سبز سیستم، فروشگاه اینترنتی کالای دیجیتال و لوازم جانبی در شمال کشور. «ارسال سریع»، «ضمانت بهترین قیمت» و «تضمین اصالت کالا» سه اصل اولیه سبز سیستم از نخستین روز تأسیس بوده است.',
+  address: 'ساری – بلوار پاسداران – روبروی مرکز تخصصی پرتو مازند – بازرگانی سبز سیستم',
+  phone: '۰۲۱-۹۱۳۰۱۹۰۰',
+  hours: 'شنبه تا چهارشنبه ۹ تا ۱۸:۳۰ — پنجشنبه ۹ تا ۱۳:۳۰',
+  email: 'info@sabzsistem.com',
+  socials: [
+    { label: 'اینستاگرام', href: 'https://www.instagram.com/sabzsistem' },
+    { label: 'کانال تلگرام', href: 'https://t.me/SabzSisTeM' },
+    { label: 'بله', href: 'https://web.bale.ai/@sabzsistem' },
+  ],
+  legalLinks: [
+    { label: 'نماد اعتماد الکترونیکی', href: 'https://trustseal.enamad.ir/?id=147499&Code=L40xHynZjPMelCe7vsbe' },
+    { label: 'تضمین قیمت در ترب', href: 'https://torob.com/shop/5732' },
+  ],
 };
+
+/**
+ * Verified contact channels shared by the footer, product consultation card
+ * and (upcoming) contact page (SS-229). Phones keep display + tel: forms.
+ */
+export const contactChannels = {
+  phones: [
+    { display: '۰۲۱-۹۱۳۰۱۹۰۰', tel: '+982191301900' },
+    { display: '۰۱۱-۳۳۳۴۱۶۸۴', tel: '+981133341684' },
+  ],
+  whatsapp: { display: '۰۹۳۶۱۶۶۲۶۴۶', href: 'https://wa.me/989361662646' },
+  email: 'info@sabzsistem.com',
+  /** Product-page consultation links (the live site's actual channels). */
+  consult: [
+    { label: 'ارتباط در تلگرام', href: 'https://t.me/+989361662646' },
+    { label: 'ارتباط در بله', href: 'https://web.bale.ai/@sabzsistem' },
+    { label: 'واتساپ', href: 'https://wa.me/989361662646' },
+  ],
+  postalCode: '4814938662',
+} as const;
 
 export interface FooterLink {
   label: string;

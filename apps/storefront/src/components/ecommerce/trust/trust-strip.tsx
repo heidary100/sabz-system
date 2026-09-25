@@ -76,9 +76,11 @@ export function TrustStrip({ items }: { items: TrustItem[] }) {
                 <span className="block text-sm font-bold text-ink-900">
                   {item.title}
                 </span>
-                <span className="mt-1 block text-[13px] leading-6 text-gray-600">
-                  {item.body}
-                </span>
+                {item.body ? (
+                  <span className="mt-1 block text-[13px] leading-6 text-gray-600">
+                    {item.body}
+                  </span>
+                ) : null}
               </span>
             </li>
           ))}

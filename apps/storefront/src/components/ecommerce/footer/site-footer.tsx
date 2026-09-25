@@ -2,18 +2,20 @@ import Link from 'next/link';
 import type { CatalogCategoryNode } from '@sabz/types';
 import { homeConfig } from '@/config/home';
 import { BrandLockup } from '@/components/ecommerce/brand/brand-lockup';
+import { ScrollTopButton } from '@/components/ecommerce/ui/scroll-top-button';
 import { brand } from '@/lib/brand';
 import { formatFaNumber } from '@/lib/format';
 import { resolveFeaturedCategories } from '@/lib/home';
-import { filterValidFooterLinks, siteConfig } from '@/lib/site';
+import { contactChannels, filterValidFooterLinks, siteConfig } from '@/lib/site';
 
 /**
- * Storefront footer (SS-124, SS-215 reality). Config-driven and honest:
- * brand + curated navigation always; contact, social, and legal groups render
- * only from verified `siteConfig` values. Placeholder routes (`/cart`,
- * `/account`, `/about`, `/contact`, `/terms`) are never advertised — those
- * pages stay reachable by URL for their milestone owners, but the footer
- * links only to real customer functionality.
+ * Storefront footer (SS-124, SS-215, upgraded SS-224 with the verified
+ * company facts from sabzsistem.com). Config-driven and honest: brand +
+ * curated navigation always; contact, social, and legal groups render only
+ * from verified values. Placeholder routes (`/cart`, `/account`, `/about`,
+ * `/contact`, `/terms`) are never advertised — those pages stay reachable by
+ * URL for their milestone owners, but the footer links only to real customer
+ * functionality.
  */
 export function SiteFooter({ categories }: { categories: CatalogCategoryNode[] }) {
   // Same curation source as the home page — no second slicing policy. Falls
@@ -27,7 +29,7 @@ export function SiteFooter({ categories }: { categories: CatalogCategoryNode[] }
   const legalLinks = filterValidFooterLinks(siteConfig.legalLinks);
   const hasContact =
     siteConfig.address !== null ||
-    siteConfig.phone !== null ||
+    contactChannels.phones.length > 0 ||
     siteConfig.hours !== null ||
     siteConfig.email !== null;
 
@@ -108,19 +110,26 @@ export function SiteFooter({ categories }: { categories: CatalogCategoryNode[] }
               <p className="text-sm font-semibold text-ink-900">تماس</p>
               <ul role="list" className="mt-4 space-y-2.5 text-sm text-gray-600">
                 {siteConfig.address ? (
-                  <li className="leading-6">{siteConfig.address}</li>
-                ) : null}
-                {siteConfig.phone ? (
-                  <li>
-                    <a
-                      href={`tel:${siteConfig.phone.replace(/[\s-]/g, '')}`}
-                      dir="ltr"
-                      className="rounded-sm hover:text-sabz-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700"
-                    >
-                      {siteConfig.phone}
-                    </a>
+                  <li className="leading-6">
+                    {siteConfig.address}
+                    {contactChannels.postalCode ? (
+                      <span className="mt-0.5 block text-xs text-gray-500">
+                        کدپستی: {contactChannels.postalCode}
+                      </span>
+                    ) : null}
                   </li>
                 ) : null}
+                {contactChannels.phones.map((phone) => (
+                  <li key={phone.tel}>
+                    <a
+                      href={`tel:${phone.tel}`}
+                      dir="ltr"
+                      className="inline-block rounded-sm hover:text-sabz-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700"
+                    >
+                      {phone.display}
+                    </a>
+                  </li>
+                ))}
                 {siteConfig.hours ? (
                   <li className="leading-6">{siteConfig.hours}</li>
                 ) : null}
@@ -179,6 +188,7 @@ export function SiteFooter({ categories }: { categories: CatalogCategoryNode[] }
           </p>
         </div>
       </div>
+      <ScrollTopButton />
     </footer>
   );
 }

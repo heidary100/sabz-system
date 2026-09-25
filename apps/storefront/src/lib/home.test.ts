@@ -3,6 +3,7 @@ import type { CatalogCategoryNode } from '@sabz/types';
 import { homeConfig } from '../config/home';
 import { resolveAnnouncement, resolveFeaturedCategories, shouldShowSection } from './home';
 import {
+  contactChannels,
   filterValidFooterLinks,
   isAdvertisableInternalHref,
   isSafeExternalUrl,
@@ -232,22 +233,40 @@ describe('filterValidFooterLinks', () => {
 });
 
 describe('safe defaults', () => {
-  it('ships with no announcement, no trust claims, and bounded rails', () => {
+  it('ships only verified facts: trust claims present, unverified windows absent (SS-224)', () => {
+    // Trust claims + hero slides come from the client's own live-site copy.
+    expect(homeConfig.trustItems.length).toBeGreaterThan(0);
+    expect(homeConfig.heroSlides.length).toBeGreaterThan(0);
+    expect(homeConfig.brandTabs.length).toBeGreaterThan(0);
+    expect(homeConfig.categoryBanners.length).toBeGreaterThan(0);
+    // Unverified values stay absent — anti-fabrication rule.
     expect(homeConfig.announcement).toBeNull();
-    expect(homeConfig.trustItems).toEqual([]);
+    expect(homeConfig.saleBanner).toBeNull();
+    expect(homeConfig.appLinks).toEqual([]);
+    // Curated slugs empty = deterministic fallback; rails stay bounded.
     expect(homeConfig.featuredCategorySlugs).toEqual([]);
     expect(homeConfig.latestLimit).toBe(8);
     expect(homeConfig.inStockLimit).toBe(8);
     expect(homeConfig.maxCategoryTiles).toBeGreaterThan(0);
   });
 
-  it('ships with no company facts, socials, or legal links', () => {
-    expect(siteConfig.blurb).toBeNull();
-    expect(siteConfig.address).toBeNull();
-    expect(siteConfig.phone).toBeNull();
-    expect(siteConfig.hours).toBeNull();
-    expect(siteConfig.email).toBeNull();
-    expect(siteConfig.socials).toEqual([]);
-    expect(siteConfig.legalLinks).toEqual([]);
+  it('ships the verified company facts (SS-224): contact, socials, seals', () => {
+    expect(siteConfig.blurb).toBeTruthy();
+    expect(siteConfig.address).toBeTruthy();
+    expect(siteConfig.phone).toBeTruthy();
+    expect(siteConfig.hours).toBeTruthy();
+    expect(siteConfig.email).toBeTruthy();
+    // Every advertised external link must be a real absolute URL.
+    for (const social of siteConfig.socials) {
+      expect(social.href).toMatch(/^https:\/\//);
+    }
+    for (const link of siteConfig.legalLinks) {
+      expect(link.href).toMatch(/^https:\/\//);
+    }
+    // Contact channels keep both display and machine-readable forms.
+    for (const phone of contactChannels.phones) {
+      expect(phone.tel).toMatch(/^\+98\d+$/);
+    }
+    expect(contactChannels.whatsapp.href).toMatch(/^https:\/\/wa\.me\//);
   });
 });
