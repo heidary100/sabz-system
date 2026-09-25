@@ -109,9 +109,10 @@ jobs:
 
       - name: Build shared packages
         # The e2e/integration suites invoke @sabz/api tests directly (not via
-        # Turbo), so @sabz/types must be compiled here or its dist/ is missing
-        # when the API's test sources resolve '@sabz/types'.
-        run: pnpm --filter @sabz/types build
+        # Turbo), so the shared packages must be compiled here or their dist/
+        # is missing when the API's test sources resolve them
+        # (@sabz/types, @sabz/search, ...).
+        run: pnpm --filter @sabz/types build && pnpm --filter @sabz/search build
 
       - name: Generate Prisma client
         run: pnpm --filter @sabz/api prisma:generate
