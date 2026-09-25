@@ -5,6 +5,7 @@ import {
   isFiltering,
   type ListingState,
 } from '@/lib/listing';
+import { buttonVariants } from '@/components/ecommerce/ui/button';
 
 /**
  * Listing empty state (SS-213, server component).
@@ -46,10 +47,7 @@ export function EmptyState({
       <p className="mt-2 text-sm text-gray-500">
         فیلترها را تغییر دهید یا همه فیلترها را پاک کنید.
       </p>
-      <Link
-        href={resetHref}
-        className="mt-6 inline-flex min-h-11 items-center rounded-md bg-sabz-700 px-6 py-2.5 text-sm font-semibold text-white hover:bg-sabz-800"
-      >
+      <Link href={resetHref} className={`${buttonVariants()} mt-6`}>
         پاک کردن فیلترها
       </Link>
     </div>

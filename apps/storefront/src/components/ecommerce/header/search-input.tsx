@@ -3,6 +3,7 @@
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { buildSearchSubmitParams } from '@/lib/nav';
+import { buttonVariants } from '@/components/ecommerce/ui/button';
 
 /**
  * Header search entry (SS-124, SS-211): submits on the current route with the
@@ -106,7 +107,7 @@ function SearchForm({
       </div>
       <button
         type="submit"
-        className="min-h-11 shrink-0 rounded-md bg-sabz-700 px-4 text-sm font-semibold text-white hover:bg-sabz-800"
+        className={`${buttonVariants()} shrink-0`}
       >
         جستجو
       </button>

@@ -15,6 +15,7 @@ import { ProductJsonLd } from '@/components/ecommerce/product/product-json-ld';
 import { ProductPurchasePanel } from '@/components/ecommerce/product/product-purchase-panel';
 import { ProductSpecifications } from '@/components/ecommerce/product/product-specifications';
 import { RelatedProducts } from '@/components/ecommerce/product/related-products';
+import { Badge, badgeVariants } from '@/components/ecommerce/ui/badge';
 
 const siteUrl =
   process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3001';
@@ -133,14 +134,12 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
             {product.brand ? (
               <Link
                 href={`/products?brand=${encodeURIComponent(product.brand.slug)}`}
-                className="rounded-full bg-sand-100 px-2.5 py-1 font-medium text-gray-600 hover:text-sabz-700"
+                className={`${badgeVariants({ variant: 'condition' })} hover:text-sabz-700`}
               >
                 برند: {product.brand.name}
               </Link>
             ) : null}
-            <span className="rounded-full bg-sand-100 px-2.5 py-1 text-gray-600">
-              {conditionLabel(product.condition)}
-            </span>
+            <Badge variant="condition">{conditionLabel(product.condition)}</Badge>
           </div>
 
           {product.shortDescription ? (

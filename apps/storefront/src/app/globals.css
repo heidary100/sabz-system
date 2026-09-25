@@ -10,6 +10,23 @@ body {
   color: var(--foreground);
 }
 
+/* Hover elevation (SS-221): the standard "card lifts to meet the cursor"
+   interaction for product cards, tiles, and rails. Transform + shadow only —
+   cheap to composite, no layout shift. The global reduced-motion rule
+   collapses the transition to instantaneous without hiding anything. */
+@layer components {
+  .hover-lift {
+    transition:
+      transform 300ms var(--ease-swift),
+      box-shadow 300ms var(--ease-swift);
+  }
+  .hover-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lift);
+  }
+}
+
+
 /* Rich-text product description (rendered by components/rich-text.tsx).
    RTL-first typography for the sanitized HTML persisted by the product API. */
 @layer components {
@@ -167,4 +184,19 @@ summary:focus-visible,
   --color-sand-100: #efece7;
   --color-sand-200: #dad7cd;
   --color-ink-900: #312e24;
+  /* SS-221 cinematic surfaces: deep hero/footer/backdrop ink one step darker
+     than ink-900 so dark sections and light content zones read as layers. */
+  --color-ink-950: #191713;
+
+  /* Elevation ladder (SS-221): resting card, hover lift, and portalled
+     overlay. Only three steps so depth stays meaningful. */
+  --shadow-card: 0 1px 2px rgb(25 23 19 / 0.05), 0 4px 14px rgb(25 23 19 / 0.06);
+  --shadow-lift: 0 14px 34px -10px rgb(25 23 19 / 0.2);
+  --shadow-overlay: 0 24px 64px -16px rgb(25 23 19 / 0.28);
+
+  /* Motion signature (SS-221): one fast-decelerating curve for every
+     interactive transition so hover/press/drawer movement feels like one
+     system. Reduced-motion users never see it (global rule collapses
+     durations to ~0). */
+  --ease-swift: cubic-bezier(0.22, 1, 0.36, 1);
 }
