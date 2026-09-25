@@ -126,6 +126,14 @@ main select:focus-visible {
    for surfaces. Defined as Tailwind v4 theme colors so utilities like
    bg-sabz-700 are available everywhere. */
 @theme {
+  /* SS-217: the variable Vazirmatn faces (Arabic + Latin subsets via
+     unicode-range, weights 100-900) are self-hosted through the
+     @fontsource-variable/vazirmatn import in layout.tsx. Wiring --font-sans
+     is what actually applies the family; without it the font files never
+     load because nothing referenced them. */
+  --font-sans: 'Vazirmatn Variable', 'Vazirmatn', ui-sans-serif, system-ui,
+    'Segoe UI', Tahoma, sans-serif;
+
   --color-sabz-50: #f4f6f2;
   --color-sabz-100: #e6eae1;
   --color-sabz-200: #ccd6c6;
