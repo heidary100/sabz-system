@@ -15,9 +15,12 @@ import { buttonVariants } from '@/components/ecommerce/ui/button';
 export function SearchInput({
   compact = false,
   inputId = 'search',
+  onSubmitted,
 }: {
   compact?: boolean;
   inputId?: string;
+  /** Called after a submit navigates — lets overlays close themselves. */
+  onSubmitted?: () => void;
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -31,6 +34,7 @@ export function SearchInput({
       initialQ={initialQ}
       compact={compact}
       inputId={inputId}
+      onSubmitted={onSubmitted}
     />
   );
 }
@@ -41,12 +45,14 @@ function SearchForm({
   initialQ,
   compact,
   inputId,
+  onSubmitted,
 }: {
   pathname: string;
   searchParams: URLSearchParams;
   initialQ: string;
   compact: boolean;
   inputId: string;
+  onSubmitted?: () => void;
 }) {
   const router = useRouter();
   const [value, setValue] = useState(initialQ);
@@ -56,6 +62,7 @@ function SearchForm({
   function submitSearch(nextValue: string) {
     const query = buildSearchSubmitParams(searchParams, nextValue.trim());
     router.push(query ? `${pathname}?${query}` : pathname);
+    onSubmitted?.();
   }
 
   function submit(event: React.FormEvent) {
