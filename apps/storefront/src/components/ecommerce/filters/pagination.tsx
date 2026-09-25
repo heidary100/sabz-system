@@ -32,7 +32,7 @@ export function Pagination({
         <Link
           href={makeHref(page - 1)}
           rel="prev"
-          className="rounded-md border border-sand-200 bg-white px-3 py-2 text-sm text-gray-600 hover:border-sabz-300 hover:text-sabz-700"
+          className="inline-flex min-h-11 items-center rounded-md border border-sand-200 bg-white px-3 py-2 text-sm text-gray-600 hover:border-sabz-300 hover:text-sabz-700"
         >
           قبلی
         </Link>
@@ -41,7 +41,7 @@ export function Pagination({
       {windowStart > 1 ? (
         <Link
           href={makeHref(1)}
-          className="rounded-md border border-sand-200 bg-white px-3.5 py-2 text-sm text-gray-600 hover:border-sabz-300"
+          className="inline-flex min-h-11 items-center rounded-md border border-sand-200 bg-white px-3.5 py-2 text-sm text-gray-600 hover:border-sabz-300"
         >
           {formatFaNumber(1)}
         </Link>
@@ -52,7 +52,7 @@ export function Pagination({
           <span
             key={number}
             aria-current="page"
-            className="rounded-md bg-sabz-700 px-3.5 py-2 text-sm font-semibold text-white"
+            className="inline-flex min-h-11 items-center rounded-md bg-sabz-700 px-3.5 py-2 text-sm font-semibold text-white"
           >
             {formatFaNumber(number)}
           </span>
@@ -60,7 +60,7 @@ export function Pagination({
           <Link
             key={number}
             href={makeHref(number)}
-            className="rounded-md border border-sand-200 bg-white px-3.5 py-2 text-sm text-gray-600 hover:border-sabz-300 hover:text-sabz-700"
+            className="inline-flex min-h-11 items-center rounded-md border border-sand-200 bg-white px-3.5 py-2 text-sm text-gray-600 hover:border-sabz-300 hover:text-sabz-700"
           >
             {formatFaNumber(number)}
           </Link>
@@ -70,7 +70,7 @@ export function Pagination({
       {windowEnd < totalPages ? (
         <Link
           href={makeHref(totalPages)}
-          className="rounded-md border border-sand-200 bg-white px-3.5 py-2 text-sm text-gray-600 hover:border-sabz-300"
+          className="inline-flex min-h-11 items-center rounded-md border border-sand-200 bg-white px-3.5 py-2 text-sm text-gray-600 hover:border-sabz-300"
         >
           {formatFaNumber(totalPages)}
         </Link>
@@ -80,7 +80,7 @@ export function Pagination({
         <Link
           href={makeHref(page + 1)}
           rel="next"
-          className="rounded-md border border-sand-200 bg-white px-3 py-2 text-sm text-gray-600 hover:border-sabz-300 hover:text-sabz-700"
+          className="inline-flex min-h-11 items-center rounded-md border border-sand-200 bg-white px-3 py-2 text-sm text-gray-600 hover:border-sabz-300 hover:text-sabz-700"
         >
           بعدی
         </Link>

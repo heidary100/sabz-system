@@ -71,7 +71,7 @@ export function PriceFacet({
               value={from}
               onChange={(event) => setFrom(event.target.value)}
               placeholder="از"
-              className="w-full min-w-0 rounded-md border-0 bg-sand-100 py-2 px-3 text-sm text-ink-900 ring-1 ring-inset ring-sand-200 placeholder:text-gray-400 focus:ring-2 focus:ring-sabz-600"
+              className="w-full min-w-0 rounded-md border-0 bg-sand-100 py-2 px-3 text-sm text-ink-900 ring-1 ring-inset ring-sand-200 placeholder:text-gray-600 focus-visible:ring-2 focus-visible:ring-sabz-600"
             />
           </div>
           <span aria-hidden="true" className="shrink-0 text-xs text-gray-400">
@@ -89,7 +89,7 @@ export function PriceFacet({
               value={to}
               onChange={(event) => setTo(event.target.value)}
               placeholder="تا"
-              className="w-full min-w-0 rounded-md border-0 bg-sand-100 py-2 px-3 text-sm text-ink-900 ring-1 ring-inset ring-sand-200 placeholder:text-gray-400 focus:ring-2 focus:ring-sabz-600"
+              className="w-full min-w-0 rounded-md border-0 bg-sand-100 py-2 px-3 text-sm text-ink-900 ring-1 ring-inset ring-sand-200 placeholder:text-gray-600 focus-visible:ring-2 focus-visible:ring-sabz-600"
             />
           </div>
         </div>
@@ -101,7 +101,7 @@ export function PriceFacet({
         <div className="mt-2 flex items-center gap-2">
           <button
             type="submit"
-            className="inline-flex min-h-9 items-center rounded-md bg-sabz-700 px-4 py-1 text-xs font-semibold text-white hover:bg-sabz-800"
+            className="inline-flex min-h-11 items-center rounded-md bg-sabz-700 px-4 py-1 text-xs font-semibold text-white hover:bg-sabz-800"
           >
             اعمال
           </button>
@@ -109,7 +109,7 @@ export function PriceFacet({
             <button
               type="button"
               onClick={clear}
-              className="inline-flex min-h-9 items-center rounded-md px-2 py-1 text-xs font-semibold text-sabz-700 hover:text-sabz-800"
+              className="inline-flex min-h-11 items-center rounded-md px-2 py-1 text-xs font-semibold text-sabz-700 hover:text-sabz-800"
             >
               حذف محدوده قیمت
             </button>

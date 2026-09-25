@@ -96,7 +96,7 @@ export function ProductPurchasePanel({
         <dl className="mt-3 border-t border-sand-200 pt-3">
           <ProductSku sku={selected.sku} />
         </dl>
-        <p className="mt-3 text-xs leading-5 text-gray-400">
+        <p className="mt-3 text-xs leading-5 text-gray-600">
           قیمت‌ها به تومان و برای خرید خرد است. قیمت‌گذاری همکاری در مرحله
           بعدی توسعه فعال می‌شود.
         </p>

@@ -41,7 +41,7 @@ export default function CartPage() {
         </div>
       </div>
 
-      <p className="mt-6 text-center text-xs leading-5 text-gray-400">
+      <p className="mt-6 text-center text-xs leading-5 text-gray-500">
         امکان افزودن به سبد خرید در مرحله بعدی توسعه فعال میشود.
       </p>
     </div>

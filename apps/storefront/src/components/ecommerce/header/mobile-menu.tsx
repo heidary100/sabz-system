@@ -111,7 +111,7 @@ export function MobileMenu({ categories }: { categories: CatalogCategoryNode[] }
                 مشاهده همه دسته‌بندی‌ها
               </Link>
 
-              <p className="mt-6 mb-1 px-1 text-xs font-semibold text-gray-400">دسته‌بندی‌ها</p>
+              <p className="mt-6 mb-1 px-1 text-xs font-semibold text-gray-500">دسته‌بندی‌ها</p>
               {roots.length === 0 ? (
                 <p className="px-1 py-3 text-sm text-gray-500">دسته‌بندی‌ای ثبت نشده است.</p>
               ) : (
@@ -122,7 +122,7 @@ export function MobileMenu({ categories }: { categories: CatalogCategoryNode[] }
                 </ul>
               )}
 
-              <p className="mt-6 mb-1 px-1 text-xs font-semibold text-gray-400">پیوندها</p>
+              <p className="mt-6 mb-1 px-1 text-xs font-semibold text-gray-500">پیوندها</p>
               <ul role="list" className="divide-y divide-sand-100 rounded-2xl border border-sand-100 bg-white text-gray-700">
                 {[
                   { href: '/products', label: 'همه محصولات' },
@@ -173,7 +173,7 @@ function MobileCategoryNode({
           style={{ paddingInlineStart: 16 + depth * 12 }}
         >
           <span>{node.name}</span>
-          <span className="rounded-full bg-sand-100 px-2 py-0.5 text-[11px] font-semibold text-gray-500">
+          <span className="rounded-full bg-sand-100 px-2 py-0.5 text-[11px] font-semibold text-gray-600">
             {formatFaNumber(node.publishedProductCount)}
           </span>
         </Link>

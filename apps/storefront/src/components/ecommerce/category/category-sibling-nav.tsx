@@ -41,7 +41,7 @@ export function CategorySiblingNav({
                   className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-sand-200 bg-white px-4 py-2 text-sm text-gray-600 hover:border-sabz-300 hover:text-sabz-700"
                 >
                   {sibling.name}
-                  <span className="text-xs text-gray-400">
+                  <span className="text-xs text-gray-500">
                     {formatFaNumber(sibling.publishedProductCount)}
                   </span>
                 </Link>

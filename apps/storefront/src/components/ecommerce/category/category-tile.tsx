@@ -78,7 +78,7 @@ export function CategoryTile({
                 className="flex items-center justify-between rounded-sm text-sm text-gray-600 hover:text-sabz-700"
               >
                 <span>{child.name}</span>
-                <span className="text-xs text-gray-400">
+                <span className="text-xs text-gray-500">
                   {formatFaNumber(child.publishedProductCount)}
                 </span>
               </Link>

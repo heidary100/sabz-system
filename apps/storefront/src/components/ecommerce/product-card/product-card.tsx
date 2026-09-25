@@ -20,7 +20,10 @@ export function ProductCard({ product }: { product: CatalogProductCardDto }) {
       className="group flex flex-col overflow-hidden rounded-xl border border-sand-200 bg-white transition hover:border-sabz-300 hover:shadow-sm"
     >
       {/* Stock truth for assistive tech: the visual badge (or its absence)
-          is never the sole signal. Kept inside the link — no nested buttons. */}
+          is never the sole signal. Kept inside the link — no nested buttons.
+          The product name is already the card's heading text; repeating it in
+          the sr-only span AND the image alt made screen readers read it twice
+          (SS-218), so the image is decorative (`alt=""`). */}
       <span className="sr-only">
         {product.name}، {stockLabel}
       </span>
@@ -28,13 +31,13 @@ export function ProductCard({ product }: { product: CatalogProductCardDto }) {
         {image ? (
           <Image
             src={image}
-            alt={product.name}
+            alt=""
             fill
             // Grid is 2 columns below xl (50vw) and 4 columns at xl+
             // (~20vw inside the max-w-7xl container). The previous
             // 768px+ 25vw hint undersized tablet images.
             sizes="(min-width: 1280px) 20vw, 50vw"
-            className="object-cover transition group-hover:scale-105"
+            className="object-cover transition group-hover:scale-105 motion-reduce:group-hover:scale-100"
           />
         ) : (
           <div className="flex h-full items-center justify-center text-sabz-300">

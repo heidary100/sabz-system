@@ -1,13 +1,13 @@
 import type { Metadata } from 'next';
 import type { ProductCondition } from '@sabz/types';
 import { fetchBrands, fetchCategoryTree, fetchProducts } from '@/lib/catalog';
-import { formatFaNumber } from '@/lib/format';
 import { buildListingHref, isFiltering, parseListingState } from '@/lib/listing';
 import { ProductCard } from '@/components/ecommerce/product-card/product-card';
 import { ActivePills } from '@/components/ecommerce/filters/active-pills';
 import { EmptyState } from '@/components/ecommerce/filters/empty-state';
 import { FiltersPanel } from '@/components/ecommerce/filters/filters-panel';
 import { PerPageSelect } from '@/components/ecommerce/filters/per-page-select';
+import { ResultStatus } from '@/components/ecommerce/filters/result-status';
 import { SortSelect } from '@/components/ecommerce/filters/sort-select';
 import { Pagination } from '@/components/ecommerce/filters/pagination';
 
@@ -62,10 +62,12 @@ export default async function ProductsPage({
           <h1 className="text-2xl font-bold tracking-tight text-ink-900">
             {state.q ? `نتایج جستجو برای «${state.q}»` : 'همه محصولات'}
           </h1>
-          <p className="mt-1 text-sm text-gray-500" aria-live="polite">
-            {formatFaNumber(result.total)} کالا
-            {filtering ? ' با فیلترهای فعلی' : null}
-          </p>
+          <ResultStatus
+            total={result.total}
+            filtering={filtering}
+            query={state.q || undefined}
+            className="mt-1 text-sm text-gray-500"
+          />
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <PerPageSelect state={state} basePath="/products" />

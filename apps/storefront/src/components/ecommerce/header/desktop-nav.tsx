@@ -55,7 +55,18 @@ export function DesktopNav({ categories }: { categories: CatalogCategoryNode[] }
   }
 
   return (
-    <nav aria-label="ناوبری دسته‌بندی‌ها" className="relative hidden lg:block" onMouseLeave={() => closeMenu(false, null)}>
+    <nav
+      aria-label="ناوبری دسته‌بندی‌ها"
+      className="relative hidden lg:block"
+      onMouseLeave={() => closeMenu(false, null)}
+      onBlur={(event) => {
+        // Keyboard counterpart to onMouseLeave: if focus leaves the nav (and
+        // its open panel), close without stealing focus back to the toggle.
+        if (!event.currentTarget.contains(event.relatedTarget)) {
+          closeMenu(false, null);
+        }
+      }}
+    >
       <ul role="list" className="flex items-center gap-1">
         {visible.map((category) =>
           categoryHasChildren(category) ? (
@@ -91,7 +102,7 @@ export function DesktopNav({ categories }: { categories: CatalogCategoryNode[] }
                   onClick={() =>
                     openSlug === category.slug ? closeMenu(false, null) : openMenu(category.slug)
                   }
-                  className="-me-1 rounded-sm p-1 text-gray-500 hover:text-sabz-700"
+                  className="-me-1.5 rounded-sm p-1.5 text-gray-500 hover:text-sabz-700"
                 >
                   <svg
                     viewBox="0 0 20 20"
@@ -167,7 +178,7 @@ export function DesktopNav({ categories }: { categories: CatalogCategoryNode[] }
                             className="flex items-center justify-between rounded-md px-2 py-1.5 text-[13px] text-gray-600 hover:bg-sabz-50 hover:text-sabz-800"
                           >
                             <span>{grandchild.name}</span>
-                            <span className="text-xs text-gray-400">
+                            <span className="text-xs text-gray-500">
                               {formatFaNumber(grandchild.publishedProductCount)}
                             </span>
                           </Link>
