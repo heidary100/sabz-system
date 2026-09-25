@@ -2002,7 +2002,15 @@ Returns a paginated list of brands (`id`, `name`, `slug`). Validation:
 GET /catalog/products?page=&limit=&q=&category=&brand=&condition=&sort=
 ```
 
-- `q`: free-text search over product names (length-capped; validated).
+- `q`: free-text catalog search (SS-216; maximum 64 characters,
+  grapheme-aware). Matched — after Persian normalization — across product
+  name (fa/en), live variant SKUs, brand name (fa/en), category name, tag
+  names, subtitle, focus keyword and slug. ZWNJ/half-space and whitespace
+  variants are equivalent, Arabic `ي/ك` matches Persian `ی/ک`, diacritics
+  are ignored, and multi-word queries require every token to match somewhere.
+  An exact normalized SKU ranks first; relevance ordering applies unless an
+  explicit `sort` is chosen, in which case the requested sort overrides
+  relevance (see ADR-006).
 - `category` / `brand`: slug filters.
 - `condition`: one of the `ProductCondition` enum values.
 - `sort`: `newest` (default) | `price_asc` | `price_desc` | `name`.

@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PriceStatus, Prisma, ProductStatus } from '@prisma/client';
+import { tokenizeQuery } from '@sabz/search';
 import type {
   CatalogBrandDto,
   CatalogCategoryCrumb,
@@ -21,6 +22,11 @@ import {
   ListCatalogBrandsQueryDto,
   ListCatalogProductsQueryDto,
 } from './dto';
+import {
+  searchCatalogProducts,
+  type CatalogSearchFilters,
+  type CatalogSearchSort,
+} from './public-catalog-search';
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 20;
@@ -169,6 +175,18 @@ export class PublicCatalogService {
     const page = query.page ?? DEFAULT_PAGE;
     const limit = query.limit ?? DEFAULT_LIMIT;
 
+    // SS-216: a meaningful q routes to the PostgreSQL search query; the
+    // q-less Prisma path below stays byte-for-byte the pre-SS-216 behavior.
+    // A q that tokenizes to nothing (whitespace/diacritics-only) is treated
+    // as absent — never a `contains '   '` predicate.
+    const tokens = tokenizeQuery(query.q ?? '');
+    if (tokens.length > 0) {
+      return this.searchProducts(tokens, query, page, limit);
+    }
+    if (query.q !== undefined) {
+      query = { ...query, q: undefined };
+    }
+
     let where = await this.productVisibilityWhere(query);
 
     // Stock narrowing feeds product ids into the SAME visibility query, so
@@ -234,6 +252,88 @@ export class PublicCatalogService {
       return { items: [], total, page, limit };
     }
 
+    const cards = await this.hydrateCards(pageIds);
+    return { items: cards, total, page, limit };
+  }
+
+  /**
+   * Search path for a meaningful `q` (SS-216): id selection + relevance
+   * ranking come from the PostgreSQL search query (public-catalog-search),
+   * while every filter the service already owns keeps its existing
+   * implementation — the category-subtree walk, the inventory-truth in-stock
+   * prefilter, and the price-range normalization are computed here and passed
+   * into the SQL as data, never re-implemented in SQL.
+   *
+   * Prefilter scopes use the q-LESS visibility (the token matching happens in
+   * the search SQL with the widened corpus), and empty scopes match nothing —
+   * the same convention as unknown category slugs. Ranking is primary only
+   * when the user did not pick an explicit sort (default/`newest`);
+   * price/name sorts override relevance, mirroring the q-less ordering
+   * semantics. Cards hydrate through the shared `hydrateCards()` pipeline.
+   */
+  private async searchProducts(
+    tokens: string[],
+    query: ListCatalogProductsQueryDto,
+    page: number,
+    limit: number,
+  ): Promise<PaginatedResult<CatalogProductCardDto>> {
+    const empty: PaginatedResult<CatalogProductCardDto> = {
+      items: [],
+      total: 0,
+      page,
+      limit,
+    };
+    const scopeQuery: ListCatalogProductsQueryDto = { ...query, q: undefined };
+
+    const filters: CatalogSearchFilters = {};
+    if (query.category) {
+      const subtreeIds = await this.categorySubtreeIds(query.category);
+      if (subtreeIds.length === 0) {
+        return empty;
+      }
+      filters.categoryIds = subtreeIds;
+    }
+    if (query.inStockOnly) {
+      const stockProductIds = await this.inStockProductIds(scopeQuery);
+      if (stockProductIds.length === 0) {
+        return empty;
+      }
+      filters.stockProductIds = stockProductIds;
+    }
+    if (query.brand) {
+      filters.brandSlug = query.brand;
+    }
+    if (query.condition) {
+      filters.condition = query.condition;
+    }
+    const range = normalizedPriceRange(query);
+    if (range.from !== undefined) {
+      filters.priceFrom = String(range.from);
+    }
+    if (range.to !== undefined) {
+      filters.priceTo = String(range.to);
+    }
+
+    const sort: CatalogSearchSort =
+      query.sort === 'name'
+        ? 'name'
+        : query.sort === 'price_asc'
+          ? 'price_asc'
+          : query.sort === 'price_desc'
+            ? 'price_desc'
+            : 'relevance';
+
+    const { total, pageIds } = await searchCatalogProducts(this.prisma, {
+      tokens,
+      filters,
+      sort,
+      page,
+      limit,
+    });
+
+    if (pageIds.length === 0) {
+      return { items: [], total, page, limit };
+    }
     const cards = await this.hydrateCards(pageIds);
     return { items: cards, total, page, limit };
   }

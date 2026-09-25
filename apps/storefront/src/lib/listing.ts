@@ -1,4 +1,5 @@
 import type { CatalogProductSort } from '@sabz/types';
+import { truncateQuery } from '@sabz/search';
 import { formatFaNumber } from './format';
 
 /**
@@ -101,7 +102,9 @@ export function parseListingState(
   const stockRaw = first('inStockOnly').trim().toLowerCase();
 
   return {
-    q: first('q').slice(0, 64),
+    // Grapheme-aware 64-character cap (SS-216) — never splits surrogate
+    // pairs or emoji ZWJ sequences the way a code-unit slice would.
+    q: truncateQuery(first('q')),
     category: first('category'),
     brand: first('brand'),
     condition: VALID_CONDITIONS.has(first('condition')) ? first('condition') : '',

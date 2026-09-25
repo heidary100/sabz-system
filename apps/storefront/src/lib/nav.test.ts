@@ -79,6 +79,13 @@ describe('buildSearchSubmitParams', () => {
     const current = new URLSearchParams();
     expect(buildSearchSubmitParams(current, 'x'.repeat(200))).toHaveLength(2 + 64);
   });
+
+  it('caps the query by graphemes without splitting surrogate pairs (SS-216)', () => {
+    const current = new URLSearchParams();
+    const emoji = '\u{1F600}';
+    const out = buildSearchSubmitParams(current, emoji.repeat(100));
+    expect(out).toBe(`q=${encodeURIComponent(emoji.repeat(64))}`);
+  });
 });
 
 function tree(): CatalogCategoryNode[] {

@@ -50,10 +50,16 @@ function SearchForm({
   const router = useRouter();
   const [value, setValue] = useState(initialQ);
 
+  // Clearing is a search submit with an empty q through the same
+  // route-aware helper: q drops, page resets, other params survive.
+  function submitSearch(nextValue: string) {
+    const query = buildSearchSubmitParams(searchParams, nextValue.trim());
+    router.push(query ? `${pathname}?${query}` : pathname);
+  }
+
   function submit(event: React.FormEvent) {
     event.preventDefault();
-    const query = buildSearchSubmitParams(searchParams, value.trim());
-    router.push(query ? `${pathname}?${query}` : pathname);
+    submitSearch(value);
   }
 
   return (
@@ -78,10 +84,25 @@ function SearchForm({
           value={value}
           onChange={(event) => setValue(event.target.value)}
           placeholder="جستجو در محصولات…"
-          className={`w-full rounded-md border-0 bg-sand-100 ps-10 pe-4 text-sm text-ink-900 ring-1 ring-inset ring-sand-200 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-sabz-600 ${
+          className={`w-full rounded-md border-0 bg-sand-100 ps-10 pe-10 text-sm text-ink-900 ring-1 ring-inset ring-sand-200 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-sabz-600 ${
             compact ? 'py-1.5' : 'py-2.5'
           }`}
         />
+        {value ? (
+          <button
+            type="button"
+            aria-label="پاک کردن جستجو"
+            onClick={() => {
+              setValue('');
+              submitSearch('');
+            }}
+            className="absolute inset-y-0 end-0 flex items-center pe-3 text-gray-400 hover:text-ink-900"
+          >
+            <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="size-5">
+              <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
+            </svg>
+          </button>
+        ) : null}
       </div>
       <button
         type="submit"

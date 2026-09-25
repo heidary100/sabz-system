@@ -1,4 +1,5 @@
 import type { CatalogCategoryNode } from '@sabz/types';
+import { truncateQuery } from '@sabz/search';
 
 /**
  * Navigation helpers (SS-211): single place for desktop truncation policy and
@@ -146,8 +147,11 @@ function findParentNode(
  */
 export function buildSearchSubmitParams(current: URLSearchParams, trimmed: string): string {
   const next = new URLSearchParams(current.toString());
-  if (trimmed) {
-    next.set('q', trimmed.slice(0, 64));
+  // Grapheme-aware 64-character cap (SS-216), shared with the listing parser
+  // and the API validation so every layer truncates identically.
+  const capped = truncateQuery(trimmed);
+  if (capped) {
+    next.set('q', capped);
   } else {
     next.delete('q');
   }

@@ -8,11 +8,15 @@ import {
   IsString,
   IsBoolean,
   Matches,
-  Max,
   MaxLength,
+  Max,
   Min,
+  Validate,
+  ValidatorConstraint,
+  ValidatorConstraintInterface,
 } from 'class-validator';
 import { ProductCondition } from '@prisma/client';
+import { MAX_QUERY_GRAPHEMES, truncateQuery } from '@sabz/search';
 import { PRICE_12_2_PATTERN } from './create-variant.dto';
 
 /** Whitelisted public sort options (contract: CatalogProductSort). */
@@ -22,6 +26,28 @@ export const CATALOG_PRODUCT_SORTS = [
   'price_desc',
   'name',
 ] as const;
+
+/**
+ * Grapheme-aware 64-character cap for `q` (SS-216): counts user-perceived
+ * characters via the shared truncation helper, so an emoji/ZWJ query of 64
+ * graphemes is accepted while a 65-grapheme one is rejected — the same
+ * truncation semantics the storefront applies client-side. Replaces the old
+ * code-unit `@MaxLength(64)`, which split surrogate pairs and rejected valid
+ * 64-grapheme emoji queries.
+ */
+@ValidatorConstraint({ name: 'maxQueryGraphemes', async: false })
+export class MaxQueryGraphemesConstraint implements ValidatorConstraintInterface {
+  validate(value: unknown): boolean {
+    return (
+      typeof value === 'string' &&
+      truncateQuery(value, MAX_QUERY_GRAPHEMES) === value
+    );
+  }
+
+  defaultMessage(): string {
+    return 'q باید حداکثر ۶۴ کاراکتر باشد.';
+  }
+}
 
 export class ListCatalogProductsQueryDto {
   @ApiPropertyOptional({
@@ -46,13 +72,14 @@ export class ListCatalogProductsQueryDto {
   limit?: number;
 
   @ApiPropertyOptional({
-    description: 'Free-text search matched against product name or slug.',
+    description:
+      'Free-text search (SS-216): normalized matching across product name (fa/en), SKU, brand, category, tags, subtitle, focus keyword and slug. Relevance-ranked unless an explicit sort is chosen; exact normalized SKU ranks first. Maximum 64 characters (graphemes).',
     maxLength: 64,
   })
   @IsOptional()
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString({ message: 'q باید رشته باشد.' })
-  @MaxLength(64, { message: 'q باید حداکثر ۶۴ کاراکتر باشد.' })
+  @Validate(MaxQueryGraphemesConstraint)
   q?: string;
 
   @ApiPropertyOptional({ description: 'Filter by category slug.' })

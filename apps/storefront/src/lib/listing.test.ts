@@ -41,6 +41,13 @@ describe('parseListingState', () => {
     expect(parseListingState({ page: ['99999'] }).page).toBe(10_000);
   });
 
+  it('caps q by graphemes without splitting surrogate pairs (SS-216)', () => {
+    const emoji = '\u{1F600}'; // 2 UTF-16 code units, 1 grapheme
+    expect(parseListingState({ q: emoji.repeat(64) }).q).toBe(emoji.repeat(64));
+    // 100 graphemes truncate to 64 whole emoji — never a broken half pair.
+    expect(parseListingState({ q: emoji.repeat(100) }).q).toBe(emoji.repeat(64));
+  });
+
   it('parses valid price bounds in the API Decimal-as-string form', () => {
     const state = parseListingState({ priceFrom: '1500000', priceTo: '20000000.50' });
     expect(state.priceFrom).toBe('1500000');

@@ -60,7 +60,7 @@ export default async function ProductsPage({
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-ink-900">
-            {state.q ? `نتایج جستجو: ${state.q}` : 'همه محصولات'}
+            {state.q ? `نتایج جستجو برای «${state.q}»` : 'همه محصولات'}
           </h1>
           <p className="mt-1 text-sm text-gray-500" aria-live="polite">
             {formatFaNumber(result.total)} کالا
