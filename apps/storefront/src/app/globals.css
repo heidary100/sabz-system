@@ -109,17 +109,36 @@ body {
   }
 }
 
-/* Visible keyboard focus for header/nav interactive elements (SS-211),
-   extended to the SS-212 category/facet controls in main.
-   The broader focus/contrast pass lands in SS-218. */
-header a:focus-visible,
-header button:focus-visible,
-main a:focus-visible,
-main button:focus-visible,
-main input:focus-visible,
-main select:focus-visible {
+/* Visible keyboard focus everywhere (SS-218): one global rule so portalled
+   overlays (mobile drawer mounts on document.body), the footer, and the
+   announcement bar are covered without per-component duplication. sabz-600
+   measures ≥5.3:1 against every light surface; the 2px offset keeps the ring
+   on the surrounding surface, so it also stays visible around sabz-700
+   buttons. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+summary:focus-visible,
+[role='button']:focus-visible {
   outline: 2px solid var(--color-sabz-600);
   outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Respect the reduced-motion request (SS-218): state changes stay
+   instantaneous, decorative motion (card zoom, chevron rotate, skeleton
+   pulse) stops. Scoped to duration only — nothing is hidden. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* Sabz brand palette (AGENTS.md): greens for actions/accents, warm neutrals

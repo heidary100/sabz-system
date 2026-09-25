@@ -3,7 +3,7 @@ import Link from 'next/link';
 export default function NotFound() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-24 text-center sm:px-6">
-      <p className="text-5xl font-bold text-sabz-300">۴۰۴</p>
+      <p className="text-5xl font-bold text-sabz-600">۴۰۴</p>
       <h1 className="mt-4 text-2xl font-bold tracking-tight text-ink-900">
         صفحه مورد نظر یافت نشد
       </h1>

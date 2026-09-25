@@ -41,7 +41,7 @@ export function PerPageSelect({
             router.push(buildListingHref(basePath, state, { perPage }));
           });
         }}
-        className="rounded-md border-0 bg-white py-2 pe-8 ps-3 text-sm ring-1 ring-inset ring-sand-200 focus:ring-2 focus:ring-sabz-600"
+        className="rounded-md border-0 bg-white py-2 pe-8 ps-3 text-sm ring-1 ring-inset ring-sand-200 focus-visible:ring-2 focus-visible:ring-sabz-600"
       >
         {LISTING_PER_PAGE_OPTIONS.map((option) => (
           <option key={option} value={option}>

@@ -85,7 +85,7 @@ export function FiltersPanel({
                         className="inline-flex min-h-11 items-center rounded-sm py-1 text-start text-sm text-gray-600 hover:text-sabz-700"
                       >
                         {category.name}
-                        <span className="ms-1.5 text-xs text-gray-400">
+                        <span className="ms-1.5 text-xs text-gray-500">
                           {formatFaNumber(category.publishedProductCount)}
                         </span>
                       </button>
@@ -155,7 +155,7 @@ export function FiltersPanel({
             </FacetSection>
           )}
           {completeTotal > brands.length ? (
-            <p className="mt-2 text-xs text-gray-400">
+            <p className="mt-2 text-xs text-gray-500">
               نمایش {formatFaNumber(brands.length)} از {formatFaNumber(completeTotal)} برند
             </p>
           ) : null}

@@ -20,7 +20,8 @@ export function ProductPrice({
     <span className="flex flex-wrap items-baseline gap-x-3">
       <span>{formatToman(variant.price)}</span>
       {variant.compareAtPrice ? (
-        <s className="text-sm font-normal text-gray-400">
+        <s className="text-sm font-normal text-gray-500">
+          <span className="sr-only">قیمت پیشین </span>
           {formatToman(variant.compareAtPrice)}
         </s>
       ) : null}

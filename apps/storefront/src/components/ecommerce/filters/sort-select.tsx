@@ -35,7 +35,7 @@ export function SortSelect({
             router.push(buildListingHref(basePath, state, { sort }));
           });
         }}
-        className="rounded-md border-0 bg-white py-2 pe-8 ps-3 text-sm ring-1 ring-inset ring-sand-200 focus:ring-2 focus:ring-sabz-600"
+        className="rounded-md border-0 bg-white py-2 pe-8 ps-3 text-sm ring-1 ring-inset ring-sand-200 focus-visible:ring-2 focus-visible:ring-sabz-600"
       >
         {CATALOG_SORTS.map((sort) => (
           <option key={sort} value={sort}>

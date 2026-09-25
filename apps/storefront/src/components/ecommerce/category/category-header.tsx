@@ -1,9 +1,13 @@
 import { formatFaNumber } from '@/lib/format';
+import { ResultStatus } from '@/components/ecommerce/filters/result-status';
 
 /**
  * Category landing header (SS-212): eyebrow + H1 + canonical roll-up count.
  * When listing filters narrow the results, a subtle secondary line keeps the
- * canonical count authoritative instead of silently replacing it.
+ * canonical count authoritative instead of silently replacing it. The
+ * filtered line is a client `role="status"` island (SS-218): a
+ * server-rendered aria-live node remounts on every navigation and never
+ * announces.
  */
 export function CategoryHeader({
   name,
@@ -27,9 +31,11 @@ export function CategoryHeader({
         {formatFaNumber(rollUpCount)} کالا
       </p>
       {showFiltered ? (
-        <p className="mt-1 text-xs text-gray-400" aria-live="polite">
-          {formatFaNumber(filteredTotal!)} کالا با فیلترهای فعلی
-        </p>
+        <ResultStatus
+          total={filteredTotal!}
+          filtering
+          className="mt-1 text-xs text-gray-600"
+        />
       ) : null}
     </div>
   );

@@ -47,7 +47,7 @@ export function AnnouncementBar({
             type="button"
             onClick={() => setDismissed(true)}
             aria-label="بستن اطلاعیه"
-            className="inline-flex min-h-8 min-w-8 shrink-0 items-center justify-center rounded-md text-sabz-100 hover:bg-sabz-700 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+            className="inline-flex min-h-11 min-w-11 -my-2 shrink-0 items-center justify-center rounded-md text-sabz-100 hover:bg-sabz-700 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
           >
             <svg
               viewBox="0 0 20 20"

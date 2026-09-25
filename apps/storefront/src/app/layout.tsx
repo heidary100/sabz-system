@@ -57,7 +57,9 @@ export default async function RootLayout({
           پرش به محتوای اصلی
         </a>
         <SiteHeader categories={categories} />
-        <main id="main" className="flex-1">{children}</main>
+        {/* scroll-mt keeps skip-link/anchor focus from landing under the
+            sticky header (SS-218). */}
+        <main id="main" className="scroll-mt-24 flex-1">{children}</main>
         <SiteFooter categories={categories} />
       </body>
     </html>
