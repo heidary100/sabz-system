@@ -250,13 +250,21 @@ export function ProductGallery({
                   </button>
                 </>
               ) : null}
-              {/* eslint-disable-next-line @next/next/no-img-element -- the lightbox needs the unoptimized original beyond next/image sizes. */}
-              <img
-                src={mediaImageUrl(active.url) ?? ''}
-                alt={name}
-                onClick={(event) => event.stopPropagation()}
-                className="max-h-full max-w-full rounded-lg object-contain shadow-overlay"
-              />
+              {/* The lightbox renders through the same-origin image optimizer
+                  (like the stage): a raw cross-origin <img> to the API host is
+                  blocked by some browsers, while the optimizer fetches the
+                  original server-side and serves it same-origin. */}
+              <div className="relative flex h-[82vh] w-[92vw] items-center justify-center">
+                <Image
+                  src={mediaImageUrl(active.url) ?? ''}
+                  alt={name}
+                  fill
+                  priority
+                  sizes="(min-width: 1024px) 80vw, 92vw"
+                  onClick={(event) => event.stopPropagation()}
+                  className="object-contain"
+                />
+              </div>
             </div>,
             document.body,
           )
