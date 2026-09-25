@@ -12,6 +12,7 @@ import { ProductCard } from '@/components/ecommerce/product-card/product-card';
 import { ActivePills } from '@/components/ecommerce/filters/active-pills';
 import { EmptyState } from '@/components/ecommerce/filters/empty-state';
 import { FiltersPanel } from '@/components/ecommerce/filters/filters-panel';
+import { FiltersSheet } from '@/components/ecommerce/filters/filters-sheet';
 import { PerPageSelect } from '@/components/ecommerce/filters/per-page-select';
 import { SortSelect } from '@/components/ecommerce/filters/sort-select';
 import { Pagination } from '@/components/ecommerce/filters/pagination';
@@ -109,15 +110,27 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
       ) : null}
 
       <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-[260px_1fr]">
-        <FiltersPanel
-          state={state}
-          categories={categories}
-          brands={brands.items}
-          brandsTotal={brands.total}
-          basePath={basePath}
-        />
+        {/* Desktop sidebar; mobile uses the filter sheet below. */}
+        <div className="hidden lg:block">
+          <FiltersPanel
+            state={state}
+            categories={categories}
+            brands={brands.items}
+            brandsTotal={brands.total}
+            basePath={basePath}
+          />
+        </div>
 
         <section aria-label={`محصولات دسته ${category.name}`}>
+          <div className="mb-4 flex items-center justify-between gap-2 lg:hidden">
+            <FiltersSheet
+              state={state}
+              categories={categories}
+              brands={brands.items}
+              brandsTotal={brands.total}
+              basePath={basePath}
+            />
+          </div>
           <ActivePills state={state} basePath={basePath} brandName={brandName} />
           {result.items.length === 0 ? (
             <EmptyState state={state} basePath={basePath} />

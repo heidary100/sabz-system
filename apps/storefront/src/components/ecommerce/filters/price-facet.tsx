@@ -5,12 +5,20 @@ import { useRouter } from 'next/navigation';
 import { buildListingHref, type ListingState } from '@/lib/listing';
 import { sanitizePriceBound } from '@/lib/price-input';
 
+/** Quick ranges (Toman) — the scanning-friendly augmentation of the free inputs. */
+const PRICE_PRESETS: Array<{ label: string; from: string; to: string }> = [
+  { label: 'تا ۱ میلیون', from: '', to: '1000000' },
+  { label: '۱ تا ۵ میلیون', from: '1000000', to: '5000000' },
+  { label: '۵ تا ۲۰ میلیون', from: '5000000', to: '20000000' },
+  { label: 'بالای ۲۰ میلیون', from: '20000000', to: '' },
+];
+
 /**
  * Price-range facet (SS-213, UI layer): two Toman inputs applied together on
- * submit — never a request per keystroke. The server is authoritative; this
- * component only sanitizes input and navigates via the canonical
- * `buildListingHref(basePath, …)`. Invalid input blocks apply with an inline
- * message instead of producing a broken URL.
+ * submit — never a request per keystroke — plus quick-range preset chips
+ * (SS-226). The server is authoritative; this component only sanitizes input
+ * and navigates via the canonical `buildListingHref(basePath, …)`. Invalid
+ * input blocks apply with an inline message instead of producing a broken URL.
  */
 export function PriceFacet({
   state,
@@ -115,6 +123,38 @@ export function PriceFacet({
             </button>
           ) : null}
         </div>
+        {/* Quick ranges: one tap applies a preset range (SS-226). */}
+        <ul role="list" className="mt-3 flex flex-wrap gap-1.5">
+          {PRICE_PRESETS.map((preset) => {
+            const active =
+              state.priceFrom === preset.from && state.priceTo === preset.to;
+            return (
+              <li key={preset.label}>
+                <button
+                  type="button"
+                  onClick={() =>
+                    startTransition(() => {
+                      router.push(
+                        buildListingHref(basePath, state, {
+                          priceFrom: preset.from,
+                          priceTo: preset.to,
+                        }),
+                      );
+                    })
+                  }
+                  aria-pressed={active}
+                  className={`min-h-9 rounded-full px-3 text-xs font-medium transition-colors ${
+                    active
+                      ? 'bg-sabz-700 text-white'
+                      : 'bg-sand-100 text-gray-600 hover:bg-sabz-50 hover:text-sabz-700'
+                  }`}
+                >
+                  {preset.label}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
       </form>
     </div>
   );

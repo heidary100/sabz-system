@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTransition } from 'react';
@@ -11,6 +12,49 @@ import { FACET_DEFAULT_VISIBLE, findCategoryNode, navRoots } from '@/lib/nav';
 import { FacetSection } from './facet-section';
 import { BrandFacetSearch, filterBrandsByQuery } from './brand-facet-search';
 import { PriceFacet } from './price-facet';
+
+/** Category routes own the category in the pathname — drilling is a path nav. */
+function isCategoryBasePath(basePath: string): boolean {
+  return basePath === '/categories' || basePath.startsWith('/categories/');
+}
+
+/**
+ * One category facet row (SS-226): label + published count. On category
+ * routes it navigates to the child's path; on /products it updates the
+ * `category` query param through the canonical href builder.
+ */
+function CategoryFacetLink({
+  label,
+  count,
+  href,
+  onClick,
+}: {
+  label: string;
+  count: number;
+  href?: string;
+  onClick?: () => void;
+}) {
+  const content = (
+    <>
+      {label}
+      <span className="ms-1.5 text-xs text-gray-500">{formatFaNumber(count)}</span>
+    </>
+  );
+  const className =
+    'inline-flex min-h-11 items-center rounded-sm py-1 text-start text-sm text-gray-600 hover:text-sabz-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700';
+  if (href) {
+    return (
+      <Link href={href} className={className} onClick={onClick}>
+        {content}
+      </Link>
+    );
+  }
+  return (
+    <button type="button" onClick={onClick} className={className}>
+      {content}
+    </button>
+  );
+}
 
 /**
  * Listing filter controls (SS-125, SS-212, SS-213): URL search params are the
@@ -71,6 +115,32 @@ export function FiltersPanel({
               {selectedCategory.name}
               <span aria-hidden="true">×</span>
             </button>
+            {/* SS-226: drill deeper — children of the active category, right
+                in the facet. On category routes a child is a path navigation
+                (the pathname owns the category); on /products it swaps the
+                deep-linked category param. */}
+            {selectedCategory.children.length > 0 ? (
+              <ul role="list" className="mt-3 space-y-2">
+                {selectedCategory.children.map((child) => (
+                  <li key={child.id}>
+                    <CategoryFacetLink
+                      label={child.name}
+                      count={child.publishedProductCount}
+                      href={
+                        isCategoryBasePath(basePath)
+                          ? `/categories/${child.slug}`
+                          : undefined
+                      }
+                      onClick={
+                        isCategoryBasePath(basePath)
+                          ? undefined
+                          : () => apply({ category: child.slug })
+                      }
+                    />
+                  </li>
+                ))}
+              </ul>
+            ) : null}
           </div>
         ) : (
           <div className="mb-5">
@@ -79,16 +149,20 @@ export function FiltersPanel({
                 <ul role="list" className="mt-3 space-y-2">
                   {roots.slice(0, visibleCount).map((category) => (
                     <li key={category.id}>
-                      <button
-                        type="button"
-                        onClick={() => apply({ category: category.slug })}
-                        className="inline-flex min-h-11 items-center rounded-sm py-1 text-start text-sm text-gray-600 hover:text-sabz-700"
-                      >
-                        {category.name}
-                        <span className="ms-1.5 text-xs text-gray-500">
-                          {formatFaNumber(category.publishedProductCount)}
-                        </span>
-                      </button>
+                      <CategoryFacetLink
+                        label={category.name}
+                        count={category.publishedProductCount}
+                        href={
+                          isCategoryBasePath(basePath)
+                            ? `/categories/${category.slug}`
+                            : undefined
+                        }
+                        onClick={
+                          isCategoryBasePath(basePath)
+                            ? undefined
+                            : () => apply({ category: category.slug })
+                        }
+                      />
                     </li>
                   ))}
                 </ul>
@@ -146,6 +220,12 @@ export function FiltersPanel({
                             ✓
                           </span>
                           {brand.name}
+                          {/* SS-226: facet count from the API. */}
+                          {typeof brand.productCount === 'number' ? (
+                            <span className="text-xs text-gray-500">
+                              {formatFaNumber(brand.productCount)}
+                            </span>
+                          ) : null}
                         </button>
                       </li>
                     );

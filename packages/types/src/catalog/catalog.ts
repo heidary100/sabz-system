@@ -71,6 +71,11 @@ export interface CatalogBrandDto {
   id: string;
   name: string;
   slug: string;
+  /**
+   * Published, non-deleted product count for the facet UI (SS-226) — the
+   * same visibility predicate the product listing applies.
+   */
+  productCount: number;
 }
 
 /** Minimal brand/category reference embedded in product DTOs. */

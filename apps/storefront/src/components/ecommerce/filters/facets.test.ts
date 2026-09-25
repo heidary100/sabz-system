@@ -5,7 +5,7 @@ import { hasFacetOverflow } from './facet-show-more';
 import { filterBrandsByQuery } from './brand-facet-search';
 
 function brand(id: string, name: string): CatalogBrandDto {
-  return { id, name, slug: id };
+  return { id, name, slug: id, productCount: 1 };
 }
 
 describe('hasFacetOverflow', () => {
