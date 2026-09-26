@@ -164,10 +164,15 @@ describe('isAdvertisableInternalHref', () => {
     expect(isAdvertisableInternalHref('/products?sort=newest')).toBe(true);
   });
 
-  it('rejects placeholder routes even with query strings', () => {
-    for (const href of ['/cart', '/account', '/about', '/contact', '/terms']) {
+  it('rejects placeholder routes even with query strings (SS-229: static pages are real now)', () => {
+    for (const href of ['/cart', '/account']) {
       expect(isAdvertisableInternalHref(href)).toBe(false);
       expect(isAdvertisableInternalHref(`${href}?x=1`)).toBe(false);
+    }
+    // SS-229 made these real content pages — they must be advertisable.
+    for (const href of ['/about', '/contact', '/terms']) {
+      expect(isAdvertisableInternalHref(href)).toBe(true);
+      expect(isAdvertisableInternalHref(`${href}`)).toBe(true);
     }
   });
 
@@ -213,13 +218,20 @@ describe('filterValidFooterLinks', () => {
     expect(
       filterValidFooterLinks([
         { label: 'سبد خرید', href: '/cart' },
-        { label: 'درباره ما', href: '/about' },
-        { label: 'تماس', href: '/contact' },
-        { label: 'قوانین', href: '/terms' },
         { label: 'حساب', href: '/account' },
         { label: 'مخرب', href: 'javascript:alert(1)' },
       ]),
     ).toEqual([]);
+  });
+
+  it('advertisable real content pages pass through (SS-229)', () => {
+    expect(
+      filterValidFooterLinks([
+        { label: 'درباره ما', href: '/about' },
+        { label: 'تماس', href: '/contact' },
+        { label: 'قوانین', href: '/terms' },
+      ]).map((link) => link.href),
+    ).toEqual(['/about', '/contact', '/terms']);
   });
 
   it('never emits a hash or empty href', () => {
@@ -261,7 +273,10 @@ describe('safe defaults', () => {
       expect(social.href).toMatch(/^https:\/\//);
     }
     for (const link of siteConfig.legalLinks) {
-      expect(link.href).toMatch(/^https:\/\//);
+      // Internal terms page or an absolute external seal URL — both real.
+      expect(link.href === '/terms' || /^https:\/\//.test(link.href)).toBe(
+        true,
+      );
     }
     // Contact channels keep both display and machine-readable forms.
     for (const phone of contactChannels.phones) {
