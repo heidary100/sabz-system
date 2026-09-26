@@ -1,14 +1,9 @@
 import type { Metadata } from 'next';
-import { PlaceholderPage } from '@/components/ecommerce/ui/placeholder-page';
+import { AccountPanel } from './account-panel';
 
 export const metadata: Metadata = { title: 'حساب کاربری' };
 
-/** Account placeholder (SS-124): customer auth arrives in a later milestone. */
+/** Server wrapper (SS-230): metadata lives here, interactivity in the panel. */
 export default function AccountPage() {
-  return (
-    <PlaceholderPage
-      title="حساب کاربری"
-      message="ورود و ثبت‌نام مشتریان در مرحله بعدی توسعه فعال میشود. در حال حاضر میتوانید بدون حساب کاربری از فروشگاه دیدن کنید و قیمت‌های خرد را مشاهده کنید."
-    />
-  );
+  return <AccountPanel />;
 }
