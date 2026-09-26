@@ -112,6 +112,8 @@ model User {
   roles    UserRole[]
   sessions UserSession[]
 
+  wishlistItems WishlistItem[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   deletedAt DateTime?
@@ -406,6 +408,8 @@ model Product {
   media    ProductMedia[]
   specs    ProductAttributeValue[]
   tags     ProductTag[]
+
+  wishlistItems WishlistItem[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -744,6 +748,23 @@ model Tag {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+/// Customer wishlist entry (SS-231). One row per (user, product) pair;
+/// hard-deleted on remove or with the user/product (both cascades).
+/// Only PUBLISHED, non-deleted products are ever listed — enforced in
+/// WishlistService, not by the schema; stale rows vanish via cascade.
+model WishlistItem {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, productId])
+  @@index([userId, createdAt])
 }
 
 /// Tag assignment preserving source ordering (SS-203). Derived rows:

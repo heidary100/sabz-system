@@ -8,7 +8,7 @@ import {
 } from '@/lib/catalog';
 import { withCategoryPreset, buildListingHref } from '@/lib/listing';
 import { findCategoryNode, findCategoryPath, findSiblings } from '@/lib/nav';
-import { ProductCard } from '@/components/ecommerce/product-card/product-card';
+import { ProductCardWithWishlist } from '@/components/ecommerce/wishlist/product-card-wishlist';
 import { ActivePills } from '@/components/ecommerce/filters/active-pills';
 import { EmptyState } from '@/components/ecommerce/filters/empty-state';
 import { FiltersPanel } from '@/components/ecommerce/filters/filters-panel';
@@ -138,7 +138,7 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
             <>
               <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
                 {result.items.map((product) => (
-                  <ProductCard key={product.id} product={product} />
+                  <ProductCardWithWishlist key={product.id} product={product} />
                 ))}
               </div>
               <Pagination result={result} makeHref={makeHref} />

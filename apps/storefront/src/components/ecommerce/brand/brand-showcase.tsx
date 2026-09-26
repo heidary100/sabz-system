@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useId, useState } from 'react';
 import type { CatalogProductCardDto } from '@sabz/types';
-import { ProductCard } from '@/components/ecommerce/product-card/product-card';
+import { ProductCardWithWishlist } from '@/components/ecommerce/wishlist/product-card-wishlist';
 import { SectionHeader } from '@/components/ecommerce/ui/section-header';
 
 export interface BrandShowcaseGroup {
@@ -80,7 +80,7 @@ export function BrandShowcase({ groups }: { groups: BrandShowcaseGroup[] }) {
           >
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
               {group.products.map((product) => (
-                <ProductCard key={product.id} product={product} />
+                <ProductCardWithWishlist key={product.id} product={product} />
               ))}
             </div>
             <div className="mt-6 text-start">

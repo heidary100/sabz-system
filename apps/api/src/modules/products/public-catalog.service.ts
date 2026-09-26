@@ -822,6 +822,34 @@ export class PublicCatalogService {
     return ids;
   }
 
+  /**
+   * Listing cards for an explicit id list, restricted to publicly visible
+   * products (PUBLISHED, non-deleted). Order follows the input ids; invisible
+   * ids are skipped silently. Shared hydration pipeline with the listing, so
+   * wishlist rows (SS-231) carry identical price/stock/media truth.
+   */
+  async getVisibleCardsByIds(
+    productIds: string[],
+  ): Promise<CatalogProductCardDto[]> {
+    if (productIds.length === 0) {
+      return [];
+    }
+    const visible = await this.prisma.product.findMany({
+      where: {
+        id: { in: productIds },
+        deletedAt: null,
+        status: ProductStatus.PUBLISHED,
+      },
+      select: { id: true },
+    });
+    const visibleIds = new Set(visible.map((row) => row.id));
+    const orderedIds = productIds.filter((id) => visibleIds.has(id));
+    if (orderedIds.length === 0) {
+      return [];
+    }
+    return this.hydrateCards(orderedIds);
+  }
+
   /** Builds the listing cards for an already-paginated, ordered id list. */
   private async hydrateCards(
     pageIds: string[],

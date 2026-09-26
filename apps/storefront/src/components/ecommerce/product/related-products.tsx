@@ -1,5 +1,5 @@
 import type { CatalogProductCardDto } from '@sabz/types';
-import { ProductCard } from '@/components/ecommerce/product-card/product-card';
+import { ProductCardWithWishlist } from '@/components/ecommerce/wishlist/product-card-wishlist';
 
 /**
  * Related-products rail (SS-214, server). Renders the API-provided
@@ -24,7 +24,7 @@ export function RelatedProducts({
       </h2>
       <div className="mt-4 grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         {items.map((product) => (
-          <ProductCard key={product.id} product={product} />
+          <ProductCardWithWishlist key={product.id} product={product} />
         ))}
       </div>
     </section>
