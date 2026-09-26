@@ -68,3 +68,13 @@ export function splitCell(value: string): string[] {
     .map((part) => part.trim())
     .filter((part) => part.length > 0);
 }
+
+/**
+ * Collapses literal `\n` artifacts (SS-228): the Woo export stores escaped
+ * newline markers inside description text; written verbatim they render as
+ * visible «\n» junk on product pages. Surrounding whitespace collapses with
+ * the marker. Pure — reused by the writer guard and the one-off scrub CLI.
+ */
+export function normalizeImportedText(text: string): string {
+  return text.replace(/ *\\n */g, ' ').replace(/ {2,}/g, ' ').trim();
+}

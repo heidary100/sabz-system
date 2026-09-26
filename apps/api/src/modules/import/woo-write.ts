@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { parseCustomAttributeLine } from '../products/attribute-parse';
 import { sanitizeRichText } from '../products/description-sanitize';
-import { cell, splitCell, type WooRecord } from './woo-parse';
+import { cell, normalizeImportedText, splitCell, type WooRecord } from './woo-parse';
 import { classifyCustomLine, type ResolvedRow } from './woo-resolve';
 
 /**
@@ -298,11 +298,15 @@ export function buildProductPlan(
   }));
 
   const shortRaw = get('توضیح کوتاه').trim();
-  const shortPlain = sanitizeRichText(shortRaw)
-    .replace(/<[^>]*>/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-  const long = sanitizeRichText(get('توضیحات')) || null;
+  // SS-228 writer guard: literal `\n` markers from the export must never
+  // reach the storefront as visible junk.
+  const shortPlain = normalizeImportedText(
+    sanitizeRichText(shortRaw)
+      .replace(/<[^>]*>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim(),
+  );
+  const long = normalizeImportedText(sanitizeRichText(get('توضیحات'))) || null;
   const weightRaw = Number(get('وزن (گرم)'));
 
   return {
