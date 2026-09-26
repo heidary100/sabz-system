@@ -1,8 +1,9 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ecommerce/ui/button';
+import { Button, buttonVariants } from '@/components/ecommerce/ui/button';
 import { Skeleton } from '@/components/ecommerce/skeleton/skeleton';
 import { ApiError } from '@/lib/api';
 import {
@@ -190,9 +191,16 @@ export function AccountPanel() {
       </section>
 
       <section className="rounded-xl border border-sand-200 bg-white p-6">
-        <p className="text-sm leading-6 text-gray-600">
-          درخواست همکاری (پنل همکاران) — به‌زودی
+        <h2 className="text-sm font-bold text-ink-900">همکاری با ما</h2>
+        <p className="mt-2 text-sm leading-6 text-gray-600">
+          برای خرید عمده با شرایط همکاری، درخواست خود را ثبت و پیگیری کنید.
         </p>
+        <Link
+          href="/partners"
+          className={`${buttonVariants({ variant: 'outline' })} mt-4`}
+        >
+          درخواست همکاری
+        </Link>
       </section>
 
       <Button variant="outline" onClick={() => void handleLogout()}>
