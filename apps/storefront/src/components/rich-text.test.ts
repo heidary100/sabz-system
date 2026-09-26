@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { withLazyImages } from './rich-text';
+import { withLazyImages, withoutNewlineArtifacts } from './rich-text';
 
 /**
  * SS-217: sanitized rich-text <img> tags must receive lazy loading/decoding
@@ -41,5 +41,18 @@ describe('withLazyImages', () => {
       expect(img).toContain('loading="lazy"');
       expect(img).toContain('decoding="async"');
     }
+  });
+});
+
+describe('withoutNewlineArtifacts (SS-228)', () => {
+  it('collapses literal newline markers with surrounding whitespace', () => {
+    expect(withoutNewlineArtifacts('جنس بدنه چرم \\nاین محصول')).toBe(
+      'جنس بدنه چرم این محصول',
+    );
+    expect(withoutNewlineArtifacts('متن \\n \\n ادامه')).toBe('متن ادامه');
+  });
+
+  it('leaves clean html untouched', () => {
+    expect(withoutNewlineArtifacts('<p>متن تمیز</p>')).toBe('<p>متن تمیز</p>');
   });
 });

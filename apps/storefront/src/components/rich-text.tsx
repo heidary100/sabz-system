@@ -28,9 +28,19 @@ export function RichText({
     <div
       dir="rtl"
       className={`rich-text ${className ?? ''}`}
-      dangerouslySetInnerHTML={{ __html: withLazyImages(html) }}
+      dangerouslySetInnerHTML={{ __html: withLazyImages(withoutNewlineArtifacts(html)) }}
     />
   );
+}
+
+/**
+ * SS-228 belt-and-braces: legacy rows may still carry literal `\n` markers
+ * (a Woo-export artifact). The database scrub + import guard remove them;
+ * this render-time collapse guarantees the storefront never displays the
+ * junk even against an un-scrubbed API.
+ */
+export function withoutNewlineArtifacts(html: string): string {
+  return html.replace(/ *\\n */g, ' ').replace(/ {2,}/g, ' ').trim();
 }
 
 /** Adds loading/decoding hints to sanitized <img> tags lacking them. */
