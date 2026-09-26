@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import type { CatalogProductVariantDto } from '@sabz/types';
+import { AddToCartButton } from '@/components/ecommerce/cart/add-to-cart-button';
 import { getSelectedVariant, parseVariantParam } from '@/lib/variant';
 import { ProductPrice } from './product-price';
 import { ProductPurchaseSlot } from './product-purchase-slot';
@@ -25,10 +26,13 @@ import { ProductVariantSelector } from './product-variant-selector';
  * an invalid param through the router (external-system sync, never state).
  */
 export function ProductPurchasePanel({
+  productName,
   variants,
   initialVariantId,
   rawVariantParam,
 }: {
+  /** Product name for the add-to-cart accessible label. */
+  productName: string;
   variants: CatalogProductVariantDto[];
   initialVariantId: string | null;
   /** Raw `?variant=` value from the URL; used only for one-time cleanup. */
@@ -103,7 +107,14 @@ export function ProductPurchasePanel({
       </div>
 
       <div className="mt-4">
-        <ProductPurchaseSlot variant={selected} />
+        {selected.inStock && selected.priceStatus === 'PRICED' ? (
+          <AddToCartButton
+            identity={{ variantId: selected.id }}
+            productName={productName}
+          />
+        ) : (
+          <ProductPurchaseSlot variant={selected} />
+        )}
       </div>
     </div>
   );

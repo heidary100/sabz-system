@@ -1,9 +1,11 @@
 import type { CatalogProductVariantDto } from '@sabz/types';
 
 /**
- * Purchase-action placeholder (SS-214). This is NOT a cart: a visually
- * intentional integration boundary where Milestone 3 will plug in. States
- * are text-first (never color-only) and no control pretends to purchase.
+ * Non-purchasable purchase states (SS-214, narrowed SS-232). The purchasable
+ * branch moved to `AddToCartButton` (rendered by `ProductPurchasePanel`);
+ * this slot keeps the honest call-for-price / out-of-stock states that must
+ * never offer an add action. States are text-first (never color-only) and no
+ * control pretends to purchase.
  */
 export function ProductPurchaseSlot({
   variant,
@@ -30,13 +32,8 @@ export function ProductPurchaseSlot({
       </div>
     );
   }
-  return (
-    <div className="rounded-xl bg-sabz-50 p-4 text-sm text-sabz-800">
-      <p className="font-semibold">موجود</p>
-      <p className="mt-1 leading-6">
-        خرید اینترنتی به‌زودی فعال می‌شود؛ در حال حاضر فقط مرور کاتالوگ
-        امکان‌پذیر است.
-      </p>
-    </div>
-  );
+  // Purchasable variants never reach this slot (the panel renders
+  // `AddToCartButton` instead); reaching here is a programming error, so
+  // render nothing rather than a fake purchase control.
+  return null;
 }

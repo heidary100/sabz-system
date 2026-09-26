@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { Suspense } from 'react';
 import type { CatalogCategoryNode } from '@sabz/types';
 import { BrandLockup } from '@/components/ecommerce/brand/brand-lockup';
+import { CartHeaderIcon } from '@/components/ecommerce/cart/cart-header-icon';
+import { MiniCart } from '@/components/ecommerce/cart/mini-cart';
 import { DesktopNav } from './desktop-nav';
 import { MobileMenu } from './mobile-menu';
 import { SearchInput } from './search-input';
@@ -9,12 +11,13 @@ import { SearchOverlay } from './search-overlay';
 import { WishlistHeaderIcon } from './wishlist-header-icon';
 
 /**
- * Storefront shell header (SS-124, SS-211, SS-223): two-row layout — row 1
- * holds the drawer toggle, brand lockup, the desktop search trigger (opens
- * the full-screen overlay) and account/cart icons; row 2 is the desktop
- * category nav over the unwrapped effective roots. The cart badge was
- * removed (honest placeholder until the commerce milestone); search is
- * visible on mobile as its own header row instead of being drawer-buried.
+ * Storefront shell header (SS-124, SS-211, SS-223, SS-232): two-row layout —
+ * row 1 holds the drawer toggle, brand lockup, the desktop search trigger
+ * (opens the full-screen overlay) and account/wishlist/cart icons; row 2 is
+ * the desktop category nav over the unwrapped effective roots. The cart icon
+ * carries an honest count badge (server total or guest sum) and opens the
+ * mini-cart drawer; search is visible on mobile as its own header row
+ * instead of being drawer-buried.
  */
 export function SiteHeader({ categories }: { categories: CatalogCategoryNode[] }) {
   return (
@@ -46,19 +49,8 @@ export function SiteHeader({ categories }: { categories: CatalogCategoryNode[] }
               </svg>
             </Link>
             <WishlistHeaderIcon />
-            <Link
-              href="/cart"
-              className="flex min-h-11 min-w-11 items-center justify-center rounded-md p-2 text-gray-600 hover:bg-sabz-50 hover:text-sabz-700"
-            >
-              <span className="sr-only">سبد خرید</span>
-              <svg viewBox="0 0 24 24" fill="none" strokeWidth={1.5} stroke="currentColor" aria-hidden="true" className="size-6">
-                <path
-                  d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 0 0-16.536-1.84M7.5 14.25 5.106 5.272M6 20.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm12.75 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </Link>
+            <CartHeaderIcon />
+            <MiniCart />
           </div>
         </div>
 
