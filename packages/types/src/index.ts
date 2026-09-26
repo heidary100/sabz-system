@@ -114,6 +114,15 @@ export {
 } from './wishlist/wishlist';
 
 export {
+  AddCartItemInput,
+  CartItemDto,
+  CartResponse,
+  ClearCartResponse,
+  RemoveCartItemResponse,
+  UpdateCartItemInput,
+} from './cart/cart';
+
+export {
   INVENTORY_STOCK_STATUSES,
   InventoryMovementType,
   InventoryStockStatus,

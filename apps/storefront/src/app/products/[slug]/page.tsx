@@ -191,6 +191,7 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
           <div className="mt-6">
             <ProductPurchasePanel
               key={parseVariantParam(rawVariantParam) ?? 'default'}
+              productName={product.name}
               variants={product.variants}
               initialVariantId={initialVariantId}
               rawVariantParam={rawVariantParam}
