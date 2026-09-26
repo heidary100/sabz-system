@@ -6,6 +6,7 @@ import { DesktopNav } from './desktop-nav';
 import { MobileMenu } from './mobile-menu';
 import { SearchInput } from './search-input';
 import { SearchOverlay } from './search-overlay';
+import { WishlistHeaderIcon } from './wishlist-header-icon';
 
 /**
  * Storefront shell header (SS-124, SS-211, SS-223): two-row layout — row 1
@@ -44,6 +45,7 @@ export function SiteHeader({ categories }: { categories: CatalogCategoryNode[] }
                 />
               </svg>
             </Link>
+            <WishlistHeaderIcon />
             <Link
               href="/cart"
               className="flex min-h-11 min-w-11 items-center justify-center rounded-md p-2 text-gray-600 hover:bg-sabz-50 hover:text-sabz-700"

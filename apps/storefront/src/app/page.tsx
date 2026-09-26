@@ -11,7 +11,7 @@ import { CategoryBanners } from '@/components/ecommerce/category/category-banner
 import { HeroSlider } from '@/components/ecommerce/hero/hero-slider';
 import { AnnouncementBar } from '@/components/ecommerce/promo/announcement-bar';
 import { SaleBanner } from '@/components/ecommerce/promo/sale-banner';
-import { ProductCard } from '@/components/ecommerce/product-card/product-card';
+import { ProductCardWithWishlist } from '@/components/ecommerce/wishlist/product-card-wishlist';
 import { SectionHeader } from '@/components/ecommerce/ui/section-header';
 import { BrandShowcase } from '@/components/ecommerce/brand/brand-showcase';
 import { AppSection } from '@/components/ecommerce/app/app-section';
@@ -107,7 +107,7 @@ export default async function HomePage() {
             />
             <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
               {inStock.items.map((product) => (
-                <ProductCard key={product.id} product={product} />
+                <ProductCardWithWishlist key={product.id} product={product} />
               ))}
             </div>
           </div>
@@ -125,7 +125,7 @@ export default async function HomePage() {
           />
           <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
             {latest.items.map((product) => (
-              <ProductCard key={product.id} product={product} />
+              <ProductCardWithWishlist key={product.id} product={product} />
             ))}
           </div>
         </section>
@@ -144,7 +144,7 @@ export default async function HomePage() {
             />
             <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
               {alphabetical.items.map((product) => (
-                <ProductCard key={product.id} product={product} />
+                <ProductCardWithWishlist key={product.id} product={product} />
               ))}
             </div>
           </div>

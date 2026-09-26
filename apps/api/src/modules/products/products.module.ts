@@ -141,6 +141,12 @@ export const PRODUCT_MEDIA_TEMP_DIR = 'PRODUCT_MEDIA_TEMP_DIR';
     },
     MediaProcessingService,
   ],
-  exports: [AttributesService, MediaService, PRODUCT_MEDIA_STORAGE, TagsService],
+  exports: [
+    AttributesService,
+    MediaService,
+    PRODUCT_MEDIA_STORAGE,
+    PublicCatalogService,
+    TagsService,
+  ],
 })
 export class ProductsModule {}

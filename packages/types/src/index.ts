@@ -107,6 +107,13 @@ export {
 export { TagDto } from './product/tags';
 
 export {
+  AddWishlistInput,
+  RemoveWishlistResponse,
+  WishlistItemDto,
+  WishlistListResponse,
+} from './wishlist/wishlist';
+
+export {
   INVENTORY_STOCK_STATUSES,
   InventoryMovementType,
   InventoryStockStatus,
