@@ -34,6 +34,7 @@ import {
   deriveAvailable,
 } from '../inventory/inventory-aggregate';
 import { InventoryService } from '../inventory/inventory.service';
+import { PricingService } from '../pricing/pricing.service';
 
 /**
  * Static v1 choice lists. Shipping fees are "0" (Rial) — real carrier fees
@@ -104,6 +105,8 @@ const LINE_WITH_VARIANT = {
           name: true,
           status: true,
           deletedAt: true,
+          categoryId: true,
+          brandId: true,
         },
       },
     },
@@ -127,13 +130,16 @@ interface AllocationSlice {
  * Checkout + customer orders (SS-233).
  *
  * Price truth (CART-004): every total is computed from live variant rows
- * read inside this flow — the client never sends money. Inventory
- * (CART-005): nothing is reserved by the cart; this flow reserves per
- * warehouse slice via `InventoryService.reserve`, then consumes, so each
- * mutation keeps its ledger movement + audit. Compensation: partial
- * reserves are released on failure; stock consumed but left orderless by a
- * failed order-create is restocked via `receive` with an `order-failed`
- * note (all best-effort, then the original error rethrows).
+ * read inside this flow — the client never sends money. SS-235 resolves
+ * each line server-side (retail base → partner tier → bulk → scheduled
+ * promotion) before reserving, so the frozen order snapshot carries the
+ * priced unit, never the raw catalog price. Inventory (CART-005): nothing
+ * is reserved by the cart; this flow reserves per warehouse slice via
+ * `InventoryService.reserve`, then consumes, so each mutation keeps its
+ * ledger movement + audit. Compensation: partial reserves are released on
+ * failure; stock consumed but left orderless by a failed order-create is
+ * restocked via `receive` with an `order-failed` note (all best-effort,
+ * then the original error rethrows).
  */
 @Injectable()
 export class CheckoutService {
@@ -142,6 +148,7 @@ export class CheckoutService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly inventory: InventoryService,
+    private readonly pricing: PricingService,
   ) {}
 
   shippingMethods(): { items: ShippingMethodDto[] } {
@@ -170,7 +177,7 @@ export class CheckoutService {
         problems: [],
       };
     }
-    return this.summarize(lines);
+    return (await this.summarize(userId, lines)).summary;
   }
 
   async placeOrder(
@@ -196,7 +203,7 @@ export class CheckoutService {
     if (lines.length === 0) {
       throw new BadRequestException('سبد خرید خالی است.');
     }
-    const summary = await this.summarize(lines);
+    const { summary, unitPrices } = await this.summarize(userId, lines);
     // Surface the first blocking problem with cart-mirroring semantics:
     // unpublished → 404, call-for-price → 422, shortage → 409 + available.
     const blocking = summary.problems.find((problem) =>
@@ -210,7 +217,7 @@ export class CheckoutService {
       throw new BadRequestException('سبد خرید هیچ قلم قابل تسویه‌ای ندارد.');
     }
 
-    const slices = await this.reserveAll(userId, fulfillable);
+    const slices = await this.reserveAll(userId, fulfillable, unitPrices);
     const consumed: AllocationSlice[] = [];
     try {
       for (const slice of slices) {
@@ -455,7 +462,10 @@ export class CheckoutService {
     });
   }
 
-  private async summarize(lines: CartLine[]): Promise<CheckoutSummaryDto> {
+  private async summarize(
+    userId: string,
+    lines: CartLine[],
+  ): Promise<{ summary: CheckoutSummaryDto; unitPrices: Map<string, Prisma.Decimal> }> {
     const visible = lines.filter(
       (line) =>
         line.variant.deletedAt === null &&
@@ -465,6 +475,25 @@ export class CheckoutService {
     const availableByVariant = await this.availableFor([
       ...new Set(visible.map((line) => line.variantId)),
     ]);
+    // SS-235: one tier lookup per summary; promotions resolve per line.
+    // Resolved units are returned alongside so placeOrder freezes the same
+    // priced unit it validated (never the raw variant price).
+    const tierPct = await this.pricing.tierDiscountForUser(userId);
+    const unitPrices = new Map<string, Prisma.Decimal>();
+    for (const line of visible) {
+      if (line.variant.priceStatus !== PriceStatus.PRICED) {
+        continue;
+      }
+      const promotions = await this.pricing.activePromotionsFor({
+        productId: line.variant.product.id,
+        categoryId: line.variant.product.categoryId,
+        brandId: line.variant.product.brandId,
+      });
+      unitPrices.set(
+        line.variantId,
+        PricingService.resolveLine(line.variant.price, line.quantity, tierPct, promotions),
+      );
+    }
 
     const items: CheckoutLineDto[] = [];
     const problems: CheckoutProblemDto[] = [];
@@ -496,15 +525,16 @@ export class CheckoutService {
       }
       const available = availableByVariant.get(line.variantId) ?? 0;
       const inStock = available >= line.quantity;
-      const unitPrice = line.variant.price.toString();
+      const unitPrice = (unitPrices.get(line.variantId) ?? line.variant.price).toString();
       const priceChanged = unitPrice !== line.unitPriceAtAdd.toString();
+      const lineTotal = new Prisma.Decimal(unitPrice).mul(line.quantity).toString();
       items.push({
         variantId: line.variantId,
         productName: line.variant.product.name,
         variantSku: line.variant.sku,
         quantity: line.quantity,
         unitPrice,
-        lineTotal: line.variant.price.mul(line.quantity).toString(),
+        lineTotal,
         priceChanged,
         available,
         inStock,
@@ -528,18 +558,21 @@ export class CheckoutService {
           available,
         });
       } else {
-        subtotal = subtotal.add(line.variant.price.mul(line.quantity));
+        subtotal = subtotal.add(new Prisma.Decimal(lineTotal));
       }
     }
 
     const blocking = problems.some((problem) => this.isBlocking(problem.code));
     return {
-      valid: !blocking && items.some((item) => item.inStock),
-      items,
-      subtotal: subtotal.toString(),
-      shippingFee: '0',
-      total: subtotal.toString(),
-      problems,
+      summary: {
+        valid: !blocking && items.some((item) => item.inStock),
+        items,
+        subtotal: subtotal.toString(),
+        shippingFee: '0',
+        total: subtotal.toString(),
+        problems,
+      },
+      unitPrices,
     };
   }
 
@@ -585,6 +618,7 @@ export class CheckoutService {
   private async reserveAll(
     userId: string,
     fulfillable: CartLine[],
+    unitPrices: Map<string, Prisma.Decimal>,
   ): Promise<AllocationSlice[]> {
     const slices: AllocationSlice[] = [];
     try {
@@ -625,7 +659,7 @@ export class CheckoutService {
             variantId: line.variantId,
             warehouseId: holder.warehouseId,
             quantity: take,
-            unitPrice: line.variant.price,
+            unitPrice: unitPrices.get(line.variantId) ?? line.variant.price,
             productName: line.variant.product.name,
             variantName: line.variant.name,
             sku: line.variant.sku,

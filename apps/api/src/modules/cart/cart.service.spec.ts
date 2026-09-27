@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/database/prisma.service';
+import { PricingService } from '../pricing/pricing.service';
 import { CartService } from './cart.service';
 
 const USER_ID = 'user-1';
@@ -44,6 +45,10 @@ function makeLine(
 
 describe('CartService', () => {
   let service: CartService;
+  let pricing: {
+    tierDiscountForUser: jest.Mock;
+    activePromotionsFor: jest.Mock;
+  };
   let prisma: {
     cart: { findUnique: jest.Mock; create: jest.Mock; findUniqueOrThrow: jest.Mock };
     cartItem: {
@@ -80,7 +85,16 @@ describe('CartService', () => {
       { variantId: VARIANT_ID, quantityOnHand: 10, quantityReserved: 2 },
     ]);
     prisma.productMedia.findMany.mockResolvedValue([]);
-    service = new CartService(prisma as unknown as PrismaService);
+    // SS-235: retail by default (no tier, no promotions) so legacy price
+    // assertions keep proving the base-price path.
+    pricing = {
+      tierDiscountForUser: jest.fn().mockResolvedValue(new Prisma.Decimal(0)),
+      activePromotionsFor: jest.fn().mockResolvedValue([]),
+    };
+    service = new CartService(
+      prisma as unknown as PrismaService,
+      pricing as unknown as PricingService,
+    );
   });
 
   describe('list', () => {

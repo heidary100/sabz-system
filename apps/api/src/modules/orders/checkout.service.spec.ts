@@ -2,6 +2,7 @@ import { BadRequestException, UnprocessableEntityException } from '@nestjs/commo
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/database/prisma.service';
 import { InventoryService } from '../inventory/inventory.service';
+import { PricingService } from '../pricing/pricing.service';
 import { CheckoutService } from './checkout.service';
 
 const USER_ID = 'user-1';
@@ -58,7 +59,17 @@ describe('CheckoutService', () => {
       address: { findFirst: jest.fn() },
     };
     const inventory = {} as unknown as InventoryService;
-    service = new CheckoutService(prisma as unknown as PrismaService, inventory);
+    // SS-235: retail by default (no tier, no promotions) so legacy totals
+    // keep proving the base-price path.
+    const pricing = {
+      tierDiscountForUser: jest.fn().mockResolvedValue(new Prisma.Decimal(0)),
+      activePromotionsFor: jest.fn().mockResolvedValue([]),
+    } as unknown as PricingService;
+    service = new CheckoutService(
+      prisma as unknown as PrismaService,
+      inventory,
+      pricing,
+    );
   });
 
   it('serves static shipping and payment method lists', () => {
