@@ -191,6 +191,19 @@ export function AccountPanel() {
       </section>
 
       <section className="rounded-xl border border-sand-200 bg-white p-6">
+        <h2 className="text-sm font-bold text-ink-900">سفارش‌ها</h2>
+        <p className="mt-2 text-sm leading-6 text-gray-600">
+          تاریخچه سفارش‌ها، وضعیت ارسال و فاکتورها.
+        </p>
+        <Link
+          href="/orders"
+          className={`${buttonVariants({ variant: 'outline' })} mt-4`}
+        >
+          مشاهده سفارش‌ها
+        </Link>
+      </section>
+
+      <section className="rounded-xl border border-sand-200 bg-white p-6">
         <h2 className="text-sm font-bold text-ink-900">همکاری با ما</h2>
         <p className="mt-2 text-sm leading-6 text-gray-600">
           برای خرید عمده با شرایط همکاری، درخواست خود را ثبت و پیگیری کنید.
