@@ -7,9 +7,11 @@ import { RedisModule } from './common/redis/redis.module';
 import { StorefrontCacheModule } from './common/storefront-cache/storefront-cache.module';
 import { HealthModule } from './health/health.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { AddressesModule } from './modules/addresses/addresses.module';
 import { CartModule } from './modules/cart/cart.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
+import { OrdersModule } from './modules/orders/orders.module';
 import { PartnersModule } from './modules/partners/partners.module';
 import { ProductsModule } from './modules/products/products.module';
 import { UsersModule } from './modules/users/users.module';
@@ -39,9 +41,11 @@ import { WishlistModule } from './modules/wishlist/wishlist.module';
     StorefrontCacheModule,
     HealthModule,
     AuthModule,
+    AddressesModule,
     CartModule,
     DashboardModule,
     InventoryModule,
+    OrdersModule,
     PartnersModule,
     ProductsModule,
     UsersModule,

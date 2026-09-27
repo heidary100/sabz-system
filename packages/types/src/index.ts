@@ -114,6 +114,36 @@ export {
 } from './wishlist/wishlist';
 
 export {
+  AddressDto,
+  AddressListResponse,
+  CreateAddressInput,
+  RemoveAddressResponse,
+  UpdateAddressInput,
+} from './orders/addresses';
+
+export {
+  CheckoutLineDto,
+  CheckoutProblemCode,
+  CheckoutProblemDto,
+  CheckoutSummaryDto,
+  InvoiceDto,
+  ORDER_STATUS_FA,
+  OrderAddressSnapshot,
+  OrderDetailDto,
+  OrderItemDto,
+  OrderListItemDto,
+  OrderListResponse,
+  OrderStatus,
+  PaymentMethod,
+  PaymentMethodDto,
+  PaymentStatus,
+  PlaceOrderInput,
+  PlaceOrderResult,
+  ShippingMethodCode,
+  ShippingMethodDto,
+} from './orders/orders';
+
+export {
   AddCartItemInput,
   CartItemDto,
   CartResponse,

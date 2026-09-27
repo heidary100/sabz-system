@@ -155,12 +155,9 @@ export function CartPageContent() {
           <p className="mt-3 text-xs leading-5 text-gray-500">
             قیمت‌ها به تومان و بر اساس آخرین قیمت فروشگاه محاسبه شده است.
           </p>
-          <Button variant="primary" size="lg" className="mt-4 w-full" disabled>
+          <Link href="/checkout" className={`${buttonVariants({ variant: 'primary', size: 'lg' })} mt-4 w-full`}>
             ادامه و تسویه حساب
-          </Button>
-          <p className="mt-2 text-center text-xs leading-5 text-gray-500">
-            تسویه حساب در مرحله بعدی توسعه (SS-233) فعال می‌شود.
-          </p>
+          </Link>
           <div className="mt-3 flex items-center justify-between gap-2">
             <Link
               href="/products"
