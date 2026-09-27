@@ -23,7 +23,10 @@ export { ORDER_STATUS_FA };
 
 /** Persian label for an order status (shared @sabz/types map). */
 export function orderStatusLabel(status: OrderStatus): string {
-  return ORDER_STATUS_FA[status];
+  // Fall back to the raw code so a stale @sabz/types dist (e.g. an old
+  // storefront container image) can never crash the page — the label just
+  // renders untranslated until the image is rebuilt.
+  return ORDER_STATUS_FA[status] ?? status;
 }
 
 function unauthorized(): ApiError {
