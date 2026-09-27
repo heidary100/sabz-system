@@ -16,7 +16,8 @@ import { ValidateCheckoutDto } from './dto';
  * roles — self-owned customer state). `validate` is a read-only preview
  * for the wizard review step; the money-moving flow lives on
  * `POST /orders/checkout`. Shipping/payment choice lists are static v1
- * stubs (real fees SS-241, gateway SS-234).
+ * stubs (real fees SS-241, gateway SS-234B — SS-234 ships COD-only with
+ * ONLINE listed but disabled).
  */
 @ApiTags('checkout')
 @ApiBearerAuth()

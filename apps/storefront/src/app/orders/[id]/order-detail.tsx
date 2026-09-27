@@ -10,7 +10,7 @@ import { Badge } from '@/components/ecommerce/ui/badge';
 import { Skeleton } from '@/components/ecommerce/skeleton/skeleton';
 import { ApiError } from '@/lib/api';
 import { hasSession } from '@/lib/auth-client';
-import { cancelOrder, fetchOrderDetail, orderStatusLabel } from '@/lib/orders';
+import { cancelOrder, fetchOrderDetail, orderStatusLabel, paymentMethodLabel, paymentStatusLabel } from '@/lib/orders';
 import { formatFaNumber, formatToman } from '@/lib/format';
 import { OrderTimeline } from './order-timeline';
 
@@ -136,7 +136,7 @@ export function OrderDetail({ id }: { id: string }) {
               سفارش {formatFaNumber(order.orderNumber)}
             </h2>
             <p className="mt-1 text-xs text-gray-500">
-              {order.paymentMethod === 'COD' ? 'پرداخت در محل' : 'پرداخت آنلاین'} — جمع {formatToman(order.total)}
+              {paymentMethodLabel(order.paymentMethod)} — {paymentStatusLabel(order.paymentStatus)} — جمع {formatToman(order.total)}
             </p>
           </div>
           <Badge variant={order.status === 'CANCELLED' ? 'outOfStock' : order.status === 'DELIVERED' ? 'success' : 'neutral'}>

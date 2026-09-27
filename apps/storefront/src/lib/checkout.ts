@@ -113,7 +113,7 @@ export async function fetchShippingMethods(): Promise<ShippingMethodDto[]> {
   return body.items as ShippingMethodDto[];
 }
 
-/** Static v1 payment choices (gateway arrives with SS-234). */
+/** Static v1 payment choices (SS-234 COD-only: ONLINE listed but disabled). */
 export async function fetchPaymentMethods(): Promise<PaymentMethodDto[]> {
   const response = await authedJson('/checkout/payment-methods', {}, CHOICE_FAILED);
   const body = (await response.json().catch(() => undefined)) as {
@@ -123,6 +123,31 @@ export async function fetchPaymentMethods(): Promise<PaymentMethodDto[]> {
     throw new Error(CHOICE_FAILED);
   }
   return body.items as PaymentMethodDto[];
+}
+
+/**
+ * Whether a payment method is selectable. Tolerates payloads from an older
+ * API without the SS-234 `enabled` flag (missing = enabled, except ONLINE
+ * which stays conservative until the gateway ticket lands).
+ */
+export function isPaymentEnabled(method: PaymentMethodDto): boolean {
+  if (typeof method.enabled === 'boolean') {
+    return method.enabled;
+  }
+  return method.code !== 'ONLINE';
+}
+
+/**
+ * Default payment selection (SS-234 COD-only): the first enabled method
+ * with COD preferred. Returns null when every method is disabled.
+ */
+export function defaultPaymentMethod(methods: PaymentMethodDto[]): PaymentMethod | null {
+  const enabled = methods.filter(isPaymentEnabled);
+  return (
+    enabled.find((method) => method.code === 'COD')?.code ??
+    enabled[0]?.code ??
+    null
+  );
 }
 
 /** Read-only checkout preview (no side effects) for the review step. */

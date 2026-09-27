@@ -1,7 +1,9 @@
 /**
- * Choice radio cards (SS-233): generic picker for shipping and payment
- * methods. Renders honest v1 stubs — fees and gateway notes come from the
- * server payload, never invented client-side.
+ * Choice radio cards (SS-233, SS-234): generic picker for shipping and
+ * payment methods. Renders honest v1 stubs — fees and gateway notes come
+ * from the server payload, never invented client-side. Options flagged
+ * `disabled` (SS-234: ONLINE while the gateway is stubbed) render as
+ * real disabled radios with reduced-motion-safe styling.
  */
 export function MethodRadio<T extends string>({
   name,
@@ -10,7 +12,7 @@ export function MethodRadio<T extends string>({
   onSelect,
 }: {
   name: string;
-  options: Array<{ code: T; title: string; desc: string }>;
+  options: Array<{ code: T; title: string; desc: string; disabled?: boolean }>;
   selected: T | null;
   onSelect: (code: T) => void;
 }) {
@@ -19,8 +21,12 @@ export function MethodRadio<T extends string>({
       {options.map((option) => (
         <label
           key={option.code}
-          className={`flex cursor-pointer items-start gap-3 rounded-xl border bg-white p-4 ${
-            option.code === selected ? 'border-sabz-600' : 'border-sand-200'
+          className={`flex items-start gap-3 rounded-xl border bg-white p-4 ${
+            option.disabled
+              ? 'cursor-not-allowed border-sand-200 opacity-60'
+              : option.code === selected
+                ? 'cursor-pointer border-sabz-600'
+                : 'cursor-pointer border-sand-200'
           }`}
         >
           <input
@@ -28,6 +34,7 @@ export function MethodRadio<T extends string>({
             name={name}
             value={option.code}
             checked={option.code === selected}
+            disabled={option.disabled}
             onChange={() => onSelect(option.code)}
             className="mt-1 size-4 accent-sabz-800"
           />

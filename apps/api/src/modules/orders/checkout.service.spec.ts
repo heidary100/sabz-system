@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, UnprocessableEntityException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/database/prisma.service';
 import { InventoryService } from '../inventory/inventory.service';
@@ -62,17 +62,41 @@ describe('CheckoutService', () => {
   });
 
   it('serves static shipping and payment method lists', () => {
-    const shipping = service.shippingMethods();
-    const payment = service.paymentMethods();
+    const previousOnline = process.env.PAYMENTS_ONLINE_ENABLED;
+    const previousCod = process.env.COD_ENABLED;
+    delete process.env.PAYMENTS_ONLINE_ENABLED;
+    delete process.env.COD_ENABLED;
+    try {
+      const shipping = service.shippingMethods();
+      const payment = service.paymentMethods();
 
-    expect(shipping.items.length).toBeGreaterThan(0);
-    expect(Object.keys(shipping.items[0]!).sort()).toEqual(
-      ['code', 'etaFa', 'fee', 'titleFa'].sort(),
-    );
-    expect(payment.items.map((item) => item.code).sort()).toEqual(['COD', 'ONLINE']);
-    expect(Object.keys(payment.items[0]!).sort()).toEqual(
-      ['code', 'descFa', 'titleFa'].sort(),
-    );
+      expect(shipping.items.length).toBeGreaterThan(0);
+      expect(Object.keys(shipping.items[0]!).sort()).toEqual(
+        ['code', 'etaFa', 'fee', 'titleFa'].sort(),
+      );
+      expect(payment.items.map((item) => item.code).sort()).toEqual(['COD', 'ONLINE']);
+      expect(Object.keys(payment.items[0]!).sort()).toEqual(
+        ['code', 'descFa', 'enabled', 'titleFa'].sort(),
+      );
+      // SS-234 COD-only defaults: ONLINE listed but disabled, COD enabled.
+      expect(payment.items.find((item) => item.code === 'ONLINE')).toMatchObject({
+        enabled: false,
+      });
+      expect(payment.items.find((item) => item.code === 'COD')).toMatchObject({
+        enabled: true,
+      });
+    } finally {
+      if (previousOnline === undefined) {
+        delete process.env.PAYMENTS_ONLINE_ENABLED;
+      } else {
+        process.env.PAYMENTS_ONLINE_ENABLED = previousOnline;
+      }
+      if (previousCod === undefined) {
+        delete process.env.COD_ENABLED;
+      } else {
+        process.env.COD_ENABLED = previousCod;
+      }
+    }
   });
 
   it('validates an empty cart as invalid without problems', async () => {
@@ -181,5 +205,24 @@ describe('CheckoutService', () => {
     await expect(
       service.placeOrder(USER_ID, VARIANT_ID, 'COD'),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('rejects ONLINE checkout with 422 while the gateway is disabled (SS-234)', async () => {
+    const previous = process.env.PAYMENTS_ONLINE_ENABLED;
+    delete process.env.PAYMENTS_ONLINE_ENABLED;
+    try {
+      await expect(
+        service.placeOrder(USER_ID, VARIANT_ID, 'ONLINE'),
+      ).rejects.toBeInstanceOf(UnprocessableEntityException);
+    } finally {
+      if (previous === undefined) {
+        delete process.env.PAYMENTS_ONLINE_ENABLED;
+      } else {
+        process.env.PAYMENTS_ONLINE_ENABLED = previous;
+      }
+    }
+    // The guard runs before any stock/address reads.
+    expect(prisma.address.findFirst).not.toHaveBeenCalled();
+    expect(prisma.cart.findUnique).not.toHaveBeenCalled();
   });
 });

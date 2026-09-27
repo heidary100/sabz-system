@@ -9,7 +9,7 @@ import { Card } from '@/components/ecommerce/ui/card';
 import { Skeleton } from '@/components/ecommerce/skeleton/skeleton';
 import { ApiError } from '@/lib/api';
 import { hasSession } from '@/lib/auth-client';
-import { fetchInvoice, orderStatusLabel } from '@/lib/orders';
+import { fetchInvoice, orderStatusLabel, paymentMethodLabel, paymentStatusLabel } from '@/lib/orders';
 import { formatFaNumber, formatToman } from '@/lib/format';
 
 const LOAD_FAILED = 'دریافت فاکتور ناموفق بود؛ لطفاً دوباره تلاش کنید.';
@@ -129,6 +129,9 @@ export function InvoiceView({ id }: { id: string }) {
           </div>
           <div className="text-left text-sm text-gray-600">
             <p>وضعیت: {orderStatusLabel(invoice.status)}</p>
+            <p>
+              شیوه پرداخت: {paymentMethodLabel(invoice.paymentMethod)} — {paymentStatusLabel(invoice.paymentStatus)}
+            </p>
             <p>
               تحویل‌گیرنده: {snapshot.fullName} — <span dir="ltr">{snapshot.phone}</span>
             </p>

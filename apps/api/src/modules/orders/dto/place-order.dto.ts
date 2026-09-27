@@ -19,7 +19,7 @@ export class PlaceOrderDto {
     enum: ['ONLINE', 'COD'],
     example: 'COD',
     description:
-      'ONLINE reserves for gateway payment (SS-234); COD marks cash on delivery. Both create an unpaid (PENDING) order in v1.',
+      'COD marks cash on delivery (SS-234); ONLINE is disabled with 422 until the gateway ticket (SS-234B). Both create an unpaid (PENDING) order in v1.',
   })
   @IsEnum(['ONLINE', 'COD'], {
     message: 'شیوه پرداخت معتبر نیست.',

@@ -3,8 +3,10 @@ import type {
   OrderDetailDto,
   OrderListResponse,
   OrderStatus,
+  PaymentMethod,
+  PaymentStatus,
 } from '@sabz/types';
-import { ORDER_STATUS_FA } from '@sabz/types';
+import { ORDER_STATUS_FA, PAYMENT_METHOD_FA, PAYMENT_STATUS_FA } from '@sabz/types';
 import { ApiError } from '@/lib/api';
 import { authFetch } from '@/lib/auth-client';
 
@@ -27,6 +29,16 @@ export function orderStatusLabel(status: OrderStatus): string {
   // storefront container image) can never crash the page — the label just
   // renders untranslated until the image is rebuilt.
   return ORDER_STATUS_FA[status] ?? status;
+}
+
+/** Persian label for a payment method (stale-dist tolerant, see above). */
+export function paymentMethodLabel(method: PaymentMethod): string {
+  return PAYMENT_METHOD_FA?.[method] ?? (method === 'COD' ? 'پرداخت در محل' : 'پرداخت آنلاین');
+}
+
+/** Persian label for a payment status (stale-dist tolerant, see above). */
+export function paymentStatusLabel(status: PaymentStatus): string {
+  return PAYMENT_STATUS_FA?.[status] ?? status;
 }
 
 function unauthorized(): ApiError {
