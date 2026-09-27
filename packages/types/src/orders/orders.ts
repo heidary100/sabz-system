@@ -31,6 +31,17 @@ export const ORDER_STATUS_FA: Record<OrderStatus, string> = {
   CANCELLED: 'لغو شده',
 };
 
+export const PAYMENT_METHOD_FA: Record<PaymentMethod, string> = {
+  ONLINE: 'پرداخت آنلاین',
+  COD: 'پرداخت در محل',
+};
+
+export const PAYMENT_STATUS_FA: Record<PaymentStatus, string> = {
+  PENDING: 'در انتظار پرداخت',
+  PAID: 'پرداخت شده',
+  FAILED: 'پرداخت ناموفق',
+};
+
 export type ShippingMethodCode =
   | 'TIPAX'
   | 'IRAN_POST'
@@ -49,6 +60,11 @@ export interface PaymentMethodDto {
   code: PaymentMethod;
   titleFa: string;
   descFa: string;
+  /**
+   * Server-driven availability (SS-234 COD-only): false while the method is
+   * stubbed behind its env flag — the storefront disables instead of hiding.
+   */
+  enabled: boolean;
 }
 
 export type CheckoutProblemCode =

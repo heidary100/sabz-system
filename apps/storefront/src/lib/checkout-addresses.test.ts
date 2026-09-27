@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { defaultAddress, parseAddressList } from './addresses';
-import { parseCheckoutStep, serializeCheckoutStep, stepLabel } from './checkout';
+import {
+  defaultPaymentMethod,
+  isPaymentEnabled,
+  parseCheckoutStep,
+  serializeCheckoutStep,
+  stepLabel,
+} from './checkout';
 
 describe('parseAddressList', () => {
   it('returns items for a well-formed payload', () => {
@@ -44,5 +50,35 @@ describe('parseCheckoutStep', () => {
     expect(serializeCheckoutStep('payment')).toBe('step=payment');
     expect(stepLabel('review')).toBe('بازبینی و ثبت');
     expect(stepLabel('cart')).toBe('بررسی سبد');
+  });
+});
+
+describe('isPaymentEnabled', () => {
+  it('honours the server enabled flag', () => {
+    expect(isPaymentEnabled({ code: 'ONLINE', enabled: false } as never)).toBe(false);
+    expect(isPaymentEnabled({ code: 'COD', enabled: true } as never)).toBe(true);
+  });
+
+  it('tolerates pre-SS-234 payloads without the flag', () => {
+    expect(isPaymentEnabled({ code: 'COD' } as never)).toBe(true);
+    expect(isPaymentEnabled({ code: 'ONLINE' } as never)).toBe(false);
+  });
+});
+
+describe('defaultPaymentMethod', () => {
+  const cod = { code: 'COD', enabled: true };
+  const online = { code: 'ONLINE', enabled: false };
+
+  it('prefers COD while ONLINE is disabled (SS-234)', () => {
+    expect(defaultPaymentMethod([online, cod] as never)).toBe('COD');
+    expect(defaultPaymentMethod([cod, online] as never)).toBe('COD');
+  });
+
+  it('falls back to the first enabled method and null when all disabled', () => {
+    expect(
+      defaultPaymentMethod([{ code: 'ONLINE', enabled: true }] as never),
+    ).toBe('ONLINE');
+    expect(defaultPaymentMethod([online] as never)).toBeNull();
+    expect(defaultPaymentMethod([])).toBeNull();
   });
 });

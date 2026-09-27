@@ -20,8 +20,10 @@ import { defaultAddress, fetchAddresses } from '@/lib/addresses';
 import { ApiError } from '@/lib/api';
 import { hasSession } from '@/lib/auth-client';
 import {
+  defaultPaymentMethod,
   fetchPaymentMethods,
   fetchShippingMethods,
+  isPaymentEnabled,
   parseCheckoutStep,
   placeOrder,
   validateCheckout,
@@ -86,7 +88,9 @@ export function CheckoutWizard({ stepParam }: { stepParam: unknown }) {
         setPayments(pays);
         setSelectedAddressId((current) => current ?? defaultAddress(book)?.id ?? null);
         setShippingCode((current) => current ?? ships[0]?.code ?? null);
-        setPayment((current) => current ?? 'COD');
+        // SS-234 COD-only: prefer COD, fall back to the first enabled
+        // method (never an ONLINE stub the server rejects with 422).
+        setPayment((current) => current ?? defaultPaymentMethod(pays));
         setStatus('ready');
       })
       .catch((loadError: unknown) => {
@@ -354,11 +358,16 @@ export function CheckoutWizard({ stepParam }: { stepParam: unknown }) {
 
           {visibleStep === 'payment' ? (
             <Card className="p-6">
-              <SectionHeader id="checkout-payment" title="شیوه پرداخت" subtitle="پرداخت آنلاین در مرحله بعد فعال می‌شود" />
+              <SectionHeader id="checkout-payment" title="شیوه پرداخت" subtitle="پرداخت در محل فعال است؛ پرداخت آنلاین به‌زودی" />
               <div className="mt-4">
                 <MethodRadio
                   name="شیوه پرداخت"
-                  options={payments.map((method) => ({ code: method.code, title: method.titleFa, desc: method.descFa }))}
+                  options={payments.map((method) => ({
+                    code: method.code,
+                    title: method.titleFa,
+                    desc: method.descFa,
+                    disabled: !isPaymentEnabled(method),
+                  }))}
                   selected={payment}
                   onSelect={setPayment}
                 />

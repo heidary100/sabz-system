@@ -16,7 +16,7 @@ const ADDRESSES_BASE = '/api/v1/addresses';
 
 /** DTO key pins — any shape change must update these lists. */
 const SHIPPING_METHOD_KEYS = ['code', 'etaFa', 'fee', 'titleFa'];
-const PAYMENT_METHOD_KEYS = ['code', 'descFa', 'titleFa'];
+const PAYMENT_METHOD_KEYS = ['code', 'descFa', 'enabled', 'titleFa'];
 const CHECKOUT_SUMMARY_KEYS = ['items', 'problems', 'shippingFee', 'subtotal', 'total', 'valid'];
 const CHECKOUT_LINE_KEYS = [
   'available',
@@ -277,6 +277,9 @@ describe('Orders + Checkout API (SS-233) (e2e)', () => {
   });
 
   it('serves static shipping and payment choice lists', async () => {
+    // SS-234 COD-only: gateway stays disabled unless the env flag is set.
+    delete process.env.PAYMENTS_ONLINE_ENABLED;
+    delete process.env.COD_ENABLED;
     const customer = await createUserWithToken();
 
     const shipping = await request(app.getHttpServer())
@@ -299,6 +302,49 @@ describe('Orders + Checkout API (SS-233) (e2e)', () => {
     for (const item of payment.body.items) {
       expect(Object.keys(item).sort()).toEqual(PAYMENT_METHOD_KEYS);
     }
+    // SS-234 COD-only: ONLINE listed but disabled, COD enabled.
+    expect(
+      payment.body.items.find((item: { code: string }) => item.code === 'ONLINE'),
+    ).toMatchObject({ enabled: false });
+    expect(
+      payment.body.items.find((item: { code: string }) => item.code === 'COD'),
+    ).toMatchObject({ enabled: true });
+  });
+
+  it('rejects ONLINE checkout with 422 while the gateway is disabled (SS-234)', async () => {
+    delete process.env.PAYMENTS_ONLINE_ENABLED;
+    delete process.env.COD_ENABLED;
+    const operator = await createUserWithToken();
+    await prisma.role.findUniqueOrThrow({ where: { name: 'OPERATOR' } }).then((role) =>
+      prisma.userRole.create({
+        data: { userId: operator.userId, roleId: role.id, assignedBy: operator.userId },
+      }),
+    );
+    const customer = await createUserWithToken();
+    const { variantId } = await seedPublishedVariant(
+      operator.token,
+      `پرداخت ${uniqueSuffix()}`,
+      5,
+    );
+    const addressId = await createAddress(customer.token);
+    await request(app.getHttpServer())
+      .post(`${CART_BASE}/items`)
+      .set('Authorization', `Bearer ${customer.token}`)
+      .send({ variantId, quantity: 1 })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post(`${ORDERS_BASE}/checkout`)
+      .set('Authorization', `Bearer ${customer.token}`)
+      .send({ addressId, paymentMethod: 'ONLINE' })
+      .expect(422);
+
+    // COD still succeeds for the same cart.
+    await request(app.getHttpServer())
+      .post(`${ORDERS_BASE}/checkout`)
+      .set('Authorization', `Bearer ${customer.token}`)
+      .send({ addressId, paymentMethod: 'COD' })
+      .expect(201);
   });
 
   it('places, lists, details, invoices and cancels with pinned DTO keys', async () => {
@@ -410,7 +456,7 @@ describe('Orders + Checkout API (SS-233) (e2e)', () => {
     const second = await request(app.getHttpServer())
       .post(`${ORDERS_BASE}/checkout`)
       .set('Authorization', `Bearer ${customer.token}`)
-      .send({ addressId, paymentMethod: 'ONLINE' })
+      .send({ addressId, paymentMethod: 'COD' })
       .expect(201);
     expect(second.body.orderNumber).toBe(placed.body.orderNumber + 1);
 

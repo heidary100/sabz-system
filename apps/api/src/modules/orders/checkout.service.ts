@@ -37,9 +37,10 @@ import { InventoryService } from '../inventory/inventory.service';
 
 /**
  * Static v1 choice lists. Shipping fees are "0" (Rial) — real carrier fees
- * arrive with SS-241; payment ONLINE creates an unpaid order whose gateway
- * redirect arrives with SS-234. Both lists are honest stubs, never fake
- * integrations.
+ * arrive with SS-241. Payments are COD-only (SS-234): ONLINE stays listed
+ * but disabled until the gateway ticket (SS-234B) flips
+ * `PAYMENTS_ONLINE_ENABLED=true` with verified credentials. Both lists are
+ * honest stubs, never fake integrations.
  */
 const SHIPPING_METHODS: ShippingMethodDto[] = [
   { code: 'TIPAX', titleFa: 'تیپاکس', etaFa: '۲ تا ۴ روز کاری', fee: '0' },
@@ -48,18 +49,41 @@ const SHIPPING_METHODS: ShippingMethodDto[] = [
   { code: 'STORE_PICKUP', titleFa: 'تحویل حضوری از فروشگاه', etaFa: 'پس از هماهنگی', fee: '0' },
 ];
 
-const PAYMENT_METHODS: PaymentMethodDto[] = [
-  {
-    code: 'ONLINE',
-    titleFa: 'پرداخت آنلاین',
-    descFa: 'پرداخت اینترنتی پس از ثبت سفارش (درگاه در مرحله بعد فعال می‌شود).',
-  },
-  {
-    code: 'COD',
-    titleFa: 'پرداخت در محل',
-    descFa: 'پرداخت نقدی هنگام تحویل برای سفارش‌های مجاز.',
-  },
-];
+/**
+ * COD-only payment catalogue (SS-234). Availability is env-driven and read
+ * at request time (no DI change — `process.env` is populated by
+ * ConfigModule/dotenv in every runtime incl. e2e):
+ * - `COD_ENABLED=false` disables cash on delivery (default enabled).
+ * - `PAYMENTS_ONLINE_ENABLED=true` enables ONLINE (default disabled until
+ *   the gateway ticket lands with server-side verification).
+ */
+function isOnlinePaymentsEnabled(): boolean {
+  return process.env.PAYMENTS_ONLINE_ENABLED === 'true';
+}
+
+function isCodEnabled(): boolean {
+  return process.env.COD_ENABLED !== 'false';
+}
+
+function buildPaymentMethods(): PaymentMethodDto[] {
+  const onlineEnabled = isOnlinePaymentsEnabled();
+  return [
+    {
+      code: 'ONLINE',
+      titleFa: 'پرداخت آنلاین',
+      descFa: onlineEnabled
+        ? 'پرداخت اینترنتی پس از ثبت سفارش.'
+        : 'پرداخت اینترنتی به‌زودی فعال می‌شود؛ در حال حاضر پرداخت در محل را انتخاب کنید.',
+      enabled: onlineEnabled,
+    },
+    {
+      code: 'COD',
+      titleFa: 'پرداخت در محل',
+      descFa: 'پرداخت نقدی هنگام تحویل برای سفارش‌های مجاز.',
+      enabled: isCodEnabled(),
+    },
+  ];
+}
 
 const LINE_WITH_VARIANT = {
   id: true,
@@ -125,7 +149,7 @@ export class CheckoutService {
   }
 
   paymentMethods(): { items: PaymentMethodDto[] } {
-    return { items: PAYMENT_METHODS };
+    return { items: buildPaymentMethods() };
   }
 
   async validate(
@@ -154,6 +178,19 @@ export class CheckoutService {
     addressId: string,
     paymentMethod: PaymentMethod,
   ): Promise<PlaceOrderResult> {
+    // SS-234 COD-only: reject methods disabled by env before touching stock.
+    // ONLINE stays 422 until the gateway ticket (SS-234B); COD flips to PAID
+    // only on the operator DELIVERED transition (SS-240).
+    if (paymentMethod === PaymentMethod.ONLINE && !isOnlinePaymentsEnabled()) {
+      throw new UnprocessableEntityException(
+        'پرداخت آنلاین در حال حاضر فعال نیست؛ لطفاً پرداخت در محل را انتخاب کنید.',
+      );
+    }
+    if (paymentMethod === PaymentMethod.COD && !isCodEnabled()) {
+      throw new UnprocessableEntityException(
+        'پرداخت در محل در حال حاضر فعال نیست.',
+      );
+    }
     const address = await this.requireOwnAddress(userId, addressId);
     const lines = await this.cartLines(userId);
     if (lines.length === 0) {
