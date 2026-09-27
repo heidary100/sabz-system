@@ -114,6 +114,13 @@ enum PaymentStatus {
   FAILED
 }
 
+/// Scheduled-sale discount kind (SS-235 Round A). PERCENT is 0–100,
+/// FIXED is a Rial amount off the (post-tier, post-bulk) unit price.
+enum PromotionType {
+  PERCENT
+  FIXED
+}
+
 enum AttributeType {
   VARIANT_OPTION
   SPEC
@@ -933,4 +940,40 @@ model ProductTag {
   @@unique([productId, tagId])
   @@index([productId, sortOrder])
   @@index([tagId])
+}
+
+/// Scheduled sale / promotion (SS-235 Round A, pricing-engine.md §6).
+/// Applied server-side after tier + bulk in `PricingService.resolveLine`;
+/// the storefront never computes discounts. Scope is optional and
+/// narrowest-wins: productId > categoryId > brandId > sitewide (all null).
+/// Admin CRUD arrives with SS-240; until then rows are managed via seed or
+/// direct DB writes. Invalid rows (bad range, endsAt <= startsAt) are
+/// ignored by the resolver, never fatal.
+model Promotion {
+  id    String        @id @default(uuid())
+  code  String        @unique
+  titleFa String
+  type  PromotionType
+  /// PERCENT: 0–100. FIXED: Rial amount off.
+  value   Decimal  @db.Decimal(12, 2)
+  startsAt DateTime
+  endsAt   DateTime
+  isActive Boolean  @default(true)
+
+  productId  String?
+  categoryId String?
+  brandId    String?
+
+  /// Minimum line quantity for the promotion to apply.
+  minQuantity Int @default(1)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?
+  updatedBy String?
+
+  @@index([isActive, startsAt, endsAt])
+  @@index([productId])
+  @@index([categoryId])
+  @@index([brandId])
 }

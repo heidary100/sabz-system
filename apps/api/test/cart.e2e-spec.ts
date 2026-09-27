@@ -61,6 +61,9 @@ describe('Cart API (SS-232) (e2e)', () => {
   const productIds: string[] = [];
   const variantIds: string[] = [];
   const warehouseIds: string[] = [];
+  const tierIds: string[] = [];
+  const partnerIds: string[] = [];
+  const promotionIds: string[] = [];
 
   async function seedRole(name: string): Promise<string> {
     const existing = await prisma.role.findUnique({ where: { name } });
@@ -178,6 +181,9 @@ describe('Cart API (SS-232) (e2e)', () => {
   });
 
   afterAll(async () => {
+    await prisma.promotion.deleteMany({ where: { id: { in: promotionIds } } });
+    await prisma.partner.deleteMany({ where: { id: { in: partnerIds } } });
+    await prisma.partnerTier.deleteMany({ where: { id: { in: tierIds } } });
     await prisma.inventoryItem.deleteMany({
       where: { variantId: { in: variantIds } },
     });
@@ -557,5 +563,119 @@ describe('Cart API (SS-232) (e2e)', () => {
       .then((res) =>
         expect(res.body).toEqual({ items: [], totalQuantity: 0, subtotal: '0' }),
       );
+  });
+
+  it('resolves tier, bulk, and promotion prices server-side (SS-235)', async () => {
+    const operator = await createUserWithToken(true);
+    const partnerUser = await createUserWithToken(false);
+    const retailUser = await createUserWithToken(false);
+    const { variantId } = await seedPublishedVariant(
+      operator.token,
+      `قیمت ${uniqueSuffix()}`,
+      200,
+    );
+
+    // Approved partner on a 10% tier; retail user has no partner record.
+    const suffix = uniqueSuffix();
+    const tier = await prisma.partnerTier.create({
+      data: { name: `سطح ${suffix}`, discountPercent: 10, minOrderQuantity: 1 },
+    });
+    tierIds.push(tier.id);
+    const profile = await prisma.userProfile.create({
+      data: { userId: partnerUser.userId, firstName: 'شریک', lastName: 'تجاری' },
+    });
+    const partner = await prisma.partner.create({
+      data: {
+        profileId: profile.id,
+        businessName: `کسب ${suffix}`,
+        approvalStatus: 'APPROVED',
+        tierId: tier.id,
+      },
+    });
+    partnerIds.push(partner.id);
+
+    // Retail base price (variant price is 5000 Rial) with no discounts yet.
+    await request(app.getHttpServer())
+      .post(`${CART_BASE}/items`)
+      .set('Authorization', `Bearer ${retailUser.token}`)
+      .send({ variantId, quantity: 1 })
+      .expect(201)
+      .then((res) => {
+        expect(Object.keys(res.body).sort()).toEqual(CART_ITEM_KEYS);
+        expect(res.body.unitPrice).toBe('5000');
+        expect(res.body.lineTotal).toBe('5000');
+      });
+
+    // Partner tier 10%: 5000 → 4500.
+    await request(app.getHttpServer())
+      .post(`${CART_BASE}/items`)
+      .set('Authorization', `Bearer ${partnerUser.token}`)
+      .send({ variantId, quantity: 1 })
+      .expect(201)
+      .then((res) => {
+        expect(res.body.unitPrice).toBe('4500');
+        expect(res.body.lineTotal).toBe('4500');
+      });
+
+    // Bulk at qty 10 (3% after tier): 4500 → 4365.
+    await request(app.getHttpServer())
+      .patch(`${CART_BASE}/items/${variantId}`)
+      .set('Authorization', `Bearer ${partnerUser.token}`)
+      .send({ quantity: 10 })
+      .expect(200)
+      .then((res) => {
+        expect(res.body.unitPrice).toBe('4365');
+        expect(res.body.lineTotal).toBe('43650');
+      });
+
+    // Fixed product promotion (465 Rial off): partner 4365 → 3900,
+    // retail 5000 → 4535. Expired promotions are ignored.
+    const promo = await prisma.promotion.create({
+      data: {
+        code: `PROMO-${suffix}`,
+        titleFa: 'فروش ویژه',
+        type: 'FIXED',
+        value: 465,
+        startsAt: new Date(Date.now() - 3_600_000),
+        endsAt: new Date(Date.now() + 86_400_000),
+        isActive: true,
+        productId: (await prisma.productVariant.findUniqueOrThrow({
+          where: { id: variantId },
+          select: { productId: true },
+        })).productId,
+      },
+    });
+    promotionIds.push(promo.id);
+    const expired = await prisma.promotion.create({
+      data: {
+        code: `EXPIRED-${suffix}`,
+        titleFa: 'منقضی',
+        type: 'PERCENT',
+        value: 50,
+        startsAt: new Date(Date.now() - 3 * 86_400_000),
+        endsAt: new Date(Date.now() - 86_400_000),
+        isActive: true,
+      },
+    });
+    promotionIds.push(expired.id);
+
+    await request(app.getHttpServer())
+      .get(CART_BASE)
+      .set('Authorization', `Bearer ${partnerUser.token}`)
+      .expect(200)
+      .then((res) => {
+        expect(Object.keys(res.body.items[0]).sort()).toEqual(CART_ITEM_KEYS);
+        expect(res.body.items[0].unitPrice).toBe('3900');
+        expect(res.body.subtotal).toBe('39000');
+      });
+
+    await request(app.getHttpServer())
+      .get(CART_BASE)
+      .set('Authorization', `Bearer ${retailUser.token}`)
+      .expect(200)
+      .then((res) => {
+        expect(res.body.items[0].unitPrice).toBe('4535');
+        expect(res.body.subtotal).toBe('4535');
+      });
   });
 });

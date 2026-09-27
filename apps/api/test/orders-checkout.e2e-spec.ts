@@ -111,6 +111,8 @@ describe('Orders + Checkout API (SS-233) (e2e)', () => {
   const productIds: string[] = [];
   const variantIds: string[] = [];
   const warehouseIds: string[] = [];
+  const tierIds: string[] = [];
+  const partnerIds: string[] = [];
 
   async function seedRole(name: string): Promise<string> {
     const existing = await prisma.role.findUnique({ where: { name } });
@@ -221,8 +223,7 @@ describe('Orders + Checkout API (SS-233) (e2e)', () => {
     // Ledger + order rows reference variants/warehouses: unwind in FK order.
     await prisma.order.deleteMany({
       where: { userId: { in: userIds } },
-    });
-    const reservations = await prisma.reservation.findMany({
+    });    const reservations = await prisma.reservation.findMany({
       where: { inventoryItem: { variantId: { in: variantIds } } },
       select: { id: true },
     });
@@ -246,6 +247,8 @@ describe('Orders + Checkout API (SS-233) (e2e)', () => {
     await prisma.brand.deleteMany({ where: { id: { in: brandIds } } });
     await prisma.category.deleteMany({ where: { id: { in: categoryIds } } });
     await prisma.warehouse.deleteMany({ where: { id: { in: warehouseIds } } });
+    await prisma.partner.deleteMany({ where: { id: { in: partnerIds } } });
+    await prisma.partnerTier.deleteMany({ where: { id: { in: tierIds } } });
     await prisma.auditLog.deleteMany({
       where: {
         OR: [{ entityId: { in: userIds } }, { userId: { in: userIds } }],
@@ -611,5 +614,82 @@ describe('Orders + Checkout API (SS-233) (e2e)', () => {
       .get(`${ORDERS_BASE}/${placed.body.orderId}/invoice`)
       .set('Authorization', `Bearer ${stranger.token}`)
       .expect(404);
+  });
+
+  it('freezes tier-resolved prices into the order snapshot (SS-235)', async () => {
+    const operator = await createUserWithToken();
+    await prisma.role.findUniqueOrThrow({ where: { name: 'OPERATOR' } }).then((role) =>
+      prisma.userRole.create({
+        data: { userId: operator.userId, roleId: role.id, assignedBy: operator.userId },
+      }),
+    );
+    const customer = await createUserWithToken();
+    const { variantId } = await seedPublishedVariant(
+      operator.token,
+      `همکار ${uniqueSuffix()}`,
+      10,
+    );
+
+    // Approved partner on a 20% tier: 5000 → 4000.
+    const suffix = uniqueSuffix();
+    const tier = await prisma.partnerTier.create({
+      data: { name: `سطح ${suffix}`, discountPercent: 20, minOrderQuantity: 1 },
+    });
+    tierIds.push(tier.id);
+    const profile = await prisma.userProfile.create({
+      data: { userId: customer.userId, firstName: 'شریک', lastName: 'تجاری' },
+    });
+    const partner = await prisma.partner.create({
+      data: {
+        profileId: profile.id,
+        businessName: `کسب ${suffix}`,
+        approvalStatus: 'APPROVED',
+        tierId: tier.id,
+      },
+    });
+    partnerIds.push(partner.id);
+    const addressId = await createAddress(customer.token);
+
+    await request(app.getHttpServer())
+      .post(`${CART_BASE}/items`)
+      .set('Authorization', `Bearer ${customer.token}`)
+      .send({ variantId, quantity: 2 })
+      .expect(201)
+      .then((res) => expect(res.body.unitPrice).toBe('4000'));
+
+    // Validate previews the resolved price with pinned keys.
+    await request(app.getHttpServer())
+      .post(`${CHECKOUT_BASE}/validate`)
+      .set('Authorization', `Bearer ${customer.token}`)
+      .send({})
+      .expect(200)
+      .then((res) => {
+        expect(Object.keys(res.body).sort()).toEqual(CHECKOUT_SUMMARY_KEYS);
+        expect(Object.keys(res.body.items[0]).sort()).toEqual(CHECKOUT_LINE_KEYS);
+        expect(res.body.items[0].unitPrice).toBe('4000');
+        expect(res.body.subtotal).toBe('8000');
+        expect(res.body.total).toBe('8000');
+      });
+
+    // The order freezes the same resolved unit (CART-004).
+    const placed = await request(app.getHttpServer())
+      .post(`${ORDERS_BASE}/checkout`)
+      .set('Authorization', `Bearer ${customer.token}`)
+      .send({ addressId, paymentMethod: 'COD' })
+      .expect(201);
+    expect(Object.keys(placed.body).sort()).toEqual(PLACE_ORDER_KEYS);
+    expect(placed.body.total).toBe('8000');
+
+    await request(app.getHttpServer())
+      .get(`${ORDERS_BASE}/${placed.body.orderId}`)
+      .set('Authorization', `Bearer ${customer.token}`)
+      .expect(200)
+      .then((res) => {
+        expect(Object.keys(res.body).sort()).toEqual(ORDER_DETAIL_KEYS);
+        expect(Object.keys(res.body.items[0]).sort()).toEqual(ORDER_ITEM_KEYS);
+        expect(res.body.items[0].unitPrice).toBe('4000');
+        expect(res.body.items[0].lineTotal).toBe('8000');
+        expect(res.body.total).toBe('8000');
+      });
   });
 });
