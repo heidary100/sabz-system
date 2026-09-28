@@ -1,25 +1,24 @@
 import type { CatalogProductVariantDto } from '@sabz/types';
+import { RfqRequestButton } from './rfq-request-button';
 
 /**
  * Non-purchasable purchase states (SS-214, narrowed SS-232). The purchasable
  * branch moved to `AddToCartButton` (rendered by `ProductPurchasePanel`);
- * this slot keeps the honest call-for-price / out-of-stock states that must
- * never offer an add action. States are text-first (never color-only) and no
- * control pretends to purchase.
+ * call-for-price rows render the RFQ request island (SS-235 B2) — signed-in
+ * users file a quotation request, guests get the partner-login link.
+ * States are text-first (never color-only) and no control pretends to
+ * purchase.
  */
 export function ProductPurchaseSlot({
   variant,
+  productName,
 }: {
   variant: CatalogProductVariantDto;
+  productName: string;
 }) {
   if (variant.priceStatus === 'CALL_FOR_PRICE') {
     return (
-      <div className="rounded-xl border border-sand-200 bg-white p-4 text-sm">
-        <p className="font-semibold text-ink-900">برای قیمت تماس بگیرید</p>
-        <p className="mt-1 leading-6 text-gray-600">
-          قیمت این مدل متغیر است؛ برای استعلام با فروشگاه در تماس باشید.
-        </p>
-      </div>
+      <RfqRequestButton variantId={variant.id} productName={productName} />
     );
   }
   if (!variant.inStock) {

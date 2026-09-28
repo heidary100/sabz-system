@@ -12,6 +12,7 @@ import {
   PriceStatus,
   Prisma,
   ProductStatus,
+  RfqStatus,
 } from '@prisma/client';
 import type {
   CheckoutLineDto,
@@ -115,6 +116,23 @@ const LINE_WITH_VARIANT = {
 
 type CartLine = Prisma.CartItemGetPayload<{ select: typeof LINE_WITH_VARIANT }>;
 
+/**
+ * Minimal priced line (SS-235 B2). `reserveAll` only needs identity,
+ * quantity, and the snapshot fields — both cart lines and RFQ accept
+ * lines satisfy this shape, so quoted orders reuse the same
+ * reserve → consume → create machinery.
+ */
+interface QuotableLine {
+  variantId: string;
+  quantity: number;
+  variant: {
+    price: Prisma.Decimal;
+    name: string | null;
+    sku: string;
+    product: { name: string };
+  };
+}
+
 interface AllocationSlice {
   variantId: string;
   warehouseId: string;
@@ -185,19 +203,7 @@ export class CheckoutService {
     addressId: string,
     paymentMethod: PaymentMethod,
   ): Promise<PlaceOrderResult> {
-    // SS-234 COD-only: reject methods disabled by env before touching stock.
-    // ONLINE stays 422 until the gateway ticket (SS-234B); COD flips to PAID
-    // only on the operator DELIVERED transition (SS-240).
-    if (paymentMethod === PaymentMethod.ONLINE && !isOnlinePaymentsEnabled()) {
-      throw new UnprocessableEntityException(
-        'پرداخت آنلاین در حال حاضر فعال نیست؛ لطفاً پرداخت در محل را انتخاب کنید.',
-      );
-    }
-    if (paymentMethod === PaymentMethod.COD && !isCodEnabled()) {
-      throw new UnprocessableEntityException(
-        'پرداخت در محل در حال حاضر فعال نیست.',
-      );
-    }
+    this.assertPaymentEnabled(paymentMethod);
     const address = await this.requireOwnAddress(userId, addressId);
     const lines = await this.cartLines(userId);
     if (lines.length === 0) {
@@ -218,16 +224,7 @@ export class CheckoutService {
     }
 
     const slices = await this.reserveAll(userId, fulfillable, unitPrices);
-    const consumed: AllocationSlice[] = [];
-    try {
-      for (const slice of slices) {
-        await this.inventory.consumeReservation(slice.reservationId, userId);
-        consumed.push(slice);
-      }
-    } catch (error) {
-      await this.unwindSlices(userId, slices, consumed);
-      throw error;
-    }
+    await this.consumeAll(slices, userId);
 
     const orderNumber = await this.nextOrderNumber();
     const totals = this.totalsFor(slices);
@@ -285,6 +282,177 @@ export class CheckoutService {
       await this.restockSlices(userId, slices, `order-failed:${orderNumber}`);
       throw error;
     }
+  }
+
+  /**
+   * RFQ accept → order (SS-235 B2). Freezes the operator-quoted unit into
+   * a single-line order through the same reserve → consume → create
+   * machinery as `placeOrder` (same sequence, payment gates, and
+   * compensation) — the quote IS the price agreement, so the line never
+   * re-resolves through `PricingService`. The RFQ flips to ACCEPTED in
+   * the same transaction; a lost race (row already moved) restocks and
+   * replays the winner's order reference instead of double-selling.
+   */
+  async placeQuotedOrder(
+    userId: string,
+    input: {
+      rfqId: string;
+      variantId: string;
+      quantity: number;
+      unitPrice: Prisma.Decimal;
+      addressId: string;
+      paymentMethod: PaymentMethod;
+    },
+  ): Promise<PlaceOrderResult> {
+    if (!Number.isInteger(input.quantity) || input.quantity < 1) {
+      throw new BadRequestException('تعداد درخواستی معتبر نیست.');
+    }
+    if (
+      !input.unitPrice.isFinite() ||
+      input.unitPrice.lessThanOrEqualTo(0)
+    ) {
+      throw new BadRequestException('مبلغ توافق‌شده معتبر نیست.');
+    }
+    this.assertPaymentEnabled(input.paymentMethod);
+    const address = await this.requireOwnAddress(userId, input.addressId);
+    const variant = await this.prisma.productVariant.findFirst({
+      where: {
+        id: input.variantId,
+        deletedAt: null,
+        product: { deletedAt: null, status: ProductStatus.PUBLISHED },
+      },
+      select: {
+        sku: true,
+        name: true,
+        product: { select: { name: true } },
+      },
+    });
+    if (!variant) {
+      throw new NotFoundException('این مدل دیگر قابل خرید نیست.');
+    }
+    const available =
+      (await this.availableFor([input.variantId])).get(input.variantId) ?? 0;
+    if (available < input.quantity) {
+      throw new ConflictException({
+        statusCode: 409,
+        error: 'Conflict',
+        message:
+          available <= 0
+            ? 'این محصول فعلاً ناموجود است.'
+            : `فقط ${available} عدد از این محصول موجود است.`,
+        available,
+      });
+    }
+    const line: QuotableLine = {
+      variantId: input.variantId,
+      quantity: input.quantity,
+      variant: {
+        price: input.unitPrice,
+        name: variant.name,
+        sku: variant.sku,
+        product: { name: variant.product.name },
+      },
+    };
+    const slices = await this.reserveAll(
+      userId,
+      [line],
+      new Map([[input.variantId, input.unitPrice]]),
+    );
+    await this.consumeAll(slices, userId);
+
+    const orderNumber = await this.nextOrderNumber();
+    const totals = this.totalsFor(slices);
+    try {
+      const order = await this.prisma.$transaction(async (tx) => {
+        const created = await tx.order.create({
+          data: {
+            orderNumber,
+            userId,
+            status: OrderStatus.PENDING,
+            paymentMethod: input.paymentMethod,
+            paymentStatus: 'PENDING',
+            subtotal: totals.subtotal,
+            shippingFee: new Prisma.Decimal(0),
+            total: totals.total,
+            fullName: address.fullName,
+            phone: address.phone,
+            province: address.province,
+            city: address.city,
+            address: address.address,
+            postalCode: address.postalCode,
+            items: {
+              create: slices.map((slice) => ({
+                variantId: slice.variantId,
+                warehouseId: slice.warehouseId,
+                productName: slice.productName,
+                variantName: slice.variantName,
+                sku: slice.sku,
+                quantity: slice.quantity,
+                unitPrice: slice.unitPrice,
+                lineTotal: slice.unitPrice.mul(slice.quantity),
+              })),
+            },
+          },
+          select: { id: true },
+        });
+        // Conditional flip: a concurrent accept already moved the row.
+        await tx.rfq.update({
+          where: { id: input.rfqId, status: RfqStatus.QUOTED },
+          data: {
+            status: RfqStatus.ACCEPTED,
+            orderId: created.id,
+            updatedBy: userId,
+          },
+        });
+        return created;
+      });
+      return {
+        orderId: order.id,
+        orderNumber,
+        status: 'PENDING',
+        total: totals.total.toString(),
+      };
+    } catch (error) {
+      await this.restockSlices(userId, slices, `order-failed:${orderNumber}`);
+      // Lost the accept race after consuming stock: the row already moved
+      // (P2025 on the conditional flip). Restocked above — now replay the
+      // winner's order reference instead of surfacing a raw Prisma error.
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+        const replay = await this.replayAcceptedQuotedOrder(input.rfqId);
+        if (replay) {
+          return replay;
+        }
+      }
+      throw error;
+    }
+  }
+
+  /** Winner's order reference for a lost accept race (null when not accepted). */
+  private async replayAcceptedQuotedOrder(
+    rfqId: string,
+  ): Promise<PlaceOrderResult | null> {
+    try {
+      const row = await this.prisma.rfq.findUnique({
+        where: { id: rfqId },
+        select: {
+          status: true,
+          order: {
+            select: { id: true, orderNumber: true, status: true, total: true },
+          },
+        },
+      });
+      if (row?.status === RfqStatus.ACCEPTED && row.order) {
+        return {
+          orderId: row.order.id,
+          orderNumber: row.order.orderNumber,
+          status: row.order.status as PlaceOrderResult['status'],
+          total: row.order.total.toString(),
+        };
+      }
+    } catch {
+      // Fall through to the original error below.
+    }
+    return null;
   }
 
   async listOrders(
@@ -588,6 +756,42 @@ export class CheckoutService {
     return code === 'OUT_OF_STOCK' || code === 'UNPUBLISHED' || code === 'CALL_FOR_PRICE';
   }
 
+  /**
+   * SS-234 COD-only gate, shared by cart checkout and RFQ accept: reject
+   * methods disabled by env before touching stock. ONLINE stays 422 until
+   * the gateway ticket (SS-234B); COD flips to PAID only on the operator
+   * DELIVERED transition (SS-240).
+   */
+  private assertPaymentEnabled(paymentMethod: PaymentMethod): void {
+    if (paymentMethod === PaymentMethod.ONLINE && !isOnlinePaymentsEnabled()) {
+      throw new UnprocessableEntityException(
+        'پرداخت آنلاین در حال حاضر فعال نیست؛ لطفاً پرداخت در محل را انتخاب کنید.',
+      );
+    }
+    if (paymentMethod === PaymentMethod.COD && !isCodEnabled()) {
+      throw new UnprocessableEntityException(
+        'پرداخت در محل در حال حاضر فعال نیست.',
+      );
+    }
+  }
+
+  /** Consume every reserved slice; a mid-flow failure unwinds and rethrows. */
+  private async consumeAll(
+    slices: AllocationSlice[],
+    userId: string,
+  ): Promise<void> {
+    const consumed: AllocationSlice[] = [];
+    try {
+      for (const slice of slices) {
+        await this.inventory.consumeReservation(slice.reservationId, userId);
+        consumed.push(slice);
+      }
+    } catch (error) {
+      await this.unwindSlices(userId, slices, consumed);
+      throw error;
+    }
+  }
+
   private throwProblem(problem: CheckoutProblemDto): never {
     switch (problem.code) {
       case 'UNPUBLISHED':
@@ -625,7 +829,7 @@ export class CheckoutService {
    */
   private async reserveAll(
     userId: string,
-    fulfillable: CartLine[],
+    fulfillable: QuotableLine[],
     unitPrices: Map<string, Prisma.Decimal>,
   ): Promise<AllocationSlice[]> {
     const slices: AllocationSlice[] = [];

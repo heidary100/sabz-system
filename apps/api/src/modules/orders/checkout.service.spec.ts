@@ -238,4 +238,178 @@ describe('CheckoutService', () => {
     expect(prisma.address.findFirst).not.toHaveBeenCalled();
     expect(prisma.cart.findUnique).not.toHaveBeenCalled();
   });
+
+  describe('placeQuotedOrder (SS-235 B2)', () => {
+    const RFQ_ID = '8fa85f64-5717-4562-b3fc-2c963f66afa6';
+    const ADDRESS_ID = '9fa85f64-5717-4562-b3fc-2c963f66afa6';
+
+    let quoted: CheckoutService;
+    let stores: {
+      address: { findFirst: jest.Mock };
+      productVariant: { findFirst: jest.Mock };
+      inventoryItem: { findMany: jest.Mock };
+      $queryRaw: jest.Mock;
+      $transaction: jest.Mock;
+    };
+    let ledger: {
+      reserve: jest.Mock;
+      consumeReservation: jest.Mock;
+      releaseReservation: jest.Mock;
+      receive: jest.Mock;
+    };
+    let tx: {
+      order: { create: jest.Mock };
+      rfq: { update: jest.Mock };
+    };
+
+    const quotedInput = (overrides: Record<string, unknown> = {}) => ({
+      rfqId: RFQ_ID,
+      variantId: VARIANT_ID,
+      quantity: 5,
+      unitPrice: new Prisma.Decimal('900'),
+      addressId: ADDRESS_ID,
+      paymentMethod: 'COD' as const,
+      ...overrides,
+    });
+
+    beforeEach(() => {
+      stores = {
+        address: { findFirst: jest.fn() },
+        productVariant: { findFirst: jest.fn() },
+        inventoryItem: { findMany: jest.fn() },
+        $queryRaw: jest.fn(),
+        $transaction: jest.fn(),
+      };
+      ledger = {
+        reserve: jest.fn(),
+        consumeReservation: jest.fn(),
+        releaseReservation: jest.fn(),
+        receive: jest.fn(),
+      };
+      tx = {
+        order: { create: jest.fn() },
+        rfq: { update: jest.fn() },
+      };
+      quoted = new CheckoutService(
+        stores as unknown as PrismaService,
+        ledger as unknown as InventoryService,
+        {} as unknown as PricingService,
+      );
+      stores.address.findFirst.mockResolvedValue({
+        fullName: 'علی احمدی',
+        phone: '09123456789',
+        province: 'مازندران',
+        city: 'ساری',
+        address: 'ساری، بلوار پاسداران',
+        postalCode: '4814938662',
+      });
+      stores.productVariant.findFirst.mockResolvedValue({
+        sku: 'SKU-CFP',
+        name: 'مدل مشکی',
+        product: { name: 'گوشی بدون قیمت' },
+      });
+      stores.inventoryItem.findMany.mockResolvedValue([stockRow(20)]);
+      ledger.reserve.mockResolvedValue({ id: 'res-1' });
+      ledger.consumeReservation.mockResolvedValue({ id: 'res-1' });
+      stores.$queryRaw.mockResolvedValue([{ n: 100002 }]);
+      stores.$transaction.mockImplementation(
+        async (cb: (client: unknown) => Promise<unknown>) => cb(tx),
+      );
+      tx.order.create.mockResolvedValue({ id: 'order-1' });
+      tx.rfq.update.mockResolvedValue({ id: RFQ_ID });
+    });
+
+    it('freezes the quoted unit into a single-line order and flips the RFQ', async () => {
+      const result = await quoted.placeQuotedOrder(USER_ID, quotedInput());
+
+      expect(result).toEqual({
+        orderId: 'order-1',
+        orderNumber: 100002,
+        status: 'PENDING',
+        total: '4500',
+      });
+      const created = tx.order.create.mock.calls[0][0].data;
+      expect(created.items.create).toHaveLength(1);
+      expect(created.items.create[0]).toMatchObject({
+        variantId: VARIANT_ID,
+        quantity: 5,
+        unitPrice: new Prisma.Decimal('900'),
+      });
+      expect(created.items.create[0].lineTotal.toString()).toBe('4500');
+      expect(tx.rfq.update).toHaveBeenCalledWith({
+        where: { id: RFQ_ID, status: 'QUOTED' },
+        data: expect.objectContaining({
+          status: 'ACCEPTED',
+          orderId: 'order-1',
+        }),
+      });
+    });
+
+    it('rejects a shortfall with 409 before reserving', async () => {
+      stores.inventoryItem.findMany.mockResolvedValue([stockRow(2)]);
+
+      await expect(
+        quoted.placeQuotedOrder(USER_ID, quotedInput()),
+      ).rejects.toMatchObject({ status: 409 });
+      expect(ledger.reserve).not.toHaveBeenCalled();
+    });
+
+    it('rejects a non-positive quoted unit with 400', async () => {
+      await expect(
+        quoted.placeQuotedOrder(
+          USER_ID,
+          quotedInput({ unitPrice: new Prisma.Decimal('0') }),
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(ledger.reserve).not.toHaveBeenCalled();
+    });
+
+    it('restocks consumed slices when the order create fails', async () => {
+      tx.order.create.mockRejectedValue(new Error('create failed'));
+
+      await expect(
+        quoted.placeQuotedOrder(USER_ID, quotedInput()),
+      ).rejects.toThrow('create failed');
+      expect(ledger.receive).toHaveBeenCalledWith(
+        expect.objectContaining({ variantId: VARIANT_ID, quantity: 5 }),
+        USER_ID,
+      );
+    });
+
+    it('replays the winner\u2019s order when the accept race is lost (P2025)', async () => {
+      const raceError = Object.assign(new Error('No record found'), {
+        code: 'P2025',
+      });
+      Object.setPrototypeOf(
+        raceError,
+        Prisma.PrismaClientKnownRequestError.prototype,
+      );
+      tx.rfq.update.mockRejectedValue(raceError);
+      (stores as Record<string, unknown>).rfq = {
+        findUnique: jest.fn().mockResolvedValue({
+          status: 'ACCEPTED',
+          order: {
+            id: 'order-winner',
+            orderNumber: 100007,
+            status: 'PENDING',
+            total: new Prisma.Decimal('4500'),
+          },
+        }),
+      };
+
+      const result = await quoted.placeQuotedOrder(USER_ID, quotedInput());
+
+      expect(result).toEqual({
+        orderId: 'order-winner',
+        orderNumber: 100007,
+        status: 'PENDING',
+        total: '4500',
+      });
+      // Consumed stock re-entered availability before the replay.
+      expect(ledger.receive).toHaveBeenCalledWith(
+        expect.objectContaining({ variantId: VARIANT_ID, quantity: 5 }),
+        USER_ID,
+      );
+    });
+  });
 });
