@@ -6,6 +6,7 @@ import { conditionLabel, CONDITION_LABELS } from '@/lib/condition';
 import { formatCardPrice, salePercentFrom } from '@/lib/format';
 import { Badge } from '@/components/ecommerce/ui/badge';
 import { CountdownTimer } from '@/components/ecommerce/ui/countdown-timer';
+import { Rating } from '@/components/ecommerce/ui/rating';
 
 /**
  * Listing card (SS-125, rebuilt SS-225): elevated card surface with
@@ -84,6 +85,12 @@ export function ProductCard({ product }: { product: CatalogProductCardDto }) {
         <h3 className="mt-1 line-clamp-2 min-h-12 text-[13px] font-semibold leading-6 text-ink-900 group-hover:text-sabz-700 sm:text-sm">
           {product.name}
         </h3>
+        {/* SS-236: real aggregate stars; hidden until the first approval. */}
+        {product.ratingCount > 0 && product.ratingAverage !== null ? (
+          <div className="mt-1">
+            <Rating value={product.ratingAverage} count={product.ratingCount} />
+          </div>
+        ) : null}
         <div className="mt-auto flex items-center justify-between gap-2 pt-3">
           {product.callForPrice ? (
             <Badge variant="callForPrice">استعلام قیمت</Badge>

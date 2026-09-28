@@ -45,6 +45,8 @@ export interface CatalogSearchFilters {
   priceTo?: string;
   /** Precomputed in-stock product ids (service-owned inventory truth). */
   stockProductIds?: string[];
+  /** Precomputed star-bucket product ids (service-owned review aggregates). */
+  ratingProductIds?: string[];
 }
 
 export interface CatalogSearchQuery {
@@ -264,6 +266,9 @@ export function buildCatalogSearchPageSql(query: CatalogSearchQuery): Prisma.Sql
   }
   if (filters.stockProductIds) {
     predicates.push(Prisma.sql`p."id" = ANY(${filters.stockProductIds}::text[])`);
+  }
+  if (filters.ratingProductIds) {
+    predicates.push(Prisma.sql`p."id" = ANY(${filters.ratingProductIds}::text[])`);
   }
 
   // `relevance` scores per token; explicit sorts keep q as a pure predicate.

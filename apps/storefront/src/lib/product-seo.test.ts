@@ -49,6 +49,8 @@ function detail(
     specs: [],
     tags: [],
     inStock: false,
+    ratingAverage: null,
+    ratingCount: 0,
     promotionEndsAt: null,
     related: [],
     previous: null,
@@ -196,5 +198,27 @@ describe('buildProductJsonLd', () => {
     });
     expect(bare).not.toHaveProperty('description');
     expect(bare).not.toHaveProperty('brand');
+  });
+
+  it('emits aggregateRating from approved reviews (SS-236)', () => {
+    const jsonLd = buildProductJsonLd({
+      product: detail({ ratingAverage: 4.5, ratingCount: 2 }),
+      canonicalUrl: url,
+      imageUrls: [],
+    });
+    expect(jsonLd.aggregateRating).toMatchObject({
+      '@type': 'AggregateRating',
+      ratingValue: 4.5,
+      reviewCount: 2,
+    });
+  });
+
+  it('omits aggregateRating until the first approval (no fabricated zero)', () => {
+    const jsonLd = buildProductJsonLd({
+      product: detail({ ratingAverage: null, ratingCount: 0 }),
+      canonicalUrl: url,
+      imageUrls: [],
+    });
+    expect(jsonLd).not.toHaveProperty('aggregateRating');
   });
 });

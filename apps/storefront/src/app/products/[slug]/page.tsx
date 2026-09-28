@@ -16,8 +16,10 @@ import { ProductPurchasePanel } from '@/components/ecommerce/product/product-pur
 import { ProductSpecifications } from '@/components/ecommerce/product/product-specifications';
 import { RelatedProducts } from '@/components/ecommerce/product/related-products';
 import { Badge, badgeVariants } from '@/components/ecommerce/ui/badge';
+import { Rating } from '@/components/ecommerce/ui/rating';
 import { ProductConsultation } from '@/components/ecommerce/product/product-consultation';
 import { ProductShare } from '@/components/ecommerce/product/product-share';
+import { ProductReviews } from '@/components/ecommerce/product/product-reviews';
 
 const siteUrl =
   process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3001';
@@ -182,6 +184,13 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
             <Badge variant="condition">{conditionLabel(product.condition)}</Badge>
           </div>
 
+          {/* SS-236: real aggregate stars; hidden until the first approval. */}
+          {product.ratingCount > 0 && product.ratingAverage !== null ? (
+            <p className="mt-3">
+              <Rating value={product.ratingAverage} count={product.ratingCount} />
+            </p>
+          ) : null}
+
           {product.shortDescription ? (
             <p className="mt-5 text-base leading-7 text-gray-600">
               {product.shortDescription}
@@ -237,6 +246,8 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
           </div>
         </section>
       ) : null}
+
+      <ProductReviews productId={product.id} productSlug={product.slug} />
 
       <RelatedProducts items={product.related} />
     </div>

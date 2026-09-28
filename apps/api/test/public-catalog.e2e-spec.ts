@@ -420,6 +420,8 @@ describe('Public catalog API (SS-120/121/122) (e2e)', () => {
         'primaryImageUrl',
         'primaryThumbnailUrl',
         'promotionEndsAt',
+        'ratingAverage',
+        'ratingCount',
         'slug',
         'variantCount',
       ]);

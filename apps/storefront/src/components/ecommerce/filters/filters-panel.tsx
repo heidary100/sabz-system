@@ -5,10 +5,11 @@ import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTransition } from 'react';
 import type { CatalogBrandDto, CatalogCategoryNode } from '@sabz/types';
-import { buildListingHref, type ListingState } from '@/lib/listing';
+import { buildListingHref, RATING_BUCKETS, type ListingState } from '@/lib/listing';
 import { CONDITION_OPTIONS } from '@/lib/condition';
 import { formatFaNumber } from '@/lib/format';
 import { FACET_DEFAULT_VISIBLE, findCategoryNode, navRoots } from '@/lib/nav';
+import { Rating } from '@/components/ecommerce/ui/rating';
 import { FacetSection } from './facet-section';
 import { BrandFacetSearch, filterBrandsByQuery } from './brand-facet-search';
 import { PriceFacet } from './price-facet';
@@ -271,6 +272,25 @@ export function FiltersPanel({
             فقط موجود
           </label>
         </div>
+
+        <fieldset className="mt-4 border-t border-sand-200 pt-4">
+          <legend className="text-sm font-semibold text-ink-900">امتیاز کاربران</legend>
+          <div className="mt-2 space-y-2">
+            {RATING_BUCKETS.map((bucket) => (
+              <label key={bucket} className="flex min-h-11 cursor-pointer items-center gap-2 text-sm text-gray-600">
+                <input
+                  type="radio"
+                  name="rating"
+                  value={bucket}
+                  checked={state.rating === bucket}
+                  onChange={() => apply({ rating: bucket })}
+                  className="size-4 accent-sabz-700"
+                />
+                <Rating value={Number(bucket)} />
+              </label>
+            ))}
+          </div>
+        </fieldset>
 
         <PriceFacet
           key={`${state.priceFrom}|${state.priceTo}`}

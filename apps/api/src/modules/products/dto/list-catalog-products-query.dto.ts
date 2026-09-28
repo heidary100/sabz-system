@@ -19,6 +19,9 @@ import { ProductCondition } from '@prisma/client';
 import { MAX_QUERY_GRAPHEMES, truncateQuery } from '@sabz/search';
 import { PRICE_12_2_PATTERN } from './create-variant.dto';
 
+/** Whitelisted star-bucket rating facet values (SS-236 contract). */
+export const CATALOG_RATING_BUCKETS = ['1', '2', '3', '4', '5'] as const;
+
 /** Whitelisted public sort options (contract: CatalogProductSort). */
 export const CATALOG_PRODUCT_SORTS = [
   'newest',
@@ -150,4 +153,13 @@ export class ListCatalogProductsQueryDto {
   })
   @IsBoolean({ message: 'inStockOnly باید مقدار بولی باشد.' })
   inStockOnly?: boolean;
+
+  @ApiPropertyOptional({
+    enum: CATALOG_RATING_BUCKETS,
+    description:
+      'Star-bucket rating facet (SS-236): matches products whose APPROVED-review average falls in that star\u2019s exact range (5 → ≥4.5, 4 → 3.5–4.5, 3 → 2.5–3.5, 2 → 1.5–2.5, 1 → <1.5). Products with no approved reviews never match.',
+  })
+  @IsOptional()
+  @IsIn(CATALOG_RATING_BUCKETS, { message: 'rating باید یکی از ۱ تا ۵ باشد.' })
+  rating?: string;
 }

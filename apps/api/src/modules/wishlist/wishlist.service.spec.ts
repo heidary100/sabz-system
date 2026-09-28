@@ -21,6 +21,8 @@ function makeCard(overrides: Partial<CatalogProductCardDto> = {}): CatalogProduc
     promotionEndsAt: null,
     variantCount: 1,
     inStock: true,
+    ratingAverage: null,
+    ratingCount: 0,
     primaryImageUrl: null,
     primaryThumbnailUrl: null,
     ...overrides,
