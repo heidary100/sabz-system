@@ -4,6 +4,7 @@ import './globals.css';
 import { brand } from '@/lib/brand';
 import { fetchCategoryTree } from '@/lib/catalog';
 import { CartProvider } from '@/components/ecommerce/cart/cart-provider';
+import { CompareProvider } from '@/components/ecommerce/compare/compare-provider';
 import { SiteHeader } from '@/components/ecommerce/header/site-header';
 import { SiteFooter } from '@/components/ecommerce/footer/site-footer';
 
@@ -58,11 +59,13 @@ export default async function RootLayout({
           پرش به محتوای اصلی
         </a>
         <CartProvider>
+          <CompareProvider>
           <SiteHeader categories={categories} />
           {/* scroll-mt keeps skip-link/anchor focus from landing under the
               sticky header (SS-218). */}
           <main id="main" className="scroll-mt-24 flex-1">{children}</main>
           <SiteFooter categories={categories} />
+          </CompareProvider>
         </CartProvider>
       </body>
     </html>
