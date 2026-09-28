@@ -19,6 +19,7 @@ import { Badge, badgeVariants } from '@/components/ecommerce/ui/badge';
 import { Rating } from '@/components/ecommerce/ui/rating';
 import { ProductConsultation } from '@/components/ecommerce/product/product-consultation';
 import { ProductShare } from '@/components/ecommerce/product/product-share';
+import { CompareToggle } from '@/components/ecommerce/compare/compare-toggle';
 import { ProductReviews } from '@/components/ecommerce/product/product-reviews';
 
 const siteUrl =
@@ -215,6 +216,23 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
 
           <div className="mt-4">
             <ProductShare canonicalUrl={canonicalUrl} />
+          </div>
+
+          <div className="mt-4 flex items-center gap-3 rounded-xl border border-sand-200 bg-white px-4 py-3">
+            <CompareToggle
+              productId={product.id}
+              slug={product.slug}
+              productName={product.name}
+            />
+            <div className="text-sm">
+              <p className="font-semibold text-ink-900">مقایسه با محصولات دیگر</p>
+              <Link
+                href="/compare"
+                className="text-sabz-700 hover:text-sabz-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700"
+              >
+                مشاهده جدول مقایسه
+              </Link>
+            </div>
           </div>
         </div>
       </div>

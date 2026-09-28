@@ -3,6 +3,7 @@ import { Suspense } from 'react';
 import type { CatalogCategoryNode } from '@sabz/types';
 import { BrandLockup } from '@/components/ecommerce/brand/brand-lockup';
 import { CartHeaderIcon } from '@/components/ecommerce/cart/cart-header-icon';
+import { CompareHeaderIcon } from '@/components/ecommerce/compare/compare-header-icon';
 import { MiniCart } from '@/components/ecommerce/cart/mini-cart';
 import { DesktopNav } from './desktop-nav';
 import { MobileMenu } from './mobile-menu';
@@ -49,6 +50,7 @@ export function SiteHeader({ categories }: { categories: CatalogCategoryNode[] }
               </svg>
             </Link>
             <WishlistHeaderIcon />
+            <CompareHeaderIcon />
             <CartHeaderIcon />
             <MiniCart />
           </div>
