@@ -134,7 +134,7 @@ export function ProductPurchasePanel({
             productName={productName}
           />
         ) : (
-          <ProductPurchaseSlot variant={selected} />
+          <ProductPurchaseSlot variant={selected} productName={productName} />
         )}
       </div>
     </div>
