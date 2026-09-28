@@ -55,6 +55,14 @@ export interface CatalogListQuery {
    * `activeInventoryWhere`) are returned (SS-213).
    */
   inStockOnly?: boolean;
+  /**
+   * Star-bucket rating facet (SS-236): one of '1'–'5', matching products
+   * whose APPROVED-review average falls in that star's exact range
+   * (5 → avg ≥ 4.5, 4 → 3.5 ≤ avg < 4.5, 3 → 2.5 ≤ avg < 3.5,
+   * 2 → 1.5 ≤ avg < 2.5, 1 → avg < 1.5). Products with no approved
+   * reviews never match a bucket.
+   */
+  rating?: string;
 }
 
 /** Visible category with the published-product count of its whole subtree (SS-205 roll-up). */
@@ -119,6 +127,14 @@ export interface CatalogProductCardDto {
   variantCount: number;
   /** True when at least one variant has available stock in active warehouses. */
   inStock: boolean;
+  /**
+   * Average of APPROVED review ratings rounded to 1 decimal (SS-236);
+   * null when the product has no approved reviews — render no stars,
+   * never a fabricated zero.
+   */
+  ratingAverage: number | null;
+  /** Count of APPROVED reviews (SS-236). */
+  ratingCount: number;
   /** Primary image URL; null when the product has no image media. */
   primaryImageUrl: string | null;
   /** Thumbnail derivative of the primary image (SS-129); null until generated. */
@@ -227,6 +243,13 @@ export interface CatalogProductDetailDto {
   tags: CatalogRefDto[];
   /** True when at least one variant has available stock in active warehouses. */
   inStock: boolean;
+  /**
+   * Average of APPROVED review ratings rounded to 1 decimal (SS-236);
+   * null when the product has no approved reviews.
+   */
+  ratingAverage: number | null;
+  /** Count of APPROVED reviews (SS-236). */
+  ratingCount: number;
   /**
    * Earliest `endsAt` (ISO) among currently-active Promotion rows scoped to
    * this product (SS-235 B1). Null when no promotion applies. Powers the

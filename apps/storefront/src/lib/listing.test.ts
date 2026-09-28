@@ -379,3 +379,33 @@ describe('getActivePills', () => {
     );
   });
 });
+
+describe('rating facet (SS-236)', () => {
+  it('parses valid buckets and rejects anything else', () => {
+    expect(parseListingState({ rating: '5' }).rating).toBe('5');
+    expect(parseListingState({ rating: '1' }).rating).toBe('1');
+    for (const rating of ['0', '6', '4.5', 'all', '']) {
+      expect(parseListingState({ rating }).rating).toBe('');
+    }
+  });
+
+  it('serializes the bucket and resets the page on change', () => {
+    const state = parseListingState({ rating: '4', page: '3' });
+    expect(serializeListingSearch(state)).toBe('rating=4&page=3');
+    expect(buildListingHref('/products', state, { rating: '5' })).toBe(
+      '/products?rating=5',
+    );
+  });
+
+  it('counts as filtering and clears with the rest', () => {
+    expect(isFiltering({ ...DEFAULT_LISTING_STATE, rating: '3' })).toBe(true);
+    expect(clearListingFilters()).toMatchObject({ rating: '', page: 1 });
+  });
+
+  it('renders a Persian pill with an exact removal partial', () => {
+    const pills = getActivePills({ ...DEFAULT_LISTING_STATE, rating: '5' });
+    expect(pills).toEqual([
+      { key: 'rating', label: 'امتیاز: ۵ ستاره', clear: { rating: '' } },
+    ]);
+  });
+});

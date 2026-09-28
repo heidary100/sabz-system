@@ -98,6 +98,11 @@ export class PublicCatalogProductsController {
   @ApiQuery({ name: 'priceFrom', required: false, type: String })
   @ApiQuery({ name: 'priceTo', required: false, type: String })
   @ApiQuery({ name: 'inStockOnly', required: false, type: Boolean })
+  @ApiQuery({
+    name: 'rating',
+    required: false,
+    enum: ['1', '2', '3', '4', '5'],
+  })
   @ApiResponse({ status: 200, description: 'Paginated product cards returned.' })
   @ApiResponse({ status: 400, description: 'Invalid query parameters.' })
   async list(@Query() query: ListCatalogProductsQueryDto) {

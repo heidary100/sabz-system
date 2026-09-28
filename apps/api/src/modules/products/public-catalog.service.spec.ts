@@ -16,6 +16,7 @@ describe('PublicCatalogService listing facets', () => {
     product: { count: jest.Mock; findMany: jest.Mock };
     productVariant: { findMany: jest.Mock; groupBy: jest.Mock };
     inventoryItem: { findMany: jest.Mock };
+    review: { groupBy: jest.Mock };
   };
 
   beforeEach(() => {
@@ -31,6 +32,7 @@ describe('PublicCatalogService listing facets', () => {
         groupBy: jest.fn().mockResolvedValue([]),
       },
       inventoryItem: { findMany: jest.fn().mockResolvedValue([]) },
+      review: { groupBy: jest.fn().mockResolvedValue([]) },
     };
     service = new PublicCatalogService(
       prisma as unknown as PrismaService,
@@ -203,5 +205,102 @@ describe('PublicCatalogService listing facets', () => {
     expect(prisma.product.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ skip: 24, take: 24 }),
     );
+  });
+
+  it('narrows the listing to the star bucket (SS-236 exact ranges)', async () => {
+    prisma.review.groupBy.mockResolvedValue([
+      { productId: 'p-five', _avg: { rating: 5 }, _count: { _all: 3 } },
+      { productId: 'p-four', _avg: { rating: 4 }, _count: { _all: 1 } },
+    ]);
+
+    await service.listProducts({ rating: '5' });
+
+    const where = prisma.product.count.mock.calls[0][0].where;
+    expect(where.id).toEqual({ in: ['p-five'] });
+    expect(where.status).toBe(ProductStatus.PUBLISHED);
+  });
+
+  it('matches nothing for a bucket no product reaches', async () => {
+    prisma.review.groupBy.mockResolvedValue([]);
+
+    await service.listProducts({ rating: '5' });
+
+    const where = prisma.product.count.mock.calls[0][0].where;
+    expect(where.id).toEqual({ in: [] });
+  });
+
+  it('intersects the rating facet with the stock prefilter', async () => {
+    prisma.review.groupBy.mockResolvedValue([
+      { productId: 'p1', _avg: { rating: 4.8 }, _count: { _all: 2 } },
+      { productId: 'p2', _avg: { rating: 5 }, _count: { _all: 1 } },
+    ]);
+    prisma.productVariant.findMany.mockResolvedValue([
+      { id: 'v1', productId: 'p1' },
+    ]);
+    prisma.inventoryItem.findMany.mockResolvedValue([
+      { variantId: 'v1', quantityOnHand: 2, quantityReserved: 0 },
+    ]);
+
+    await service.listProducts({ rating: '5', inStockOnly: true });
+
+    const where = prisma.product.count.mock.calls[0][0].where;
+    expect(where.id).toEqual({ in: ['p1'] });
+  });
+
+  it('hydrates card aggregates from approved reviews (SS-236)', async () => {
+    prisma.$queryRaw.mockResolvedValue([{ id: 'p1', total: 1n }]);
+    prisma.product.findMany.mockResolvedValue([
+      {
+        id: 'p1',
+        name: 'n',
+        slug: 's',
+        condition: 'NEW',
+        minPrice: '5000',
+        categoryId: 'c1',
+        brandId: null,
+        brand: null,
+        category: { name: 'c', slug: 'c' },
+        variants: [],
+        media: [],
+      },
+    ]);
+    prisma.review.groupBy.mockResolvedValue([
+      { productId: 'p1', _avg: { rating: 4.666 }, _count: { _all: 3 } },
+    ]);
+
+    const result = await service.listProducts({ q: 'ssd' });
+
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]).toMatchObject({
+      ratingAverage: 4.7,
+      ratingCount: 3,
+    });
+  });
+
+  it('hydrates null aggregates for unreviewed products', async () => {
+    prisma.$queryRaw.mockResolvedValue([{ id: 'p1', total: 1n }]);
+    prisma.product.findMany.mockResolvedValue([
+      {
+        id: 'p1',
+        name: 'n',
+        slug: 's',
+        condition: 'NEW',
+        minPrice: '5000',
+        categoryId: 'c1',
+        brandId: null,
+        brand: null,
+        category: { name: 'c', slug: 'c' },
+        variants: [],
+        media: [],
+      },
+    ]);
+    prisma.review.groupBy.mockResolvedValue([]);
+
+    const result = await service.listProducts({ q: 'ssd' });
+
+    expect(result.items[0]).toMatchObject({
+      ratingAverage: null,
+      ratingCount: 0,
+    });
   });
 });

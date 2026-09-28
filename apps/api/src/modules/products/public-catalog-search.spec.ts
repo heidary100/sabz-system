@@ -106,6 +106,16 @@ describe('buildCatalogSearchPageSql (SS-216)', () => {
     expect(built.values).toContainEqual(ids);
   });
 
+  it('applies the rating-bucket scope as data (SS-236)', () => {
+    const ids = ['p-5'];
+    const built = buildCatalogSearchPageSql({
+      ...base,
+      filters: { ratingProductIds: ids },
+    });
+    expect(built.sql).toContain('p."id" = ANY(');
+    expect(built.values).toContainEqual(ids);
+  });
+
   it('mirrors the brand-slug and condition visibility semantics', () => {
     const built = buildCatalogSearchPageSql({
       ...base,

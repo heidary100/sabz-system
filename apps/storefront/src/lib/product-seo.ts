@@ -104,6 +104,18 @@ export function buildProductJsonLd({
     ...(product.brand
       ? { brand: { '@type': 'Brand', name: product.brand.name } }
       : {}),
+    // SS-236: aggregate rating from approved reviews only; omitted until
+    // the first approval so unreviewed products never carry a fabricated
+    // zero.
+    ...(product.ratingCount > 0 && product.ratingAverage !== null
+      ? {
+          aggregateRating: {
+            '@type': 'AggregateRating',
+            ratingValue: product.ratingAverage,
+            reviewCount: product.ratingCount,
+          },
+        }
+      : {}),
     ...(offers ? { offers } : {}),
   };
 }

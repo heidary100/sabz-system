@@ -134,6 +134,16 @@ enum RfqStatus {
   EXPIRED
 }
 
+/// Product-review moderation state (SS-236, master plan §5.8). PENDING =
+/// awaiting operator moderation (invisible publicly); APPROVED = visible in
+/// public reads and aggregates; REJECTED = operator declined, never visible.
+/// There is no edit flow: authors file once per product (unique pair).
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum AttributeType {
   VARIANT_OPTION
   SPEC
@@ -160,6 +170,8 @@ model User {
   orders Order[]
 
   rfqs Rfq[]
+
+  reviews Review[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -461,6 +473,8 @@ model Product {
   priceOverride ProductPriceOverride?
 
   wishlistItems WishlistItem[]
+
+  reviews Review[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -1096,4 +1110,36 @@ model Rfq {
   @@index([userId, createdAt])
   @@index([status, createdAt])
   @@index([variantId])
+}
+
+/// Product review (SS-236, master plan §5.8). One row per (user, product)
+/// pair (`@@unique`); authors file once, there is no edit flow. Only
+/// PUBLISHED, non-deleted products are reviewable — enforced in
+/// ReviewsService, not by the schema. Only APPROVED rows are publicly
+/// visible or aggregated; PENDING/REJECTED rows are moderation state.
+/// Hard-deleted with the user or product (both cascades). Audit trail lives
+/// in AuditLog (REVIEW_CREATED / APPROVED / REJECTED, entity 'Review').
+model Review {
+  id        String       @id @default(uuid())
+  userId    String
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  /// Integer star rating, 1–5 (validated in the DTO).
+  rating Int
+
+  /// Optional comment, max 2000 characters (validated in the DTO).
+  comment String?
+
+  status ReviewStatus @default(PENDING)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?
+  updatedBy String?
+
+  @@unique([userId, productId])
+  @@index([productId, status, createdAt])
+  @@index([status, createdAt])
 }

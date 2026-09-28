@@ -14,6 +14,7 @@ import { InventoryModule } from './modules/inventory/inventory.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { PartnersModule } from './modules/partners/partners.module';
 import { ProductsModule } from './modules/products/products.module';
+import { ReviewsModule } from './modules/reviews/reviews.module';
 import { RfqModule } from './modules/rfq/rfq.module';
 import { UsersModule } from './modules/users/users.module';
 import { WishlistModule } from './modules/wishlist/wishlist.module';
@@ -49,6 +50,7 @@ import { WishlistModule } from './modules/wishlist/wishlist.module';
     OrdersModule,
     PartnersModule,
     ProductsModule,
+    ReviewsModule,
     RfqModule,
     UsersModule,
     WishlistModule,

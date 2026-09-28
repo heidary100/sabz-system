@@ -25,6 +25,14 @@ export const CATALOG_SORTS: CatalogProductSort[] = [
   'name',
 ];
 
+/**
+ * Star-bucket rating facet values (SS-236): exact average ranges owned by
+ * the API (5 → avg ≥ 4.5, 4 → 3.5–4.5, 3 → 2.5–3.5, 2 → 1.5–2.5,
+ * 1 → avg < 1.5). Offered top-down in the UI; `''` = absent.
+ */
+export const RATING_BUCKETS = ['5', '4', '3', '2', '1'] as const;
+export type RatingBucket = (typeof RATING_BUCKETS)[number];
+
 export interface ListingState {
   q: string;
   category: string;
@@ -39,6 +47,8 @@ export interface ListingState {
   /** Toman bound from the URL; converted ×10 at the API boundary. '' = absent. */
   priceTo: string;
   inStockOnly: boolean;
+  /** Star-bucket rating facet (SS-236). '' = absent. */
+  rating: string;
   sort: CatalogProductSort;
   page: number;
   /** Storefront page size; translated to the API `limit` (max 50). */
@@ -53,6 +63,7 @@ export const DEFAULT_LISTING_STATE: ListingState = {
   priceFrom: '',
   priceTo: '',
   inStockOnly: false,
+  rating: '',
   sort: 'newest',
   page: 1,
   perPage: 24,
@@ -105,6 +116,8 @@ export function parseListingState(
   // `1` (common URL boolean convention). Anything else is absent, never throwing.
   const stockRaw = first('inStockOnly').trim().toLowerCase();
 
+  const ratingRaw = first('rating').trim();
+
   return {
     // Grapheme-aware 64-character cap (SS-216) — never splits surrogate
     // pairs or emoji ZWJ sequences the way a code-unit slice would.
@@ -115,6 +128,9 @@ export function parseListingState(
     priceFrom,
     priceTo,
     inStockOnly: stockRaw === 'true' || stockRaw === '1',
+    rating: (RATING_BUCKETS as readonly string[]).includes(ratingRaw)
+      ? ratingRaw
+      : '',
     sort: CATALOG_SORTS.includes(sort) ? sort : 'newest',
     page: Number.isFinite(page) && page > 0 ? Math.min(page, 10_000) : 1,
     perPage: (LISTING_PER_PAGE_OPTIONS as readonly number[]).includes(perPage)
@@ -137,6 +153,7 @@ export function serializeListingSearch(state: ListingState): string {
   if (state.priceFrom) params.set('priceFrom', state.priceFrom);
   if (state.priceTo) params.set('priceTo', state.priceTo);
   if (state.inStockOnly) params.set('inStockOnly', 'true');
+  if (state.rating) params.set('rating', state.rating);
   if (state.sort !== DEFAULT_LISTING_STATE.sort) params.set('sort', state.sort);
   if (state.perPage !== LISTING_PER_PAGE_DEFAULT)
     params.set('perPage', String(state.perPage));
@@ -209,6 +226,7 @@ export function clearListingFilters(): Partial<ListingState> {
     priceFrom: '',
     priceTo: '',
     inStockOnly: false,
+    rating: '',
     page: 1,
   };
 }
@@ -221,11 +239,12 @@ export function isFiltering(state: ListingState): boolean {
     state.condition !== '' ||
     state.priceFrom !== '' ||
     state.priceTo !== '' ||
-    state.inStockOnly
+    state.inStockOnly ||
+    state.rating !== ''
   );
 }
 
-export type ActivePillKey = 'q' | 'brand' | 'condition' | 'price' | 'inStock';
+export type ActivePillKey = 'q' | 'brand' | 'condition' | 'price' | 'inStock' | 'rating';
 
 export interface ActivePill {
   key: ActivePillKey;
@@ -289,6 +308,13 @@ export function getActivePills(
   }
   if (state.inStockOnly) {
     pills.push({ key: 'inStock', label: 'فقط موجود', clear: { inStockOnly: false } });
+  }
+  if (state.rating) {
+    pills.push({
+      key: 'rating',
+      label: `امتیاز: ${formatFaNumber(Number(state.rating))} ستاره`,
+      clear: { rating: '' },
+    });
   }
   return pills;
 }

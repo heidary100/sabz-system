@@ -43,6 +43,7 @@ export default async function ProductsPage({
       priceFrom: state.priceFrom || undefined,
       priceTo: state.priceTo || undefined,
       inStockOnly: state.inStockOnly || undefined,
+      rating: state.rating || undefined,
       sort: state.sort,
       page: state.page,
       limit: state.perPage,

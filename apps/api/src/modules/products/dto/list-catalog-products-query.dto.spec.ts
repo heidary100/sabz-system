@@ -69,6 +69,24 @@ describe('ListCatalogProductsQueryDto (SS-213 facets)', () => {
     expect(errors.some((error) => error.property === 'inStockOnly')).toBe(true);
   });
 
+  it('accepts valid star-bucket ratings (SS-236)', async () => {
+    for (const rating of ['1', '2', '3', '4', '5']) {
+      const dto = plainToInstance(ListCatalogProductsQueryDto, { rating });
+      const errors = await validate(dto);
+
+      expect(errors).toHaveLength(0);
+    }
+  });
+
+  it('rejects an invalid rating bucket', async () => {
+    for (const rating of ['0', '6', '4.5', 'all']) {
+      const dto = plainToInstance(ListCatalogProductsQueryDto, { rating });
+      const errors = await validate(dto);
+
+      expect(errors.some((error) => error.property === 'rating')).toBe(true);
+    }
+  });
+
   it('keeps the existing limit maximum of 50 intact', async () => {
     const dto = plainToInstance(ListCatalogProductsQueryDto, { limit: 51 });
     const errors = await validate(dto);

@@ -94,6 +94,7 @@ function toQueryString(query: CatalogListQuery): string {
   if (query.priceFrom) params.set('priceFrom', tomanToRialString(query.priceFrom));
   if (query.priceTo) params.set('priceTo', tomanToRialString(query.priceTo));
   if (query.inStockOnly) params.set('inStockOnly', 'true');
+  if (query.rating) params.set('rating', query.rating);
   if (query.sort) params.set('sort', query.sort);
   return params.toString();
 }
@@ -143,11 +144,14 @@ export const fetchProductBySlug = cache(async (
     );
     // Back-compat: API deployments predating SS-214 omit `related` and
     // variant `options`; deployments predating SS-227 omit the neighbour
-    // navigation. Default them so the detail page renders instead of
+    // navigation; deployments predating SS-236 omit review aggregates.
+    // Default them so the detail page renders instead of
     // throwing on `undefined.length`.
     product.related ??= [];
     product.previous ??= null;
     product.next ??= null;
+    product.ratingAverage ??= null;
+    product.ratingCount ??= 0;
     for (const variant of product.variants ?? []) {
       variant.options ??= [];
     }

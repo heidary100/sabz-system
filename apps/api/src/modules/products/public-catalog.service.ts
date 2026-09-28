@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PriceStatus, Prisma, ProductStatus } from '@prisma/client';
+import { PriceStatus, Prisma, ProductStatus, ReviewStatus } from '@prisma/client';
 import { tokenizeQuery } from '@sabz/search';
 import type {
   CatalogBrandDto,
@@ -21,6 +21,7 @@ import {
   deriveAvailable,
 } from '../inventory/inventory-aggregate';
 import { PricingService } from '../pricing/pricing.service';
+import { roundRatingAverage } from '../reviews/reviews.service';
 import {
   ListCatalogBrandsQueryDto,
   ListCatalogProductsQueryDto,
@@ -215,8 +216,19 @@ export class PublicCatalogService {
 
     // Stock narrowing feeds product ids into the SAME visibility query, so
     // totals, pagination, sorting, and the category-subtree scope stay exact.
-    if (query.inStockOnly) {
-      where = { ...where, id: { in: await this.inStockProductIds(query) } };
+    // The rating facet (SS-236) joins the same mechanism; when both are
+    // present the id sets intersect (a cheap well-rated variant cannot
+    // qualify an out-of-stock product, and vice versa).
+    if (query.inStockOnly || query.rating !== undefined) {
+      let ids: Set<string> | null = null;
+      if (query.inStockOnly) {
+        ids = new Set(await this.inStockProductIds(query));
+      }
+      if (query.rating !== undefined) {
+        const rated = new Set(await this.ratingProductIds(query.rating));
+        ids = ids === null ? rated : new Set([...ids].filter((id) => rated.has(id)));
+      }
+      where = { ...where, id: { in: [...ids!] } };
     }
 
     const total = await this.prisma.product.count({ where });
@@ -311,6 +323,13 @@ export class PublicCatalogService {
         return empty;
       }
       filters.stockProductIds = stockProductIds;
+    }
+    if (query.rating !== undefined) {
+      const ratingProductIds = await this.ratingProductIds(query.rating);
+      if (ratingProductIds.length === 0) {
+        return empty;
+      }
+      filters.ratingProductIds = ratingProductIds;
     }
     if (query.brand) {
       filters.brandSlug = query.brand;
@@ -516,6 +535,11 @@ export class PublicCatalogService {
 
     const { previous, next } = await this.getAdjacentProducts(product);
 
+    // SS-236: approved-review aggregate for the detail stars + JSON-LD.
+    const detailRating = (
+      await this.ratingAggregatesByProduct([product.id])
+    ).get(product.id) ?? { average: null, count: 0 };
+
     return {
       id: product.id,
       name: product.name,
@@ -541,6 +565,8 @@ export class PublicCatalogService {
       specs,
       tags,
       inStock: variants.some((variant) => variant.inStock),
+      ratingAverage: detailRating.average,
+      ratingCount: detailRating.count,
       promotionEndsAt,
       related,
       previous,
@@ -889,6 +915,67 @@ export class PublicCatalogService {
   }
 
   /**
+   * Product ids whose APPROVED-review average falls in a star bucket
+   * (SS-236, exact ranges — see RATING_BUCKET_RANGES). One groupBy over
+   * approved rows (one row per reviewed product, bounded by the catalog),
+   * filtered in JS; Prisma has no HAVING on `_avg` in this shape. An empty
+   * result matches nothing (same convention as unknown category slugs).
+   * Unreviewed products never match a bucket.
+   */
+  private async ratingProductIds(bucket: string): Promise<string[]> {
+    const range = RATING_BUCKET_RANGES[bucket];
+    if (!range) {
+      return [];
+    }
+    const groups = await this.prisma.review.groupBy({
+      by: ['productId'],
+      where: { status: ReviewStatus.APPROVED },
+      _avg: { rating: true },
+      _count: { _all: true },
+    });
+    return groups
+      .filter(
+        (group) =>
+          group._avg.rating !== null &&
+          Number(group._avg.rating) >= range.min &&
+          (range.max === undefined || Number(group._avg.rating) < range.max),
+      )
+      .map((group) => group.productId);
+  }
+
+  /**
+   * APPROVED-review aggregates per product (SS-236): average rounded to 1
+   * decimal via the shared `roundRatingAverage`, plus the count. Products
+   * without approved reviews resolve to `{ average: null, count: 0 }` so
+   * callers render no stars instead of a fabricated zero. One batched
+   * groupBy per call site (cards page, single detail), never N+1.
+   */
+  private async ratingAggregatesByProduct(
+    productIds: string[],
+  ): Promise<Map<string, { average: number | null; count: number }>> {
+    const aggregates = new Map<string, { average: number | null; count: number }>();
+    if (productIds.length === 0) {
+      return aggregates;
+    }
+    const groups = await this.prisma.review.groupBy({
+      by: ['productId'],
+      where: { productId: { in: productIds }, status: ReviewStatus.APPROVED },
+      _avg: { rating: true },
+      _count: { _all: true },
+    });
+    for (const group of groups) {
+      aggregates.set(group.productId, {
+        average:
+          group._avg.rating === null
+            ? null
+            : roundRatingAverage(group._avg.rating),
+        count: group._count._all,
+      });
+    }
+    return aggregates;
+  }
+
+  /**
    * Live category ids of a slug's subtree, root first (SS-205). The listing
    * `category` filter matches the whole subtree, so parent landing pages
    * include descendant products. Unknown slugs resolve to [] (matches
@@ -1008,6 +1095,10 @@ export class PublicCatalogService {
         brandId: row.brandId,
       })),
     );
+    // SS-236: one batched review-aggregate lookup drives every card's stars.
+    const ratingsByProduct = await this.ratingAggregatesByProduct(
+      rows.map((row) => row.id),
+    );
 
     const rowsById = new Map(rows.map((row) => [row.id, row]));
     const cards: CatalogProductCardDto[] = [];
@@ -1018,6 +1109,7 @@ export class PublicCatalogService {
       }
       const minPrice = row.minPrice;
       const priceFrom = minPrice == null ? null : String(minPrice);
+      const rating = ratingsByProduct.get(row.id) ?? { average: null, count: 0 };
       cards.push({
         id: row.id,
         name: row.name,
@@ -1033,6 +1125,8 @@ export class PublicCatalogService {
         inStock: row.variants.some(
           (variant) => (availableByVariant.get(variant.id) ?? 0) > 0,
         ),
+        ratingAverage: rating.average,
+        ratingCount: rating.count,
         primaryImageUrl:
           row.media.length > 0
             ? `${PUBLIC_MEDIA_URL_PREFIX}/${row.media[0]!.id}`
@@ -1110,6 +1204,20 @@ export class PublicCatalogService {
 function decimalToString(value: Prisma.Decimal | null): string | null {
   return value === null ? null : String(value);
 }
+
+/**
+ * Exact star-bucket ranges over the APPROVED-review average (SS-236):
+ * bucket N owns [N−0.5, N+0.5), with 5 open at the top (avg ≤ 5 always)
+ * and 1 open at the bottom. The DTO whitelist guarantees the key exists;
+ * an unknown key matches nothing (defensive, mirrors unknown slugs).
+ */
+const RATING_BUCKET_RANGES: Record<string, { min: number; max?: number }> = {
+  '5': { min: 4.5 },
+  '4': { min: 3.5, max: 4.5 },
+  '3': { min: 2.5, max: 3.5 },
+  '2': { min: 1.5, max: 2.5 },
+  '1': { min: 0, max: 1.5 },
+};
 
 /**
  * The compareAtPrice shown on a listing card (SS-225): that of the
