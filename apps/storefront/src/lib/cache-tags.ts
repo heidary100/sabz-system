@@ -22,6 +22,17 @@ export function productDetailTag(slug: string): string {
   return `${PRODUCT_DETAIL_TAG_PREFIX}${slug}`;
 }
 
+/** Blog index + home teaser (collection-level). */
+export const BLOG_POSTS_TAG = 'blog:posts';
+/** Blog category list. */
+export const BLOG_CATEGORIES_TAG = 'blog:categories';
+/** Blog article pages, one tag per slug. */
+export const BLOG_POST_TAG_PREFIX = 'blog:post:';
+
+export function blogPostTag(slug: string): string {
+  return `${BLOG_POST_TAG_PREFIX}${slug}`;
+}
+
 /** Slugs are API-generated ([a-z0-9-]); anything else is rejected. */
 const PRODUCT_SLUG_PATTERN = /^[a-z0-9-]+$/;
 
@@ -35,7 +46,11 @@ export function isAllowedCatalogTag(tag: unknown): tag is string {
     (tag === CATALOG_TREE_TAG ||
       tag === CATALOG_BRANDS_TAG ||
       tag === CATALOG_PRODUCTS_TAG ||
+      tag === BLOG_POSTS_TAG ||
+      tag === BLOG_CATEGORIES_TAG ||
       (tag.startsWith(PRODUCT_DETAIL_TAG_PREFIX) &&
-        PRODUCT_SLUG_PATTERN.test(tag.slice(PRODUCT_DETAIL_TAG_PREFIX.length))))
+        PRODUCT_SLUG_PATTERN.test(tag.slice(PRODUCT_DETAIL_TAG_PREFIX.length))) ||
+      (tag.startsWith(BLOG_POST_TAG_PREFIX) &&
+        PRODUCT_SLUG_PATTERN.test(tag.slice(BLOG_POST_TAG_PREFIX.length))))
   );
 }

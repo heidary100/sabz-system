@@ -14,6 +14,7 @@ import { SaleBanner } from '@/components/ecommerce/promo/sale-banner';
 import { ProductCardWithWishlist } from '@/components/ecommerce/wishlist/product-card-wishlist';
 import { SectionHeader } from '@/components/ecommerce/ui/section-header';
 import { BrandShowcase } from '@/components/ecommerce/brand/brand-showcase';
+import { BlogTeaser } from '@/components/ecommerce/blog/blog-teaser';
 import { AppSection } from '@/components/ecommerce/app/app-section';
 import { TrustStrip } from '@/components/ecommerce/trust/trust-strip';
 
@@ -21,7 +22,8 @@ import { TrustStrip } from '@/components/ecommerce/trust/trust-strip';
  * Home page (SS-128, SS-215, rebuilt SS-224): announcement, configured sale
  * countdown bar, cinematic hero slider, collection banners, the verified
  * trust strip, curated categories, brand-showcase tabs, in-stock + latest +
- * alphabetical rails, and the (verified-only) app section. Queries stay
+ * alphabetical rails, the blog teaser (hidden until the first post), and
+ * the (verified-only) app section. Queries stay
  * bounded (`newest`/`name`, never unbounded price sorts); empty rails and
  * unconfigured sections hide instead of rendering placeholders.
  *
@@ -155,6 +157,9 @@ export default async function HomePage() {
       <div className="pt-12 sm:pt-14">
         <AppSection links={homeConfig.appLinks} />
       </div>
+
+      {/* Blog teaser: latest published articles; hidden until the first post (SS-238). */}
+      <BlogTeaser />
 
       {/* Catalog pending notice: only when every rail is empty. */}
       {!shouldShowSection(inStock.items) && !shouldShowSection(latest.items) ? (

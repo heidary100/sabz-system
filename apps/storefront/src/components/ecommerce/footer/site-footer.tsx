@@ -108,6 +108,11 @@ export function SiteFooter({ categories }: { categories: CatalogCategoryNode[] }
                 </Link>
               </li>
               <li>
+                <Link href="/blog" className="rounded-sm text-sm text-gray-600 hover:text-sabz-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700">
+                  وبلاگ
+                </Link>
+              </li>
+              <li>
                 <Link href="/contact" className="rounded-sm text-sm text-gray-600 hover:text-sabz-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700">
                   تماس با ما
                 </Link>

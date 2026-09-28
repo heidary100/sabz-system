@@ -17,3 +17,14 @@ export const PRODUCT_DETAIL_TAG_PREFIX = 'catalog:product:';
 export function productDetailTag(slug: string): string {
   return `${PRODUCT_DETAIL_TAG_PREFIX}${slug}`;
 }
+
+/** Blog index + home teaser (collection-level). */
+export const BLOG_POSTS_TAG = 'blog:posts';
+/** Blog category list. */
+export const BLOG_CATEGORIES_TAG = 'blog:categories';
+/** Blog article pages, one tag per slug. */
+export const BLOG_POST_TAG_PREFIX = 'blog:post:';
+
+export function blogPostTag(slug: string): string {
+  return `${BLOG_POST_TAG_PREFIX}${slug}`;
+}
