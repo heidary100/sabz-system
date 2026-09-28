@@ -6,6 +6,7 @@ import {
   AttributesService,
 } from '../src/modules/products/attributes.service';
 import { PublicCatalogService } from '../src/modules/products/public-catalog.service';
+import { PricingService } from '../src/modules/pricing/pricing.service';
 
 jest.setTimeout(30_000);
 
@@ -73,7 +74,7 @@ describe('Attribute/spec database integration (SS-202)', () => {
     prisma = new PrismaService();
     await prisma.$connect();
     attributes = new AttributesService(prisma);
-    catalog = new PublicCatalogService(prisma);
+    catalog = new PublicCatalogService(prisma, new PricingService(prisma));
   });
 
   afterAll(async () => {

@@ -18,6 +18,7 @@ function makeCard(overrides: Partial<CatalogProductCardDto> = {}): CatalogProduc
     priceFrom: '1000',
     compareAtPrice: null,
     callForPrice: false,
+    promotionEndsAt: null,
     variantCount: 1,
     inStock: true,
     primaryImageUrl: null,

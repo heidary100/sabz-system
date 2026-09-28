@@ -107,6 +107,14 @@ export interface CatalogProductCardDto {
   compareAtPrice: string | null;
   /** True when no live variant is PRICED: show call-for-price, never a price. */
   callForPrice: boolean;
+  /**
+   * Earliest `endsAt` (ISO) among currently-active Promotion rows scoped to
+   * this product (SS-235 B1): drives the real sale countdown on cards.
+   * Null when no promotion applies. Independent of `compareAtPrice` — a
+   * FIXED-amount promotion with no reference price still yields a countdown
+   * and a generic sale badge.
+   */
+  promotionEndsAt: string | null;
   /** Number of live variants; drives the «از» (from) prefix honesty. */
   variantCount: number;
   /** True when at least one variant has available stock in active warehouses. */
@@ -220,6 +228,12 @@ export interface CatalogProductDetailDto {
   /** True when at least one variant has available stock in active warehouses. */
   inStock: boolean;
   /**
+   * Earliest `endsAt` (ISO) among currently-active Promotion rows scoped to
+   * this product (SS-235 B1). Null when no promotion applies. Powers the
+   * detail-page sale countdown next to the purchase panel.
+   */
+  promotionEndsAt: string | null;
+  /**
    * Related products rail (SS-214): same leaf-category first with same-brand
    * preference and same-brand backfill, bounded (max 8), current product
    * excluded. Card projections reuse CatalogProductCardDto verbatim.
@@ -234,4 +248,34 @@ export interface CatalogProductDetailDto {
   previous: CatalogRefDto | null;
   next: CatalogRefDto | null;
   createdAt: string;
+}
+
+/**
+ * One variant price quote from `GET /catalog/products/:slug/price`
+ * (SS-235 B1). All money is Rial-as-string (SS-207 "O-1"); the storefront
+ * converts ÷10 at the render boundary. `resolvedPrice` is the full B1
+ * chain (category rule → override → tier → bulk → promotion) for the
+ * requested quantity; null for CALL_FOR_PRICE variants, which are never
+ * purchasable (PRICE-008).
+ */
+export interface CatalogPriceQuoteDto {
+  variantId: string;
+  sku: string;
+  priceStatus: PriceStatus;
+  /** Raw variant base price; null when CALL_FOR_PRICE. */
+  basePrice: string | null;
+  /** Server-resolved unit for `quantity`; null when CALL_FOR_PRICE. */
+  resolvedPrice: string | null;
+  /** Earliest active-promotion `endsAt` in scope; null when none applies. */
+  promotionEndsAt: string | null;
+}
+
+/** Response of `GET /catalog/products/:slug/price` (SS-235 B1). */
+export interface CatalogPriceResponseDto {
+  slug: string;
+  productId: string;
+  quantity: number;
+  /** True when an authenticated APPROVED-partner tier was applied. */
+  tierApplied: boolean;
+  quotes: CatalogPriceQuoteDto[];
 }

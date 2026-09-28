@@ -4,6 +4,7 @@ import { join } from 'path';
 import { AuditModule } from '../audit/audit.module';
 import { AuthModule } from '../auth/auth.module';
 import { InventoryModule } from '../inventory/inventory.module';
+import { PricingModule } from '../pricing/pricing.module';
 import { BrandsController } from './brands.controller';
 import { BrandsService } from './brands.service';
 import { CategoriesController } from './categories.controller';
@@ -59,7 +60,7 @@ export const PRODUCT_MEDIA_TEMP_DIR = 'PRODUCT_MEDIA_TEMP_DIR';
  * the shared AuditService.
  */
 @Module({
-  imports: [AuthModule, AuditModule, InventoryModule],
+  imports: [AuthModule, AuditModule, InventoryModule, PricingModule],
   controllers: [
     ProductsController,
     CategoriesController,

@@ -12,6 +12,8 @@ export {
   CatalogProductSort,
   CatalogProductSpecDto,
   CatalogProductVariantDto,
+  CatalogPriceQuoteDto,
+  CatalogPriceResponseDto,
   CatalogRefDto,
 } from './catalog/catalog';
 

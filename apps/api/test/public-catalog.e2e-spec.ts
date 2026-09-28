@@ -419,6 +419,7 @@ describe('Public catalog API (SS-120/121/122) (e2e)', () => {
         'priceFrom',
         'primaryImageUrl',
         'primaryThumbnailUrl',
+        'promotionEndsAt',
         'slug',
         'variantCount',
       ]);
@@ -1368,6 +1369,186 @@ describe('Public catalog API (SS-120/121/122) (e2e)', () => {
       await request(app.getHttpServer())
         .get(`${PRODUCTS_BASE}?q=${encodeURIComponent(emoji.repeat(65))}`)
         .expect(400);
+    });
+  });
+
+  describe('SS-235 B1: public price endpoint (category rules, overrides, promos)', () => {
+    it('resolves the B1 chain for guests and tier partners with pinned keys', async () => {
+      const token = await createOperator();
+      const name = `قیمت‌گذاری ${uniqueSuffix()}`;
+      const seeded = await seedProduct(token, name, { prices: ['10000'] });
+      // Publish without adding a second variant: the quote math below is
+      // exact for the single 10000-Rial variant.
+      await request(app.getHttpServer())
+        .post(`/api/v1/admin/products/${seeded.productId}/publish`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+      const prod = await prisma.product.findUniqueOrThrow({
+        where: { id: seeded.productId },
+        select: { slug: true, categoryId: true },
+      });
+      const variantId = seeded.variantIds[0]!;
+      const suffix = uniqueSuffix();
+
+      // B1 chain setup: −10% category rule, then −1000 Rial override.
+      // 10000 → 9000 → 8000 before tier/bulk/promotion.
+      await prisma.categoryPriceRule.create({
+        data: {
+          categoryId: prod.categoryId,
+          type: 'PERCENT',
+          value: 10,
+          isActive: true,
+          priority: 0,
+        },
+      });
+      await prisma.productPriceOverride.create({
+        data: { productId: seeded.productId, type: 'FIXED', value: 1000, isActive: true },
+      });
+
+      const QUOTE_KEYS = [
+        'basePrice',
+        'priceStatus',
+        'promotionEndsAt',
+        'resolvedPrice',
+        'sku',
+        'variantId',
+      ];
+      const RESPONSE_KEYS = ['productId', 'quantity', 'quotes', 'slug', 'tierApplied'];
+
+      // Guest: retail resolution, no tier.
+      await request(app.getHttpServer())
+        .get(`${PRODUCTS_BASE}/${prod.slug}/price`)
+        .expect(200)
+        .then((res) => {
+          expect(Object.keys(res.body).sort()).toEqual(RESPONSE_KEYS);
+          expect(res.body.slug).toBe(prod.slug);
+          expect(res.body.quantity).toBe(1);
+          expect(res.body.tierApplied).toBe(false);
+          expect(res.body.quotes).toHaveLength(1);
+          expect(Object.keys(res.body.quotes[0]).sort()).toEqual(QUOTE_KEYS);
+          expect(res.body.quotes[0]).toMatchObject({
+            variantId,
+            priceStatus: 'PRICED',
+            basePrice: '10000',
+            resolvedPrice: '8000',
+            promotionEndsAt: null,
+          });
+        });
+
+      // Guest bulk at qty 10 (−3% after rule/override): 8000 → 7760.
+      await request(app.getHttpServer())
+        .get(`${PRODUCTS_BASE}/${prod.slug}/price?quantity=10`)
+        .expect(200)
+        .then((res) => {
+          expect(res.body.quotes[0].resolvedPrice).toBe('7760');
+        });
+
+      // Approved partner on a 20% tier: 8000 → 6400 (qty 1),
+      // 6400 → 6208 at qty 10 (bulk after tier).
+      const partnerMobile = uniqueMobile();
+      mobiles.push(partnerMobile);
+      const partnerUser = await prisma.user.create({
+        data: { mobile: partnerMobile, status: 'ACTIVE' },
+      });
+      userIds.push(partnerUser.id);
+      const tier = await prisma.partnerTier.create({
+        data: { name: `سطح ${suffix}`, discountPercent: 20, minOrderQuantity: 1 },
+      });
+      const profile = await prisma.userProfile.create({
+        data: { userId: partnerUser.id, firstName: 'شریک', lastName: 'تجاری' },
+      });
+      const partner = await prisma.partner.create({
+        data: {
+          profileId: profile.id,
+          businessName: `کسب ${suffix}`,
+          approvalStatus: 'APPROVED',
+          tierId: tier.id,
+        },
+      });
+      const partnerToken = (await tokenService.createSession(partnerUser.id)).accessToken;
+
+      try {
+        await request(app.getHttpServer())
+          .get(`${PRODUCTS_BASE}/${prod.slug}/price`)
+          .set('Authorization', `Bearer ${partnerToken}`)
+          .expect(200)
+          .then((res) => {
+            expect(res.body.tierApplied).toBe(true);
+            expect(res.body.quotes[0].resolvedPrice).toBe('6400');
+          });
+
+        await request(app.getHttpServer())
+          .get(`${PRODUCTS_BASE}/${prod.slug}/price?quantity=10`)
+          .set('Authorization', `Bearer ${partnerToken}`)
+          .expect(200)
+          .then((res) => {
+            expect(res.body.quotes[0].resolvedPrice).toBe('6208');
+          });
+
+        // Product-scoped FIXED promotion (500 Rial off): guest 8000 → 7500,
+        // with a real promotionEndsAt on the quote, card, and detail.
+        const promo = await prisma.promotion.create({
+          data: {
+            code: `B1-${suffix}`,
+            titleFa: 'فروش ویژه',
+            type: 'FIXED',
+            value: 500,
+            startsAt: new Date(Date.now() - 3_600_000),
+            endsAt: new Date(Date.now() + 86_400_000),
+            isActive: true,
+            productId: seeded.productId,
+          },
+        });
+        try {
+          await request(app.getHttpServer())
+            .get(`${PRODUCTS_BASE}/${prod.slug}/price`)
+            .expect(200)
+            .then((res) => {
+              expect(res.body.quotes[0].resolvedPrice).toBe('7500');
+              expect(typeof res.body.quotes[0].promotionEndsAt).toBe('string');
+            });
+
+          await request(app.getHttpServer())
+            .get(`${PRODUCTS_BASE}?q=${encodeURIComponent(name)}`)
+            .expect(200)
+            .then((res) => {
+              const card = res.body.items.find((c: { id: string }) => c.id === seeded.productId);
+              expect(card).toBeDefined();
+              expect(typeof card.promotionEndsAt).toBe('string');
+            });
+
+          await request(app.getHttpServer())
+            .get(`${PRODUCTS_BASE}/${prod.slug}`)
+            .expect(200)
+            .then((res) => {
+              expect(typeof res.body.promotionEndsAt).toBe('string');
+            });
+        } finally {
+          await prisma.promotion.deleteMany({ where: { id: promo.id } });
+        }
+
+        // variantId filter, and validation: bad quantity, unknown variant/slug.
+        await request(app.getHttpServer())
+          .get(`${PRODUCTS_BASE}/${prod.slug}/price?variantId=${variantId}`)
+          .expect(200)
+          .then((res) => {
+            expect(res.body.quotes).toHaveLength(1);
+            expect(res.body.quotes[0].variantId).toBe(variantId);
+          });
+        await request(app.getHttpServer())
+          .get(`${PRODUCTS_BASE}/${prod.slug}/price?quantity=0`)
+          .expect(400);
+        await request(app.getHttpServer())
+          .get(`${PRODUCTS_BASE}/${prod.slug}/price?variantId=00000000-0000-4000-8000-000000000000`)
+          .expect(404);
+        await request(app.getHttpServer())
+          .get(`${PRODUCTS_BASE}/no-such-product/price`)
+          .expect(404);
+      } finally {
+        await prisma.partner.deleteMany({ where: { id: partner.id } });
+        await prisma.userProfile.deleteMany({ where: { id: profile.id } });
+        await prisma.partnerTier.deleteMany({ where: { id: tier.id } });
+      }
     });
   });
 });
