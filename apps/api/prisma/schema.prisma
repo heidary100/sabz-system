@@ -144,6 +144,15 @@ enum ReviewStatus {
   REJECTED
 }
 
+/// Blog-article publication state (SS-238, master plan §5.10). DRAFT =
+/// operator-only (invisible publicly, incl. archived rows); PUBLISHED =
+/// visible in public reads. Public queries filter PUBLISHED in the query,
+/// never in the component.
+enum BlogStatus {
+  DRAFT
+  PUBLISHED
+}
+
 enum AttributeType {
   VARIANT_OPTION
   SPEC
@@ -1142,4 +1151,55 @@ model Review {
   @@unique([userId, productId])
   @@index([productId, status, createdAt])
   @@index([status, createdAt])
+}
+
+/// Blog category (SS-238, master plan §5.10). Optional filing for posts;
+/// operators manage rows via /blog/categories (full admin UI in SS-240).
+model BlogCategory {
+  id          String  @id @default(uuid())
+  slug        String  @unique
+  name        String
+  description String?
+  sortOrder   Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  posts BlogPost[]
+
+  @@index([sortOrder])
+}
+
+/// Blog article (SS-238, master plan §5.10). Bodies are allowlist-sanitized
+/// HTML (same sanitizer as product descriptions). The author byline is a
+/// plain display string — no User FK. Audit trail lives in AuditLog
+/// (BLOG_CREATED / UPDATED / ARCHIVED / CATEGORY_* , entity
+/// 'BlogPost'/'BlogCategory').
+model BlogPost {
+  id         String        @id @default(uuid())
+  slug       String        @unique
+  categoryId String?
+  category   BlogCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  title       String
+  excerpt     String?
+  /// Sanitized HTML body.
+  content     String
+  coverImageUrl String?
+  authorName  String?
+
+  metaTitle       String?
+  metaDescription String?
+
+  status BlogStatus @default(DRAFT)
+  /// Display/publish timestamp; set automatically on publish when omitted.
+  publishedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?
+  updatedBy String?
+
+  @@index([status, publishedAt])
+  @@index([categoryId, status, publishedAt])
 }

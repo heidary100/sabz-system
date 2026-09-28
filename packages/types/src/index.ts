@@ -202,3 +202,17 @@ export {
   ReviewStatus,
   REVIEW_STATUS_FA,
 } from './reviews/reviews';
+
+export {
+  BlogPostCardDto,
+  BlogPostCategoryRef,
+  BlogPostDetailDto,
+  BlogPostListResponse,
+  BlogStatus,
+  BLOG_STATUS_FA,
+  BlogCategoryDto,
+  CreateBlogCategoryInput,
+  CreateBlogPostInput,
+  UpdateBlogCategoryInput,
+  UpdateBlogPostInput,
+} from './blog/blog';
