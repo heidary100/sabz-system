@@ -1,5 +1,6 @@
 import { PriceStatus, ProductStatus } from '@prisma/client';
 import { PrismaService } from '../../common/database/prisma.service';
+import { PricingService } from '../pricing/pricing.service';
 import { PublicCatalogService } from './public-catalog.service';
 
 /**
@@ -31,7 +32,13 @@ describe('PublicCatalogService listing facets', () => {
       },
       inventoryItem: { findMany: jest.fn().mockResolvedValue([]) },
     };
-    service = new PublicCatalogService(prisma as unknown as PrismaService);
+    service = new PublicCatalogService(
+      prisma as unknown as PrismaService,
+      {
+        promotionEndsAtByProduct: jest.fn().mockResolvedValue(new Map()),
+        activePromotionsFor: jest.fn().mockResolvedValue([]),
+      } as unknown as PricingService,
+    );
   });
 
   it('filters by priceFrom using PRICED variants only', async () => {

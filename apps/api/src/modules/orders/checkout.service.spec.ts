@@ -64,6 +64,8 @@ describe('CheckoutService', () => {
     const pricing = {
       tierDiscountForUser: jest.fn().mockResolvedValue(new Prisma.Decimal(0)),
       activePromotionsFor: jest.fn().mockResolvedValue([]),
+      categoryRuleFor: jest.fn().mockResolvedValue(null),
+      productOverrideFor: jest.fn().mockResolvedValue(null),
     } as unknown as PricingService;
     service = new CheckoutService(
       prisma as unknown as PrismaService,

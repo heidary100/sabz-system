@@ -2,6 +2,7 @@ import { ProductCondition, ProductStatus } from '@prisma/client';
 import type { CatalogCategoryNode } from '@sabz/types';
 import { PrismaService } from '../src/common/database/prisma.service';
 import { PublicCatalogService } from '../src/modules/products/public-catalog.service';
+import { PricingService } from '../src/modules/pricing/pricing.service';
 
 jest.setTimeout(30_000);
 
@@ -63,7 +64,7 @@ describe('Category subtree reads and roll-up counts (SS-205)', () => {
   beforeAll(async () => {
     prisma = new PrismaService();
     await prisma.$connect();
-    catalog = new PublicCatalogService(prisma);
+    catalog = new PublicCatalogService(prisma, new PricingService(prisma));
   });
 
   afterAll(async () => {

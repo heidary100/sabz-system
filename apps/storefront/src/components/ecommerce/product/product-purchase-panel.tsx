@@ -5,10 +5,12 @@ import { useEffect, useState } from 'react';
 import type { CatalogProductVariantDto } from '@sabz/types';
 import { AddToCartButton } from '@/components/ecommerce/cart/add-to-cart-button';
 import { getSelectedVariant, parseVariantParam } from '@/lib/variant';
+import { CountdownTimer } from '@/components/ecommerce/ui/countdown-timer';
 import { ProductPrice } from './product-price';
 import { ProductPurchaseSlot } from './product-purchase-slot';
 import { ProductSku } from './product-sku';
 import { ProductVariantSelector } from './product-variant-selector';
+import { TierPriceLine } from './tier-price-line';
 
 /**
  * Purchase panel island (SS-214). The ONLY client state on the detail page:
@@ -27,12 +29,18 @@ import { ProductVariantSelector } from './product-variant-selector';
  */
 export function ProductPurchasePanel({
   productName,
+  productSlug,
+  promotionEndsAt,
   variants,
   initialVariantId,
   rawVariantParam,
 }: {
   /** Product name for the add-to-cart accessible label. */
   productName: string;
+  /** Product slug for the tier-aware price endpoint. */
+  productSlug: string;
+  /** Earliest active-promotion end (SS-235 B1); null when no sale runs. */
+  promotionEndsAt: string | null;
   variants: CatalogProductVariantDto[];
   initialVariantId: string | null;
   /** Raw `?variant=` value from the URL; used only for one-time cleanup. */
@@ -81,6 +89,19 @@ export function ProductPurchasePanel({
             <ProductPrice variant={selected} />
           </span>
         </div>
+        {selected.priceStatus === 'PRICED' ? (
+          <TierPriceLine
+            slug={productSlug}
+            variantId={selected.id}
+            basePrice={selected.price}
+          />
+        ) : null}
+        {promotionEndsAt !== null && selected.priceStatus === 'PRICED' ? (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <span className="text-xs text-gray-600">پایان فروش ویژه:</span>
+            <CountdownTimer endsAt={promotionEndsAt} size="sm" />
+          </div>
+        ) : null}
         <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
           {selected.inStock ? (
             <span className="rounded-full bg-sabz-50 px-2.5 py-1 font-medium text-sabz-700">
@@ -101,8 +122,8 @@ export function ProductPurchasePanel({
           <ProductSku sku={selected.sku} />
         </dl>
         <p className="mt-3 text-xs leading-5 text-gray-600">
-          قیمت‌ها به تومان و برای خرید خرد است. قیمت‌گذاری همکاری در مرحله
-          بعدی توسعه فعال می‌شود.
+          قیمت‌ها به تومان و برای خرید خرد است. همکاران تأییدشده قیمت سطح
+          همکاری خود را پس از ورود، همین‌جا و در سبد خرید مشاهده می‌کنند.
         </p>
       </div>
 

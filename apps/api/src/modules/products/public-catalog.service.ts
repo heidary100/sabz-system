@@ -5,6 +5,8 @@ import type {
   CatalogBrandDto,
   CatalogCategoryCrumb,
   CatalogCategoryNode,
+  CatalogPriceQuoteDto,
+  CatalogPriceResponseDto,
   CatalogProductCardDto,
   CatalogProductDetailDto,
   CatalogProductMediaDto,
@@ -18,6 +20,7 @@ import {
   activeInventoryWhere,
   deriveAvailable,
 } from '../inventory/inventory-aggregate';
+import { PricingService } from '../pricing/pricing.service';
 import {
   ListCatalogBrandsQueryDto,
   ListCatalogProductsQueryDto,
@@ -50,7 +53,10 @@ const PUBLIC_MEDIA_URL_PREFIX = '/api/v1/catalog/media';
  */
 @Injectable()
 export class PublicCatalogService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly pricing: PricingService,
+  ) {}
 
   /**
    * Visible category tree with per-node published-product counts rolled up
@@ -442,6 +448,19 @@ export class PublicCatalogService {
       product.variants.map((variant) => variant.id),
     );
 
+    // SS-235 B1: earliest active-promotion end in scope → detail countdown.
+    const detailPromotions = await this.pricing.activePromotionsFor({
+      productId: product.id,
+      categoryId: product.categoryId,
+      brandId: product.brandId,
+    });
+    const promotionEndsAt =
+      detailPromotions.length === 0
+        ? null
+        : new Date(
+            Math.min(...detailPromotions.map((promo) => promo.endsAt.getTime())),
+          ).toISOString();
+
     const variants: CatalogProductVariantDto[] = product.variants.map((variant) => ({
       id: variant.id,
       sku: variant.sku,
@@ -522,10 +541,97 @@ export class PublicCatalogService {
       specs,
       tags,
       inStock: variants.some((variant) => variant.inStock),
+      promotionEndsAt,
       related,
       previous,
       next,
       createdAt: product.createdAt.toISOString(),
+    };
+  }
+
+  /**
+   * Public per-variant price quotes (SS-235 B1, pricing-engine.md §8
+   * `GET /products/{slug}/price`). Guests and retail customers resolve at
+   * retail (PRICE-002); an authenticated APPROVED partner resolves with
+   * their tier (PRICE-003, `tierApplied`). Full B1 chain per line
+   * (category rule → override → tier → bulk → promotion); CALL_FOR_PRICE
+   * variants quote null prices — they are RFQ stand-ins, never purchasable
+   * (PRICE-008). One lookup set per product, never per-variant N+1.
+   */
+  async getPriceBySlug(
+    slug: string,
+    userId: string | null,
+    quantity: number,
+  ): Promise<CatalogPriceResponseDto> {
+    const product = await this.prisma.product.findFirst({
+      where: { slug, deletedAt: null, status: ProductStatus.PUBLISHED },
+      select: {
+        id: true,
+        slug: true,
+        categoryId: true,
+        brandId: true,
+        variants: {
+          where: { deletedAt: null },
+          select: { id: true, sku: true, price: true, priceStatus: true },
+          orderBy: [{ createdAt: 'asc' as const }, { id: 'asc' as const }],
+        },
+      },
+    });
+    if (!product) {
+      throw new NotFoundException('محصول یافت نشد.');
+    }
+    const scope = {
+      productId: product.id,
+      categoryId: product.categoryId,
+      brandId: product.brandId,
+    };
+    const [promotions, categoryRule, override, tierPct] = await Promise.all([
+      this.pricing.activePromotionsFor(scope),
+      this.pricing.categoryRuleFor(scope.categoryId),
+      this.pricing.productOverrideFor(scope.productId),
+      userId
+        ? this.pricing.tierDiscountForUser(userId)
+        : Promise.resolve(new Prisma.Decimal(0)),
+    ]);
+    const promotionEndsAt =
+      promotions.length === 0
+        ? null
+        : new Date(
+            Math.min(...promotions.map((promo) => promo.endsAt.getTime())),
+          ).toISOString();
+    const quotes: CatalogPriceQuoteDto[] = product.variants.map((variant) => {
+      if (variant.priceStatus !== PriceStatus.PRICED) {
+        return {
+          variantId: variant.id,
+          sku: variant.sku,
+          priceStatus: variant.priceStatus,
+          basePrice: null,
+          resolvedPrice: null,
+          promotionEndsAt,
+        };
+      }
+      const resolved = PricingService.resolveLine(
+        variant.price,
+        quantity,
+        tierPct,
+        promotions,
+        { categoryRule, override },
+      );
+      return {
+        variantId: variant.id,
+        sku: variant.sku,
+        priceStatus: variant.priceStatus,
+        basePrice: String(variant.price),
+        resolvedPrice: resolved.toString(),
+        promotionEndsAt,
+      };
+    });
+    return {
+      slug: product.slug,
+      productId: product.id,
+      quantity,
+      tierApplied: tierPct.greaterThan(0),
+      quotes,
     };
   }
 
@@ -864,6 +970,8 @@ export class PublicCatalogService {
         slug: true,
         condition: true,
         minPrice: true,
+        categoryId: true,
+        brandId: true,
         brand: { select: { name: true, slug: true } },
         category: { select: { name: true, slug: true } },
         variants: {
@@ -892,6 +1000,14 @@ export class PublicCatalogService {
     // Collect every live variant of the page once for the availability map.
     const variantIds = rows.flatMap((row) => row.variants.map((v) => v.id));
     const availableByVariant = await this.availableByVariant(variantIds);
+    // SS-235 B1: one batched promotion lookup drives every card countdown.
+    const promotionEndsAtByProduct = await this.pricing.promotionEndsAtByProduct(
+      rows.map((row) => ({
+        productId: row.id,
+        categoryId: row.categoryId,
+        brandId: row.brandId,
+      })),
+    );
 
     const rowsById = new Map(rows.map((row) => [row.id, row]));
     const cards: CatalogProductCardDto[] = [];
@@ -912,6 +1028,7 @@ export class PublicCatalogService {
         priceFrom: priceFrom ?? '',
         compareAtPrice: pickCardCompareAtPrice(row.variants, priceFrom),
         callForPrice: minPrice == null,
+        promotionEndsAt: promotionEndsAtByProduct.get(row.id) ?? null,
         variantCount: row.variants.length,
         inStock: row.variants.some(
           (variant) => (availableByVariant.get(variant.id) ?? 0) > 0,

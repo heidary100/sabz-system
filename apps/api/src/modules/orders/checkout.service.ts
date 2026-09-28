@@ -484,14 +484,22 @@ export class CheckoutService {
       if (line.variant.priceStatus !== PriceStatus.PRICED) {
         continue;
       }
-      const promotions = await this.pricing.activePromotionsFor({
+      const scope = {
         productId: line.variant.product.id,
         categoryId: line.variant.product.categoryId,
         brandId: line.variant.product.brandId,
-      });
+      };
+      const [promotions, categoryRule, override] = await Promise.all([
+        this.pricing.activePromotionsFor(scope),
+        this.pricing.categoryRuleFor(scope.categoryId),
+        this.pricing.productOverrideFor(scope.productId),
+      ]);
       unitPrices.set(
         line.variantId,
-        PricingService.resolveLine(line.variant.price, line.quantity, tierPct, promotions),
+        PricingService.resolveLine(line.variant.price, line.quantity, tierPct, promotions, {
+          categoryRule,
+          override,
+        }),
       );
     }
 

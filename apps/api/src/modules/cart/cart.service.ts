@@ -427,16 +427,23 @@ export class CartService {
   ): Promise<CartItemDto> {
     // SS-235: the line truth is the server-resolved price, never the raw
     // variant price and never anything the client sends (CART-004).
-    const promotions = await this.pricing.activePromotionsFor({
+    // B1 chain: category rule → override → tier → bulk → promotion.
+    const scope = {
       productId: line.variant.product.id,
       categoryId: line.variant.product.categoryId,
       brandId: line.variant.product.brandId,
-    });
+    };
+    const [promotions, categoryRule, override] = await Promise.all([
+      this.pricing.activePromotionsFor(scope),
+      this.pricing.categoryRuleFor(scope.categoryId),
+      this.pricing.productOverrideFor(scope.productId),
+    ]);
     const unitPrice = PricingService.resolveLine(
       line.variant.price,
       line.quantity,
       tierDiscountPercent,
       promotions,
+      { categoryRule, override },
     ).toString();
     const unitPriceAtAdd = line.unitPriceAtAdd.toString();
     const available = availableByVariant.get(line.variantId) ?? 0;

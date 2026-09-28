@@ -2,6 +2,7 @@ import { PriceStatus, ProductCondition, ProductStatus, WarehouseStatus } from '@
 import { PrismaService } from '../src/common/database/prisma.service';
 import { AuditService } from '../src/modules/audit/audit.service';
 import { PublicCatalogService } from '../src/modules/products/public-catalog.service';
+import { PricingService } from '../src/modules/pricing/pricing.service';
 import { VariantsService } from '../src/modules/products/variants.service';
 
 import { StorefrontCacheService } from '../src/common/storefront-cache/storefront-cache.service';
@@ -107,7 +108,7 @@ describe('Product minPrice denormalization (SS-217)', () => {
     await prisma.$connect();
     const audit = new AuditService(prisma);
     variants = new VariantsService(prisma, audit, new StorefrontCacheService(new ConfigService()));
-    catalog = new PublicCatalogService(prisma);
+    catalog = new PublicCatalogService(prisma, new PricingService(prisma));
   });
 
   afterAll(async () => {

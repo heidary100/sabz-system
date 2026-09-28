@@ -13,6 +13,7 @@ function promo(overrides: Partial<PromotionRow> = {}): PromotionRow {
     categoryId: null,
     brandId: null,
     minQuantity: 1,
+    endsAt: new Date('2026-12-31T00:00:00.000Z'),
     ...overrides,
   };
 }
@@ -172,6 +173,7 @@ describe('PricingService (SS-235)', () => {
           categoryId: true,
           brandId: true,
           minQuantity: true,
+          endsAt: true,
         },
       });
     });
@@ -183,6 +185,133 @@ describe('PricingService (SS-235)', () => {
       const service = new PricingService(prisma);
 
       await expect(service.activePromotionsFor(scope)).resolves.toEqual([]);
+    });
+  });
+
+  describe('resolveLine with category rules and overrides (SS-235 B1)', () => {
+    it('applies the category rule before tier (PRICE-004 chain)', () => {
+      // 10000 − 10% rule = 9000; − 10% tier = 8100.
+      const result = PricingService.resolveLine(D(10000), 1, D(10), [], {
+        categoryRule: { type: 'PERCENT', value: D(10) },
+      });
+      expect(result.toString()).toBe('8100');
+    });
+
+    it('applies the product override after the category rule', () => {
+      // 10000 − 10% rule = 9000; − 1000 override = 8000.
+      const result = PricingService.resolveLine(D(10000), 1, D(0), [], {
+        categoryRule: { type: 'PERCENT', value: D(10) },
+        override: { type: 'FIXED', value: D(1000) },
+      });
+      expect(result.toString()).toBe('8000');
+    });
+
+    it('ignores invalid adjustments without failing', () => {
+      const result = PricingService.resolveLine(D(10000), 1, D(0), [], {
+        categoryRule: { type: 'PERCENT', value: D(150) },
+        override: { type: 'FIXED', value: D(-50) },
+      });
+      expect(result.toString()).toBe('10000');
+    });
+  });
+
+  describe('categoryRuleFor', () => {
+    function serviceWith(rules: unknown) {
+      const prisma = {
+        categoryPriceRule: { findMany: jest.fn().mockResolvedValue(rules) },
+      } as unknown as PrismaService;
+      return new PricingService(prisma);
+    }
+
+    it('returns null without a category or when no rule applies', async () => {
+      const service = serviceWith([]);
+      await expect(service.categoryRuleFor(null)).resolves.toBeNull();
+      await expect(service.categoryRuleFor('c-1')).resolves.toBeNull();
+    });
+
+    it('returns the winning rule and scopes the lookup by priority', async () => {
+      const prisma = {
+        categoryPriceRule: {
+          findMany: jest.fn().mockResolvedValue([
+            {
+              type: 'PERCENT',
+              value: D(10),
+              endsAt: null,
+              priority: 0,
+              createdAt: new Date(),
+            },
+          ]),
+        },
+      } as unknown as PrismaService;
+      const service = new PricingService(prisma);
+
+      await expect(service.categoryRuleFor('c-1')).resolves.toEqual({
+        type: 'PERCENT',
+        value: D(10),
+      });
+      expect(prisma.categoryPriceRule.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ categoryId: 'c-1', isActive: true }),
+          orderBy: [{ priority: 'asc' }, { createdAt: 'desc' }],
+        }),
+      );
+    });
+
+    it('skips expired or invalid rows and degrades on DB error', async () => {
+      const past = new Date(Date.now() - 60_000);
+      const service = serviceWith([
+        { type: 'PERCENT', value: D(10), endsAt: past, priority: 0, createdAt: new Date() },
+        { type: 'PERCENT', value: D(200), endsAt: null, priority: 1, createdAt: new Date() },
+      ]);
+      await expect(service.categoryRuleFor('c-1')).resolves.toBeNull();
+
+      const failing = new PricingService({
+        categoryPriceRule: { findMany: jest.fn().mockRejectedValue(new Error('db down')) },
+      } as unknown as PrismaService);
+      await expect(failing.categoryRuleFor('c-1')).resolves.toBeNull();
+    });
+  });
+
+  describe('productOverrideFor', () => {
+    it('returns the override when active and in window', async () => {
+      const prisma = {
+        productPriceOverride: {
+          findUnique: jest.fn().mockResolvedValue({
+            type: 'FIXED',
+            value: D(500),
+            isActive: true,
+            startsAt: null,
+            endsAt: null,
+          }),
+        },
+      } as unknown as PrismaService;
+      const service = new PricingService(prisma);
+
+      await expect(service.productOverrideFor('p-1')).resolves.toEqual({
+        type: 'FIXED',
+        value: D(500),
+      });
+    });
+
+    it('returns null when missing, inactive, or on DB error', async () => {
+      const missing = new PricingService({
+        productPriceOverride: { findUnique: jest.fn().mockResolvedValue(null) },
+      } as unknown as PrismaService);
+      await expect(missing.productOverrideFor('p-1')).resolves.toBeNull();
+
+      const inactive = new PricingService({
+        productPriceOverride: {
+          findUnique: jest
+            .fn()
+            .mockResolvedValue({ type: 'FIXED', value: D(500), isActive: false, startsAt: null, endsAt: null }),
+        },
+      } as unknown as PrismaService);
+      await expect(inactive.productOverrideFor('p-1')).resolves.toBeNull();
+
+      const failing = new PricingService({
+        productPriceOverride: { findUnique: jest.fn().mockRejectedValue(new Error('db down')) },
+      } as unknown as PrismaService);
+      await expect(failing.productOverrideFor('p-1')).resolves.toBeNull();
     });
   });
 });

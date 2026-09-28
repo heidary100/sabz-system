@@ -5,18 +5,25 @@ import { mediaImageUrl } from '@/lib/catalog';
 import { conditionLabel, CONDITION_LABELS } from '@/lib/condition';
 import { formatCardPrice, salePercentFrom } from '@/lib/format';
 import { Badge } from '@/components/ecommerce/ui/badge';
+import { CountdownTimer } from '@/components/ecommerce/ui/countdown-timer';
 
 /**
  * Listing card (SS-125, rebuilt SS-225): elevated card surface with
  * hover-lift, truthful badges (discount % from the card's compareAtPrice,
- * stock state), an inquiry chip for call-for-price rows, and no noise —
- * unbranded products omit the brand line entirely instead of printing
- * «بدون برند» (55% of the real catalog). Availability is API-derived
- * (SS-112 semantics).
+ * a generic sale badge when a scheduled Promotion applies without a
+ * reference price, and a live countdown to the promotion end — all
+ * server-resolved, SS-235 B1), an inquiry chip for call-for-price rows,
+ * and no noise — unbranded products omit the brand line entirely instead
+ * of printing «بدون برند» (55% of the real catalog). Availability is
+ * API-derived (SS-112 semantics).
  */
 export function ProductCard({ product }: { product: CatalogProductCardDto }) {
   const image = mediaImageUrl(product.primaryThumbnailUrl ?? product.primaryImageUrl);
   const salePercent = salePercentFrom(product.priceFrom, product.compareAtPrice);
+  // Real promotion state (SS-235 B1): a scheduled Promotion row applies even
+  // when there is no compare-at reference price — then the badge is generic
+  // («فروش ویژه») rather than a percent, and a countdown shows the window.
+  const hasPromotion = product.promotionEndsAt !== null;
 
   return (
     <Link
@@ -63,6 +70,10 @@ export function ProductCard({ product }: { product: CatalogProductCardDto }) {
           <Badge variant="sale" className="absolute top-2 end-2">
             تخفیف {salePercent.toLocaleString('fa-IR', { useGrouping: false })}٪
           </Badge>
+        ) : hasPromotion && product.inStock ? (
+          <Badge variant="sale" className="absolute top-2 end-2">
+            فروش ویژه
+          </Badge>
         ) : null}
       </div>
 
@@ -83,6 +94,11 @@ export function ProductCard({ product }: { product: CatalogProductCardDto }) {
           )}
           <Badge variant="condition">{conditionLabel(product.condition)}</Badge>
         </div>
+        {product.promotionEndsAt !== null && !product.callForPrice ? (
+          <div className="px-3 pt-2 sm:px-4">
+            <CountdownTimer endsAt={product.promotionEndsAt} size="sm" />
+          </div>
+        ) : null}
       </div>
     </Link>
   );

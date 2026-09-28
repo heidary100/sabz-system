@@ -351,6 +351,8 @@ model Category {
 
   products Product[]
 
+  priceRules CategoryPriceRule[]
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
@@ -440,6 +442,8 @@ model Product {
   media    ProductMedia[]
   specs    ProductAttributeValue[]
   tags     ProductTag[]
+
+  priceOverride ProductPriceOverride?
 
   wishlistItems WishlistItem[]
 
@@ -976,4 +980,60 @@ model Promotion {
   @@index([productId])
   @@index([categoryId])
   @@index([brandId])
+}
+
+/// Category pricing rule (SS-235 Round B1, pricing-engine.md §5–§6).
+/// Adjusts the base price of every product in the category BEFORE the
+/// partner tier step (chain: Base → CategoryRule → Override → Tier →
+/// Bulk → Promotion). At most one rule applies per line: lowest
+/// `priority` wins, ties break by newest `createdAt`. PERCENT is 0–100
+/// off the running base; FIXED is a Rial amount off. Cost-based formulas
+/// (cost + markup) are not modeled — there is no cost column yet.
+/// Admin CRUD arrives with SS-240; until then rows are managed via seed
+/// or direct DB writes. Inactive, out-of-window, or invalid rows are
+/// ignored by the resolver, never fatal.
+model CategoryPriceRule {
+  id         String        @id @default(uuid())
+  categoryId String
+  category   Category      @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  type       PromotionType
+  /// PERCENT: 0–100. FIXED: Rial amount off.
+  value    Decimal  @db.Decimal(12, 2)
+  isActive Boolean  @default(true)
+  startsAt DateTime?
+  endsAt   DateTime?
+
+  /// Lower wins when several rules cover the same category.
+  priority Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?
+  updatedBy String?
+
+  @@index([categoryId, isActive])
+}
+
+/// Product-specific price override (SS-235 Round B1). Applies AFTER the
+/// category rule for exactly one product (spec §5 order) with the same
+/// PERCENT|FIXED-off semantics. At most one row per product (`productId`
+/// unique); inactive, out-of-window, or invalid rows are ignored, never
+/// fatal. Admin CRUD arrives with SS-240.
+model ProductPriceOverride {
+  id        String        @id @default(uuid())
+  productId String        @unique
+  product   Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  type      PromotionType
+  /// PERCENT: 0–100. FIXED: Rial amount off.
+  value    Decimal  @db.Decimal(12, 2)
+  isActive Boolean  @default(true)
+  startsAt DateTime?
+  endsAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?
+  updatedBy String?
+
+  @@index([productId, isActive])
 }

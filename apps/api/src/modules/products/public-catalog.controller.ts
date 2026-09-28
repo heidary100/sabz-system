@@ -3,9 +3,11 @@ import {
   Controller,
   Get,
   Injectable,
+  NotFoundException,
   Param,
   PipeTransform,
   Query,
+  UseGuards,
 } from '@nestjs/common';
 import {
   ApiOperation,
@@ -14,6 +16,9 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
+import { AuthUser } from '../auth/interfaces/auth-user.interface';
 import { PublicCatalogService } from './public-catalog.service';
 import {
   ListCatalogBrandsQueryDto,
@@ -97,6 +102,48 @@ export class PublicCatalogProductsController {
   @ApiResponse({ status: 400, description: 'Invalid query parameters.' })
   async list(@Query() query: ListCatalogProductsQueryDto) {
     return this.publicCatalogService.listProducts(query);
+  }
+
+  @Get(':slug/price')
+  @UseGuards(OptionalJwtAuthGuard)
+  @ApiOperation({
+    summary: 'Public per-variant price quotes (tier-aware when authed)',
+  })
+  @ApiParam({ name: 'slug', type: 'string' })
+  @ApiQuery({ name: 'quantity', required: false, type: Number })
+  @ApiQuery({ name: 'variantId', required: false, type: String })
+  @ApiResponse({ status: 200, description: 'Resolved price quotes returned.' })
+  @ApiResponse({
+    status: 404,
+    description: 'Product not found, not PUBLISHED, or soft-deleted.',
+  })
+  async price(
+    @Param('slug', SlugValidationPipe) slug: string,
+    @Query('quantity') quantityRaw: string | undefined,
+    @Query('variantId') variantId: string | undefined,
+    @CurrentUser() user: AuthUser | undefined,
+  ) {
+    let quantity = 1;
+    if (quantityRaw !== undefined) {
+      quantity = Number(quantityRaw);
+      if (!Number.isInteger(quantity) || quantity < 1 || quantity > 1000) {
+        throw new BadRequestException('تعداد معتبر نیست.');
+      }
+    }
+    // Optional guard: guests resolve at retail, APPROVED partners at tier.
+    const quote = await this.publicCatalogService.getPriceBySlug(
+      slug,
+      user?.userId ?? null,
+      quantity,
+    );
+    if (variantId !== undefined) {
+      const match = quote.quotes.find((row) => row.variantId === variantId);
+      if (!match) {
+        throw new NotFoundException('مدل محصول یافت نشد.');
+      }
+      return { ...quote, quotes: [match] };
+    }
+    return quote;
   }
 
   @Get(':slug')

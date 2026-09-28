@@ -25,6 +25,7 @@ const WISHLIST_ITEM_KEYS = [
   'priceFrom',
   'primaryImageUrl',
   'primaryThumbnailUrl',
+  'promotionEndsAt',
   'slug',
   'variantCount',
 ];

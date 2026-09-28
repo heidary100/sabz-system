@@ -49,6 +49,7 @@ function detail(
     specs: [],
     tags: [],
     inStock: false,
+    promotionEndsAt: null,
     related: [],
     previous: null,
     next: null,

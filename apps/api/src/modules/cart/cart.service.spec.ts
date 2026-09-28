@@ -48,6 +48,8 @@ describe('CartService', () => {
   let pricing: {
     tierDiscountForUser: jest.Mock;
     activePromotionsFor: jest.Mock;
+    categoryRuleFor: jest.Mock;
+    productOverrideFor: jest.Mock;
   };
   let prisma: {
     cart: { findUnique: jest.Mock; create: jest.Mock; findUniqueOrThrow: jest.Mock };
@@ -90,6 +92,8 @@ describe('CartService', () => {
     pricing = {
       tierDiscountForUser: jest.fn().mockResolvedValue(new Prisma.Decimal(0)),
       activePromotionsFor: jest.fn().mockResolvedValue([]),
+      categoryRuleFor: jest.fn().mockResolvedValue(null),
+      productOverrideFor: jest.fn().mockResolvedValue(null),
     };
     service = new CartService(
       prisma as unknown as PrismaService,
