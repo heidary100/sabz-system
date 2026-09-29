@@ -200,6 +200,23 @@ export {
 } from './rfq/rfq';
 
 export {
+  CategoryPriceRuleDto,
+  CategoryPriceRuleListResponse,
+  CreateCategoryPriceRuleInput,
+  CreateProductPriceOverrideInput,
+  CreatePromotionInput,
+  ProductPriceOverrideDto,
+  ProductPriceOverrideListResponse,
+  PromotionDto,
+  PromotionListResponse,
+  PromotionType,
+  PROMOTION_TYPE_FA,
+  UpdateCategoryPriceRuleInput,
+  UpdateProductPriceOverrideInput,
+  UpdatePromotionInput,
+} from './pricing/pricing';
+
+export {
   CreateReviewInput,
   ReviewDto,
   ReviewListResponse,

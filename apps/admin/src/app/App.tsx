@@ -16,6 +16,7 @@ import { OrderDetailPage } from '../pages/order-detail-page'
 import { OrdersPage } from '../pages/orders-page'
 import { PartnerDetailPage } from '../pages/partner-detail-page'
 import { PartnersPage } from '../pages/partners-page'
+import { PricingPage } from '../pages/pricing-page'
 import { ProductDetailPage } from '../pages/product-detail-page'
 import { ProductEditorPage } from '../pages/product-editor-page'
 import { ProductsPage } from '../pages/products-page'
@@ -70,6 +71,14 @@ export default function App() {
               element={
                 <RequireRole roles={ADMIN_ROLES}>
                   <OrderDetailPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="pricing"
+              element={
+                <RequireRole roles={ADMIN_ROLES}>
+                  <PricingPage />
                 </RequireRole>
               }
             />
