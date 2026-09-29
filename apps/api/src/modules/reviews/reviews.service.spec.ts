@@ -234,6 +234,73 @@ describe('ReviewsService (SS-236)', () => {
     });
   });
 
+  describe('listForModeration', () => {
+    function adminRow(overrides: Record<string, unknown> = {}) {
+      return {
+        ...reviewRow(),
+        product: { name: 'گوشی تست', slug: 'test-phone' },
+        ...overrides,
+      };
+    }
+
+    it('defaults to the PENDING worklist, newest first, with product fields', async () => {
+      prisma.$transaction.mockResolvedValue([1, [adminRow()]]);
+
+      const result = await service.listForModeration({});
+
+      expect(result).toMatchObject({
+        total: 1,
+        page: 1,
+        limit: 20,
+      });
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0]).toMatchObject({
+        status: 'PENDING',
+        statusFa: 'در انتظار بررسی',
+        productName: 'گوشی تست',
+        productSlug: 'test-phone',
+      });
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      const [ops] = prisma.$transaction.mock.calls[0] as unknown as [
+        [unknown, unknown],
+      ];
+      expect(ops).toHaveLength(2);
+      expect(prisma.review.count).toHaveBeenCalledWith({
+        where: { status: ReviewStatus.PENDING },
+      });
+      expect(prisma.review.findMany).toHaveBeenCalledWith({
+        where: { status: ReviewStatus.PENDING },
+        select: expect.anything(),
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        skip: 0,
+        take: 20,
+      });
+      expect(audit.log).not.toHaveBeenCalled();
+    });
+
+    it('honours an explicit status, page, and limit', async () => {
+      prisma.$transaction.mockResolvedValue([3, [adminRow()]]);
+
+      const result = await service.listForModeration({
+        status: 'APPROVED',
+        page: 2,
+        limit: 10,
+      });
+
+      expect(result).toMatchObject({ total: 3, page: 2, limit: 10 });
+      expect(prisma.review.count).toHaveBeenCalledWith({
+        where: { status: ReviewStatus.APPROVED },
+      });
+      expect(prisma.review.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { status: ReviewStatus.APPROVED },
+          skip: 10,
+          take: 10,
+        }),
+      );
+    });
+  });
+
   describe('roundRatingAverage', () => {
     it('rounds to 1 decimal', () => {
       expect(roundRatingAverage(new Prisma.Decimal('4.666'))).toBe(4.7);
