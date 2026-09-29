@@ -216,3 +216,17 @@ export {
   UpdateBlogCategoryInput,
   UpdateBlogPostInput,
 } from './blog/blog';
+
+export {
+  TOROB_SORTS,
+  isTorobSort,
+  TorobErrorResponse,
+  TorobProductDto,
+  TorobProductsByUniquesRequest,
+  TorobProductsByUrlsRequest,
+  TorobProductsCursorRequest,
+  TorobProductsPageRequest,
+  TorobProductsRequest,
+  TorobProductsResponse,
+  TorobSort,
+} from './torob/torob';

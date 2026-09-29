@@ -17,6 +17,7 @@ import { PartnersModule } from './modules/partners/partners.module';
 import { ProductsModule } from './modules/products/products.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
 import { RfqModule } from './modules/rfq/rfq.module';
+import { TorobModule } from './modules/torob/torob.module';
 import { UsersModule } from './modules/users/users.module';
 import { WishlistModule } from './modules/wishlist/wishlist.module';
 
@@ -54,6 +55,7 @@ import { WishlistModule } from './modules/wishlist/wishlist.module';
     ProductsModule,
     ReviewsModule,
     RfqModule,
+    TorobModule,
     UsersModule,
     WishlistModule,
   ],
