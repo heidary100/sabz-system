@@ -1,5 +1,5 @@
 import type { OrderStatus, PaymentStatus } from '@sabz/types'
-import { ORDER_STATUS_FA, PAYMENT_STATUS_FA } from '@sabz/types'
+import { ORDER_PAYMENT_STATUS_LABELS, ORDER_STATUS_LABELS } from '../../lib/order-labels'
 import { Badge } from '../catalyst/badge'
 
 const ORDER_STATUS_COLORS: Record<
@@ -20,9 +20,9 @@ const PAYMENT_STATUS_COLORS: Record<PaymentStatus, 'amber' | 'green' | 'red'> = 
 }
 
 export function OrderStatusBadge({ status }: { status: OrderStatus }) {
-  return <Badge color={ORDER_STATUS_COLORS[status]}>{ORDER_STATUS_FA[status]}</Badge>
+  return <Badge color={ORDER_STATUS_COLORS[status]}>{ORDER_STATUS_LABELS[status]}</Badge>
 }
 
 export function PaymentStatusBadge({ status }: { status: PaymentStatus }) {
-  return <Badge color={PAYMENT_STATUS_COLORS[status]}>{PAYMENT_STATUS_FA[status]}</Badge>
+  return <Badge color={PAYMENT_STATUS_COLORS[status]}>{ORDER_PAYMENT_STATUS_LABELS[status]}</Badge>
 }

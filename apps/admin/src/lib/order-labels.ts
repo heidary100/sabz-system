@@ -1,4 +1,34 @@
-import type { AdminOrderTransition, OrderStatus } from '@sabz/types'
+import type {
+  AdminOrderTransition,
+  OrderStatus,
+  PaymentMethod,
+  PaymentStatus,
+} from '@sabz/types'
+
+/**
+ * Local Persian labels (SS-240A). The admin keeps runtime label maps in
+ * `lib/*-labels.ts` (partner-labels pattern) and imports only *types* from
+ * `@sabz/types`: the package ships a CJS dist, which Vite dev serves raw
+ * via /@fs where named ESM imports fail at runtime.
+ */
+export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
+  PENDING: 'در انتظار بررسی',
+  PROCESSING: 'در حال آماده‌سازی',
+  SHIPPED: 'ارسال شده',
+  DELIVERED: 'تحویل شده',
+  CANCELLED: 'لغو شده',
+}
+
+export const ORDER_PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
+  ONLINE: 'پرداخت آنلاین',
+  COD: 'پرداخت در محل',
+}
+
+export const ORDER_PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
+  PENDING: 'در انتظار پرداخت',
+  PAID: 'پرداخت شده',
+  FAILED: 'پرداخت ناموفق',
+}
 
 export const ORDER_STATUS_ORDER: OrderStatus[] = [
   'PENDING',

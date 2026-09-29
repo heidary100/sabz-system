@@ -1,10 +1,13 @@
 import { useNavigate } from 'react-router-dom'
-import { ORDER_STATUS_FA, PAYMENT_METHOD_FA } from '@sabz/types'
 import { useOrderList } from '../hooks/use-order-list'
 import type { OrderStatusFilter } from '../hooks/use-order-list'
 import { translateApiError } from '../lib/error-messages'
 import { formatDate, formatRial } from '../lib/format'
-import { ORDER_STATUS_ORDER } from '../lib/order-labels'
+import {
+  ORDER_PAYMENT_METHOD_LABELS,
+  ORDER_STATUS_LABELS,
+  ORDER_STATUS_ORDER,
+} from '../lib/order-labels'
 import { pageNumbers } from '../lib/pagination'
 import { OrderStatusBadge, PaymentStatusBadge } from '../components/orders/status-badge'
 import { ShoppingCart } from 'lucide-react'
@@ -68,7 +71,7 @@ export function OrdersPage() {
             <option value="">همه وضعیت‌ها</option>
             {ORDER_STATUS_ORDER.map((value) => (
               <option key={value} value={value}>
-                {ORDER_STATUS_FA[value]}
+                {ORDER_STATUS_LABELS[value]}
               </option>
             ))}
           </Select>
@@ -131,7 +134,7 @@ export function OrdersPage() {
                     <div className="flex flex-col gap-1">
                       <PaymentStatusBadge status={order.paymentStatus} />
                       <span className="text-xs text-muted">
-                        {PAYMENT_METHOD_FA[order.paymentMethod]}
+                        {ORDER_PAYMENT_METHOD_LABELS[order.paymentMethod]}
                       </span>
                     </div>
                   </TableCell>

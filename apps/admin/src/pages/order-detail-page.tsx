@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import type { AdminOrderTransition } from '@sabz/types'
-import { ORDER_STATUS_FA, PAYMENT_METHOD_FA } from '@sabz/types'
 import { useOrderDetail } from '../hooks/use-order-detail'
 import { translateApiError } from '../lib/error-messages'
 import { formatDateTime, formatRial } from '../lib/format'
 import {
   ORDER_NEXT_TRANSITIONS,
+  ORDER_PAYMENT_METHOD_LABELS,
+  ORDER_STATUS_LABELS,
   ORDER_TRANSITION_DESCRIPTIONS,
   ORDER_TRANSITION_LABELS,
 } from '../lib/order-labels'
@@ -114,8 +115,8 @@ export function OrderDetailPage() {
         <section className="rounded-xl border border-border bg-surface p-5 sm:p-6">
           <Subheading>خلاصه سفارش</Subheading>
           <dl className="mt-4 grid grid-cols-1 gap-5 sm:grid-cols-2">
-            <InfoItem label="وضعیت" value={ORDER_STATUS_FA[order.status]} />
-            <InfoItem label="روش پرداخت" value={PAYMENT_METHOD_FA[order.paymentMethod]} />
+            <InfoItem label="وضعیت" value={ORDER_STATUS_LABELS[order.status]} />
+            <InfoItem label="روش پرداخت" value={ORDER_PAYMENT_METHOD_LABELS[order.paymentMethod]} />
             <InfoItem label="جمع اقلام" value={formatRial(order.subtotal)} />
             <InfoItem label="هزینه ارسال" value={formatRial(order.shippingFee)} />
             <InfoItem label="مبلغ نهایی" value={formatRial(order.total)} />
