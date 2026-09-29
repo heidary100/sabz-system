@@ -17,6 +17,8 @@ import { OrdersPage } from '../pages/orders-page'
 import { PartnerDetailPage } from '../pages/partner-detail-page'
 import { PartnersPage } from '../pages/partners-page'
 import { PricingPage } from '../pages/pricing-page'
+import { RfqDetailPage } from '../pages/rfq-detail-page'
+import { RfqPage } from '../pages/rfq-page'
 import { ProductDetailPage } from '../pages/product-detail-page'
 import { ProductEditorPage } from '../pages/product-editor-page'
 import { ProductsPage } from '../pages/products-page'
@@ -79,6 +81,22 @@ export default function App() {
               element={
                 <RequireRole roles={ADMIN_ROLES}>
                   <PricingPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="rfq"
+              element={
+                <RequireRole roles={ADMIN_ROLES}>
+                  <RfqPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="rfq/:id"
+              element={
+                <RequireRole roles={ADMIN_ROLES}>
+                  <RfqDetailPage />
                 </RequireRole>
               }
             />
