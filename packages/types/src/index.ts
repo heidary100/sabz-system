@@ -124,6 +124,10 @@ export {
 } from './orders/addresses';
 
 export {
+  AdminOrderDetailDto,
+  AdminOrderListItemDto,
+  AdminOrderListResponse,
+  AdminOrderTransition,
   CheckoutLineDto,
   CheckoutProblemCode,
   CheckoutProblemDto,

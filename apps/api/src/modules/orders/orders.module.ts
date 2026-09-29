@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common';
+import { AuditModule } from '../audit/audit.module';
 import { AuthModule } from '../auth/auth.module';
 import { InventoryModule } from '../inventory/inventory.module';
 import { PricingModule } from '../pricing/pricing.module';
+import { AdminOrdersController } from './admin-orders.controller';
 import { CheckoutController } from './checkout.controller';
 import { CheckoutService } from './checkout.service';
 import { OrdersController } from './orders.controller';
@@ -16,8 +18,8 @@ import { OrdersController } from './orders.controller';
  * truth is read from the same Prisma rows the catalog projects.
  */
 @Module({
-  imports: [AuthModule, InventoryModule, PricingModule],
-  controllers: [CheckoutController, OrdersController],
+  imports: [AuthModule, AuditModule, InventoryModule, PricingModule],
+  controllers: [CheckoutController, OrdersController, AdminOrdersController],
   providers: [CheckoutService],
   exports: [CheckoutService],
 })

@@ -166,6 +166,37 @@ export interface OrderDetailDto {
   createdAt: string;
 }
 
+/**
+ * Admin order list row (SS-240A). Same row as the customer list plus the
+ * owner reference and customer mobile so operators can triage without a
+ * second lookup. Money stays Rial (Decimal strings); the admin UI labels
+ * Toman like the variant form.
+ */
+export interface AdminOrderListItemDto extends OrderListItemDto {
+  userId: string;
+  customerMobile: string;
+  paymentMethod: PaymentMethod;
+  paymentStatus: PaymentStatus;
+}
+
+export interface AdminOrderListResponse {
+  items: AdminOrderListItemDto[];
+  total: number;
+}
+
+/** Admin order detail (SS-240A): full customer detail + owner + mobile. */
+export interface AdminOrderDetailDto extends OrderDetailDto {
+  userId: string;
+  customerMobile: string;
+}
+
+/** Operator status input (SS-240A). Terminal states are never accepted. */
+export type AdminOrderTransition =
+  | 'PROCESSING'
+  | 'SHIPPED'
+  | 'DELIVERED'
+  | 'CANCELLED';
+
 /** Invoice data for the HTML print route (SS-233 v1 — no PDF dep). */
 export interface InvoiceDto {
   id: string;
