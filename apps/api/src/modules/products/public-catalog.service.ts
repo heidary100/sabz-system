@@ -40,7 +40,7 @@ const DEFAULT_LIMIT = 20;
  * Relative so it stays host-agnostic; each frontend resolves it against the
  * API base URL.
  */
-const PUBLIC_MEDIA_URL_PREFIX = '/api/v1/catalog/media';
+export const PUBLIC_MEDIA_URL_PREFIX = '/api/v1/catalog/media';
 
 /**
  * Public, read-only catalog projections (SS-120/SS-121/SS-122).
