@@ -36,6 +36,24 @@ export function formatDateTime(iso: string | null | undefined): string {
   }
 }
 
+const rialFormatter = new Intl.NumberFormat('fa-IR')
+
+/**
+ * Formats a Rial Decimal string for the admin (SS-240A). The admin stays
+ * Rial (master-plan standing decision) — the storefront alone converts to
+ * Toman via its own currency helper.
+ */
+export function formatRial(rial: string | null | undefined): string {
+  if (rial === null || rial === undefined || rial === '') {
+    return '—'
+  }
+  const value = Number(rial)
+  if (!Number.isFinite(value)) {
+    return rial
+  }
+  return `${rialFormatter.format(value)} ریال`
+}
+
 export function formatFileSize(bytes: number): string {
   if (bytes < 1024) {
     return `${bytes} بایت`

@@ -15,6 +15,10 @@ import {
   RfqStatus,
 } from '@prisma/client';
 import type {
+  AdminOrderDetailDto,
+  AdminOrderListItemDto,
+  AdminOrderListResponse,
+  AdminOrderTransition,
   CheckoutLineDto,
   CheckoutProblemCode,
   CheckoutProblemDto,
@@ -30,6 +34,7 @@ import type {
 } from '@sabz/types';
 import { ORDER_STATUS_FA } from '@sabz/types';
 import { PrismaService } from '../../common/database/prisma.service';
+import { AuditService } from '../audit/audit.service';
 import {
   activeInventoryWhere,
   deriveAvailable,
@@ -167,6 +172,7 @@ export class CheckoutService {
     private readonly prisma: PrismaService,
     private readonly inventory: InventoryService,
     private readonly pricing: PricingService,
+    private readonly audit: AuditService,
   ) {}
 
   shippingMethods(): { items: ShippingMethodDto[] } {
@@ -591,6 +597,199 @@ export class CheckoutService {
       select: { mobile: true },
     });
     return user.mobile;
+  }
+
+  // -------------------------------------------------------------------------
+  // Operator reads + transitions (SS-240A). Unscoped: every row is visible.
+  // -------------------------------------------------------------------------
+
+  /**
+   * Operator order list (SS-240A): newest-first across all users, same
+   * paging contract as the customer history plus owner + mobile + payment
+   * columns so the queue triages without a second lookup.
+   */
+  async listAllOrders(query: {
+    status?: OrderListItemDto['status'];
+    page?: number;
+    limit?: number;
+  }): Promise<AdminOrderListResponse> {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 10;
+    const where = {
+      ...(query.status !== undefined ? { status: query.status } : {}),
+    };
+    const [total, rows] = await this.prisma.$transaction([
+      this.prisma.order.count({ where }),
+      this.prisma.order.findMany({
+        where,
+        select: {
+          id: true,
+          orderNumber: true,
+          status: true,
+          total: true,
+          createdAt: true,
+          userId: true,
+          paymentMethod: true,
+          paymentStatus: true,
+          user: { select: { mobile: true } },
+          _count: { select: { items: true } },
+        },
+        orderBy: [{ createdAt: 'desc' as const }, { id: 'desc' as const }],
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+    ]);
+    const items: AdminOrderListItemDto[] = rows.map((row) => ({
+      id: row.id,
+      orderNumber: row.orderNumber,
+      status: row.status as AdminOrderListItemDto['status'],
+      statusFa: ORDER_STATUS_FA[row.status as keyof typeof ORDER_STATUS_FA],
+      itemCount: row._count.items,
+      total: row.total.toString(),
+      createdAt: row.createdAt.toISOString(),
+      userId: row.userId,
+      customerMobile: row.user.mobile,
+      paymentMethod: row.paymentMethod as AdminOrderListItemDto['paymentMethod'],
+      paymentStatus: row.paymentStatus as AdminOrderListItemDto['paymentStatus'],
+    }));
+    return { items, total };
+  }
+
+  /** Operator order detail (SS-240A): full detail + owner + mobile. */
+  async adminDetail(orderId: string): Promise<AdminOrderDetailDto> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: {
+        id: true,
+        orderNumber: true,
+        status: true,
+        paymentMethod: true,
+        paymentStatus: true,
+        subtotal: true,
+        shippingFee: true,
+        total: true,
+        fullName: true,
+        phone: true,
+        province: true,
+        city: true,
+        address: true,
+        postalCode: true,
+        createdAt: true,
+        userId: true,
+        user: { select: { mobile: true } },
+        items: {
+          select: {
+            variantId: true,
+            productName: true,
+            variantName: true,
+            sku: true,
+            quantity: true,
+            unitPrice: true,
+            lineTotal: true,
+          },
+          orderBy: { id: 'asc' as const },
+        },
+      },
+    });
+    if (!order) {
+      throw new NotFoundException('سفارش یافت نشد.');
+    }
+    return {
+      ...this.toDetail(order),
+      userId: order.userId,
+      customerMobile: order.user.mobile,
+    };
+  }
+
+  /**
+   * Operator status transition (SS-240A). Legal moves only:
+   * PENDING → PROCESSING | CANCELLED, PROCESSING → SHIPPED | CANCELLED,
+   * SHIPPED → DELIVERED | CANCELLED; DELIVERED/CANCELLED are terminal.
+   * Operator cancels restock like customer cancels (same auditable note).
+   * COD orders flip PENDING → PAID exactly on the DELIVERED transition
+   * (SS-234 deferred note) — ONLINE rows keep their gateway-set status.
+   * Every transition writes one ORDER_STATUS_CHANGED audit event.
+   */
+  async transitionStatus(
+    operatorId: string,
+    orderId: string,
+    next: AdminOrderTransition,
+    ipAddress?: string,
+  ): Promise<AdminOrderDetailDto> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: {
+        id: true,
+        orderNumber: true,
+        status: true,
+        paymentMethod: true,
+        paymentStatus: true,
+        items: {
+          select: { variantId: true, warehouseId: true, quantity: true },
+        },
+      },
+    });
+    if (!order) {
+      throw new NotFoundException('سفارش یافت نشد.');
+    }
+    const current = order.status;
+    const legal: Record<string, AdminOrderTransition[]> = {
+      [OrderStatus.PENDING]: ['PROCESSING', 'CANCELLED'],
+      [OrderStatus.PROCESSING]: ['SHIPPED', 'CANCELLED'],
+      [OrderStatus.SHIPPED]: ['DELIVERED', 'CANCELLED'],
+      [OrderStatus.DELIVERED]: [],
+      [OrderStatus.CANCELLED]: [],
+    };
+    if (!legal[current]?.includes(next)) {
+      throw new ConflictException(
+        `تغییر وضعیت سفارش از «${ORDER_STATUS_FA[current as keyof typeof ORDER_STATUS_FA]}» به «${ORDER_STATUS_FA[next as keyof typeof ORDER_STATUS_FA]}» مجاز نیست.`,
+      );
+    }
+    if (next === 'CANCELLED') {
+      for (const item of order.items) {
+        try {
+          await this.inventory.receive(
+            {
+              variantId: item.variantId,
+              warehouseId: item.warehouseId,
+              quantity: item.quantity,
+              notes: `order-cancel:${order.orderNumber}`,
+            },
+            operatorId,
+          );
+        } catch (error) {
+          this.logger.warn(
+            `Operator cancel restock failed order=${order.id} variant=${item.variantId}: ${error}`,
+          );
+          throw new ConflictException(
+            'لغو سفارش به دلیل مغایرت موجودی ممکن نیست؛ با پشتیبانی در تماس باشید.',
+          );
+        }
+      }
+    }
+    // COD pays on delivery: the handover IS the payment event.
+    const paidOnDelivery =
+      next === 'DELIVERED' &&
+      order.paymentMethod === 'COD' &&
+      order.paymentStatus === 'PENDING';
+    const updated = await this.prisma.order.update({
+      where: { id: order.id },
+      data: {
+        status: next as OrderStatus,
+        ...(paidOnDelivery ? { paymentStatus: 'PAID' } : {}),
+      },
+      select: { status: true, paymentStatus: true },
+    });
+    await this.audit.log({
+      userId: operatorId,
+      action: 'ORDER_STATUS_CHANGED',
+      entity: 'Order',
+      entityId: order.id,
+      before: { status: current, paymentStatus: order.paymentStatus },
+      after: { status: updated.status, paymentStatus: updated.paymentStatus },
+      ipAddress,
+    });
+    return this.adminDetail(order.id);
   }
 
   // -------------------------------------------------------------------------

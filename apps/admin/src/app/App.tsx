@@ -12,6 +12,8 @@ import { InventoryMovementsPage } from '../pages/inventory-movements-page'
 import { InventoryPage } from '../pages/inventory-page'
 import { InventoryReservationsPage } from '../pages/inventory-reservations-page'
 import { LoginPage } from '../pages/login-page'
+import { OrderDetailPage } from '../pages/order-detail-page'
+import { OrdersPage } from '../pages/orders-page'
 import { PartnerDetailPage } from '../pages/partner-detail-page'
 import { PartnersPage } from '../pages/partners-page'
 import { ProductDetailPage } from '../pages/product-detail-page'
@@ -52,6 +54,22 @@ export default function App() {
               element={
                 <RequireRole roles={ADMIN_ROLES}>
                   <DashboardPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="orders"
+              element={
+                <RequireRole roles={ADMIN_ROLES}>
+                  <OrdersPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="orders/:id"
+              element={
+                <RequireRole roles={ADMIN_ROLES}>
+                  <OrderDetailPage />
                 </RequireRole>
               }
             />

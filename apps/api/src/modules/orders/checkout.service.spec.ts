@@ -1,6 +1,7 @@
 import { BadRequestException, UnprocessableEntityException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/database/prisma.service';
+import { AuditService } from '../audit/audit.service';
 import { InventoryService } from '../inventory/inventory.service';
 import { PricingService } from '../pricing/pricing.service';
 import { CheckoutService } from './checkout.service';
@@ -44,11 +45,19 @@ function stockRow(available: number) {
 
 describe('CheckoutService', () => {
   let service: CheckoutService;
+  let audit: { log: jest.Mock };
   let prisma: {
     cart: { findUnique: jest.Mock };
     cartItem: { findMany: jest.Mock };
     inventoryItem: { findMany: jest.Mock };
     address: { findFirst: jest.Mock };
+    order: {
+      count: jest.Mock;
+      findMany: jest.Mock;
+      findUnique: jest.Mock;
+      update: jest.Mock;
+    };
+    $transaction: jest.Mock;
   };
 
   beforeEach(() => {
@@ -57,6 +66,13 @@ describe('CheckoutService', () => {
       cartItem: { findMany: jest.fn() },
       inventoryItem: { findMany: jest.fn() },
       address: { findFirst: jest.fn() },
+      order: {
+        count: jest.fn(),
+        findMany: jest.fn(),
+        findUnique: jest.fn(),
+        update: jest.fn(),
+      },
+      $transaction: jest.fn(),
     };
     const inventory = {} as unknown as InventoryService;
     // SS-235: retail by default (no tier, no promotions) so legacy totals
@@ -67,10 +83,12 @@ describe('CheckoutService', () => {
       categoryRuleFor: jest.fn().mockResolvedValue(null),
       productOverrideFor: jest.fn().mockResolvedValue(null),
     } as unknown as PricingService;
+    audit = { log: jest.fn() };
     service = new CheckoutService(
       prisma as unknown as PrismaService,
       inventory,
       pricing,
+      audit as unknown as AuditService,
     );
   });
 
@@ -294,6 +312,7 @@ describe('CheckoutService', () => {
         stores as unknown as PrismaService,
         ledger as unknown as InventoryService,
         {} as unknown as PricingService,
+        { log: jest.fn() } as unknown as AuditService,
       );
       stores.address.findFirst.mockResolvedValue({
         fullName: 'علی احمدی',
@@ -375,6 +394,235 @@ describe('CheckoutService', () => {
         USER_ID,
       );
     });
+
+  describe('operator transitions (SS-240A)', () => {
+    const OPERATOR_ID = 'operator-1';
+
+    function storedOrder(overrides: Record<string, unknown> = {}) {
+      return {
+        id: 'order-1',
+        orderNumber: 100001,
+        status: 'PENDING',
+        paymentMethod: 'COD',
+        paymentStatus: 'PENDING',
+        items: [],
+        ...overrides,
+      };
+    }
+
+    it('moves PENDING → PROCESSING and audits the transition', async () => {
+      prisma.order.findUnique.mockResolvedValue(storedOrder());
+      prisma.order.update.mockResolvedValue({
+        status: 'PROCESSING',
+        paymentStatus: 'PENDING',
+      });
+      prisma.order.findUnique.mockResolvedValueOnce(storedOrder());
+      // adminDetail re-reads the row for the response.
+      prisma.order.findUnique.mockResolvedValueOnce({
+        ...storedOrder(),
+        id: 'order-1',
+        orderNumber: 100001,
+        status: 'PROCESSING',
+        paymentMethod: 'COD',
+        paymentStatus: 'PENDING',
+        subtotal: new Prisma.Decimal('10000'),
+        shippingFee: new Prisma.Decimal('0'),
+        total: new Prisma.Decimal('10000'),
+        fullName: 'علی احمدی',
+        phone: '09123456789',
+        province: 'مازندران',
+        city: 'ساری',
+        address: 'ساری',
+        postalCode: null,
+        createdAt: new Date('2026-09-29T00:00:00.000Z'),
+        userId: USER_ID,
+        user: { mobile: '+989170000001' },
+        items: [],
+      });
+
+      const result = await service.transitionStatus(
+        OPERATOR_ID,
+        'order-1',
+        'PROCESSING',
+      );
+
+      expect(result.status).toBe('PROCESSING');
+      expect(result.paymentStatus).toBe('PENDING');
+      expect(audit.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: OPERATOR_ID,
+          action: 'ORDER_STATUS_CHANGED',
+          entity: 'Order',
+          entityId: 'order-1',
+        }),
+      );
+    });
+
+    it('flips COD to PAID exactly on the DELIVERED transition', async () => {
+      prisma.order.findUnique.mockResolvedValueOnce(
+        storedOrder({ status: 'SHIPPED' }),
+      );
+      prisma.order.update.mockResolvedValue({
+        status: 'DELIVERED',
+        paymentStatus: 'PAID',
+      });
+      prisma.order.findUnique.mockResolvedValueOnce({
+        ...storedOrder(),
+        status: 'DELIVERED',
+        paymentMethod: 'COD',
+        paymentStatus: 'PAID',
+        subtotal: new Prisma.Decimal('10000'),
+        shippingFee: new Prisma.Decimal('0'),
+        total: new Prisma.Decimal('10000'),
+        fullName: 'علی احمدی',
+        phone: '09123456789',
+        province: null,
+        city: null,
+        address: 'ساری',
+        postalCode: null,
+        createdAt: new Date('2026-09-29T00:00:00.000Z'),
+        userId: USER_ID,
+        user: { mobile: '+989170000001' },
+        items: [],
+      });
+
+      const result = await service.transitionStatus(
+        OPERATOR_ID,
+        'order-1',
+        'DELIVERED',
+      );
+
+      expect(result.status).toBe('DELIVERED');
+      expect(result.paymentStatus).toBe('PAID');
+      expect(prisma.order.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ paymentStatus: 'PAID' }),
+        }),
+      );
+    });
+
+    it('409s an illegal jump (PENDING → DELIVERED)', async () => {
+      prisma.order.findUnique.mockResolvedValue(storedOrder());
+
+      await expect(
+        service.transitionStatus(OPERATOR_ID, 'order-1', 'DELIVERED'),
+      ).rejects.toMatchObject({ status: 409 });
+      expect(prisma.order.update).not.toHaveBeenCalled();
+      expect(audit.log).not.toHaveBeenCalled();
+    });
+
+    it('409s transitions out of terminal states', async () => {
+      prisma.order.findUnique.mockResolvedValue(
+        storedOrder({ status: 'DELIVERED', paymentStatus: 'PAID' }),
+      );
+
+      await expect(
+        service.transitionStatus(OPERATOR_ID, 'order-1', 'CANCELLED'),
+      ).rejects.toMatchObject({ status: 409 });
+    });
+
+    it('404s unknown orders', async () => {
+      prisma.order.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.transitionStatus(OPERATOR_ID, 'missing', 'PROCESSING'),
+      ).rejects.toMatchObject({ status: 404 });
+    });
+  });
+
+  describe('operator reads (SS-240A)', () => {
+    it('lists every row newest-first with owner + mobile', async () => {
+      prisma.$transaction.mockResolvedValue([
+        1,
+        [
+          {
+            id: 'order-1',
+            orderNumber: 100001,
+            status: 'PENDING',
+            total: new Prisma.Decimal('10000'),
+            createdAt: new Date('2026-09-29T00:00:00.000Z'),
+            userId: USER_ID,
+            paymentMethod: 'COD',
+            paymentStatus: 'PENDING',
+            user: { mobile: '+989170000001' },
+            _count: { items: 2 },
+          },
+        ],
+      ]);
+
+      const result = await service.listAllOrders({ page: 1, limit: 10 });
+
+      expect(result.total).toBe(1);
+      expect(result.items[0]).toMatchObject({
+        id: 'order-1',
+        userId: USER_ID,
+        customerMobile: '+989170000001',
+        paymentMethod: 'COD',
+        statusFa: 'در انتظار بررسی',
+      });
+      expect(Object.keys(result.items[0]!).sort()).toEqual(
+        [
+          'createdAt',
+          'customerMobile',
+          'id',
+          'itemCount',
+          'orderNumber',
+          'paymentMethod',
+          'paymentStatus',
+          'status',
+          'statusFa',
+          'total',
+          'userId',
+        ].sort(),
+      );
+    });
+
+    it('returns admin detail with owner + mobile', async () => {
+      prisma.order.findUnique.mockResolvedValue({
+        id: 'order-1',
+        orderNumber: 100001,
+        status: 'PENDING',
+        paymentMethod: 'COD',
+        paymentStatus: 'PENDING',
+        subtotal: new Prisma.Decimal('10000'),
+        shippingFee: new Prisma.Decimal('0'),
+        total: new Prisma.Decimal('10000'),
+        fullName: 'علی احمدی',
+        phone: '09123456789',
+        province: null,
+        city: null,
+        address: 'ساری',
+        postalCode: null,
+        createdAt: new Date('2026-09-29T00:00:00.000Z'),
+        userId: USER_ID,
+        user: { mobile: '+989170000001' },
+        items: [],
+      });
+
+      const result = await service.adminDetail('order-1');
+
+      expect(result.userId).toBe(USER_ID);
+      expect(result.customerMobile).toBe('+989170000001');
+      expect(Object.keys(result).sort()).toEqual(
+        [
+          'addressSnapshot',
+          'createdAt',
+          'customerMobile',
+          'id',
+          'items',
+          'orderNumber',
+          'paymentMethod',
+          'paymentStatus',
+          'shippingFee',
+          'status',
+          'statusFa',
+          'subtotal',
+          'total',
+          'userId',
+        ].sort(),
+      );
+    });
+  });
 
     it('replays the winner\u2019s order when the accept race is lost (P2025)', async () => {
       const raceError = Object.assign(new Error('No record found'), {
