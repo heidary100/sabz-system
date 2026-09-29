@@ -217,6 +217,8 @@ export {
 } from './pricing/pricing';
 
 export {
+  AdminReviewListItemDto,
+  AdminReviewListResponse,
   CreateReviewInput,
   ReviewDto,
   ReviewListResponse,

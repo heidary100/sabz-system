@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AuditModule } from '../audit/audit.module';
 import { AuthModule } from '../auth/auth.module';
+import { AdminReviewsController } from './admin-reviews.controller';
 import { ReviewsController } from './reviews.controller';
 import { ReviewsService } from './reviews.service';
 
@@ -13,7 +14,7 @@ import { ReviewsService } from './reviews.service';
  */
 @Module({
   imports: [AuthModule, AuditModule],
-  controllers: [ReviewsController],
+  controllers: [AdminReviewsController, ReviewsController],
   providers: [ReviewsService],
   exports: [ReviewsService],
 })

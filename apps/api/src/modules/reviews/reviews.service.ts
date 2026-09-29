@@ -4,7 +4,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma, ProductStatus, ReviewStatus } from '@prisma/client';
-import type { ReviewDto, ReviewListResponse } from '@sabz/types';
+import type {
+  AdminReviewListResponse,
+  ReviewDto,
+  ReviewListResponse,
+  ReviewStatus as ReviewStatusDto,
+} from '@sabz/types';
 import { REVIEW_STATUS_FA } from '@sabz/types';
 import { PrismaService } from '../../common/database/prisma.service';
 import { AuditService } from '../audit/audit.service';
@@ -19,7 +24,16 @@ const REVIEW_SELECT = {
   createdAt: true,
 } as const;
 
+const ADMIN_REVIEW_SELECT = {
+  ...REVIEW_SELECT,
+  product: { select: { name: true, slug: true } },
+} as const;
+
 type ReviewRow = Prisma.ReviewGetPayload<{ select: typeof REVIEW_SELECT }>;
+
+type AdminReviewRow = Prisma.ReviewGetPayload<{
+  select: typeof ADMIN_REVIEW_SELECT;
+}>;
 
 /** Round an aggregate average to 1 decimal (JSON-safe number). */
 export function roundRatingAverage(value: Prisma.Decimal | number): number {
@@ -127,6 +141,41 @@ export class ReviewsService {
     };
   }
 
+  /**
+   * Moderation queue (SS-240D). Unscoped across all products, newest first
+   * (createdAt DESC, id DESC). Defaults to the PENDING worklist; callers may
+   * pass any status to audit already-moderated rows. Read-only — no audit.
+   */
+  async listForModeration(query: {
+    status?: ReviewStatusDto;
+    page?: number;
+    limit?: number;
+  }): Promise<AdminReviewListResponse> {
+    const status = query.status ?? 'PENDING';
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const where = { status: status as ReviewStatus };
+    const [total, rows] = await this.prisma.$transaction([
+      this.prisma.review.count({ where }),
+      this.prisma.review.findMany({
+        where,
+        select: ADMIN_REVIEW_SELECT,
+        orderBy: [
+          { createdAt: 'desc' as const },
+          { id: 'desc' as const },
+        ],
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+    ]);
+    return {
+      items: rows.map(toAdminDto),
+      total,
+      page,
+      limit,
+    };
+  }
+
   /** Operator approves a pending review (→ APPROVED, publicly visible). */
   async approve(
     reviewerId: string,
@@ -209,5 +258,13 @@ function toDto(row: ReviewRow): ReviewDto {
     status: row.status,
     statusFa: REVIEW_STATUS_FA[row.status],
     createdAt: row.createdAt.toISOString(),
+  };
+}
+
+function toAdminDto(row: AdminReviewRow): AdminReviewListResponse['items'][number] {
+  return {
+    ...toDto(row),
+    productName: row.product.name,
+    productSlug: row.product.slug,
   };
 }

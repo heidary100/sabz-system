@@ -44,3 +44,21 @@ export interface ReviewListResponse {
   /** Count of APPROVED reviews. */
   ratingCount: number;
 }
+
+/**
+ * Moderation queue row (SS-240D). Extends the public projection with the
+ * product display fields operators need — denormalized at read time from
+ * the product relation (SS-240B `customerMobile`/`productName` precedent),
+ * so the admin queue links straight to the product without extra fetches.
+ */
+export interface AdminReviewListItemDto extends ReviewDto {
+  productName: string;
+  productSlug: string;
+}
+
+export interface AdminReviewListResponse {
+  items: AdminReviewListItemDto[];
+  total: number;
+  page: number;
+  limit: number;
+}
