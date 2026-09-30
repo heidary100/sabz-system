@@ -5,6 +5,8 @@ import { RequireRole } from '../auth/require-role'
 import { AdminLayout } from '../layouts/admin-layout'
 import { AccessDeniedPage } from '../pages/access-denied-page'
 import { AuditPage } from '../pages/audit-page'
+import { BlogEditorPage } from '../pages/blog-editor-page'
+import { BlogPage } from '../pages/blog-page'
 import { BrandsPage } from '../pages/brands-page'
 import { CategoriesPage } from '../pages/categories-page'
 import { DashboardPage } from '../pages/dashboard-page'
@@ -106,6 +108,30 @@ export default function App() {
               element={
                 <RequireRole roles={ADMIN_ROLES}>
                   <ReviewsPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="blog"
+              element={
+                <RequireRole roles={ADMIN_ROLES}>
+                  <BlogPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="blog/new"
+              element={
+                <RequireRole roles={ADMIN_ROLES}>
+                  <BlogEditorPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="blog/:id/edit"
+              element={
+                <RequireRole roles={ADMIN_ROLES}>
+                  <BlogEditorPage />
                 </RequireRole>
               }
             />

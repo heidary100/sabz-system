@@ -58,6 +58,23 @@ export interface BlogPostListResponse {
   limit: number;
 }
 
+/**
+ * Admin queue row (SS-240E): the public card projection plus the moderation
+ * state, so the panel can filter DRAFT/PUBLISHED without a second fetch.
+ * Bodies stay out of the list — the editor fetches `BlogPostDetailDto`.
+ */
+export interface AdminBlogPostListItemDto extends BlogPostCardDto {
+  status: BlogStatus;
+  statusFa: string;
+}
+
+export interface AdminBlogPostListResponse {
+  items: AdminBlogPostListItemDto[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
 export interface CreateBlogCategoryInput {
   slug?: string;
   name: string;

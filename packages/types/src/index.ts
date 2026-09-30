@@ -227,6 +227,8 @@ export {
 } from './reviews/reviews';
 
 export {
+  AdminBlogPostListItemDto,
+  AdminBlogPostListResponse,
   BlogPostCardDto,
   BlogPostCategoryRef,
   BlogPostDetailDto,

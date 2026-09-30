@@ -7,3 +7,4 @@ export {
   UpdateBlogCategoryDto,
   UpdateBlogPostDto,
 } from './blog.dto';
+export { ListAdminBlogPostsQueryDto } from './list-admin-blog-posts-query.dto';
