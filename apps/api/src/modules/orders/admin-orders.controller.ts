@@ -6,6 +6,7 @@ import {
   Param,
   ParseUUIDPipe,
   Patch,
+  Post,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -23,7 +24,12 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
 import { CheckoutService } from './checkout.service';
-import { OrderListQueryDto, UpdateOrderStatusDto } from './dto';
+import {
+  AddTrackingEventDto,
+  OrderListQueryDto,
+  UpdateOrderStatusDto,
+  UpdateShipmentDto,
+} from './dto';
 
 /**
  * Operator order management (SS-240A). OPERATOR/ADMIN only, unscoped reads
@@ -85,6 +91,52 @@ export class AdminOrdersController {
       user.userId,
       id,
       dto.status,
+      ipAddress,
+    );
+  }
+
+  @Patch(':id/shipment')
+  @ApiOperation({ summary: 'Update shipment tracking number / status (operators)' })
+  @ApiParam({ name: 'id', description: 'Order id' })
+  @ApiResponse({ status: 200, description: 'Shipment updated.' })
+  @ApiResponse({ status: 400, description: 'Invalid order id or input.' })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  @ApiResponse({ status: 404, description: 'Order not found.' })
+  @ApiResponse({ status: 409, description: 'Illegal shipment transition.' })
+  async updateShipment(
+    @CurrentUser() user: AuthUser,
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Body() dto: UpdateShipmentDto,
+    @Ip() ipAddress?: string,
+  ) {
+    return this.checkoutService.updateShipment(
+      user.userId,
+      id,
+      { trackingNumber: dto.trackingNumber, status: dto.status },
+      ipAddress,
+    );
+  }
+
+  @Post(':id/tracking-events')
+  @ApiOperation({ summary: 'Append a shipment tracking checkpoint (operators)' })
+  @ApiParam({ name: 'id', description: 'Order id' })
+  @ApiResponse({ status: 201, description: 'Tracking event added.' })
+  @ApiResponse({ status: 400, description: 'Invalid order id or input.' })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  @ApiResponse({ status: 404, description: 'Order not found.' })
+  @ApiResponse({ status: 409, description: 'Illegal shipment transition.' })
+  async addTrackingEvent(
+    @CurrentUser() user: AuthUser,
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Body() dto: AddTrackingEventDto,
+    @Ip() ipAddress?: string,
+  ) {
+    return this.checkoutService.addTrackingEvent(
+      user.userId,
+      id,
+      { status: dto.status, location: dto.location, note: dto.note },
       ipAddress,
     );
   }

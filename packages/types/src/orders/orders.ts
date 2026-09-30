@@ -52,8 +52,13 @@ export interface ShippingMethodDto {
   code: ShippingMethodCode;
   titleFa: string;
   etaFa: string;
-  /** Rial (Decimal string); "0" for v1 — real fees arrive with SS-241. */
+  /** Rial (Decimal string); env-driven flat fee (SS-241), "0" when unset. */
   fee: string;
+  /**
+   * Server-driven availability (SS-241): false while the method is stubbed
+   * behind its env flag — the storefront disables instead of hiding.
+   */
+  enabled: boolean;
 }
 
 export interface PaymentMethodDto {
@@ -107,6 +112,8 @@ export interface CheckoutSummaryDto {
 export interface PlaceOrderInput {
   addressId: string;
   paymentMethod: PaymentMethod;
+  /** Shipping method code (SS-241): fee resolves server-side. */
+  shippingMethod: ShippingMethodCode;
 }
 
 export interface PlaceOrderResult {
@@ -161,8 +168,12 @@ export interface OrderDetailDto {
   paymentMethod: PaymentMethod;
   paymentStatus: PaymentStatus;
   subtotal: string;
+  /** Chosen shipping method code (SS-241). */
+  shippingMethod: ShippingMethodCode;
   shippingFee: string;
   total: string;
+  /** Shipment + tracking timeline; null for pre-SS-241 orders. */
+  shipment: import('../shipping/shipping').ShipmentDto | null;
   addressSnapshot: OrderAddressSnapshot;
   items: OrderItemDto[];
   createdAt: string;

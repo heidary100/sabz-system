@@ -39,6 +39,8 @@ export interface QuoteRfqInput {
 export interface AcceptRfqInput {
   addressId: string;
   paymentMethod: 'ONLINE' | 'COD';
+  /** Shipping method code (SS-241): fee resolves server-side. */
+  shippingMethod: import('../orders/orders').ShippingMethodCode;
 }
 
 export interface RfqDto {

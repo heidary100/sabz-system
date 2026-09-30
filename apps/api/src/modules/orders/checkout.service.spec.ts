@@ -57,6 +57,8 @@ describe('CheckoutService', () => {
       findUnique: jest.Mock;
       update: jest.Mock;
     };
+    shipment: { findUnique: jest.Mock; create: jest.Mock; update: jest.Mock };
+    trackingEvent: { create: jest.Mock };
     $transaction: jest.Mock;
   };
 
@@ -72,6 +74,8 @@ describe('CheckoutService', () => {
         findUnique: jest.fn(),
         update: jest.fn(),
       },
+      shipment: { findUnique: jest.fn(), create: jest.fn(), update: jest.fn() },
+      trackingEvent: { create: jest.fn() },
       $transaction: jest.fn(),
     };
     const inventory = {} as unknown as InventoryService;
@@ -103,7 +107,7 @@ describe('CheckoutService', () => {
 
       expect(shipping.items.length).toBeGreaterThan(0);
       expect(Object.keys(shipping.items[0]!).sort()).toEqual(
-        ['code', 'etaFa', 'fee', 'titleFa'].sort(),
+        ['code', 'enabled', 'etaFa', 'fee', 'titleFa'].sort(),
       );
       expect(payment.items.map((item) => item.code).sort()).toEqual(['COD', 'ONLINE']);
       expect(Object.keys(payment.items[0]!).sort()).toEqual(
@@ -126,6 +130,80 @@ describe('CheckoutService', () => {
         delete process.env.COD_ENABLED;
       } else {
         process.env.COD_ENABLED = previousCod;
+      }
+    }
+  });
+
+  it('serves env-driven shipping fees and flags (SS-241)', () => {
+    const previousFee = process.env.SHIPPING_TIPAX_FEE;
+    const previousEnabled = process.env.SHIPPING_TIPAX_ENABLED;
+    process.env.SHIPPING_TIPAX_FEE = '250000';
+    process.env.SHIPPING_TIPAX_ENABLED = 'false';
+    try {
+      const methods = service.shippingMethods();
+      expect(methods.items.map((item) => item.code).sort()).toEqual(
+        ['IRAN_POST', 'LOCAL_DELIVERY', 'STORE_PICKUP', 'TIPAX'].sort(),
+      );
+      expect(methods.items.find((item) => item.code === 'TIPAX')).toMatchObject({
+        fee: '250000',
+        enabled: false,
+      });
+      expect(
+        methods.items.find((item) => item.code === 'STORE_PICKUP'),
+      ).toMatchObject({ fee: '0', enabled: true });
+    } finally {
+      if (previousFee === undefined) {
+        delete process.env.SHIPPING_TIPAX_FEE;
+      } else {
+        process.env.SHIPPING_TIPAX_FEE = previousFee;
+      }
+      if (previousEnabled === undefined) {
+        delete process.env.SHIPPING_TIPAX_ENABLED;
+      } else {
+        process.env.SHIPPING_TIPAX_ENABLED = previousEnabled;
+      }
+    }
+  });
+
+  it('adds the shipping fee to the validate preview and order total (SS-241)', async () => {
+    const previousFee = process.env.SHIPPING_TIPAX_FEE;
+    process.env.SHIPPING_TIPAX_FEE = '250000';
+    try {
+      prisma.cart.findUnique.mockResolvedValue({ id: CART_ID });
+      prisma.cartItem.findMany.mockResolvedValue([makeLine()]);
+      prisma.inventoryItem.findMany.mockResolvedValue([stockRow(5)]);
+
+      const summary = await service.validate(USER_ID, undefined, 'TIPAX');
+
+      expect(summary.valid).toBe(true);
+      expect(summary.subtotal).toBe('10000');
+      expect(summary.shippingFee).toBe('250000');
+      expect(summary.total).toBe('260000');
+    } finally {
+      if (previousFee === undefined) {
+        delete process.env.SHIPPING_TIPAX_FEE;
+      } else {
+        process.env.SHIPPING_TIPAX_FEE = previousFee;
+      }
+    }
+  });
+
+  it('rejects unknown and disabled shipping methods with 422 (SS-241)', async () => {
+    const previousEnabled = process.env.SHIPPING_TIPAX_ENABLED;
+    process.env.SHIPPING_TIPAX_ENABLED = 'false';
+    try {
+      await expect(service.validate(USER_ID, undefined, 'PIGEON')).rejects.toBeInstanceOf(
+        UnprocessableEntityException,
+      );
+      await expect(
+        service.placeOrder(USER_ID, VARIANT_ID, 'COD', 'TIPAX'),
+      ).rejects.toBeInstanceOf(UnprocessableEntityException);
+      expect(prisma.address.findFirst).not.toHaveBeenCalled();
+    } finally {
+      if (previousEnabled === undefined) {
+        delete process.env.SHIPPING_TIPAX_ENABLED;
+      } else {
+        process.env.SHIPPING_TIPAX_ENABLED = previousEnabled;
       }
     }
   });
@@ -234,7 +312,7 @@ describe('CheckoutService', () => {
     prisma.cart.findUnique.mockResolvedValue(null);
 
     await expect(
-      service.placeOrder(USER_ID, VARIANT_ID, 'COD'),
+      service.placeOrder(USER_ID, VARIANT_ID, 'COD', 'STORE_PICKUP'),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
@@ -243,7 +321,7 @@ describe('CheckoutService', () => {
     delete process.env.PAYMENTS_ONLINE_ENABLED;
     try {
       await expect(
-        service.placeOrder(USER_ID, VARIANT_ID, 'ONLINE'),
+        service.placeOrder(USER_ID, VARIANT_ID, 'ONLINE', 'STORE_PICKUP'),
       ).rejects.toBeInstanceOf(UnprocessableEntityException);
     } finally {
       if (previous === undefined) {
@@ -287,6 +365,7 @@ describe('CheckoutService', () => {
       unitPrice: new Prisma.Decimal('900'),
       addressId: ADDRESS_ID,
       paymentMethod: 'COD' as const,
+      shippingMethod: 'STORE_PICKUP' as const,
       ...overrides,
     });
 
@@ -405,8 +484,19 @@ describe('CheckoutService', () => {
         status: 'PENDING',
         paymentMethod: 'COD',
         paymentStatus: 'PENDING',
+        shippingMethod: 'STORE_PICKUP',
         items: [],
         ...overrides,
+      };
+    }
+
+    function storedShipmentShim() {
+      return {
+        id: 'shipment-1',
+        trackingNumber: null,
+        status: 'PENDING',
+        shippedAt: null,
+        deliveredAt: null,
       };
     }
 
@@ -481,10 +571,18 @@ describe('CheckoutService', () => {
         address: 'ساری',
         postalCode: null,
         createdAt: new Date('2026-09-29T00:00:00.000Z'),
+        shippingMethod: 'STORE_PICKUP',
+        shipment: null,
         userId: USER_ID,
         user: { mobile: '+989170000001' },
         items: [],
       });
+      prisma.shipment.findUnique.mockResolvedValueOnce({
+        ...storedShipmentShim(),
+        status: 'PICKED_UP',
+        shippedAt: new Date('2026-09-29T01:00:00.000Z'),
+      });
+      prisma.$transaction.mockImplementationOnce(async (steps: unknown[]) => steps);
 
       const result = await service.transitionStatus(
         OPERATOR_ID,
@@ -527,6 +625,197 @@ describe('CheckoutService', () => {
       await expect(
         service.transitionStatus(OPERATOR_ID, 'missing', 'PROCESSING'),
       ).rejects.toMatchObject({ status: 404 });
+    });
+  });
+
+  describe('operator shipments (SS-241)', () => {
+    const OPERATOR_ID = 'operator-1';
+
+    function storedShipment(overrides: Record<string, unknown> = {}) {
+      return {
+        id: 'shipment-1',
+        trackingNumber: null,
+        status: 'PENDING',
+        shippedAt: null,
+        deliveredAt: null,
+        ...overrides,
+      };
+    }
+
+    function detailRow(overrides: Record<string, unknown> = {}) {
+      return {
+        id: 'order-1',
+        orderNumber: 100001,
+        status: 'PENDING',
+        paymentMethod: 'COD',
+        paymentStatus: 'PENDING',
+        subtotal: new Prisma.Decimal('10000'),
+        shippingMethod: 'TIPAX',
+        shippingFee: new Prisma.Decimal('250000'),
+        total: new Prisma.Decimal('260000'),
+        fullName: 'علی احمدی',
+        phone: '09123456789',
+        province: null,
+        city: null,
+        address: 'ساری، بلوار پاسداران',
+        postalCode: null,
+        createdAt: new Date('2026-09-30T00:00:00.000Z'),
+        userId: USER_ID,
+        user: { mobile: '+989170000001' },
+        shipment: {
+          id: 'shipment-1',
+          orderId: 'order-1',
+          method: 'TIPAX',
+          trackingNumber: '12345',
+          status: 'PICKED_UP',
+          shippedAt: new Date('2026-09-30T01:00:00.000Z'),
+          deliveredAt: null,
+          createdAt: new Date('2026-09-30T00:00:00.000Z'),
+          updatedAt: new Date('2026-09-30T01:00:00.000Z'),
+          events: [
+            {
+              id: 'event-1',
+              status: 'PICKED_UP',
+              location: null,
+              note: null,
+              createdAt: new Date('2026-09-30T01:00:00.000Z'),
+            },
+          ],
+        },
+        items: [],
+        ...overrides,
+      };
+    }
+
+    beforeEach(() => {
+      prisma.shipment.findUnique.mockResolvedValue(storedShipment());
+      prisma.shipment.update.mockImplementation(
+        async (args: { data: Record<string, unknown> }) =>
+          ({ ...storedShipment(), ...args.data }) as never,
+      );
+      prisma.order.findUnique.mockResolvedValue(detailRow());
+    });
+
+    it('updates the tracking number and audits SHIPMENT_UPDATED', async () => {
+      prisma.order.findUnique
+        .mockResolvedValueOnce({
+          id: 'order-1',
+          orderNumber: 100001,
+          shippingMethod: 'TIPAX',
+          shipment: { id: 'shipment-1' },
+        })
+        .mockResolvedValue(detailRow());
+
+      const result = await service.updateShipment(OPERATOR_ID, 'order-1', {
+        trackingNumber: ' 12345 ',
+      });
+
+      expect(prisma.shipment.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'shipment-1' },
+          data: expect.objectContaining({ trackingNumber: '12345' }),
+        }),
+      );
+      expect(audit.log).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'SHIPMENT_UPDATED', entity: 'Shipment' }),
+      );
+      expect(result.shipment).toMatchObject({
+        trackingNumber: '12345',
+        status: 'PICKED_UP',
+        statusFa: expect.any(String),
+        methodFa: expect.any(String),
+      });
+      expect(Object.keys(result.shipment!).sort()).toEqual(
+        [
+          'createdAt',
+          'deliveredAt',
+          'events',
+          'id',
+          'method',
+          'methodFa',
+          'orderId',
+          'shippedAt',
+          'status',
+          'statusFa',
+          'trackingNumber',
+          'updatedAt',
+        ].sort(),
+      );
+    });
+
+    it('409s a backward shipment move', async () => {
+      prisma.order.findUnique.mockResolvedValueOnce({
+        id: 'order-1',
+        orderNumber: 100001,
+        shippingMethod: 'TIPAX',
+        shipment: { id: 'shipment-1' },
+      });
+      prisma.shipment.findUnique.mockResolvedValueOnce(
+        storedShipment({ status: 'IN_TRANSIT' }),
+      );
+
+      await expect(
+        service.updateShipment(OPERATOR_ID, 'order-1', { status: 'PICKED_UP' as never }),
+      ).rejects.toMatchObject({ status: 409 });
+      expect(prisma.shipment.update).not.toHaveBeenCalled();
+    });
+
+    it('appends tracking events and advances the shipment (SS-241)', async () => {
+      prisma.order.findUnique
+        .mockResolvedValueOnce({
+          id: 'order-1',
+          shippingMethod: 'TIPAX',
+          shipment: { id: 'shipment-1' },
+        })
+        .mockResolvedValue(detailRow());
+      prisma.shipment.findUnique.mockResolvedValueOnce(storedShipment());
+      prisma.$transaction.mockImplementation(async (steps: unknown[]) => steps);
+
+      const result = await service.addTrackingEvent(OPERATOR_ID, 'order-1', {
+        status: 'PICKED_UP' as never,
+        location: 'ساری',
+      });
+
+      expect(prisma.$transaction).toHaveBeenCalledWith([
+        expect.objectContaining({}),
+        expect.objectContaining({}),
+      ]);
+      expect(audit.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'SHIPMENT_TRACKING_ADDED',
+          entity: 'Shipment',
+        }),
+      );
+      expect(result.shipment).not.toBeNull();
+    });
+
+    it('advances the shipment on the SHIPPED order transition', async () => {
+      prisma.order.findUnique
+        .mockResolvedValueOnce({
+          id: 'order-1',
+          orderNumber: 100001,
+          status: 'PROCESSING',
+          paymentMethod: 'COD',
+          paymentStatus: 'PENDING',
+          shippingMethod: 'TIPAX',
+          items: [],
+        })
+        .mockResolvedValue(detailRow());
+      prisma.order.update.mockResolvedValueOnce({
+        status: 'SHIPPED',
+        paymentStatus: 'PENDING',
+      });
+      prisma.shipment.findUnique.mockResolvedValueOnce(storedShipment());
+      prisma.$transaction.mockImplementation(async (steps: unknown[]) => steps);
+
+      const result = await service.transitionStatus(OPERATOR_ID, 'order-1', 'SHIPPED');
+
+      expect(prisma.trackingEvent.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: 'PICKED_UP' }),
+        }),
+      );
+      expect(result.shipment).not.toBeNull();
     });
   });
 
@@ -585,6 +874,7 @@ describe('CheckoutService', () => {
         paymentMethod: 'COD',
         paymentStatus: 'PENDING',
         subtotal: new Prisma.Decimal('10000'),
+        shippingMethod: 'STORE_PICKUP',
         shippingFee: new Prisma.Decimal('0'),
         total: new Prisma.Decimal('10000'),
         fullName: 'علی احمدی',
@@ -594,6 +884,7 @@ describe('CheckoutService', () => {
         address: 'ساری',
         postalCode: null,
         createdAt: new Date('2026-09-29T00:00:00.000Z'),
+        shipment: null,
         userId: USER_ID,
         user: { mobile: '+989170000001' },
         items: [],
@@ -603,6 +894,8 @@ describe('CheckoutService', () => {
 
       expect(result.userId).toBe(USER_ID);
       expect(result.customerMobile).toBe('+989170000001');
+      expect(result.shipment).toBeNull();
+      expect(result.shippingMethod).toBe('STORE_PICKUP');
       expect(Object.keys(result).sort()).toEqual(
         [
           'addressSnapshot',
@@ -613,7 +906,9 @@ describe('CheckoutService', () => {
           'orderNumber',
           'paymentMethod',
           'paymentStatus',
+          'shipment',
           'shippingFee',
+          'shippingMethod',
           'status',
           'statusFa',
           'subtotal',

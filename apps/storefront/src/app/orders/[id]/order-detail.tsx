@@ -10,7 +10,7 @@ import { Badge } from '@/components/ecommerce/ui/badge';
 import { Skeleton } from '@/components/ecommerce/skeleton/skeleton';
 import { ApiError } from '@/lib/api';
 import { hasSession } from '@/lib/auth-client';
-import { cancelOrder, fetchOrderDetail, orderStatusLabel, paymentMethodLabel, paymentStatusLabel } from '@/lib/orders';
+import { cancelOrder, fetchOrderDetail, orderStatusLabel, paymentMethodLabel, paymentStatusLabel, shipmentStatusLabel, shippingMethodLabel } from '@/lib/orders';
 import { formatFaNumber, formatToman } from '@/lib/format';
 import { OrderTimeline } from './order-timeline';
 
@@ -179,6 +179,44 @@ export function OrderDetail({ id }: { id: string }) {
           </div>
         </dl>
       </Card>
+
+      {order.shipment !== null ? (
+        <Card className="p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-sm font-bold text-ink-900">ارسال و رهگیری</h2>
+            <Badge variant="neutral">{shipmentStatusLabel(order.shipment.status)}</Badge>
+          </div>
+          <dl className="mt-3 space-y-2 text-sm">
+            <div className="flex items-center justify-between gap-3">
+              <dt className="text-gray-600">شیوه ارسال</dt>
+              <dd className="font-semibold text-ink-900">
+                {shippingMethodLabel(order.shipment.method)}
+              </dd>
+            </div>
+            {order.shipment.trackingNumber !== null ? (
+              <div className="flex items-center justify-between gap-3">
+                <dt className="text-gray-600">کد رهگیری</dt>
+                <dd dir="ltr" className="font-semibold text-ink-900">
+                  {order.shipment.trackingNumber}
+                </dd>
+              </div>
+            ) : null}
+          </dl>
+          {order.shipment.events.length > 0 ? (
+            <ol aria-label="رویدادهای رهگیری" className="mt-3 space-y-2 border-t border-sand-200 pt-3 text-sm">
+              {order.shipment.events.map((event) => (
+                <li key={event.id} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 leading-6 text-gray-600">
+                  <span className="font-semibold text-ink-900">
+                    {shipmentStatusLabel(event.status)}
+                  </span>
+                  {event.location !== null ? <span>{event.location}</span> : null}
+                  {event.note !== null ? <span>— {event.note}</span> : null}
+                </li>
+              ))}
+            </ol>
+          ) : null}
+        </Card>
+      ) : null}
 
       <Card className="p-6">
         <h2 className="text-sm font-bold text-ink-900">نشانی تحویل</h2>

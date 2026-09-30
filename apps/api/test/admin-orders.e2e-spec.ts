@@ -38,7 +38,9 @@ const ADMIN_ORDER_DETAIL_KEYS = [
   'orderNumber',
   'paymentMethod',
   'paymentStatus',
+  'shipment',
   'shippingFee',
+  'shippingMethod',
   'status',
   'statusFa',
   'subtotal',
@@ -210,7 +212,7 @@ describe('Admin orders API (SS-240A) (e2e)', () => {
     const placed = await request(app.getHttpServer())
       .post(`${ORDERS_BASE}/checkout`)
       .set('Authorization', `Bearer ${customerToken}`)
-      .send({ addressId: address.body.id, paymentMethod: 'COD' })
+      .send({ addressId: address.body.id, paymentMethod: 'COD', shippingMethod: 'STORE_PICKUP' })
       .expect(201);
     orderIds.push(placed.body.orderId as string);
     return {
@@ -304,6 +306,20 @@ describe('Admin orders API (SS-240A) (e2e)', () => {
       .set('Authorization', `Bearer ${customer.token}`)
       .send({ status: 'PROCESSING' })
       .expect(403);
+    await request(app.getHttpServer())
+      .patch(`${ADMIN_BASE}/${id}/shipment`)
+      .set('Authorization', `Bearer ${customer.token}`)
+      .send({ trackingNumber: '123' })
+      .expect(403);
+    await request(app.getHttpServer())
+      .post(`${ADMIN_BASE}/${id}/tracking-events`)
+      .set('Authorization', `Bearer ${customer.token}`)
+      .send({ status: 'IN_TRANSIT' })
+      .expect(403);
+    await request(app.getHttpServer()).patch(`${ADMIN_BASE}/${id}/shipment`).expect(401);
+    await request(app.getHttpServer())
+      .post(`${ADMIN_BASE}/${id}/tracking-events`)
+      .expect(401);
   });
 
   it('lists every row with pinned admin keys and filters by status', async () => {
@@ -516,5 +532,134 @@ describe('Admin orders API (SS-240A) (e2e)', () => {
       where: { action: 'ORDER_STATUS_CHANGED', entityId: orderId },
     });
     expect(audit).toMatchObject({ entity: 'Order' });
+  });
+
+  it('manages shipments: tracking numbers, checkpoints, auto-advance (SS-241)', async () => {
+    const operator = await createUserWithToken('OPERATOR');
+    const customer = await createUserWithToken();
+    const { variantId } = await seedPublishedVariant(
+      operator.token,
+      `ارسال مدیریت ${uniqueSuffix()}`,
+      10,
+    );
+    const { orderId } = await placeCustomerOrder(customer.token, variantId, 1);
+
+    // The order ships with a PENDING shipment row (no tracking yet).
+    const fresh = await request(app.getHttpServer())
+      .get(`${ADMIN_BASE}/${orderId}`)
+      .set('Authorization', `Bearer ${operator.token}`)
+      .expect(200);
+    expect(Object.keys(fresh.body).sort()).toEqual(ADMIN_ORDER_DETAIL_KEYS);
+    expect(fresh.body).toMatchObject({
+      shippingMethod: 'STORE_PICKUP',
+      shippingFee: '0',
+    });
+    expect(Object.keys(fresh.body.shipment).sort()).toEqual(
+      [
+        'createdAt',
+        'deliveredAt',
+        'events',
+        'id',
+        'method',
+        'methodFa',
+        'orderId',
+        'shippedAt',
+        'status',
+        'statusFa',
+        'trackingNumber',
+        'updatedAt',
+      ].sort(),
+    );
+    expect(fresh.body.shipment).toMatchObject({
+      orderId,
+      method: 'STORE_PICKUP',
+      status: 'PENDING',
+      trackingNumber: null,
+      events: [],
+    });
+
+    // Operator assigns a tracking number (one SHIPMENT_UPDATED audit).
+    const tracked = await request(app.getHttpServer())
+      .patch(`${ADMIN_BASE}/${orderId}/shipment`)
+      .set('Authorization', `Bearer ${operator.token}`)
+      .send({ trackingNumber: '  TIPAX-12345  ' })
+      .expect(200);
+    expect(tracked.body.shipment).toMatchObject({
+      trackingNumber: 'TIPAX-12345',
+      status: 'PENDING',
+    });
+    const updatedAudit = await prisma.auditLog.findMany({
+      where: { action: 'SHIPMENT_UPDATED', entity: 'Shipment' },
+    });
+    expect(
+      updatedAudit.some((row) => row.userId === operator.userId),
+    ).toBe(true);
+
+    // Operator appends a checkpoint: advances + records the event.
+    const checkpoint = await request(app.getHttpServer())
+      .post(`${ADMIN_BASE}/${orderId}/tracking-events`)
+      .set('Authorization', `Bearer ${operator.token}`)
+      .send({ status: 'PICKED_UP', location: 'ساری', note: 'تحویل باربری شد.' })
+      .expect(201);
+    expect(checkpoint.body.shipment).toMatchObject({
+      trackingNumber: 'TIPAX-12345',
+      status: 'PICKED_UP',
+    });
+    expect(checkpoint.body.shipment.events).toHaveLength(1);
+    expect(checkpoint.body.shipment.events[0]).toMatchObject({
+      status: 'PICKED_UP',
+      location: 'ساری',
+      note: 'تحویل باربری شد.',
+    });
+    expect(Object.keys(checkpoint.body.shipment.events[0]).sort()).toEqual(
+      ['createdAt', 'id', 'location', 'note', 'status', 'statusFa'].sort(),
+    );
+
+    // Repeating the same status 409s; backward moves 409 too.
+    await request(app.getHttpServer())
+      .post(`${ADMIN_BASE}/${orderId}/tracking-events`)
+      .set('Authorization', `Bearer ${operator.token}`)
+      .send({ status: 'PICKED_UP' })
+      .expect(409);
+    await request(app.getHttpServer())
+      .patch(`${ADMIN_BASE}/${orderId}/shipment`)
+      .set('Authorization', `Bearer ${operator.token}`)
+      .send({ status: 'PENDING' })
+      .expect(409);
+
+    // SHIPPED is already reflected; DELIVERED closes the loop automatically.
+    await request(app.getHttpServer())
+      .patch(`${ADMIN_BASE}/${orderId}/status`)
+      .set('Authorization', `Bearer ${operator.token}`)
+      .send({ status: 'PROCESSING' })
+      .expect(200);
+    await request(app.getHttpServer())
+      .patch(`${ADMIN_BASE}/${orderId}/status`)
+      .set('Authorization', `Bearer ${operator.token}`)
+      .send({ status: 'SHIPPED' })
+      .expect(200);
+    const delivered = await request(app.getHttpServer())
+      .patch(`${ADMIN_BASE}/${orderId}/status`)
+      .set('Authorization', `Bearer ${operator.token}`)
+      .send({ status: 'DELIVERED' })
+      .expect(200);
+    expect(delivered.body.shipment).toMatchObject({
+      status: 'DELIVERED',
+      trackingNumber: 'TIPAX-12345',
+    });
+    expect(delivered.body.shipment.events.length).toBeGreaterThanOrEqual(2);
+    expect(delivered.body.shipment.deliveredAt).not.toBeNull();
+
+    // Unknown orders 404 on both shipment routes.
+    await request(app.getHttpServer())
+      .patch(`${ADMIN_BASE}/3fa85f64-5717-4562-b3fc-2c963f66afa6/shipment`)
+      .set('Authorization', `Bearer ${operator.token}`)
+      .send({ trackingNumber: 'x' })
+      .expect(404);
+    await request(app.getHttpServer())
+      .post(`${ADMIN_BASE}/3fa85f64-5717-4562-b3fc-2c963f66afa6/tracking-events`)
+      .set('Authorization', `Bearer ${operator.token}`)
+      .send({ status: 'IN_TRANSIT' })
+      .expect(404);
   });
 });

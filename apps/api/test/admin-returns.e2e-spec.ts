@@ -192,7 +192,7 @@ describe('Admin returns API (SS-242) (e2e)', () => {
     const placed = await request(app.getHttpServer())
       .post(`${ORDERS_BASE}/checkout`)
       .set('Authorization', `Bearer ${customerToken}`)
-      .send({ addressId: address.body.id, paymentMethod: 'COD' })
+      .send({ addressId: address.body.id, paymentMethod: 'COD', shippingMethod: 'STORE_PICKUP' })
       .expect(201);
     const orderId = placed.body.orderId as string;
     orderIds.push(orderId);

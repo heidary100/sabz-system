@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { defaultAddress, parseAddressList } from './addresses';
 import {
   defaultPaymentMethod,
+  defaultShippingMethod,
   isPaymentEnabled,
+  isShippingEnabled,
   parseCheckoutStep,
   serializeCheckoutStep,
   stepLabel,
@@ -80,5 +82,31 @@ describe('defaultPaymentMethod', () => {
     ).toBe('ONLINE');
     expect(defaultPaymentMethod([online] as never)).toBeNull();
     expect(defaultPaymentMethod([])).toBeNull();
+  });
+});
+
+describe('isShippingEnabled', () => {
+  it('honours the server enabled flag', () => {
+    expect(isShippingEnabled({ code: 'TIPAX', enabled: false } as never)).toBe(false);
+    expect(isShippingEnabled({ code: 'TIPAX', enabled: true } as never)).toBe(true);
+  });
+
+  it('tolerates pre-SS-241 payloads without the flag', () => {
+    expect(isShippingEnabled({ code: 'TIPAX' } as never)).toBe(true);
+  });
+});
+
+describe('defaultShippingMethod', () => {
+  const tipax = { code: 'TIPAX', enabled: false };
+  const pickup = { code: 'STORE_PICKUP', enabled: true };
+
+  it('picks the first enabled method (SS-241)', () => {
+    expect(defaultShippingMethod([tipax, pickup] as never)).toBe('STORE_PICKUP');
+    expect(defaultShippingMethod([pickup, tipax] as never)).toBe('STORE_PICKUP');
+  });
+
+  it('returns null when every method is disabled', () => {
+    expect(defaultShippingMethod([tipax] as never)).toBeNull();
+    expect(defaultShippingMethod([])).toBeNull();
   });
 });

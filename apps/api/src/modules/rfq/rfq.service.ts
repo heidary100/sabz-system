@@ -263,6 +263,7 @@ export class RfqService {
       unitPrice: row.quotedUnitPrice,
       addressId: dto.addressId,
       paymentMethod: dto.paymentMethod as PaymentMethod,
+      shippingMethod: dto.shippingMethod,
     });
     await this.audit.log({
       userId,

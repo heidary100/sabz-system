@@ -21,9 +21,11 @@ import { ApiError } from '@/lib/api';
 import { hasSession } from '@/lib/auth-client';
 import {
   defaultPaymentMethod,
+  defaultShippingMethod,
   fetchPaymentMethods,
   fetchShippingMethods,
   isPaymentEnabled,
+  isShippingEnabled,
   parseCheckoutStep,
   placeOrder,
   validateCheckout,
@@ -87,7 +89,9 @@ export function CheckoutWizard({ stepParam }: { stepParam: unknown }) {
         setShipping(ships);
         setPayments(pays);
         setSelectedAddressId((current) => current ?? defaultAddress(book)?.id ?? null);
-        setShippingCode((current) => current ?? ships[0]?.code ?? null);
+        // SS-241: prefer the first enabled method (never a stubbed carrier
+        // the server rejects with 422).
+        setShippingCode((current) => current ?? defaultShippingMethod(ships));
         // SS-234 COD-only: prefer COD, fall back to the first enabled
         // method (never an ONLINE stub the server rejects with 422).
         setPayment((current) => current ?? defaultPaymentMethod(pays));
@@ -113,7 +117,8 @@ export function CheckoutWizard({ stepParam }: { stepParam: unknown }) {
     };
   }, [cartReady, authed]);
 
-  // Review preview: re-validated whenever the step or address changes.
+  // Review preview: re-validated whenever the step, address, or
+  // shipping method changes (SS-241: the fee rides the server preview).
   useEffect(() => {
     if (status !== 'ready' || step !== 'review') {
       return;
@@ -124,7 +129,7 @@ export function CheckoutWizard({ stepParam }: { stepParam: unknown }) {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setSummary(null);
     setSummaryError(null);
-    validateCheckout(selectedAddressId ?? undefined)
+    validateCheckout(selectedAddressId ?? undefined, shippingCode ?? undefined)
       .then((preview) => {
         if (!cancelled) {
           setSummary(preview);
@@ -147,7 +152,7 @@ export function CheckoutWizard({ stepParam }: { stepParam: unknown }) {
     return () => {
       cancelled = true;
     };
-  }, [status, step, selectedAddressId]);
+  }, [status, step, selectedAddressId, shippingCode]);
 
   if (status === 'checking' || (status === 'ready' && !cartReady)) {
     return (
@@ -223,13 +228,13 @@ export function CheckoutWizard({ stepParam }: { stepParam: unknown }) {
   const visibleStep = order.indexOf(step) <= order.indexOf(reachable) ? step : reachable;
 
   async function handlePlace(): Promise<void> {
-    if (selectedAddressId === null || payment === null) {
+    if (selectedAddressId === null || payment === null || shippingCode === null) {
       return;
     }
     setPlacing(true);
     setPlaceError(null);
     try {
-      const result = await placeOrder(selectedAddressId, payment);
+      const result = await placeOrder(selectedAddressId, payment, shippingCode);
       await refresh();
       router.push(`/orders/${result.orderId}`);
     } catch (placeFailure) {
@@ -330,14 +335,17 @@ export function CheckoutWizard({ stepParam }: { stepParam: unknown }) {
 
           {visibleStep === 'shipping' ? (
             <Card className="p-6">
-              <SectionHeader id="checkout-shipping" title="شیوه ارسال" subtitle="هزینه ارسال در این نسخه صفر است" />
+              <SectionHeader id="checkout-shipping" title="شیوه ارسال" subtitle="هزینه ارسال به جمع سفارش اضافه می‌شود" />
               <div className="mt-4">
                 <MethodRadio
                   name="شیوه ارسال"
                   options={shipping.map((method) => ({
                     code: method.code,
                     title: `${method.titleFa} — ${method.etaFa}`,
-                    desc: method.fee === '0' ? 'هزینه ارسال: رایگان (نسخه آزمایشی)' : '',
+                    desc: isShippingEnabled(method)
+                      ? `هزینه ارسال: ${formatToman(method.fee)}`
+                      : 'این شیوه ارسال در حال حاضر فعال نیست',
+                    disabled: !isShippingEnabled(method),
                   }))}
                   selected={shippingCode}
                   onSelect={setShippingCode}

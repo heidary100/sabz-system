@@ -202,6 +202,7 @@ describe('RfqService (SS-235 B2)', () => {
         service.accept(USER_ID, RFQ_ID, {
           addressId: VARIANT_ID,
           paymentMethod: 'COD',
+          shippingMethod: 'STORE_PICKUP',
         }),
       ).rejects.toBeInstanceOf(ConflictException);
       expect(checkout.placeQuotedOrder).not.toHaveBeenCalled();
@@ -223,6 +224,7 @@ describe('RfqService (SS-235 B2)', () => {
         service.accept(USER_ID, RFQ_ID, {
           addressId: VARIANT_ID,
           paymentMethod: 'COD',
+          shippingMethod: 'STORE_PICKUP',
         }),
       ).rejects.toBeInstanceOf(GoneException);
       expect(prisma.rfq.update).toHaveBeenCalledWith(
@@ -252,7 +254,7 @@ describe('RfqService (SS-235 B2)', () => {
       const result = await service.accept(
         USER_ID,
         RFQ_ID,
-        { addressId: VARIANT_ID, paymentMethod: 'COD' },
+        { addressId: VARIANT_ID, paymentMethod: 'COD', shippingMethod: 'STORE_PICKUP' },
         '127.0.0.1',
       );
 
@@ -270,6 +272,7 @@ describe('RfqService (SS-235 B2)', () => {
           quantity: 5,
           addressId: VARIANT_ID,
           paymentMethod: 'COD',
+          shippingMethod: 'STORE_PICKUP',
         }),
       );
       const frozen = checkout.placeQuotedOrder.mock.calls[0][1]
@@ -294,6 +297,7 @@ describe('RfqService (SS-235 B2)', () => {
       const result = await service.accept(USER_ID, RFQ_ID, {
         addressId: VARIANT_ID,
         paymentMethod: 'COD',
+        shippingMethod: 'STORE_PICKUP',
       });
 
       expect(result.orderId).toBe('order-1');
@@ -309,6 +313,7 @@ describe('RfqService (SS-235 B2)', () => {
         service.accept(USER_ID, RFQ_ID, {
           addressId: VARIANT_ID,
           paymentMethod: 'COD',
+          shippingMethod: 'STORE_PICKUP',
         }),
       ).rejects.toBeInstanceOf(NotFoundException);
     });

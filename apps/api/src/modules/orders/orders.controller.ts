@@ -50,6 +50,7 @@ export class OrdersController {
       user.userId,
       dto.addressId,
       dto.paymentMethod,
+      dto.shippingMethod,
     );
   }
 

@@ -4,7 +4,13 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { AddressDto } from '@sabz/types';
-import type { PaymentMethod, PaymentMethodDto, RfqDto } from '@sabz/types';
+import type {
+  PaymentMethod,
+  PaymentMethodDto,
+  RfqDto,
+  ShippingMethodCode,
+  ShippingMethodDto,
+} from '@sabz/types';
 import { AddressPicker } from '@/components/ecommerce/checkout/address-picker';
 import { Button, buttonVariants } from '@/components/ecommerce/ui/button';
 import { Card } from '@/components/ecommerce/ui/card';
@@ -15,7 +21,13 @@ import { Skeleton } from '@/components/ecommerce/skeleton/skeleton';
 import { ApiError } from '@/lib/api';
 import { defaultAddress, fetchAddresses } from '@/lib/addresses';
 import { hasSession } from '@/lib/auth-client';
-import { defaultPaymentMethod, fetchPaymentMethods } from '@/lib/checkout';
+import {
+  defaultPaymentMethod,
+  defaultShippingMethod,
+  fetchPaymentMethods,
+  fetchShippingMethods,
+  isShippingEnabled,
+} from '@/lib/checkout';
 import { rialToTomanString } from '@/lib/currency';
 import { formatFaNumber, formatToman } from '@/lib/format';
 import { acceptRfq, fetchRfqDetail, rfqStatusLabel } from '@/lib/rfq';
@@ -40,6 +52,8 @@ export function RfqDetail({ id }: { id: string }) {
   const [addressId, setAddressId] = useState<string | null>(null);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethodDto[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
+  const [shippingMethods, setShippingMethods] = useState<ShippingMethodDto[]>([]);
+  const [shippingMethod, setShippingMethod] = useState<ShippingMethodCode | null>(null);
   const [accepting, setAccepting] = useState(false);
   const [acceptError, setAcceptError] = useState<string | null>(null);
 
@@ -51,8 +65,13 @@ export function RfqDetail({ id }: { id: string }) {
     }
     let cancelled = false;
     setStatus('loading');
-    Promise.all([fetchRfqDetail(id), fetchAddresses(), fetchPaymentMethods()])
-      .then(([detail, addressRows, methods]) => {
+    Promise.all([
+      fetchRfqDetail(id),
+      fetchAddresses(),
+      fetchPaymentMethods(),
+      fetchShippingMethods(),
+    ])
+      .then(([detail, addressRows, methods, ships]) => {
         if (cancelled) {
           return;
         }
@@ -61,6 +80,8 @@ export function RfqDetail({ id }: { id: string }) {
         setAddressId(defaultAddress(addressRows)?.id ?? null);
         setPaymentMethods(methods);
         setPaymentMethod(defaultPaymentMethod(methods));
+        setShippingMethods(ships);
+        setShippingMethod(defaultShippingMethod(ships));
         setStatus('ready');
       })
       .catch((loadError: unknown) => {
@@ -90,13 +111,13 @@ export function RfqDetail({ id }: { id: string }) {
   }, [status, id, router]);
 
   async function handleAccept(): Promise<void> {
-    if (accepting || addressId === null || paymentMethod === null) {
+    if (accepting || addressId === null || paymentMethod === null || shippingMethod === null) {
       return;
     }
     setAccepting(true);
     setAcceptError(null);
     try {
-      const result = await acceptRfq(id, { addressId, paymentMethod });
+      const result = await acceptRfq(id, { addressId, paymentMethod, shippingMethod });
       router.push(`/orders/${result.orderId}`);
     } catch (acceptFailure) {
       if (acceptFailure instanceof ApiError && acceptFailure.status === 401) {
@@ -210,6 +231,33 @@ export function RfqDetail({ id }: { id: string }) {
               </div>
             </div>
             <fieldset>
+              <legend className="text-sm font-semibold text-ink-900">شیوه ارسال</legend>
+              <div className="mt-2 space-y-2">
+                {shippingMethods.map((method) => (
+                  <label
+                    key={method.code}
+                    className="flex min-h-11 cursor-pointer items-center gap-2 rounded-md border border-sand-200 bg-white px-3 py-2 text-sm"
+                  >
+                    <input
+                      type="radio"
+                      name="rfq-shipping"
+                      value={method.code}
+                      checked={shippingMethod === method.code}
+                      disabled={!isShippingEnabled(method)}
+                      onChange={() => setShippingMethod(method.code)}
+                      className="size-4 accent-sabz-700"
+                    />
+                    <span className="font-medium text-ink-900">{method.titleFa}</span>
+                    <span className="text-xs text-gray-500">
+                      {isShippingEnabled(method)
+                        ? `هزینه ارسال: ${formatToman(method.fee)}`
+                        : 'غیرفعال'}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+            <fieldset>
               <legend className="text-sm font-semibold text-ink-900">شیوه پرداخت</legend>
               <div className="mt-2 space-y-2">
                 {paymentMethods.map((method) => (
@@ -236,7 +284,7 @@ export function RfqDetail({ id }: { id: string }) {
               variant="primary"
               size="lg"
               className="w-full"
-              disabled={accepting || addressId === null || paymentMethod === null}
+              disabled={accepting || addressId === null || paymentMethod === null || shippingMethod === null}
               onClick={() => void handleAccept()}
             >
               {accepting ? 'در حال ثبت سفارش…' : 'پذیرش و ثبت سفارش'}

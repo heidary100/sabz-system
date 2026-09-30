@@ -5,8 +5,16 @@ import type {
   OrderStatus,
   PaymentMethod,
   PaymentStatus,
+  ShipmentStatus,
+  ShippingMethodCode,
 } from '@sabz/types';
-import { ORDER_STATUS_FA, PAYMENT_METHOD_FA, PAYMENT_STATUS_FA } from '@sabz/types';
+import {
+  ORDER_STATUS_FA,
+  PAYMENT_METHOD_FA,
+  PAYMENT_STATUS_FA,
+  SHIPMENT_STATUS_FA,
+  SHIPPING_METHOD_FA,
+} from '@sabz/types';
 import { ApiError } from '@/lib/api';
 import { authFetch } from '@/lib/auth-client';
 
@@ -39,6 +47,28 @@ export function paymentMethodLabel(method: PaymentMethod): string {
 /** Persian label for a payment status (stale-dist tolerant, see above). */
 export function paymentStatusLabel(status: PaymentStatus): string {
   return PAYMENT_STATUS_FA?.[status] ?? status;
+}
+
+/** Persian label for a shipping method (stale-dist tolerant, see above). */
+export function shippingMethodLabel(method: ShippingMethodCode): string {
+  if (method === 'TIPAX') {
+    return 'تیپاکس';
+  }
+  if (method === 'IRAN_POST') {
+    return 'پست ایران';
+  }
+  if (method === 'LOCAL_DELIVERY') {
+    return 'ارسال درون‌شهری ساری';
+  }
+  if (method === 'STORE_PICKUP') {
+    return 'تحویل حضوری از فروشگاه';
+  }
+  return SHIPPING_METHOD_FA?.[method] ?? method;
+}
+
+/** Persian label for a shipment status (stale-dist tolerant, see above). */
+export function shipmentStatusLabel(status: ShipmentStatus): string {
+  return SHIPMENT_STATUS_FA?.[status] ?? status;
 }
 
 function unauthorized(): ApiError {

@@ -53,6 +53,6 @@ export class CheckoutController {
     @CurrentUser() user: AuthUser,
     @Body() dto: ValidateCheckoutDto,
   ) {
-    return this.checkoutService.validate(user.userId, dto.addressId);
+    return this.checkoutService.validate(user.userId, dto.addressId, dto.shippingMethod);
   }
 }

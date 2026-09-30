@@ -325,7 +325,7 @@ describe('RFQ API (SS-235 B2) (e2e)', () => {
     await request(app.getHttpServer())
       .post(`${RFQ_BASE}/${rfqId}/accept`)
       .set('Authorization', `Bearer ${partner.token}`)
-      .send({ addressId: '3fa85f64-5717-4562-b3fc-2c963f66afa6', paymentMethod: 'COD' })
+      .send({ addressId: '3fa85f64-5717-4562-b3fc-2c963f66afa6', paymentMethod: 'COD', shippingMethod: 'STORE_PICKUP' })
       .expect(409);
 
     // Operator quotes: QUOTED with the agreed unit and line total.
@@ -354,7 +354,7 @@ describe('RFQ API (SS-235 B2) (e2e)', () => {
     const accepted = await request(app.getHttpServer())
       .post(`${RFQ_BASE}/${rfqId}/accept`)
       .set('Authorization', `Bearer ${partner.token}`)
-      .send({ addressId, paymentMethod: 'COD' })
+      .send({ addressId, paymentMethod: 'COD', shippingMethod: 'STORE_PICKUP' })
       .expect(201);
     expect(Object.keys(accepted.body).sort()).toEqual(PLACE_ORDER_KEYS);
     expect(accepted.body).toMatchObject({ status: 'PENDING', total: '4500' });
@@ -384,7 +384,7 @@ describe('RFQ API (SS-235 B2) (e2e)', () => {
     const replay = await request(app.getHttpServer())
       .post(`${RFQ_BASE}/${rfqId}/accept`)
       .set('Authorization', `Bearer ${partner.token}`)
-      .send({ addressId, paymentMethod: 'COD' })
+      .send({ addressId, paymentMethod: 'COD', shippingMethod: 'STORE_PICKUP' })
       .expect(201);
     expect(replay.body.orderId).toBe(accepted.body.orderId);
 
@@ -521,7 +521,7 @@ describe('RFQ API (SS-235 B2) (e2e)', () => {
     await request(app.getHttpServer())
       .post(`${RFQ_BASE}/${rfqId}/accept`)
       .set('Authorization', `Bearer ${partner.token}`)
-      .send({ addressId, paymentMethod: 'COD' })
+      .send({ addressId, paymentMethod: 'COD', shippingMethod: 'STORE_PICKUP' })
       .expect(410);
 
     const settled = await request(app.getHttpServer())

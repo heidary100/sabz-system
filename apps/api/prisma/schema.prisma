@@ -935,11 +935,16 @@ model Order {
   address    String
   postalCode String?
 
+  /// Chosen shipping method code (SS-241); fee snapshot lives in shippingFee.
+  shippingMethod String @default("STORE_PICKUP")
+
   items OrderItem[]
 
   rfq Rfq?
 
   returnRequests ReturnRequest[]
+
+  shipment Shipment?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1214,6 +1219,71 @@ model Review {
   @@unique([userId, productId])
   @@index([productId, status, createdAt])
   @@index([status, createdAt])
+}
+
+/// Shipment for one order (SS-241, master plan §6 Stage 3). Created
+/// eagerly with the order (method + fee snapshot); operators advance it
+/// with tracking numbers and timeline events. Tipax/Post are honest stubs
+/// (env-driven catalogue, operator-entered tracking) — no carrier HTTP.
+/// Pre-SS-241 orders simply have no row; reads tolerate the null.
+/// Audit trail lives in AuditLog (SHIPMENT_UPDATED / SHIPMENT_TRACKING_ADDED,
+/// entity 'Shipment').
+model Shipment {
+  id      String @id @default(uuid())
+  orderId String @unique
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  /// One of TIPAX | IRAN_POST | LOCAL_DELIVERY | STORE_PICKUP (validated in
+  /// the DTO; stored as a plain string so the method catalogue stays
+  /// env-driven without an enum migration per carrier).
+  method String
+
+  /// Operator-entered carrier tracking number (null until assigned).
+  trackingNumber String?
+
+  status ShipmentStatus @default(PENDING)
+
+  shippedAt   DateTime?
+  deliveredAt DateTime?
+
+  events TrackingEvent[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?
+  updatedBy String?
+
+  @@index([status, createdAt])
+}
+
+/// Append-only shipment timeline checkpoint (SS-241). Each row records the
+/// shipment status it advances to plus an optional operator location/note.
+model TrackingEvent {
+  id         String   @id @default(uuid())
+  shipmentId String
+  shipment   Shipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+
+  status ShipmentStatus
+
+  location String?
+  note     String?
+
+  createdAt DateTime @default(now())
+
+  @@index([shipmentId, createdAt])
+}
+
+/// Shipment lifecycle (SS-241). PENDING = order placed, awaiting handover;
+/// PICKED_UP = handed to the carrier; IN_TRANSIT = on the way;
+/// OUT_FOR_DELIVERY = last-mile distribution; DELIVERED = handed to the
+/// recipient; CANCELLED = shipment voided (order cancelled).
+enum ShipmentStatus {
+  PENDING
+  PICKED_UP
+  IN_TRANSIT
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
 }
 
 /// Return lifecycle (SS-242, master plan §6 Stage 3). PENDING = owner
