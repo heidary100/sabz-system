@@ -20,13 +20,13 @@ const BASE =
 
 const VARIANTS: Record<BadgeVariant, string> = {
   /** Discount percentage (e.g. ٪۱۲−), on top of product imagery. */
-  sale: 'bg-red-600 text-white',
+  sale: 'bg-gradient-to-b from-red-500 to-red-600 text-white shadow-sm',
   /** Stock truth must never rely on color alone — always paired with text. */
   outOfStock: 'bg-ink-950/85 text-white backdrop-blur-sm',
-  callForPrice: 'bg-sand-100 text-gray-600',
-  condition: 'bg-sand-100 text-gray-600',
-  success: 'bg-sabz-50 font-semibold text-sabz-700',
-  neutral: 'bg-sand-100 text-gray-600',
+  callForPrice: 'bg-sand-100 text-gray-600 ring-1 ring-inset ring-sand-200',
+  condition: 'bg-sand-100 text-gray-600 ring-1 ring-inset ring-sand-200',
+  success: 'bg-sabz-50 font-semibold text-sabz-700 ring-1 ring-inset ring-sabz-200',
+  neutral: 'bg-sand-100 text-gray-600 ring-1 ring-inset ring-sand-200',
 };
 
 export function badgeVariants({
