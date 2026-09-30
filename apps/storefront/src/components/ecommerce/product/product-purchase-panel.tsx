@@ -82,10 +82,10 @@ export function ProductPurchasePanel({
         onSelect={handleSelect}
       />
 
-      <div className="mt-6 rounded-xl border border-sand-200 bg-white p-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <span className="text-sm text-gray-600">قیمت</span>
-          <span className="text-xl font-bold text-sabz-800">
+      <div className="mt-6 rounded-2xl border border-sand-200 bg-gradient-to-b from-sabz-50/70 to-white p-5 shadow-card">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <span className="text-sm font-medium text-gray-500">قیمت</span>
+          <span className="text-2xl font-black text-sabz-800 sm:text-3xl">
             <ProductPrice variant={selected} />
           </span>
         </div>
@@ -102,23 +102,25 @@ export function ProductPurchasePanel({
             <CountdownTimer endsAt={promotionEndsAt} size="sm" />
           </div>
         ) : null}
-        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
           {selected.inStock ? (
-            <span className="rounded-full bg-sabz-50 px-2.5 py-1 font-medium text-sabz-700">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-sabz-50 px-2.5 py-1 font-semibold text-sabz-700 ring-1 ring-inset ring-sabz-200">
+              <span aria-hidden="true" className="size-1.5 rounded-full bg-sabz-500" />
               موجود در انبار
             </span>
           ) : (
-            <span className="rounded-full bg-red-50 px-2.5 py-1 font-medium text-red-700">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-2.5 py-1 font-semibold text-red-700 ring-1 ring-inset ring-red-100">
+              <span aria-hidden="true" className="size-1.5 rounded-full bg-red-500" />
               ناموجود
             </span>
           )}
           {selected.priceStatus === 'CALL_FOR_PRICE' ? (
-            <span className="rounded-full bg-sand-100 px-2.5 py-1 text-gray-600">
+            <span className="rounded-full bg-sand-100 px-2.5 py-1 font-medium text-gray-600">
               استعلام قیمت
             </span>
           ) : null}
         </div>
-        <dl className="mt-3 border-t border-sand-200 pt-3">
+        <dl className="mt-4 border-t border-sand-200 pt-3">
           <ProductSku sku={selected.sku} />
         </dl>
         <p className="mt-3 text-xs leading-5 text-gray-600">

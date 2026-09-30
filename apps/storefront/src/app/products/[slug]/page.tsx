@@ -123,7 +123,7 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
           {product.previous ? (
             <Link
               href={`/products/${product.previous.slug}`}
-              className="min-h-9 rounded-sm text-gray-500 hover:text-sabz-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700"
+              className="inline-flex min-h-9 max-w-48 items-center truncate rounded-full bg-sand-100 px-3 py-1.5 text-gray-600 transition-colors duration-200 hover:bg-sabz-50 hover:text-sabz-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700"
             >
               ← {product.previous.name}
             </Link>
@@ -132,14 +132,14 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
           )}
           <Link
             href={`/categories/${product.category.slug}`}
-            className="min-h-9 rounded-sm text-gray-500 hover:text-sabz-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700"
+            className="inline-flex min-h-9 max-w-48 items-center truncate rounded-full bg-sand-100 px-3 py-1.5 text-gray-600 transition-colors duration-200 hover:bg-sabz-50 hover:text-sabz-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700"
           >
             بازگشت به {product.category.name}
           </Link>
           {product.next ? (
             <Link
               href={`/products/${product.next.slug}`}
-              className="min-h-9 rounded-sm text-gray-500 hover:text-sabz-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700"
+              className="inline-flex min-h-9 max-w-48 items-center truncate rounded-full bg-sand-100 px-3 py-1.5 text-gray-600 transition-colors duration-200 hover:bg-sabz-50 hover:text-sabz-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700"
             >
               {product.next.name} →
             </Link>
@@ -154,9 +154,9 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
 
         <div className="lg:sticky lg:top-24 lg:self-start">
           {product.brand ? (
-            <p className="text-sm text-gray-500">{product.brand.name}</p>
+            <p className="text-sm font-medium text-sabz-600">{product.brand.name}</p>
           ) : null}
-          <h1 className="mt-1 text-2xl font-bold tracking-tight text-ink-900">
+          <h1 className="mt-1 text-balance text-2xl font-extrabold leading-9 text-ink-900 sm:text-3xl sm:leading-[3rem]">
             {product.name}
           </h1>
           {/* SS-227 dedup: the import often fills subtitle with the same
@@ -238,10 +238,10 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
       </div>
 
       {hasSpecs ? (
-        <section aria-labelledby="specs-heading" className="mt-14">
+        <section aria-labelledby="specs-heading" className="reveal mt-14">
           <h2
             id="specs-heading"
-            className="text-xl font-bold tracking-tight text-ink-900"
+            className="text-xl font-extrabold text-ink-900"
           >
             مشخصات
           </h2>
@@ -252,14 +252,14 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
       ) : null}
 
       {product.description ? (
-        <section aria-labelledby="description-heading" className="mt-14">
+        <section aria-labelledby="description-heading" className="reveal mt-14">
           <h2
             id="description-heading"
-            className="text-xl font-bold tracking-tight text-ink-900"
+            className="text-xl font-extrabold text-ink-900"
           >
             شرح محصول
           </h2>
-          <div className="mt-4 rounded-xl border border-sand-200 bg-white p-6">
+          <div className="mt-4 rounded-2xl border border-sand-200 bg-white p-6 shadow-card sm:p-8">
             <RichText html={product.description} />
           </div>
         </section>

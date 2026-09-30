@@ -61,7 +61,7 @@ export default async function ProductsPage({
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-ink-900">
+          <h1 className="text-balance text-2xl font-extrabold text-ink-900">
             {state.q ? `نتایج جستجو برای «${state.q}»` : 'همه محصولات'}
           </h1>
           <ResultStatus
@@ -108,7 +108,7 @@ export default async function ProductsPage({
             />
           ) : (
             <>
-              <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+              <div className="stagger grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
                 {result.items.map((product) => (
                   <ProductCardWithWishlist key={product.id} product={product} />
                 ))}
