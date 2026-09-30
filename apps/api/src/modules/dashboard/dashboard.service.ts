@@ -1,9 +1,23 @@
 import { Injectable } from '@nestjs/common';
-import { PartnerApprovalStatus, Prisma, UserStatus } from '@prisma/client';
+import {
+  BlogStatus,
+  OrderStatus,
+  PartnerApprovalStatus,
+  PaymentMethod,
+  PaymentStatus,
+  Prisma,
+  ReviewStatus,
+  RfqStatus,
+  UserStatus,
+} from '@prisma/client';
 import type {
   AdminPartnerListItem,
   AuditActor,
+  DashboardCommerce,
+  DashboardDayPoint,
+  DashboardOrdersByStatus,
   DashboardPartnerCounts,
+  DashboardPaymentSplit,
   DashboardRecentAudit,
   DashboardRoleCounts,
   DashboardSummary,
@@ -14,6 +28,8 @@ import { AppRole } from '../auth/enums/app-role.enum';
 
 const RECENT_PARTNERS_LIMIT = 5;
 const RECENT_AUDIT_LIMIT = 8;
+const ORDERS_BY_DAY_WINDOW_DAYS = 14;
+const RECENT_ORDERS_SCAN_LIMIT = 2000;
 
 const ROLE_BUCKETS = [
   AppRole.CUSTOMER,
@@ -49,6 +65,25 @@ type RecentAuditRow = Prisma.AuditLogGetPayload<{
   select: typeof recentAuditSelect;
 }>;
 
+function startOfUtcDay(date: Date): Date {
+  return new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
+  );
+}
+
+/** Serializes a Prisma Decimal (or null) to a Rial string, defaulting to "0". */
+function decimalToString(value: unknown): string {
+  if (value === null || value === undefined) {
+    return '0';
+  }
+  try {
+    const text = (value as { toString(): string }).toString();
+    return text === '' ? '0' : text;
+  } catch {
+    return '0';
+  }
+}
+
 /**
  * Read-only operational dashboard snapshot (SS-065). Aggregates existing
  * domains (users, roles, partners, audit) with bounded Prisma queries and
@@ -68,46 +103,84 @@ export class DashboardService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getSummary(): Promise<DashboardSummary> {
-    const [userGroups, roleRows, partnerGroups, recentPartners, recentAudits] =
-      await this.prisma.$transaction([
-        this.prisma.user.groupBy({
-          by: ['status'],
-          where: { deletedAt: null },
-          orderBy: { status: 'asc' },
-          _count: { _all: true },
-        }),
-        this.prisma.role.findMany({
-          where: { name: { in: [...ROLE_BUCKETS] } },
-          select: {
-            name: true,
-            _count: {
-              select: {
-                users: { where: { user: { deletedAt: null } } },
-              },
+    const windowStart = startOfUtcDay(
+      new Date(Date.now() - (ORDERS_BY_DAY_WINDOW_DAYS - 1) * 86_400_000),
+    );
+    const [
+      userGroups,
+      roleRows,
+      partnerGroups,
+      recentPartners,
+      recentAudits,
+      orderStatusGroups,
+      paymentMethodGroups,
+      paidRevenue,
+      pendingRfqCount,
+      pendingReviewCount,
+      draftPostCount,
+      recentOrders,
+    ] = await this.prisma.$transaction([
+      this.prisma.user.groupBy({
+        by: ['status'],
+        where: { deletedAt: null },
+        orderBy: { status: 'asc' },
+        _count: { _all: true },
+      }),
+      this.prisma.role.findMany({
+        where: { name: { in: [...ROLE_BUCKETS] } },
+        select: {
+          name: true,
+          _count: {
+            select: {
+              users: { where: { user: { deletedAt: null } } },
             },
           },
-        }),
-        this.prisma.partner.groupBy({
-          by: ['approvalStatus'],
-          where: { deletedAt: null },
-          orderBy: { approvalStatus: 'asc' },
-          _count: { _all: true },
-        }),
-        this.prisma.partner.findMany({
-          where: { deletedAt: null },
-          select: recentPartnerSelect,
-          orderBy: [
-            { submittedAt: { sort: 'desc', nulls: 'last' } },
-            { id: 'desc' },
-          ],
-          take: RECENT_PARTNERS_LIMIT,
-        }),
-        this.prisma.auditLog.findMany({
-          select: recentAuditSelect,
-          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-          take: RECENT_AUDIT_LIMIT,
-        }),
-      ]);
+        },
+      }),
+      this.prisma.partner.groupBy({
+        by: ['approvalStatus'],
+        where: { deletedAt: null },
+        orderBy: { approvalStatus: 'asc' },
+        _count: { _all: true },
+      }),
+      this.prisma.partner.findMany({
+        where: { deletedAt: null },
+        select: recentPartnerSelect,
+        orderBy: [
+          { submittedAt: { sort: 'desc', nulls: 'last' } },
+          { id: 'desc' },
+        ],
+        take: RECENT_PARTNERS_LIMIT,
+      }),
+      this.prisma.auditLog.findMany({
+        select: recentAuditSelect,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: RECENT_AUDIT_LIMIT,
+      }),
+      this.prisma.order.groupBy({
+        by: ['status'],
+        orderBy: { status: 'asc' },
+        _count: { _all: true },
+      }),
+      this.prisma.order.groupBy({
+        by: ['paymentMethod'],
+        orderBy: { paymentMethod: 'asc' },
+        _count: { _all: true },
+      }),
+      this.prisma.order.aggregate({
+        where: { paymentStatus: PaymentStatus.PAID },
+        _sum: { total: true },
+      }),
+      this.prisma.rfq.count({ where: { status: RfqStatus.PENDING } }),
+      this.prisma.review.count({ where: { status: ReviewStatus.PENDING } }),
+      this.prisma.blogPost.count({ where: { status: BlogStatus.DRAFT } }),
+      this.prisma.order.findMany({
+        where: { createdAt: { gte: windowStart } },
+        select: { createdAt: true, total: true, paymentStatus: true },
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+        take: RECENT_ORDERS_SCAN_LIMIT,
+      }),
+    ]);
 
     const actors = await this.resolveActors(
       recentAudits.map((row) => row.userId),
@@ -117,6 +190,15 @@ export class DashboardService {
       users: this.toUserCounts(userGroups),
       roles: this.toRoleCounts(roleRows),
       partners: this.toPartnerCounts(partnerGroups),
+      commerce: this.toCommerce({
+        orderStatusGroups: orderStatusGroups ?? [],
+        paymentMethodGroups: paymentMethodGroups ?? [],
+        paidRevenue: paidRevenue ?? { _sum: { total: null } },
+        pendingRfqCount: pendingRfqCount ?? 0,
+        pendingReviewCount: pendingReviewCount ?? 0,
+        draftPostCount: draftPostCount ?? 0,
+        recentOrders: recentOrders ?? [],
+      }),
       recentPartners: recentPartners.map((partner) =>
         this.toRecentPartner(partner),
       ),
@@ -280,6 +362,126 @@ export class DashboardService {
     }
     const value = (holder as Record<string, unknown>)[key];
     return typeof value === 'number' ? value : 0;
+  }
+
+  private toCommerce(input: {
+    orderStatusGroups: Array<{ status: OrderStatus; _count: unknown }>;
+    paymentMethodGroups: Array<{ paymentMethod: PaymentMethod; _count: unknown }>;
+    paidRevenue: { _sum: { total: unknown } };
+    pendingRfqCount: number;
+    pendingReviewCount: number;
+    draftPostCount: number;
+    recentOrders: Array<{
+      createdAt: Date;
+      total: { toString(): string } | string | number;
+      paymentStatus: PaymentStatus;
+    }>;
+  }): DashboardCommerce {
+    const ordersByStatus: DashboardOrdersByStatus = {
+      pending: 0,
+      processing: 0,
+      shipped: 0,
+      delivered: 0,
+      cancelled: 0,
+    };
+    for (const row of input.orderStatusGroups) {
+      const value = this.countOf(row._count, '_all');
+      switch (row.status) {
+        case OrderStatus.PENDING:
+          ordersByStatus.pending += value;
+          break;
+        case OrderStatus.PROCESSING:
+          ordersByStatus.processing += value;
+          break;
+        case OrderStatus.SHIPPED:
+          ordersByStatus.shipped += value;
+          break;
+        case OrderStatus.DELIVERED:
+          ordersByStatus.delivered += value;
+          break;
+        case OrderStatus.CANCELLED:
+          ordersByStatus.cancelled += value;
+          break;
+      }
+    }
+
+    let cod = 0;
+    let online = 0;
+    for (const row of input.paymentMethodGroups) {
+      const value = this.countOf(row._count, '_all');
+      if (row.paymentMethod === PaymentMethod.COD) {
+        cod += value;
+      } else if (row.paymentMethod === PaymentMethod.ONLINE) {
+        online += value;
+      }
+    }
+    const totalOrders =
+      ordersByStatus.pending +
+      ordersByStatus.processing +
+      ordersByStatus.shipped +
+      ordersByStatus.delivered +
+      ordersByStatus.cancelled;
+    const payments: DashboardPaymentSplit = {
+      cod,
+      online,
+      codSharePct: totalOrders === 0 ? 0 : Math.round((cod / totalOrders) * 100),
+    };
+
+    return {
+      ordersByStatus,
+      totalOrders,
+      paidRevenueRial: decimalToString(input.paidRevenue?._sum?.total),
+      payments,
+      pendingRfqs: input.pendingRfqCount,
+      pendingReviews: input.pendingReviewCount,
+      draftPosts: input.draftPostCount,
+      ordersByDay: this.toOrdersByDay(input.recentOrders),
+    };
+  }
+
+  /**
+   * Buckets the bounded recent-orders scan into UTC calendar days, oldest
+   * first, covering the full 14-day window including today. Only PAID rows
+   * contribute revenue; every row contributes to its day's order count.
+   */
+  private toOrdersByDay(
+    rows: Array<{
+      createdAt: Date;
+      total: { toString(): string } | string | number;
+      paymentStatus: PaymentStatus;
+    }>,
+  ): DashboardDayPoint[] {
+    const days: DashboardDayPoint[] = [];
+    const index = new Map<string, DashboardDayPoint>();
+    const todayStart = startOfUtcDay(new Date());
+    for (let offset = ORDERS_BY_DAY_WINDOW_DAYS - 1; offset >= 0; offset -= 1) {
+      const date = new Date(todayStart.getTime() - offset * 86_400_000)
+        .toISOString()
+        .slice(0, 10);
+      const point: DashboardDayPoint = { date, orders: 0, revenueRial: '0' };
+      days.push(point);
+      index.set(date, point);
+    }
+    const revenueSums = new Map<string, number>();
+    for (const row of rows) {
+      const date = row.createdAt.toISOString().slice(0, 10);
+      const point = index.get(date);
+      if (!point) {
+        continue;
+      }
+      point.orders += 1;
+      if (row.paymentStatus === PaymentStatus.PAID) {
+        revenueSums.set(
+          date,
+          (revenueSums.get(date) ?? 0) + Number(row.total.toString()),
+        );
+      }
+    }
+    for (const point of days) {
+      const sum = revenueSums.get(point.date) ?? 0;
+      point.revenueRial = Number.isFinite(sum) ? String(sum) : '0';
+    }
+    return days;
   }
 
   private toRecentPartner(partner: RecentPartnerRow): AdminPartnerListItem {
