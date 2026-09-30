@@ -156,6 +156,16 @@ export {
 } from './orders/orders';
 
 export {
+  AddTrackingEventInput,
+  SHIPMENT_STATUS_FA,
+  SHIPPING_METHOD_FA,
+  ShipmentDto,
+  ShipmentStatus,
+  TrackingEventDto,
+  UpdateShipmentInput,
+} from './shipping/shipping';
+
+export {
   AddCartItemInput,
   CartItemDto,
   CartResponse,

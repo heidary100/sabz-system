@@ -13,6 +13,7 @@ import {
   Prisma,
   ProductStatus,
   RfqStatus,
+  ShipmentStatus,
 } from '@prisma/client';
 import type {
   AdminOrderDetailDto,
@@ -30,9 +31,16 @@ import type {
   OrderListResponse,
   PaymentMethodDto,
   PlaceOrderResult,
+  ShipmentDto,
+  ShippingMethodCode,
   ShippingMethodDto,
+  TrackingEventDto,
 } from '@sabz/types';
-import { ORDER_STATUS_FA } from '@sabz/types';
+import {
+  ORDER_STATUS_FA,
+  SHIPMENT_STATUS_FA,
+  SHIPPING_METHOD_FA,
+} from '@sabz/types';
 import { PrismaService } from '../../common/database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import {
@@ -43,18 +51,71 @@ import { InventoryService } from '../inventory/inventory.service';
 import { PricingService } from '../pricing/pricing.service';
 
 /**
- * Static v1 choice lists. Shipping fees are "0" (Rial) — real carrier fees
- * arrive with SS-241. Payments are COD-only (SS-234): ONLINE stays listed
- * but disabled until the gateway ticket (SS-234B) flips
- * `PAYMENTS_ONLINE_ENABLED=true` with verified credentials. Both lists are
- * honest stubs, never fake integrations.
+ * Shipping catalogue (SS-241). No carrier credentials exist in-repo, so
+ * Tipax/Post are honest stubs: every method is env-driven
+ * (`SHIPPING_<CODE>_ENABLED` + `SHIPPING_<CODE>_FEE`, flat Rial) and read
+ * at request time like the SS-234 payment flags. Disabled methods stay
+ * listed with `enabled: false` so the storefront disables instead of
+ * hiding; unset/invalid fees fall back to "0", never fatal.
  */
-const SHIPPING_METHODS: ShippingMethodDto[] = [
-  { code: 'TIPAX', titleFa: 'تیپاکس', etaFa: '۲ تا ۴ روز کاری', fee: '0' },
-  { code: 'IRAN_POST', titleFa: 'پست ایران', etaFa: '۳ تا ۷ روز کاری', fee: '0' },
-  { code: 'LOCAL_DELIVERY', titleFa: 'ارسال درون‌شهری ساری', etaFa: '۱ تا ۲ روز کاری', fee: '0' },
-  { code: 'STORE_PICKUP', titleFa: 'تحویل حضوری از فروشگاه', etaFa: 'پس از هماهنگی', fee: '0' },
+const SHIPPING_METHOD_DEFS: Array<{
+  code: ShippingMethodCode;
+  titleFa: string;
+  etaFa: string;
+  envPrefix: string;
+}> = [
+  { code: 'TIPAX', titleFa: 'تیپاکس', etaFa: '۲ تا ۴ روز کاری', envPrefix: 'SHIPPING_TIPAX' },
+  { code: 'IRAN_POST', titleFa: 'پست ایران', etaFa: '۳ تا ۷ روز کاری', envPrefix: 'SHIPPING_POST' },
+  {
+    code: 'LOCAL_DELIVERY',
+    titleFa: 'ارسال درون‌شهری ساری',
+    etaFa: '۱ تا ۲ روز کاری',
+    envPrefix: 'SHIPPING_LOCAL',
+  },
+  {
+    code: 'STORE_PICKUP',
+    titleFa: 'تحویل حضوری از فروشگاه',
+    etaFa: 'پس از هماهنگی',
+    envPrefix: 'SHIPPING_PICKUP',
+  },
 ];
+
+const SHIPPING_METHOD_CODES = SHIPPING_METHOD_DEFS.map((def) => def.code);
+
+function isShippingEnabled(code: ShippingMethodCode): boolean {
+  const def = SHIPPING_METHOD_DEFS.find((row) => row.code === code);
+  if (!def) {
+    return false;
+  }
+  return process.env[`${def.envPrefix}_ENABLED`] !== 'false';
+}
+
+function shippingFeeFor(code: ShippingMethodCode): Prisma.Decimal {
+  const def = SHIPPING_METHOD_DEFS.find((row) => row.code === code);
+  const raw = def ? process.env[`${def.envPrefix}_FEE`]?.trim() : undefined;
+  if (!raw) {
+    return new Prisma.Decimal(0);
+  }
+  try {
+    const fee = new Prisma.Decimal(raw);
+    if (!fee.isFinite() || fee.lessThan(0)) {
+      return new Prisma.Decimal(0);
+    }
+    return fee;
+  } catch {
+    return new Prisma.Decimal(0);
+  }
+}
+
+function buildShippingMethods(): ShippingMethodDto[] {
+  return SHIPPING_METHOD_DEFS.map((def) => ({
+    code: def.code,
+    titleFa: def.titleFa,
+    etaFa: def.etaFa,
+    fee: shippingFeeFor(def.code).toString(),
+    enabled: isShippingEnabled(def.code),
+  }));
+}
 
 /**
  * COD-only payment catalogue (SS-234). Availability is env-driven and read
@@ -176,7 +237,7 @@ export class CheckoutService {
   ) {}
 
   shippingMethods(): { items: ShippingMethodDto[] } {
-    return { items: SHIPPING_METHODS };
+    return { items: buildShippingMethods() };
   }
 
   paymentMethods(): { items: PaymentMethodDto[] } {
@@ -186,10 +247,12 @@ export class CheckoutService {
   async validate(
     userId: string,
     addressId?: string,
+    shippingMethod?: string,
   ): Promise<CheckoutSummaryDto> {
     if (addressId !== undefined) {
       await this.requireOwnAddress(userId, addressId);
     }
+    const method = this.requireShippingMethod(shippingMethod);
     const lines = await this.cartLines(userId);
     if (lines.length === 0) {
       return {
@@ -201,21 +264,24 @@ export class CheckoutService {
         problems: [],
       };
     }
-    return (await this.summarize(userId, lines)).summary;
+    return (await this.summarize(userId, lines, shippingFeeFor(method))).summary;
   }
 
   async placeOrder(
     userId: string,
     addressId: string,
     paymentMethod: PaymentMethod,
+    shippingMethod: string,
   ): Promise<PlaceOrderResult> {
     this.assertPaymentEnabled(paymentMethod);
+    const method = this.requireShippingMethod(shippingMethod);
     const address = await this.requireOwnAddress(userId, addressId);
     const lines = await this.cartLines(userId);
     if (lines.length === 0) {
       throw new BadRequestException('سبد خرید خالی است.');
     }
-    const { summary, unitPrices } = await this.summarize(userId, lines);
+    const shippingFee = shippingFeeFor(method);
+    const { summary, unitPrices } = await this.summarize(userId, lines, shippingFee);
     // Surface the first blocking problem with cart-mirroring semantics:
     // unpublished → 404, call-for-price → 422, shortage → 409 + available.
     const blocking = summary.problems.find((problem) =>
@@ -233,7 +299,7 @@ export class CheckoutService {
     await this.consumeAll(slices, userId);
 
     const orderNumber = await this.nextOrderNumber();
-    const totals = this.totalsFor(slices);
+    const totals = this.totalsFor(slices, shippingFee);
     try {
       const order = await this.prisma.$transaction(async (tx) => {
         const created = await tx.order.create({
@@ -244,7 +310,8 @@ export class CheckoutService {
             paymentMethod,
             paymentStatus: 'PENDING',
             subtotal: totals.subtotal,
-            shippingFee: new Prisma.Decimal(0),
+            shippingMethod: method,
+            shippingFee,
             total: totals.total,
             fullName: address.fullName,
             phone: address.phone,
@@ -252,6 +319,9 @@ export class CheckoutService {
             city: address.city,
             address: address.address,
             postalCode: address.postalCode,
+            shipment: {
+              create: { method, status: ShipmentStatus.PENDING },
+            },
             items: {
               create: slices.map((slice) => ({
                 variantId: slice.variantId,
@@ -308,6 +378,7 @@ export class CheckoutService {
       unitPrice: Prisma.Decimal;
       addressId: string;
       paymentMethod: PaymentMethod;
+      shippingMethod: string;
     },
   ): Promise<PlaceOrderResult> {
     if (!Number.isInteger(input.quantity) || input.quantity < 1) {
@@ -320,6 +391,8 @@ export class CheckoutService {
       throw new BadRequestException('مبلغ توافق‌شده معتبر نیست.');
     }
     this.assertPaymentEnabled(input.paymentMethod);
+    const method = this.requireShippingMethod(input.shippingMethod);
+    const shippingFee = shippingFeeFor(method);
     const address = await this.requireOwnAddress(userId, input.addressId);
     const variant = await this.prisma.productVariant.findFirst({
       where: {
@@ -367,7 +440,7 @@ export class CheckoutService {
     await this.consumeAll(slices, userId);
 
     const orderNumber = await this.nextOrderNumber();
-    const totals = this.totalsFor(slices);
+    const totals = this.totalsFor(slices, shippingFee);
     try {
       const order = await this.prisma.$transaction(async (tx) => {
         const created = await tx.order.create({
@@ -378,7 +451,8 @@ export class CheckoutService {
             paymentMethod: input.paymentMethod,
             paymentStatus: 'PENDING',
             subtotal: totals.subtotal,
-            shippingFee: new Prisma.Decimal(0),
+            shippingMethod: method,
+            shippingFee,
             total: totals.total,
             fullName: address.fullName,
             phone: address.phone,
@@ -386,6 +460,9 @@ export class CheckoutService {
             city: address.city,
             address: address.address,
             postalCode: address.postalCode,
+            shipment: {
+              create: { method, status: ShipmentStatus.PENDING },
+            },
             items: {
               create: slices.map((slice) => ({
                 variantId: slice.variantId,
@@ -514,6 +591,7 @@ export class CheckoutService {
         paymentMethod: true,
         paymentStatus: true,
         subtotal: true,
+        shippingMethod: true,
         shippingFee: true,
         total: true,
         fullName: true,
@@ -523,6 +601,29 @@ export class CheckoutService {
         address: true,
         postalCode: true,
         createdAt: true,
+        shipment: {
+          select: {
+            id: true,
+            orderId: true,
+            method: true,
+            trackingNumber: true,
+            status: true,
+            shippedAt: true,
+            deliveredAt: true,
+            createdAt: true,
+            updatedAt: true,
+            events: {
+              select: {
+                id: true,
+                status: true,
+                location: true,
+                note: true,
+                createdAt: true,
+              },
+              orderBy: [{ createdAt: 'asc' as const }, { id: 'asc' as const }],
+            },
+          },
+        },
         items: {
           select: {
             id: true,
@@ -667,6 +768,7 @@ export class CheckoutService {
         paymentMethod: true,
         paymentStatus: true,
         subtotal: true,
+        shippingMethod: true,
         shippingFee: true,
         total: true,
         fullName: true,
@@ -678,6 +780,29 @@ export class CheckoutService {
         createdAt: true,
         userId: true,
         user: { select: { mobile: true } },
+        shipment: {
+          select: {
+            id: true,
+            orderId: true,
+            method: true,
+            trackingNumber: true,
+            status: true,
+            shippedAt: true,
+            deliveredAt: true,
+            createdAt: true,
+            updatedAt: true,
+            events: {
+              select: {
+                id: true,
+                status: true,
+                location: true,
+                note: true,
+                createdAt: true,
+              },
+              orderBy: [{ createdAt: 'asc' as const }, { id: 'asc' as const }],
+            },
+          },
+        },
         items: {
           select: {
             id: true,
@@ -726,6 +851,7 @@ export class CheckoutService {
         status: true,
         paymentMethod: true,
         paymentStatus: true,
+        shippingMethod: true,
         items: {
           select: { variantId: true, warehouseId: true, quantity: true },
         },
@@ -782,6 +908,14 @@ export class CheckoutService {
       },
       select: { status: true, paymentStatus: true },
     });
+    // SS-241: the shipment timeline follows the order lifecycle so the
+    // customer timeline has data without operator double-entry (covered by
+    // the ORDER_STATUS_CHANGED audit below — no separate shipment audit).
+    await this.syncShipmentWithOrderTransition(
+      order.id,
+      order.shippingMethod,
+      next,
+    );
     await this.audit.log({
       userId: operatorId,
       action: 'ORDER_STATUS_CHANGED',
@@ -792,6 +926,58 @@ export class CheckoutService {
       ipAddress,
     });
     return this.adminDetail(order.id);
+  }
+
+  /**
+   * Shipment side-effect of operator order transitions (SS-241): SHIPPED
+   * hands the parcel over (PICKED_UP + checkpoint), DELIVERED closes the
+   * loop, CANCELLED voids the shipment. Already-PENDING/terminal rows are
+   * left untouched so replays stay idempotent.
+   */
+  private async syncShipmentWithOrderTransition(
+    orderId: string,
+    method: string,
+    next: AdminOrderTransition,
+  ): Promise<void> {
+    const target =
+      next === 'SHIPPED'
+        ? ShipmentStatus.PICKED_UP
+        : next === 'DELIVERED'
+          ? ShipmentStatus.DELIVERED
+          : next === 'CANCELLED'
+            ? ShipmentStatus.CANCELLED
+            : null;
+    if (!target) {
+      return;
+    }
+    const shipment = await this.ensureShipment(orderId, method);
+    if (
+      shipment.status === target ||
+      shipment.status === ShipmentStatus.DELIVERED ||
+      shipment.status === ShipmentStatus.CANCELLED
+    ) {
+      // Already there, or terminally diverged by an explicit operator
+      // action (e.g. manually CANCELLED) — the order move still applies.
+      return;
+    }
+    // The order lifecycle is the authority here: it may legitimately jump
+    // (SHIPPED → DELIVERED skips the carrier middle-states), so the sync
+    // records the decided state directly. The forward-only guard still
+    // applies to manual operator edits (updateShipment/addTrackingEvent).
+    const now = new Date();
+    await this.prisma.$transaction([
+      this.prisma.trackingEvent.create({
+        data: { shipmentId: shipment.id, status: target },
+      }),
+      this.prisma.shipment.update({
+        where: { id: shipment.id },
+        data: {
+          status: target,
+          shippedAt: shipment.shippedAt ?? now,
+          deliveredAt: target === ShipmentStatus.DELIVERED ? now : shipment.deliveredAt,
+        },
+      }),
+    ]);
   }
 
   // -------------------------------------------------------------------------
@@ -834,6 +1020,7 @@ export class CheckoutService {
   private async summarize(
     userId: string,
     lines: CartLine[],
+    shippingFee: Prisma.Decimal = new Prisma.Decimal(0),
   ): Promise<{ summary: CheckoutSummaryDto; unitPrices: Map<string, Prisma.Decimal> }> {
     const visible = lines.filter(
       (line) =>
@@ -945,8 +1132,8 @@ export class CheckoutService {
         valid: !blocking && items.some((item) => item.inStock),
         items,
         subtotal: subtotal.toString(),
-        shippingFee: '0',
-        total: subtotal.toString(),
+        shippingFee: shippingFee.toString(),
+        total: subtotal.add(shippingFee).toString(),
         problems,
       },
       unitPrices,
@@ -955,6 +1142,221 @@ export class CheckoutService {
 
   private isBlocking(code: CheckoutProblemCode): boolean {
     return code === 'OUT_OF_STOCK' || code === 'UNPUBLISHED' || code === 'CALL_FOR_PRICE';
+  }
+
+  /**
+   * SS-241 shipping gate, shared by cart checkout and RFQ accept: unknown
+   * codes 422 (class-validator already rejects them at the DTO layer; this
+   * is the service-level twin for programmatic callers), disabled methods
+   * 422 before touching stock. Defaults to STORE_PICKUP when omitted
+   * (validate preview only — place-order DTOs require it explicitly).
+   */
+  private requireShippingMethod(value: string | undefined): ShippingMethodCode {
+    if (value === undefined) {
+      return 'STORE_PICKUP';
+    }
+    if (!SHIPPING_METHOD_CODES.includes(value as ShippingMethodCode)) {
+      throw new UnprocessableEntityException('شیوه ارسال معتبر نیست.');
+    }
+    const method = value as ShippingMethodCode;
+    if (!isShippingEnabled(method)) {
+      throw new UnprocessableEntityException(
+        'این شیوه ارسال در حال حاضر فعال نیست؛ لطفاً شیوه دیگری را انتخاب کنید.',
+      );
+    }
+    return method;
+  }
+
+  /**
+   * Operator shipment update (SS-241). Lazily creates the shipment for
+   * pre-SS-241 orders (method falls back to the stored order method), then
+   * applies the tracking number and/or a forward-only status move. One
+   * SHIPMENT_UPDATED audit per call.
+   */
+  async updateShipment(
+    operatorId: string,
+    orderId: string,
+    input: { trackingNumber?: string; status?: ShipmentStatus },
+    ipAddress?: string,
+  ): Promise<AdminOrderDetailDto> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: {
+        id: true,
+        orderNumber: true,
+        shippingMethod: true,
+        shipment: {
+          select: {
+            id: true,
+            trackingNumber: true,
+            status: true,
+            shippedAt: true,
+            deliveredAt: true,
+          },
+        },
+      },
+    });
+    if (!order) {
+      throw new NotFoundException('سفارش یافت نشد.');
+    }
+    const shipment = await this.ensureShipment(order.id, order.shippingMethod);
+    const before = {
+      trackingNumber: shipment.trackingNumber,
+      status: shipment.status,
+    };
+    const trackingNumber =
+      input.trackingNumber === undefined
+        ? shipment.trackingNumber
+        : input.trackingNumber.trim() === ''
+          ? null
+          : input.trackingNumber.trim();
+    let status = shipment.status;
+    if (input.status !== undefined && input.status !== shipment.status) {
+      this.assertShipmentTransition(shipment.status, input.status);
+      status = input.status;
+    }
+    const now = new Date();
+    const updated = await this.prisma.shipment.update({
+      where: { id: shipment.id },
+      data: {
+        trackingNumber,
+        status,
+        shippedAt:
+          shipment.shippedAt ??
+          (status !== ShipmentStatus.PENDING ? now : null),
+        deliveredAt:
+          status === ShipmentStatus.DELIVERED ? (shipment.deliveredAt ?? now) : null,
+        updatedBy: operatorId,
+      },
+      select: { trackingNumber: true, status: true },
+    });
+    await this.audit.log({
+      userId: operatorId,
+      action: 'SHIPMENT_UPDATED',
+      entity: 'Shipment',
+      entityId: shipment.id,
+      before,
+      after: { trackingNumber: updated.trackingNumber, status: updated.status },
+      ipAddress,
+    });
+    return this.adminDetail(order.id);
+  }
+
+  /**
+   * Operator tracking checkpoint (SS-241). Appends the event and advances
+   * the shipment to the event status (forward-only plus CANCELLED). One
+   * SHIPMENT_TRACKING_ADDED audit per call.
+   */
+  async addTrackingEvent(
+    operatorId: string,
+    orderId: string,
+    input: { status: ShipmentStatus; location?: string; note?: string },
+    ipAddress?: string,
+  ): Promise<AdminOrderDetailDto> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: {
+        id: true,
+        shippingMethod: true,
+        shipment: { select: { id: true, status: true } },
+      },
+    });
+    if (!order) {
+      throw new NotFoundException('سفارش یافت نشد.');
+    }
+    const shipment = await this.ensureShipment(order.id, order.shippingMethod);
+    if (input.status !== shipment.status) {
+      this.assertShipmentTransition(shipment.status, input.status);
+    } else {
+      throw new ConflictException('این وضعیت قبلاً برای مرسوله ثبت شده است.');
+    }
+    const now = new Date();
+    await this.prisma.$transaction([
+      this.prisma.trackingEvent.create({
+        data: {
+          shipmentId: shipment.id,
+          status: input.status,
+          location: input.location?.trim() ? input.location.trim() : null,
+          note: input.note?.trim() ? input.note.trim() : null,
+        },
+      }),
+      this.prisma.shipment.update({
+        where: { id: shipment.id },
+        data: {
+          status: input.status,
+          shippedAt: input.status !== ShipmentStatus.PENDING ? now : null,
+          deliveredAt: input.status === ShipmentStatus.DELIVERED ? now : null,
+          updatedBy: operatorId,
+        },
+      }),
+    ]);
+    await this.audit.log({
+      userId: operatorId,
+      action: 'SHIPMENT_TRACKING_ADDED',
+      entity: 'Shipment',
+      entityId: shipment.id,
+      before: { status: shipment.status },
+      after: { status: input.status },
+      ipAddress,
+    });
+    return this.adminDetail(order.id);
+  }
+
+  /**
+   * Lazily materializes the shipment row for pre-SS-241 orders (created
+   * before the eager shipment on placement). Post-SS-241 orders always
+   * have a row, so this is a no-op for them.
+   */
+  private async ensureShipment(
+    orderId: string,
+    method: string,
+  ): Promise<{ id: string; trackingNumber: string | null; status: ShipmentStatus; shippedAt: Date | null; deliveredAt: Date | null }> {
+    const existing = await this.prisma.shipment.findUnique({
+      where: { orderId },
+      select: {
+        id: true,
+        trackingNumber: true,
+        status: true,
+        shippedAt: true,
+        deliveredAt: true,
+      },
+    });
+    if (existing) {
+      return existing;
+    }
+    return this.prisma.shipment.create({
+      data: {
+        orderId,
+        method: SHIPPING_METHOD_CODES.includes(method as ShippingMethodCode)
+          ? method
+          : 'STORE_PICKUP',
+        status: ShipmentStatus.PENDING,
+      },
+      select: {
+        id: true,
+        trackingNumber: true,
+        status: true,
+        shippedAt: true,
+        deliveredAt: true,
+      },
+    });
+  }
+
+  /** Forward-only shipment moves plus CANCELLED; terminal states reject. */
+  private assertShipmentTransition(current: ShipmentStatus, next: ShipmentStatus): void {
+    const legal: Record<ShipmentStatus, ShipmentStatus[]> = {
+      [ShipmentStatus.PENDING]: [ShipmentStatus.PICKED_UP, ShipmentStatus.CANCELLED],
+      [ShipmentStatus.PICKED_UP]: [ShipmentStatus.IN_TRANSIT, ShipmentStatus.CANCELLED],
+      [ShipmentStatus.IN_TRANSIT]: [ShipmentStatus.OUT_FOR_DELIVERY, ShipmentStatus.CANCELLED],
+      [ShipmentStatus.OUT_FOR_DELIVERY]: [ShipmentStatus.DELIVERED, ShipmentStatus.CANCELLED],
+      [ShipmentStatus.DELIVERED]: [],
+      [ShipmentStatus.CANCELLED]: [],
+    };
+    if (!legal[current]?.includes(next)) {
+      throw new ConflictException(
+        `تغییر وضعیت ارسال از «${SHIPMENT_STATUS_FA[current]}» به «${SHIPMENT_STATUS_FA[next]}» مجاز نیست.`,
+      );
+    }
   }
 
   /**
@@ -1161,7 +1563,10 @@ export class CheckoutService {
     }
   }
 
-  private totalsFor(slices: AllocationSlice[]): {
+  private totalsFor(
+    slices: AllocationSlice[],
+    shippingFee: Prisma.Decimal = new Prisma.Decimal(0),
+  ): {
     subtotal: Prisma.Decimal;
     total: Prisma.Decimal;
   } {
@@ -1169,7 +1574,7 @@ export class CheckoutService {
     for (const slice of slices) {
       subtotal = subtotal.add(slice.unitPrice.mul(slice.quantity));
     }
-    return { subtotal, total: subtotal };
+    return { subtotal, total: subtotal.add(shippingFee) };
   }
 
   /** Global sequence draw (spec §7 unique + sequential); nextval is atomic. */
@@ -1215,6 +1620,7 @@ export class CheckoutService {
     paymentMethod: PaymentMethod;
     paymentStatus: 'PENDING' | 'PAID' | 'FAILED';
     subtotal: Prisma.Decimal;
+    shippingMethod: string;
     shippingFee: Prisma.Decimal;
     total: Prisma.Decimal;
     fullName: string;
@@ -1224,6 +1630,24 @@ export class CheckoutService {
     address: string;
     postalCode: string | null;
     createdAt: Date;
+    shipment: {
+      id: string;
+      orderId: string;
+      method: string;
+      trackingNumber: string | null;
+      status: ShipmentStatus;
+      shippedAt: Date | null;
+      deliveredAt: Date | null;
+      createdAt: Date;
+      updatedAt: Date;
+      events: Array<{
+        id: string;
+        status: ShipmentStatus;
+        location: string | null;
+        note: string | null;
+        createdAt: Date;
+      }>;
+    } | null;
     items: Array<{
       id: string;
       variantId: string;
@@ -1261,11 +1685,61 @@ export class CheckoutService {
       paymentMethod: order.paymentMethod as OrderDetailDto['paymentMethod'],
       paymentStatus: order.paymentStatus as OrderDetailDto['paymentStatus'],
       subtotal: order.subtotal.toString(),
+      shippingMethod: order.shippingMethod as OrderDetailDto['shippingMethod'],
       shippingFee: order.shippingFee.toString(),
       total: order.total.toString(),
+      shipment: order.shipment ? this.toShipmentDto(order.shipment) : null,
       addressSnapshot,
       items,
       createdAt: order.createdAt.toISOString(),
+    };
+  }
+
+  /** Maps a shipment row + its events to the SS-241 DTO (oldest event first). */
+  private toShipmentDto(shipment: {
+    id: string;
+    orderId: string;
+    method: string;
+    trackingNumber: string | null;
+    status: ShipmentStatus;
+    shippedAt: Date | null;
+    deliveredAt: Date | null;
+    createdAt: Date;
+    updatedAt: Date;
+    events: Array<{
+      id: string;
+      status: ShipmentStatus;
+      location: string | null;
+      note: string | null;
+      createdAt: Date;
+    }>;
+  }): ShipmentDto {
+    const method = shipment.method as ShipmentDto['method'];
+    const status = shipment.status as ShipmentDto['status'];
+    const events: TrackingEventDto[] = shipment.events.map((event) => {
+      const eventStatus = event.status as TrackingEventDto['status'];
+      return {
+        id: event.id,
+        status: eventStatus,
+        statusFa: SHIPMENT_STATUS_FA[eventStatus],
+        location: event.location,
+        note: event.note,
+        createdAt: event.createdAt.toISOString(),
+      };
+    });
+    return {
+      id: shipment.id,
+      orderId: shipment.orderId,
+      method,
+      methodFa: SHIPPING_METHOD_FA[method] ?? method,
+      trackingNumber: shipment.trackingNumber,
+      status,
+      statusFa: SHIPMENT_STATUS_FA[status],
+      shippedAt: shipment.shippedAt?.toISOString() ?? null,
+      deliveredAt: shipment.deliveredAt?.toISOString() ?? null,
+      createdAt: shipment.createdAt.toISOString(),
+      updatedAt: shipment.updatedAt.toISOString(),
+      events,
     };
   }
 }

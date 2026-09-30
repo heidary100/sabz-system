@@ -20,4 +20,15 @@ export class AcceptRfqDto {
     message: 'شیوه پرداخت معتبر نیست.',
   })
   paymentMethod!: PaymentMethod;
+
+  @ApiProperty({
+    enum: ['TIPAX', 'IRAN_POST', 'LOCAL_DELIVERY', 'STORE_PICKUP'],
+    example: 'TIPAX',
+    description:
+      'Shipping method (SS-241): fee is resolved server-side from env-driven flat rates; disabled methods 422.',
+  })
+  @IsEnum(['TIPAX', 'IRAN_POST', 'LOCAL_DELIVERY', 'STORE_PICKUP'], {
+    message: 'شیوه ارسال معتبر نیست.',
+  })
+  shippingMethod!: string;
 }

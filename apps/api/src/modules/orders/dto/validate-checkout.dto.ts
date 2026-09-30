@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsUUID } from 'class-validator';
+import { IsEnum, IsOptional, IsUUID } from 'class-validator';
 
 /**
  * Checkout-validation input (SS-233). Read-only preview (no side effects):
@@ -15,4 +15,15 @@ export class ValidateCheckoutDto {
   @IsOptional()
   @IsUUID('4', { message: 'addressId باید یک شناسه معتبر باشد.' })
   addressId?: string;
+
+  @ApiPropertyOptional({
+    enum: ['TIPAX', 'IRAN_POST', 'LOCAL_DELIVERY', 'STORE_PICKUP'],
+    description:
+      'Optional shipping method for the fee preview (SS-241); defaults to STORE_PICKUP (fee 0)',
+  })
+  @IsOptional()
+  @IsEnum(['TIPAX', 'IRAN_POST', 'LOCAL_DELIVERY', 'STORE_PICKUP'], {
+    message: 'شیوه ارسال معتبر نیست.',
+  })
+  shippingMethod?: string;
 }

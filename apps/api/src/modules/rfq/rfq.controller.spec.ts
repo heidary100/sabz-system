@@ -88,7 +88,7 @@ describe('RfqController', () => {
 
   it('accepts with the owner id, body, and ip', async () => {
     rfqService.accept.mockResolvedValue({ orderId: 'order-1' });
-    const dto = { addressId: id, paymentMethod: 'COD' } as const;
+    const dto = { addressId: id, paymentMethod: 'COD', shippingMethod: 'STORE_PICKUP' } as const;
 
     const result = await controller.accept(user, id, dto, '127.0.0.1');
 

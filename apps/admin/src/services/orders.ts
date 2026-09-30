@@ -1,8 +1,10 @@
 import type {
+  AddTrackingEventInput,
   AdminOrderDetailDto,
   AdminOrderListResponse,
   AdminOrderTransition,
   OrderStatus,
+  UpdateShipmentInput,
 } from '@sabz/types'
 import { request } from './api'
 
@@ -42,5 +44,25 @@ export function transitionOrder(
   return request<AdminOrderDetailDto>(`/admin/orders/${orderId}/status`, {
     method: 'PATCH',
     body: JSON.stringify({ status }),
+  })
+}
+
+export function updateShipment(
+  orderId: string,
+  input: UpdateShipmentInput,
+): Promise<AdminOrderDetailDto> {
+  return request<AdminOrderDetailDto>(`/admin/orders/${orderId}/shipment`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  })
+}
+
+export function addTrackingEvent(
+  orderId: string,
+  input: AddTrackingEventInput,
+): Promise<AdminOrderDetailDto> {
+  return request<AdminOrderDetailDto>(`/admin/orders/${orderId}/tracking-events`, {
+    method: 'POST',
+    body: JSON.stringify(input),
   })
 }

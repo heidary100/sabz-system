@@ -15,7 +15,7 @@ const CART_BASE = '/api/v1/cart';
 const ADDRESSES_BASE = '/api/v1/addresses';
 
 /** DTO key pins — any shape change must update these lists. */
-const SHIPPING_METHOD_KEYS = ['code', 'etaFa', 'fee', 'titleFa'];
+const SHIPPING_METHOD_KEYS = ['code', 'enabled', 'etaFa', 'fee', 'titleFa'];
 const PAYMENT_METHOD_KEYS = ['code', 'descFa', 'enabled', 'titleFa'];
 const CHECKOUT_SUMMARY_KEYS = ['items', 'problems', 'shippingFee', 'subtotal', 'total', 'valid'];
 const CHECKOUT_LINE_KEYS = [
@@ -49,11 +49,35 @@ const ORDER_DETAIL_KEYS = [
   'orderNumber',
   'paymentMethod',
   'paymentStatus',
+  'shipment',
   'shippingFee',
+  'shippingMethod',
   'status',
   'statusFa',
   'subtotal',
   'total',
+];
+const SHIPMENT_KEYS = [
+  'createdAt',
+  'deliveredAt',
+  'events',
+  'id',
+  'method',
+  'methodFa',
+  'orderId',
+  'shippedAt',
+  'status',
+  'statusFa',
+  'trackingNumber',
+  'updatedAt',
+];
+const TRACKING_EVENT_KEYS = [
+  'createdAt',
+  'id',
+  'location',
+  'note',
+  'status',
+  'statusFa',
 ];
 const ORDER_ITEM_KEYS = [
   'id',
@@ -272,7 +296,7 @@ describe('Orders + Checkout API (SS-233) (e2e)', () => {
     await request(app.getHttpServer()).post(`${CHECKOUT_BASE}/validate`).send({}).expect(401);
     await request(app.getHttpServer())
       .post(`${ORDERS_BASE}/checkout`)
-      .send({ addressId: id, paymentMethod: 'COD' })
+      .send({ addressId: id, paymentMethod: 'COD', shippingMethod: 'STORE_PICKUP' })
       .expect(401);
     await request(app.getHttpServer()).get(ORDERS_BASE).expect(401);
     await request(app.getHttpServer()).get(`${ORDERS_BASE}/${id}`).expect(401);
@@ -315,6 +339,120 @@ describe('Orders + Checkout API (SS-233) (e2e)', () => {
     ).toMatchObject({ enabled: true });
   });
 
+  it('prices env-driven shipping fees and persists the shipment (SS-241)', async () => {
+    const previousFee = process.env.SHIPPING_TIPAX_FEE;
+    const previousEnabled = process.env.SHIPPING_TIPAX_ENABLED;
+    process.env.SHIPPING_TIPAX_FEE = '250000';
+    delete process.env.SHIPPING_TIPAX_ENABLED;
+    try {
+      const operator = await createUserWithToken();
+      await prisma.role.findUniqueOrThrow({ where: { name: 'OPERATOR' } }).then((role) =>
+        prisma.userRole.create({
+          data: { userId: operator.userId, roleId: role.id, assignedBy: operator.userId },
+        }),
+      );
+      const customer = await createUserWithToken();
+      const { variantId } = await seedPublishedVariant(
+        operator.token,
+        `ارسال ${uniqueSuffix()}`,
+        10,
+      );
+      const addressId = await createAddress(customer.token);
+      await request(app.getHttpServer())
+        .post(`${CART_BASE}/items`)
+        .set('Authorization', `Bearer ${customer.token}`)
+        .send({ variantId, quantity: 2 })
+        .expect(201);
+
+      // The catalogue reflects the env fee with pinned keys.
+      const methods = await request(app.getHttpServer())
+        .get(`${CHECKOUT_BASE}/shipping-methods`)
+        .set('Authorization', `Bearer ${customer.token}`)
+        .expect(200);
+      expect(
+        methods.body.items.find((item: { code: string }) => item.code === 'TIPAX'),
+      ).toMatchObject({ fee: '250000', enabled: true });
+
+      // Missing shippingMethod is a 400 (fail-fast: the fee must be explicit).
+      await request(app.getHttpServer())
+        .post(`${ORDERS_BASE}/checkout`)
+        .set('Authorization', `Bearer ${customer.token}`)
+        .send({ addressId, paymentMethod: 'COD' })
+        .expect(400);
+
+      // Preview adds the fee on top of the subtotal.
+      const preview = await request(app.getHttpServer())
+        .post(`${CHECKOUT_BASE}/validate`)
+        .set('Authorization', `Bearer ${customer.token}`)
+        .send({ addressId, shippingMethod: 'TIPAX' })
+        .expect(200);
+      expect(preview.body).toMatchObject({
+        valid: true,
+        subtotal: '10000',
+        shippingFee: '250000',
+        total: '260000',
+      });
+
+      // Placement persists method + fee and creates the PENDING shipment.
+      const placed = await request(app.getHttpServer())
+        .post(`${ORDERS_BASE}/checkout`)
+        .set('Authorization', `Bearer ${customer.token}`)
+        .send({ addressId, paymentMethod: 'COD', shippingMethod: 'TIPAX' })
+        .expect(201);
+      expect(placed.body).toMatchObject({ status: 'PENDING', total: '260000' });
+
+      const detail = await request(app.getHttpServer())
+        .get(`${ORDERS_BASE}/${placed.body.orderId}`)
+        .set('Authorization', `Bearer ${customer.token}`)
+        .expect(200);
+      expect(Object.keys(detail.body).sort()).toEqual(ORDER_DETAIL_KEYS);
+      expect(detail.body).toMatchObject({
+        shippingMethod: 'TIPAX',
+        shippingFee: '250000',
+        total: '260000',
+      });
+      expect(Object.keys(detail.body.shipment).sort()).toEqual(SHIPMENT_KEYS);
+      expect(detail.body.shipment).toMatchObject({
+        orderId: placed.body.orderId,
+        method: 'TIPAX',
+        status: 'PENDING',
+        trackingNumber: null,
+        events: [],
+      });
+    } finally {
+      if (previousFee === undefined) {
+        delete process.env.SHIPPING_TIPAX_FEE;
+      } else {
+        process.env.SHIPPING_TIPAX_FEE = previousFee;
+      }
+      if (previousEnabled === undefined) {
+        delete process.env.SHIPPING_TIPAX_ENABLED;
+      } else {
+        process.env.SHIPPING_TIPAX_ENABLED = previousEnabled;
+      }
+    }
+  });
+
+  it('rejects disabled shipping methods with 422 (SS-241)', async () => {
+    const previousEnabled = process.env.SHIPPING_LOCAL_ENABLED;
+    process.env.SHIPPING_LOCAL_ENABLED = 'false';
+    try {
+      const customer = await createUserWithToken();
+      const addressId = await createAddress(customer.token);
+      await request(app.getHttpServer())
+        .post(`${CHECKOUT_BASE}/validate`)
+        .set('Authorization', `Bearer ${customer.token}`)
+        .send({ addressId, shippingMethod: 'LOCAL_DELIVERY' })
+        .expect(422);
+    } finally {
+      if (previousEnabled === undefined) {
+        delete process.env.SHIPPING_LOCAL_ENABLED;
+      } else {
+        process.env.SHIPPING_LOCAL_ENABLED = previousEnabled;
+      }
+    }
+  });
+
   it('rejects ONLINE checkout with 422 while the gateway is disabled (SS-234)', async () => {
     delete process.env.PAYMENTS_ONLINE_ENABLED;
     delete process.env.COD_ENABLED;
@@ -340,14 +478,14 @@ describe('Orders + Checkout API (SS-233) (e2e)', () => {
     await request(app.getHttpServer())
       .post(`${ORDERS_BASE}/checkout`)
       .set('Authorization', `Bearer ${customer.token}`)
-      .send({ addressId, paymentMethod: 'ONLINE' })
+      .send({ addressId, paymentMethod: 'ONLINE', shippingMethod: 'STORE_PICKUP' })
       .expect(422);
 
     // COD still succeeds for the same cart.
     await request(app.getHttpServer())
       .post(`${ORDERS_BASE}/checkout`)
       .set('Authorization', `Bearer ${customer.token}`)
-      .send({ addressId, paymentMethod: 'COD' })
+      .send({ addressId, paymentMethod: 'COD', shippingMethod: 'STORE_PICKUP' })
       .expect(201);
   });
 
@@ -392,7 +530,7 @@ describe('Orders + Checkout API (SS-233) (e2e)', () => {
     const placed = await request(app.getHttpServer())
       .post(`${ORDERS_BASE}/checkout`)
       .set('Authorization', `Bearer ${customer.token}`)
-      .send({ addressId, paymentMethod: 'COD' })
+      .send({ addressId, paymentMethod: 'COD', shippingMethod: 'STORE_PICKUP' })
       .expect(201);
     expect(Object.keys(placed.body).sort()).toEqual(PLACE_ORDER_KEYS);
     expect(placed.body).toMatchObject({ status: 'PENDING', total: '10000' });
@@ -460,7 +598,7 @@ describe('Orders + Checkout API (SS-233) (e2e)', () => {
     const second = await request(app.getHttpServer())
       .post(`${ORDERS_BASE}/checkout`)
       .set('Authorization', `Bearer ${customer.token}`)
-      .send({ addressId, paymentMethod: 'COD' })
+      .send({ addressId, paymentMethod: 'COD', shippingMethod: 'STORE_PICKUP' })
       .expect(201);
     expect(second.body.orderNumber).toBe(placed.body.orderNumber + 1);
 
@@ -517,7 +655,7 @@ describe('Orders + Checkout API (SS-233) (e2e)', () => {
     await request(app.getHttpServer())
       .post(`${ORDERS_BASE}/checkout`)
       .set('Authorization', `Bearer ${first.token}`)
-      .send({ addressId: firstAddress, paymentMethod: 'COD' })
+      .send({ addressId: firstAddress, paymentMethod: 'COD', shippingMethod: 'STORE_PICKUP' })
       .expect(201);
 
     // The loser previews the shortage, then fails with the available count.
@@ -539,7 +677,7 @@ describe('Orders + Checkout API (SS-233) (e2e)', () => {
     await request(app.getHttpServer())
       .post(`${ORDERS_BASE}/checkout`)
       .set('Authorization', `Bearer ${second.token}`)
-      .send({ addressId: secondAddress, paymentMethod: 'COD' })
+      .send({ addressId: secondAddress, paymentMethod: 'COD', shippingMethod: 'STORE_PICKUP' })
       .expect(409)
       .then((res) => expect(res.body.available).toBe(0));
   });
@@ -553,14 +691,14 @@ describe('Orders + Checkout API (SS-233) (e2e)', () => {
     await request(app.getHttpServer())
       .post(`${ORDERS_BASE}/checkout`)
       .set('Authorization', `Bearer ${other.token}`)
-      .send({ addressId: otherAddressId, paymentMethod: 'COD' })
+      .send({ addressId: otherAddressId, paymentMethod: 'COD', shippingMethod: 'STORE_PICKUP' })
       .expect(400);
 
     // Foreign address ids are non-disclosure 404s.
     await request(app.getHttpServer())
       .post(`${ORDERS_BASE}/checkout`)
       .set('Authorization', `Bearer ${other.token}`)
-      .send({ addressId, paymentMethod: 'COD' })
+      .send({ addressId, paymentMethod: 'COD', shippingMethod: 'STORE_PICKUP' })
       .expect(404);
 
     await request(app.getHttpServer())
@@ -600,7 +738,7 @@ describe('Orders + Checkout API (SS-233) (e2e)', () => {
     const placed = await request(app.getHttpServer())
       .post(`${ORDERS_BASE}/checkout`)
       .set('Authorization', `Bearer ${owner.token}`)
-      .send({ addressId, paymentMethod: 'COD' })
+      .send({ addressId, paymentMethod: 'COD', shippingMethod: 'STORE_PICKUP' })
       .expect(201);
 
     await request(app.getHttpServer())
@@ -676,7 +814,7 @@ describe('Orders + Checkout API (SS-233) (e2e)', () => {
     const placed = await request(app.getHttpServer())
       .post(`${ORDERS_BASE}/checkout`)
       .set('Authorization', `Bearer ${customer.token}`)
-      .send({ addressId, paymentMethod: 'COD' })
+      .send({ addressId, paymentMethod: 'COD', shippingMethod: 'STORE_PICKUP' })
       .expect(201);
     expect(Object.keys(placed.body).sort()).toEqual(PLACE_ORDER_KEYS);
     expect(placed.body.total).toBe('8000');

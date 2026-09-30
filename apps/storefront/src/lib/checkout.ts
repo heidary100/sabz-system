@@ -3,6 +3,7 @@ import type {
   PaymentMethod,
   PaymentMethodDto,
   PlaceOrderResult,
+  ShippingMethodCode,
   ShippingMethodDto,
 } from '@sabz/types';
 import { ApiError } from '@/lib/api';
@@ -12,7 +13,8 @@ import { authFetch } from '@/lib/auth-client';
  * Customer checkout client (SS-233): thin browser boundary over
  * `/checkout/*` and `POST /orders/checkout`. All calls go through
  * `authFetch`; responses are never cached. The client sends only
- * `addressId` + `paymentMethod` — never money (CART-004). Pure helpers
+ * `addressId` + `paymentMethod` + `shippingMethod` — never money
+ * (CART-004; SS-241 resolves the shipping fee server-side). Pure helpers
  * stay exported for vitest.
  */
 
@@ -101,7 +103,7 @@ async function authedJson(path: string, init: RequestInit, fallback: string): Pr
   return response;
 }
 
-/** Static v1 shipping choices (fees arrive with SS-241). */
+/** Env-driven shipping choices (SS-241): fees + availability from the server. */
 export async function fetchShippingMethods(): Promise<ShippingMethodDto[]> {
   const response = await authedJson('/checkout/shipping-methods', {}, CHOICE_FAILED);
   const body = (await response.json().catch(() => undefined)) as {
@@ -111,6 +113,25 @@ export async function fetchShippingMethods(): Promise<ShippingMethodDto[]> {
     throw new Error(CHOICE_FAILED);
   }
   return body.items as ShippingMethodDto[];
+}
+
+/**
+ * Whether a shipping method is selectable. Tolerates payloads from an
+ * older API without the SS-241 `enabled` flag (missing = enabled).
+ */
+export function isShippingEnabled(method: ShippingMethodDto): boolean {
+  if (typeof method.enabled === 'boolean') {
+    return method.enabled;
+  }
+  return true;
+}
+
+/**
+ * Default shipping selection: the first enabled method. Returns null when
+ * every method is disabled.
+ */
+export function defaultShippingMethod(methods: ShippingMethodDto[]): ShippingMethodCode | null {
+  return methods.find(isShippingEnabled)?.code ?? null;
 }
 
 /** Static v1 payment choices (SS-234 COD-only: ONLINE listed but disabled). */
@@ -151,13 +172,19 @@ export function defaultPaymentMethod(methods: PaymentMethodDto[]): PaymentMethod
 }
 
 /** Read-only checkout preview (no side effects) for the review step. */
-export async function validateCheckout(addressId?: string): Promise<CheckoutSummaryDto> {
+export async function validateCheckout(
+  addressId?: string,
+  shippingMethod?: ShippingMethodCode,
+): Promise<CheckoutSummaryDto> {
   const response = await authedJson(
     '/checkout/validate',
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(addressId === undefined ? {} : { addressId }),
+      body: JSON.stringify({
+        ...(addressId === undefined ? {} : { addressId }),
+        ...(shippingMethod === undefined ? {} : { shippingMethod }),
+      }),
     },
     VALIDATE_FAILED,
   );
@@ -168,13 +195,14 @@ export async function validateCheckout(addressId?: string): Promise<CheckoutSumm
 export async function placeOrder(
   addressId: string,
   paymentMethod: PaymentMethod,
+  shippingMethod: ShippingMethodCode,
 ): Promise<PlaceOrderResult> {
   const response = await authedJson(
     '/orders/checkout',
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ addressId, paymentMethod }),
+      body: JSON.stringify({ addressId, paymentMethod, shippingMethod }),
     },
     PLACE_FAILED,
   );
