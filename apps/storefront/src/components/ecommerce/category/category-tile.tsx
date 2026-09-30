@@ -28,10 +28,10 @@ export function CategoryTile({
         <Link
           href={`/categories/${category.slug}`}
           aria-label={`${category.name}، ${formatFaNumber(category.publishedProductCount)} کالا`}
-          className="flex h-full min-h-11 items-center justify-between gap-3 rounded-xl border border-sand-200 bg-white p-4 transition hover:border-sabz-300 hover:text-sabz-800"
+          className="group flex h-full min-h-11 items-center justify-between gap-3 rounded-xl border border-sand-200 bg-white p-4 transition-all duration-300 ease-[var(--ease-swift)] hover:-translate-y-0.5 hover:border-sabz-300 hover:shadow-card hover:text-sabz-800"
         >
           <span className="min-w-0">
-            <span className="block truncate text-sm font-bold text-ink-900">
+            <span className="block truncate text-sm font-bold text-ink-900 transition-colors group-hover:text-sabz-800">
               {category.name}
             </span>
             <span className="mt-0.5 block text-xs text-gray-500">
@@ -42,7 +42,7 @@ export function CategoryTile({
             viewBox="0 0 20 20"
             fill="currentColor"
             aria-hidden="true"
-            className="size-4 shrink-0 text-gray-400"
+            className="size-4 shrink-0 text-gray-400 transition-all duration-300 ease-[var(--ease-swift)] group-hover:-translate-x-1 group-hover:text-sabz-600"
           >
             <path
               fillRule="evenodd"
