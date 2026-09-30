@@ -114,10 +114,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Initial post-hydration load + guest→server merge. The merge runs once
-  // per authed session; it re-runs when the session flips (logout resets
-  // the guard) and on navigation (same-tab login lands on a new route,
-  // which is what flips a layout-level provider without a storage event).
+  // Initial post-hydration load + guest→server merge. The base load runs on
+  // every invocation (SS-246: under StrictMode the first invocation's
+  // cleanup previously cancelled its own refresh while the retry was gated
+  // off by the merge ref — leaving /cart and /checkout on skeletons
+  // forever); only the once-per-session merge is ref-gated, and its
+  // cancellation guards the merge notice, not the reload.
   useEffect(() => {
     if (!isCartAuthed()) {
       mergeAttempted.current = false;
@@ -127,29 +129,33 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       void refresh();
       return;
     }
-    if (mergeAttempted.current) {
-      return;
-    }
-    mergeAttempted.current = true;
     let cancelled = false;
-    mergeGuestCart()
-      .then((result) => {
-        if (cancelled) {
-          return;
-        }
-        if (result.merged > 0 || result.failed.length > 0) {
-          setLastMerge(result);
-        }
-      })
-      .catch(() => {
-        // Merge is best-effort: a failed replay keeps the guest cart intact
-        // (mergeGuestCart only drops replayed lines) for the next attempt.
-      })
-      .finally(() => {
-        if (!cancelled) {
-          void refresh();
-        }
-      });
+    void refresh();
+    if (!mergeAttempted.current) {
+      mergeAttempted.current = true;
+      mergeGuestCart()
+        .then((result) => {
+          if (cancelled) {
+            return;
+          }
+          if (result.merged > 0 || result.failed.length > 0) {
+            setLastMerge(result);
+          }
+        })
+        .catch(() => {
+          // Merge is best-effort: a failed replay keeps the guest cart
+          // intact (mergeGuestCart only drops replayed lines) for the next
+          // attempt.
+        })
+        .finally(() => {
+          // Refresh after the merge so replayed lines appear; safe even if
+          // the effect remounted (the provider lives at the root, and a
+          // stale refresh is an idempotent GET).
+          if (!cancelled) {
+            void refresh();
+          }
+        });
+    }
     return () => {
       cancelled = true;
     };
