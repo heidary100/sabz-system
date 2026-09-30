@@ -6,6 +6,8 @@ import {
 } from '@nestjs/common';
 import { BlogStatus, Prisma } from '@prisma/client';
 import type {
+  AdminBlogPostListItemDto,
+  AdminBlogPostListResponse,
   BlogCategoryDto,
   BlogPostCardDto,
   BlogPostDetailDto,
@@ -57,6 +59,11 @@ const POST_DETAIL_SELECT = {
   status: true,
 } as const;
 
+const POST_ADMIN_SELECT = {
+  ...POST_CARD_SELECT,
+  status: true,
+} as const;
+
 type CategoryRow = Prisma.BlogCategoryGetPayload<{
   select: typeof CATEGORY_SELECT;
 }>;
@@ -65,6 +72,9 @@ type PostCardRow = Prisma.BlogPostGetPayload<{
 }>;
 type PostDetailRow = Prisma.BlogPostGetPayload<{
   select: typeof POST_DETAIL_SELECT;
+}>;
+type PostAdminRow = Prisma.BlogPostGetPayload<{
+  select: typeof POST_ADMIN_SELECT;
 }>;
 
 /** Newest published first; deterministic tiebreak for pagination. */
@@ -138,6 +148,51 @@ export class BlogService {
   async getPostBySlug(slug: string): Promise<BlogPostDetailDto> {
     const row = await this.prisma.blogPost.findFirst({
       where: { slug, status: BlogStatus.PUBLISHED },
+      select: POST_DETAIL_SELECT,
+    });
+    if (!row) {
+      throw new NotFoundException('مطلب وبلاگ یافت نشد.');
+    }
+    return toDetailDto(row);
+  }
+
+  /**
+   * Admin queue list (SS-240E). Unscoped across DRAFT/PUBLISHED, newest
+   * first; read-only, no audit. Bodies stay out of the rows — the editor
+   * fetches the detail route.
+   */
+  async listForAdmin(query: {
+    status?: BlogStatus;
+    page?: number;
+    limit?: number;
+  }): Promise<AdminBlogPostListResponse> {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const where: Prisma.BlogPostWhereInput = {
+      ...(query.status ? { status: query.status } : {}),
+    };
+    const [total, rows] = await this.prisma.$transaction([
+      this.prisma.blogPost.count({ where }),
+      this.prisma.blogPost.findMany({
+        where,
+        select: POST_ADMIN_SELECT,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+    ]);
+    return {
+      items: rows.map(toAdminItemDto),
+      total,
+      page,
+      limit,
+    };
+  }
+
+  /** Admin post detail by id (any status — drafts stay editable). */
+  async getPostByIdForAdmin(id: string): Promise<BlogPostDetailDto> {
+    const row = await this.prisma.blogPost.findUnique({
+      where: { id },
       select: POST_DETAIL_SELECT,
     });
     if (!row) {
@@ -538,6 +593,14 @@ function toDetailDto(row: PostDetailRow): BlogPostDetailDto {
     content: row.content,
     metaTitle: row.metaTitle,
     metaDescription: row.metaDescription,
+    status: row.status,
+    statusFa: BLOG_STATUS_FA[row.status],
+  };
+}
+
+function toAdminItemDto(row: PostAdminRow): AdminBlogPostListItemDto {
+  return {
+    ...toCardDto(row),
     status: row.status,
     statusFa: BLOG_STATUS_FA[row.status],
   };

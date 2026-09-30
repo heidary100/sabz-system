@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AuditModule } from '../audit/audit.module';
 import { AuthModule } from '../auth/auth.module';
+import { AdminBlogController } from './admin-blog.controller';
 import { BlogController } from './blog.controller';
 import { BlogService } from './blog.service';
 
@@ -13,7 +14,7 @@ import { BlogService } from './blog.service';
  */
 @Module({
   imports: [AuthModule, AuditModule],
-  controllers: [BlogController],
+  controllers: [AdminBlogController, BlogController],
   providers: [BlogService],
   exports: [BlogService],
 })
