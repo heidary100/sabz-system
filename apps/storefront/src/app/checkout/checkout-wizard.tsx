@@ -161,7 +161,7 @@ export function CheckoutWizard({ stepParam }: { stepParam: unknown }) {
   if (status === 'login') {
     return (
       <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
-        <h1 className="text-2xl font-bold tracking-tight text-ink-900">تسویه حساب</h1>
+        <h1 className="text-balance text-2xl font-extrabold text-ink-900">تسویه حساب</h1>
         <Card className="mt-8 p-6 text-center">
           <p className="text-sm leading-6 text-gray-600">
             برای ادامه تسویه وارد شوید؛ سبد مهمان پس از ورود به حساب شما منتقل می‌شود.
@@ -177,7 +177,7 @@ export function CheckoutWizard({ stepParam }: { stepParam: unknown }) {
   if (status === 'error') {
     return (
       <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
-        <h1 className="text-2xl font-bold tracking-tight text-ink-900">تسویه حساب</h1>
+        <h1 className="text-balance text-2xl font-extrabold text-ink-900">تسویه حساب</h1>
         <p role="alert" className="mt-6 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
           {error ?? LOAD_FAILED}
         </p>
@@ -197,7 +197,7 @@ export function CheckoutWizard({ stepParam }: { stepParam: unknown }) {
   if (items.length === 0) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
-        <h1 className="text-2xl font-bold tracking-tight text-ink-900">تسویه حساب</h1>
+        <h1 className="text-balance text-2xl font-extrabold text-ink-900">تسویه حساب</h1>
         <Card className="mt-8 p-6 text-center">
           <p className="text-sm leading-6 text-gray-600">
             سبد خرید شما خالی است؛ ابتدا محصولات را به سبد اضافه کنید.
@@ -248,13 +248,16 @@ export function CheckoutWizard({ stepParam }: { stepParam: unknown }) {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-      <h1 className="text-2xl font-bold tracking-tight text-ink-900">تسویه حساب</h1>
+      <h1 className="text-balance text-2xl font-extrabold text-ink-900">تسویه حساب</h1>
       <div className="mt-4">
         <CheckoutSteps current={visibleStep} reachable={reachable} />
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_22rem]">
-        <div>
+        {/* Step transitions (SS-246): the step column keys on the visible
+            step, so each stage enters with the shared fade-up entrance;
+            reduced-motion collapses it to instant. */}
+        <div key={visibleStep} className="animate-fade-up">
           {visibleStep === 'cart' ? (
             <Card className="p-6">
               <SectionHeader id="checkout-cart" title="بررسی سبد" subtitle={`${items.length} قلم در سبد شماست`} />
@@ -292,6 +295,8 @@ export function CheckoutWizard({ stepParam }: { stepParam: unknown }) {
           ) : null}
 
           {visibleStep === 'address' ? (
+          /* Step transitions (SS-246): each step remounts with the shared
+             fade-up entrance; reduced-motion collapses it to instant. */
             <Card className="p-6">
               <SectionHeader id="checkout-address" title="نشانی تحویل" subtitle="نشانی انتخابی در سفارش ثبت می‌شود" />
               <div className="mt-4">

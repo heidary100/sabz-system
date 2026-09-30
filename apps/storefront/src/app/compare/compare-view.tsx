@@ -70,7 +70,7 @@ export function CompareView({ urlSlugs, urlEntries, products }: CompareViewProps
     const staleLink = urlSlugs.length > 0;
     return (
       <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
-        <h1 className="text-2xl font-bold tracking-tight text-ink-900">
+        <h1 className="text-balance text-2xl font-extrabold text-ink-900">
           مقایسه محصولات
         </h1>
         <div className="mt-8 rounded-2xl border border-sand-200 bg-white">
@@ -122,7 +122,7 @@ export function CompareView({ urlSlugs, urlEntries, products }: CompareViewProps
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-      <h1 className="text-2xl font-bold tracking-tight text-ink-900">
+      <h1 className="text-balance text-2xl font-extrabold text-ink-900">
         مقایسه محصولات
       </h1>
       <p className="mt-1 text-sm text-gray-500">

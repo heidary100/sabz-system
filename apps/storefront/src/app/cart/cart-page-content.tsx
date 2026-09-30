@@ -59,7 +59,7 @@ export function CartPageContent() {
   if (!authed) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
-        <h1 className="text-2xl font-bold tracking-tight text-ink-900">سبد خرید</h1>
+        <h1 className="text-balance text-2xl font-extrabold text-ink-900">سبد خرید</h1>
         <div className="mt-8 rounded-2xl border border-sand-200 bg-white">
           <div className="flex flex-col items-center px-6 py-16 text-center">
             <span className="flex size-14 items-center justify-center rounded-full bg-sabz-50 text-sabz-600">
@@ -99,7 +99,7 @@ export function CartPageContent() {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-      <h1 className="text-2xl font-bold tracking-tight text-ink-900">سبد خرید</h1>
+      <h1 className="text-balance text-2xl font-extrabold text-ink-900">سبد خرید</h1>
       <p className="mt-1 text-sm text-gray-500">
         {formatFaNumber(totalQuantity)} قلم
       </p>
@@ -289,7 +289,7 @@ function CartLineRow({
 function CartEmptyState() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
-      <h1 className="text-2xl font-bold tracking-tight text-ink-900">سبد خرید</h1>
+      <h1 className="text-balance text-2xl font-extrabold text-ink-900">سبد خرید</h1>
 
       <div className="mt-8 rounded-2xl border border-sand-200 bg-white">
         <div className="flex flex-col items-center px-6 py-16 text-center">
@@ -303,7 +303,7 @@ function CartEmptyState() {
           </p>
           <Link
             href="/products"
-            className="mt-8 inline-flex items-center justify-center rounded-md bg-sabz-700 px-6 py-2.5 text-sm font-semibold text-white hover:bg-sabz-800"
+            className="mt-8 inline-flex items-center justify-center rounded-md bg-gradient-sabz px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:brightness-110"
           >
             رفتن به فروشگاه
             <span aria-hidden="true" className="ms-2">
