@@ -127,6 +127,8 @@ export interface OrderAddressSnapshot {
 }
 
 export interface OrderItemDto {
+  /** Order-line id (SS-242: referenced by return-request items). */
+  id: string;
   variantId: string;
   productName: string;
   variantName: string | null;

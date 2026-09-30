@@ -46,6 +46,7 @@ const ADMIN_ORDER_DETAIL_KEYS = [
   'userId',
 ];
 const ADMIN_ORDER_ITEM_KEYS = [
+  'id',
   'lineTotal',
   'productName',
   'quantity',

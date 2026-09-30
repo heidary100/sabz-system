@@ -56,6 +56,7 @@ const ORDER_DETAIL_KEYS = [
   'total',
 ];
 const ORDER_ITEM_KEYS = [
+  'id',
   'lineTotal',
   'productName',
   'quantity',
