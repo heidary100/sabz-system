@@ -7,13 +7,15 @@ import type { CatalogCategoryNode } from '@sabz/types';
 import { formatFaNumber } from '@/lib/format';
 import { navRoots } from '@/lib/nav';
 import { BrandLockup } from '@/components/ecommerce/brand/brand-lockup';
+import { useTransitionMount } from '@/components/ecommerce/ui/use-transition-mount';
 
 /**
- * Mobile drawer (SS-124, SS-211). A real dialog: `role="dialog"` + `aria-modal`,
- * standard width, Escape closes, body scroll locks while open, focus moves in
- * on open (and back to the trigger on close) with a lightweight Tab trap. The
- * overlay is a plain click-catching div, not a full-screen button.
- * RTL-correct: the panel slides in from the right.
+ * Mobile drawer (SS-124, SS-211, animated SS-246). A real dialog:
+ * `role="dialog"` + `aria-modal`, standard width, Escape closes, body scroll
+ * locks while open, focus moves in on open (and back to the trigger on
+ * close) with a lightweight Tab trap. The overlay is a plain click-catching
+ * div, not a full-screen button. RTL-correct: the panel slides in from the
+ * start (right) side, out through the same choreography as the mini-cart.
  */
 export function MobileMenu({ categories }: { categories: CatalogCategoryNode[] }) {
   const [open, setOpen] = useState(false);
@@ -21,6 +23,7 @@ export function MobileMenu({ categories }: { categories: CatalogCategoryNode[] }
   const closeRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const roots = navRoots(categories);
+  const [shouldRender, animState] = useTransitionMount(open);
 
   const close = useCallback((returnFocus = true) => {
     setOpen(false);
@@ -82,11 +85,19 @@ export function MobileMenu({ categories }: { categories: CatalogCategoryNode[] }
         </svg>
       </button>
 
-      {open ? (
+      {shouldRender ? (
         createPortal(
           <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="منوی فروشگاه" className="fixed inset-0 z-50">
-          <div aria-hidden="true" onClick={() => close(false)} className="fixed inset-0 bg-ink-900/40" />
-          <div className="fixed inset-y-0 start-0 flex w-80 max-w-[85vw] flex-col overflow-hidden rounded-e-2xl bg-white shadow-2xl">
+          <div
+            aria-hidden="true"
+            onClick={() => close(false)}
+            data-state={animState}
+            className="drawer-backdrop fixed inset-0 bg-ink-900/40 backdrop-blur-[2px]"
+          />
+          <div
+            data-state={animState}
+            className="drawer-panel fixed inset-y-0 start-0 flex w-80 max-w-[85vw] flex-col overflow-hidden rounded-e-2xl bg-white shadow-overlay"
+          >
             <div className="flex items-center justify-between border-b border-sand-100 bg-sand-50 px-4 py-3">
               <BrandLockup />
               <button

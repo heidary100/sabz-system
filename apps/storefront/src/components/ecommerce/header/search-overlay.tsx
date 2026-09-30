@@ -110,9 +110,10 @@ export function SearchOverlay({ categories }: { categories: CatalogCategoryNode[
               <div
                 aria-hidden="true"
                 onClick={() => close(false)}
-                className="fixed inset-0 bg-ink-950/60 backdrop-blur-sm"
+                className="drawer-backdrop fixed inset-0 bg-ink-950/60 backdrop-blur-sm"
+                data-state={open ? 'open' : 'closed'}
               />
-              <div className="relative mx-auto mt-24 w-[min(40rem,calc(100vw-2rem))] rounded-2xl border border-sand-200 bg-white p-6 shadow-overlay">
+              <div className="animate-zoom-in relative mx-auto mt-24 w-[min(40rem,calc(100vw-2rem))] origin-top rounded-2xl border border-sand-200 bg-white p-6 shadow-overlay">
                 <button
                   ref={closeRef}
                   type="button"

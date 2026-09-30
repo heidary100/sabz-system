@@ -22,7 +22,7 @@ import { WishlistHeaderIcon } from './wishlist-header-icon';
  */
 export function SiteHeader({ categories }: { categories: CatalogCategoryNode[] }) {
   return (
-    <header className="sticky top-0 z-40 border-b border-sand-200 bg-white/85 backdrop-blur-md">
+    <header className="site-header sticky top-0 z-40 border-b border-sand-200 bg-white/85 backdrop-blur-md">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center gap-2 sm:gap-4">
           <MobileMenu categories={categories} />
@@ -38,7 +38,7 @@ export function SiteHeader({ categories }: { categories: CatalogCategoryNode[] }
           <div className="flex flex-1 items-center justify-end gap-1 lg:flex-none">
             <Link
               href="/account"
-              className="flex min-h-11 min-w-11 items-center justify-center rounded-md p-2 text-gray-600 hover:bg-sabz-50 hover:text-sabz-700"
+              className="flex min-h-11 min-w-11 items-center justify-center rounded-xl p-2 text-gray-600 transition-colors duration-200 hover:bg-sabz-50 hover:text-sabz-700"
             >
               <span className="sr-only">حساب کاربری</span>
               <svg viewBox="0 0 24 24" fill="none" strokeWidth={1.5} stroke="currentColor" aria-hidden="true" className="size-6">

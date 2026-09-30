@@ -76,7 +76,7 @@ function SearchForm({
         جستجوی محصولات
       </label>
       <div className="relative w-full">
-        <div className="pointer-events-none absolute inset-y-0 start-0 flex items-center ps-3 text-sabz-500">
+        <div className="pointer-events-none absolute inset-y-0 start-0 flex items-center ps-4 text-sabz-500">
           <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="size-5">
             <path
               fillRule="evenodd"
@@ -92,7 +92,7 @@ function SearchForm({
           value={value}
           onChange={(event) => setValue(event.target.value)}
           placeholder="جستجو در محصولات…"
-          className={`w-full rounded-md border-0 bg-sand-100 ps-10 pe-10 text-sm text-ink-900 ring-1 ring-inset ring-sand-200 placeholder:text-gray-600 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sabz-600 ${
+          className={`w-full rounded-full border-0 bg-sand-100 ps-11 pe-11 text-sm text-ink-900 shadow-inner shadow-sand-200/50 ring-1 ring-inset ring-sand-200 transition-shadow placeholder:text-gray-600 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sabz-600 ${
             compact ? 'py-1.5' : 'py-2.5'
           }`}
         />
@@ -112,12 +112,28 @@ function SearchForm({
           </button>
         ) : null}
       </div>
-      <button
-        type="submit"
-        className={`${buttonVariants()} shrink-0`}
-      >
-        جستجو
-      </button>
+      {/* Compact (desktop overlay) keeps the text label; the header row uses
+          the icon pill so the field reads as one calm unit (SS-246). */}
+      {compact ? (
+        <button type="submit" className={`${buttonVariants()} shrink-0`}>
+          جستجو
+        </button>
+      ) : (
+        <button
+          type="submit"
+          aria-label="جستجو"
+          className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full bg-gradient-sabz text-white shadow-sm transition duration-200 ease-[var(--ease-swift)] hover:brightness-110 active:scale-95"
+        >
+          <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="size-5">
+            <path
+              fillRule="evenodd"
+              d="M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM2 9a7 7 0 1 1 12.452 4.391l3.328 3.329a.75.75 0 1 1-1.06 1.06l-3.329-3.328A7 7 0 0 1 2 9Z"
+              clipRule="evenodd"
+            />
+          </svg>
+          <span className="sr-only">جستجو</span>
+        </button>
+      )}
     </form>
   );
 }

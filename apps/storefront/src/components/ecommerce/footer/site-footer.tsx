@@ -10,11 +10,10 @@ import { contactChannels, filterValidFooterLinks, siteConfig } from '@/lib/site'
 
 /**
  * Storefront footer (SS-124, SS-215, upgraded SS-224 with the verified
- * company facts from sabzsistem.com). Config-driven and honest: brand +
- * curated navigation always; contact, social, and legal groups render only
- * from verified values. Placeholder routes (`/cart`, `/account`, `/about`,
- * `/contact`, `/terms`) are never advertised — those pages stay reachable by
- * URL for their milestone owners, but the footer links only to real customer
+ * company facts from sabzsistem.com; cinematic dark treatment SS-246).
+ * Config-driven and honest: brand + curated navigation always; contact,
+ * social, and legal groups render only from verified values. Placeholder
+ * routes are never advertised — the footer links only to real customer
  * functionality.
  */
 export function SiteFooter({ categories }: { categories: CatalogCategoryNode[] }) {
@@ -33,27 +32,47 @@ export function SiteFooter({ categories }: { categories: CatalogCategoryNode[] }
     siteConfig.hours !== null ||
     siteConfig.email !== null;
 
+  const shopLinks: Array<{ href: string; label: string; external?: boolean }> = [
+    { href: '/products', label: 'همه محصولات' },
+    { href: '/categories', label: 'همه دسته‌بندی‌ها' },
+    { href: '/blog', label: 'وبلاگ' },
+    { href: '/about', label: 'درباره ما' },
+    { href: '/contact', label: 'تماس با ما' },
+    ...legalLinks.map((link) => ({ href: link.href, label: link.label, external: link.external })),
+  ];
+
   return (
-    <footer className="mt-16 border-t border-sand-200 bg-sand-50">
-      <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-4">
-          <div>
-            <BrandLockup wordmarkClassName="text-base font-bold text-sabz-800" />
+    <footer className="relative mt-16 overflow-hidden bg-ink-950 text-gray-300">
+      {/* Cinematic stage (SS-246): brand-green glows anchor the footer to the
+          hero's visual language. Decorative, aria-hidden. */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -top-24 start-1/4 size-96 rounded-full bg-sabz-700/20 blur-3xl"
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -bottom-32 end-0 size-80 rounded-full bg-sabz-800/25 blur-3xl"
+      />
+
+      <div className="relative mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 gap-12 sm:grid-cols-2 lg:grid-cols-12">
+          <div className="lg:col-span-4">
+            <BrandLockup wordmarkClassName="text-lg font-bold text-white" />
             {siteConfig.blurb ? (
-              <p className="mt-3 text-sm leading-6 text-gray-600">
+              <p className="mt-4 max-w-sm text-sm leading-7 text-gray-400">
                 {siteConfig.blurb}
               </p>
             ) : null}
             {socials.length > 0 ? (
-              <nav aria-label="شبکه‌های اجتماعی" className="mt-4">
-                <ul role="list" className="flex flex-wrap gap-x-4 gap-y-2">
+              <nav aria-label="شبکه‌های اجتماعی" className="mt-5">
+                <ul role="list" className="flex flex-wrap gap-2">
                   {socials.map((social) => (
                     <li key={social.href}>
                       <a
                         href={social.href}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="rounded-sm text-sm text-gray-600 underline-offset-4 hover:text-sabz-700 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700"
+                        className="inline-flex min-h-9 items-center rounded-full bg-white/5 px-3.5 text-xs font-medium text-gray-300 ring-1 ring-inset ring-white/10 transition-all duration-200 hover:bg-sabz-700 hover:text-white hover:ring-sabz-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-400"
                       >
                         {social.label}
                         <span className="sr-only"> (باز شدن در پنجره جدید)</span>
@@ -65,15 +84,19 @@ export function SiteFooter({ categories }: { categories: CatalogCategoryNode[] }
             ) : null}
           </div>
 
-          <nav aria-label="دسته‌بندی‌های فروشگاه">
-            <p className="text-sm font-semibold text-ink-900">دسته‌بندی‌ها</p>
-            <ul role="list" className="mt-4 space-y-2.5">
+          <nav aria-label="دسته‌بندی‌های فروشگاه" className="lg:col-span-3">
+            <p className="text-sm font-bold text-white">دسته‌بندی‌ها</p>
+            <ul role="list" className="mt-5 space-y-3">
               {featuredCategories.map((category) => (
                 <li key={category.id}>
                   <Link
                     href={`/categories/${category.slug}`}
-                    className="rounded-sm text-sm text-gray-600 hover:text-sabz-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700"
+                    className="group inline-flex items-center gap-2 text-sm text-gray-400 transition-colors hover:text-sabz-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-400"
                   >
+                    <span
+                      aria-hidden="true"
+                      className="h-px w-0 bg-sabz-400 transition-all duration-300 ease-[var(--ease-swift)] group-hover:w-3"
+                    />
                     {category.name}
                   </Link>
                 </li>
@@ -81,51 +104,48 @@ export function SiteFooter({ categories }: { categories: CatalogCategoryNode[] }
               <li>
                 <Link
                   href="/categories"
-                  className="rounded-sm text-sm font-medium text-sabz-700 hover:text-sabz-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700"
+                  className="text-sm font-medium text-sabz-300 hover:text-sabz-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-400"
                 >
-                  همه دسته‌بندی‌ها
+                  همه دسته‌بندی‌ها ←
                 </Link>
               </li>
             </ul>
           </nav>
 
-          <nav aria-label="فروشگاه">
-            <p className="text-sm font-semibold text-ink-900">فروشگاه</p>
-            <ul role="list" className="mt-4 space-y-2.5">
-              <li>
-                <Link href="/products" className="rounded-sm text-sm text-gray-600 hover:text-sabz-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700">
-                  همه محصولات
-                </Link>
-              </li>
-              <li>
-                <Link href="/categories" className="rounded-sm text-sm text-gray-600 hover:text-sabz-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700">
-                  همه دسته‌بندی‌ها
-                </Link>
-              </li>
-              <li>
-                <Link href="/about" className="rounded-sm text-sm text-gray-600 hover:text-sabz-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700">
-                  درباره ما
-                </Link>
-              </li>
-              <li>
-                <Link href="/blog" className="rounded-sm text-sm text-gray-600 hover:text-sabz-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700">
-                  وبلاگ
-                </Link>
-              </li>
-              <li>
-                <Link href="/contact" className="rounded-sm text-sm text-gray-600 hover:text-sabz-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700">
-                  تماس با ما
-                </Link>
-              </li>
+          <nav aria-label="فروشگاه" className="lg:col-span-2">
+            <p className="text-sm font-bold text-white">فروشگاه</p>
+            <ul role="list" className="mt-5 space-y-3">
+              {shopLinks.map((link) => (
+                <li key={link.href}>
+                  {link.external ? (
+                    <a
+                      href={link.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-gray-400 transition-colors hover:text-sabz-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-400"
+                    >
+                      {link.label}
+                      <span className="sr-only"> (باز شدن در پنجره جدید)</span>
+                    </a>
+                  ) : (
+                    <Link
+                      href={link.href}
+                      className="text-sm text-gray-400 transition-colors hover:text-sabz-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-400"
+                    >
+                      {link.label}
+                    </Link>
+                  )}
+                </li>
+              ))}
             </ul>
           </nav>
 
           {hasContact ? (
-            <div>
-              <p className="text-sm font-semibold text-ink-900">تماس</p>
-              <ul role="list" className="mt-4 space-y-2.5 text-sm text-gray-600">
+            <div className="lg:col-span-3">
+              <p className="text-sm font-bold text-white">تماس با ما</p>
+              <ul role="list" className="mt-5 space-y-3 text-sm text-gray-400">
                 {siteConfig.address ? (
-                  <li className="leading-6">
+                  <li className="leading-7">
                     {siteConfig.address}
                     {contactChannels.postalCode ? (
                       <span className="mt-0.5 block text-xs text-gray-500">
@@ -139,21 +159,21 @@ export function SiteFooter({ categories }: { categories: CatalogCategoryNode[] }
                     <a
                       href={`tel:${phone.tel}`}
                       dir="ltr"
-                      className="inline-block rounded-sm hover:text-sabz-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700"
+                      className="inline-block rounded-sm transition-colors hover:text-sabz-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-400"
                     >
                       {phone.display}
                     </a>
                   </li>
                 ))}
                 {siteConfig.hours ? (
-                  <li className="leading-6">{siteConfig.hours}</li>
+                  <li className="leading-7">{siteConfig.hours}</li>
                 ) : null}
                 {siteConfig.email ? (
                   <li>
                     <a
                       href={`mailto:${siteConfig.email}`}
                       dir="ltr"
-                      className="rounded-sm break-all hover:text-sabz-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700"
+                      className="rounded-sm break-all transition-colors hover:text-sabz-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-400"
                     >
                       {siteConfig.email}
                     </a>
@@ -162,45 +182,14 @@ export function SiteFooter({ categories }: { categories: CatalogCategoryNode[] }
               </ul>
             </div>
           ) : null}
-
-          {legalLinks.length > 0 ? (
-            <nav aria-label="اطلاعات حقوقی">
-              <p className="text-sm font-semibold text-ink-900">اطلاعات</p>
-              <ul role="list" className="mt-4 space-y-2.5">
-                {legalLinks.map((link) =>
-                  link.external ? (
-                    <li key={link.href}>
-                      <a
-                        href={link.href}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="rounded-sm text-sm text-gray-600 hover:text-sabz-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700"
-                      >
-                        {link.label}
-                        <span className="sr-only"> (باز شدن در پنجره جدید)</span>
-                      </a>
-                    </li>
-                  ) : (
-                    <li key={link.href}>
-                      <Link
-                        href={link.href}
-                        className="rounded-sm text-sm text-gray-600 hover:text-sabz-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700"
-                      >
-                        {link.label}
-                      </Link>
-                    </li>
-                  ),
-                )}
-              </ul>
-            </nav>
-          ) : null}
         </div>
 
-        <div className="mt-12 border-t border-sand-200 pt-6">
-          <p className="text-center text-xs leading-5 text-gray-500">
+        <div className="mt-14 flex flex-col items-center justify-between gap-3 border-t border-white/10 pt-6 sm:flex-row">
+          <p className="text-xs leading-5 text-gray-500">
             © {formatFaNumber(new Date().getFullYear())} {brand.nameFa} — تمامی
             حقوق محفوظ است.
           </p>
+          <p className="text-xs text-gray-600">{brand.nameEn}</p>
         </div>
       </div>
       <ScrollTopButton />
