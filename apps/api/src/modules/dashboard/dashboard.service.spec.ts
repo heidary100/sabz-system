@@ -1,4 +1,4 @@
-import { PartnerApprovalStatus, UserStatus } from '@prisma/client';
+import { OrderStatus, PartnerApprovalStatus, UserStatus } from '@prisma/client';
 import { PrismaService } from '../../common/database/prisma.service';
 import { DashboardService } from './dashboard.service';
 
@@ -10,7 +10,16 @@ describe('DashboardService (SS-065)', () => {
     role: { findMany: jest.Mock };
     partner: { groupBy: jest.Mock; findMany: jest.Mock };
     auditLog: { findMany: jest.Mock };
+    order: { groupBy: jest.Mock; aggregate: jest.Mock; findMany: jest.Mock };
+    rfq: { count: jest.Mock };
+    review: { count: jest.Mock };
+    blogPost: { count: jest.Mock };
   };
+
+  /** Empty commerce tail for the 12-statement dashboard transaction. */
+  function emptyCommerce() {
+    return [[], [], { _sum: { total: null } }, 0, 0, 0, []];
+  }
 
   function userGroup(status: UserStatus, count: number) {
     return { status, _count: { _all: count } };
@@ -56,12 +65,16 @@ describe('DashboardService (SS-065)', () => {
       role: { findMany: jest.fn() },
       partner: { groupBy: jest.fn(), findMany: jest.fn() },
       auditLog: { findMany: jest.fn() },
+      order: { groupBy: jest.fn(), aggregate: jest.fn(), findMany: jest.fn() },
+      rfq: { count: jest.fn() },
+      review: { count: jest.fn() },
+      blogPost: { count: jest.fn() },
     };
     service = new DashboardService(prisma as unknown as PrismaService);
   });
 
   it('returns zeroed counts and empty lists for an empty dataset', async () => {
-    prisma.$transaction.mockResolvedValue([[], [], [], [], []]);
+    prisma.$transaction.mockResolvedValue([[], [], [], [], [], ...emptyCommerce()]);
     prisma.user.findMany.mockResolvedValue([]);
 
     const result = await service.getSummary();
@@ -85,6 +98,23 @@ describe('DashboardService (SS-065)', () => {
       approved: 0,
       rejected: 0,
     });
+    expect(result.commerce).toEqual({
+      ordersByStatus: {
+        pending: 0,
+        processing: 0,
+        shipped: 0,
+        delivered: 0,
+        cancelled: 0,
+      },
+      totalOrders: 0,
+      paidRevenueRial: '0',
+      payments: { cod: 0, online: 0, codSharePct: 0 },
+      pendingRfqs: 0,
+      pendingReviews: 0,
+      draftPosts: 0,
+      ordersByDay: expect.any(Array),
+    });
+    expect(result.commerce.ordersByDay).toHaveLength(14);
     expect(result.recentPartners).toEqual([]);
     expect(result.recentAudit).toEqual([]);
   });
@@ -431,5 +461,113 @@ describe('DashboardService (SS-065)', () => {
     expect(serialized).not.toContain('before');
     expect(serialized).not.toContain('after');
     expect(serialized).not.toContain('ipAddress');
+  });
+
+  it('maps order status and payment groups with PAID revenue and queue counts', async () => {
+    prisma.$transaction.mockResolvedValue([
+      [],
+      [],
+      [],
+      [],
+      [],
+      [
+        { status: OrderStatus.PENDING, _count: { _all: 2 } },
+        { status: OrderStatus.DELIVERED, _count: { _all: 3 } },
+        { status: OrderStatus.CANCELLED, _count: { _all: 1 } },
+      ],
+      [
+        { paymentMethod: 'COD', _count: { _all: 4 } },
+        { paymentMethod: 'ONLINE', _count: { _all: 2 } },
+      ],
+      { _sum: { total: { toString: () => '1500000' } } },
+      5,
+      7,
+      2,
+      [],
+    ]);
+    prisma.user.findMany.mockResolvedValue([]);
+
+    const result = await service.getSummary();
+
+    expect(result.commerce.ordersByStatus).toEqual({
+      pending: 2,
+      processing: 0,
+      shipped: 0,
+      delivered: 3,
+      cancelled: 1,
+    });
+    expect(result.commerce.totalOrders).toBe(6);
+    expect(result.commerce.paidRevenueRial).toBe('1500000');
+    expect(result.commerce.payments).toEqual({
+      cod: 4,
+      online: 2,
+      codSharePct: 67,
+    });
+    expect(result.commerce.pendingRfqs).toBe(5);
+    expect(result.commerce.pendingReviews).toBe(7);
+    expect(result.commerce.draftPosts).toBe(2);
+  });
+
+  it('serializes a null PAID sum as zero revenue', async () => {
+    prisma.$transaction.mockResolvedValue([
+      [],
+      [],
+      [],
+      [],
+      [],
+      [],
+      [],
+      { _sum: { total: null } },
+      0,
+      0,
+      0,
+      [],
+    ]);
+    prisma.user.findMany.mockResolvedValue([]);
+
+    const result = await service.getSummary();
+
+    expect(result.commerce.paidRevenueRial).toBe('0');
+    expect(result.commerce.payments.codSharePct).toBe(0);
+  });
+
+  it('buckets recent orders into UTC days with PAID-only revenue', async () => {
+    const today = new Date();
+    today.setUTCHours(12, 0, 0, 0);
+    const yesterday = new Date(today.getTime() - 86_400_000);
+    prisma.$transaction.mockResolvedValue([
+      [],
+      [],
+      [],
+      [],
+      [],
+      [],
+      [],
+      { _sum: { total: null } },
+      0,
+      0,
+      0,
+      [
+        { createdAt: today, total: '100000', paymentStatus: 'PAID' },
+        { createdAt: today, total: '50000', paymentStatus: 'PENDING' },
+        { createdAt: yesterday, total: '200000', paymentStatus: 'PAID' },
+      ],
+    ]);
+    prisma.user.findMany.mockResolvedValue([]);
+
+    const result = await service.getSummary();
+    const days = result.commerce.ordersByDay;
+
+    expect(days).toHaveLength(14);
+    const todayKey = today.toISOString().slice(0, 10);
+    const yesterdayKey = yesterday.toISOString().slice(0, 10);
+    const todayPoint = days.find((day) => day.date === todayKey)!;
+    const yesterdayPoint = days.find((day) => day.date === yesterdayKey)!;
+    expect(todayPoint.orders).toBe(2);
+    expect(todayPoint.revenueRial).toBe('100000');
+    expect(yesterdayPoint.orders).toBe(1);
+    expect(yesterdayPoint.revenueRial).toBe('200000');
+    // Oldest-first ordering across the window.
+    expect(days[0]!.date < days[days.length - 1]!.date).toBe(true);
   });
 });

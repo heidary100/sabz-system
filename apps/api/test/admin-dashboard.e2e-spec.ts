@@ -194,6 +194,7 @@ describe('Admin dashboard API (SS-065) (e2e)', () => {
       expect(operatorResponse.body).toHaveProperty('users');
       expect(operatorResponse.body).toHaveProperty('roles');
       expect(operatorResponse.body).toHaveProperty('partners');
+      expect(operatorResponse.body).toHaveProperty('commerce');
       expect(operatorResponse.body).toHaveProperty('recentPartners');
       expect(operatorResponse.body).toHaveProperty('recentAudit');
 
@@ -229,6 +230,44 @@ describe('Admin dashboard API (SS-065) (e2e)', () => {
         approved: expect.any(Number),
         rejected: expect.any(Number),
       });
+      expect(Object.keys(body.commerce).sort()).toEqual(
+        [
+          'draftPosts',
+          'ordersByDay',
+          'ordersByStatus',
+          'paidRevenueRial',
+          'payments',
+          'pendingReviews',
+          'pendingRfqs',
+          'totalOrders',
+        ].sort(),
+      );
+      expect(body.commerce.ordersByStatus).toEqual({
+        pending: expect.any(Number),
+        processing: expect.any(Number),
+        shipped: expect.any(Number),
+        delivered: expect.any(Number),
+        cancelled: expect.any(Number),
+      });
+      expect(typeof body.commerce.paidRevenueRial).toBe('string');
+      expect(body.commerce.payments).toEqual({
+        cod: expect.any(Number),
+        online: expect.any(Number),
+        codSharePct: expect.any(Number),
+      });
+      expect(typeof body.commerce.pendingRfqs).toBe('number');
+      expect(typeof body.commerce.pendingReviews).toBe('number');
+      expect(typeof body.commerce.draftPosts).toBe('number');
+      expect(Array.isArray(body.commerce.ordersByDay)).toBe(true);
+      expect(body.commerce.ordersByDay).toHaveLength(14);
+      for (const point of body.commerce.ordersByDay) {
+        expect(Object.keys(point).sort()).toEqual(
+          ['date', 'orders', 'revenueRial'].sort(),
+        );
+        expect(point.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+        expect(typeof point.orders).toBe('number');
+        expect(typeof point.revenueRial).toBe('string');
+      }
       expect(Array.isArray(body.recentPartners)).toBe(true);
       expect(body.recentPartners.length).toBeLessThanOrEqual(5);
       expect(Array.isArray(body.recentAudit)).toBe(true);
@@ -248,6 +287,49 @@ describe('Admin dashboard API (SS-065) (e2e)', () => {
   });
 
   describe('data correctness', () => {
+    it('keeps commerce aggregates self-consistent', async () => {
+      const operator = await createUser('OPERATOR');
+      const body = await getDashboard(operator.accessToken);
+      const commerce = body.commerce;
+
+      // Status buckets sum to the total (same snapshot invariant style).
+      expect(commerce.totalOrders).toBe(
+        commerce.ordersByStatus.pending +
+          commerce.ordersByStatus.processing +
+          commerce.ordersByStatus.shipped +
+          commerce.ordersByStatus.delivered +
+          commerce.ordersByStatus.cancelled,
+      );
+
+      // Payment-method buckets cover every order.
+      expect(commerce.payments.cod + commerce.payments.online).toBe(
+        commerce.totalOrders,
+      );
+      const expectedShare =
+        commerce.totalOrders === 0
+          ? 0
+          : Math.round(
+              (commerce.payments.cod / commerce.totalOrders) * 100,
+            );
+      expect(commerce.payments.codSharePct).toBe(expectedShare);
+
+      // Daily series is oldest-first and bounded by the total.
+      const dates = commerce.ordersByDay.map(
+        (point: { date: string }) => point.date,
+      );
+      expect([...dates].sort()).toEqual(dates);
+      const dayOrders = commerce.ordersByDay.reduce(
+        (sum: number, point: { orders: number }) => sum + point.orders,
+        0,
+      );
+      expect(dayOrders).toBeLessThanOrEqual(commerce.totalOrders);
+
+      // Queue counts are non-negative numbers.
+      expect(commerce.pendingRfqs).toBeGreaterThanOrEqual(0);
+      expect(commerce.pendingReviews).toBeGreaterThanOrEqual(0);
+      expect(commerce.draftPosts).toBeGreaterThanOrEqual(0);
+    });
+
     it('reflects user, role and partner counts with the documented invariants', async () => {
       const operator = await createUser('OPERATOR');
 

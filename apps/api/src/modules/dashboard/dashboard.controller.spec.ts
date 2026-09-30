@@ -30,6 +30,22 @@ describe('DashboardController', () => {
       users: { total: 0, active: 0, suspended: 0, locked: 0, pendingOtp: 0 },
       roles: { customer: 0, partner: 0, operator: 0, admin: 0 },
       partners: { draft: 0, pending: 0, approved: 0, rejected: 0 },
+      commerce: {
+        ordersByStatus: {
+          pending: 0,
+          processing: 0,
+          shipped: 0,
+          delivered: 0,
+          cancelled: 0,
+        },
+        totalOrders: 0,
+        paidRevenueRial: '0',
+        payments: { cod: 0, online: 0, codSharePct: 0 },
+        pendingRfqs: 0,
+        pendingReviews: 0,
+        draftPosts: 0,
+        ordersByDay: [],
+      },
       recentPartners: [],
       recentAudit: [],
     };

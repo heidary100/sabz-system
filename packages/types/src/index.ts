@@ -65,7 +65,11 @@ export { RoleSummary } from './admin/role';
 export { AuditActor, AuditEntry, AuditListQuery } from './admin/audit';
 
 export {
+  DashboardCommerce,
+  DashboardDayPoint,
+  DashboardOrdersByStatus,
   DashboardPartnerCounts,
+  DashboardPaymentSplit,
   DashboardRecentAudit,
   DashboardRoleCounts,
   DashboardSummary,
