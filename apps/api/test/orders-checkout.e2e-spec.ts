@@ -71,14 +71,7 @@ const SHIPMENT_KEYS = [
   'trackingNumber',
   'updatedAt',
 ];
-const TRACKING_EVENT_KEYS = [
-  'createdAt',
-  'id',
-  'location',
-  'note',
-  'status',
-  'statusFa',
-];
+
 const ORDER_ITEM_KEYS = [
   'id',
   'lineTotal',
