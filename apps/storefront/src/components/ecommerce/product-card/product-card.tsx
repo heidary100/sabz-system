@@ -78,16 +78,16 @@ export function ProductCard({ product }: { product: CatalogProductCardDto }) {
         ) : null}
       </div>
 
-      <div className="flex flex-1 flex-col p-3 sm:p-4">
+      <div className="flex flex-1 flex-col p-3.5 sm:p-4">
         {product.brand ? (
-          <p className="text-xs text-gray-500">{product.brand.name}</p>
+          <p className="text-[11px] font-medium text-gray-400">{product.brand.name}</p>
         ) : null}
-        <h3 className="mt-1 line-clamp-2 min-h-12 text-[13px] font-semibold leading-6 text-ink-900 group-hover:text-sabz-700 sm:text-sm">
+        <h3 className="mt-1.5 line-clamp-2 min-h-12 text-[13px] font-semibold leading-6 text-ink-900 transition-colors duration-200 group-hover:text-sabz-700 sm:text-sm">
           {product.name}
         </h3>
         {/* SS-236: real aggregate stars; hidden until the first approval. */}
         {product.ratingCount > 0 && product.ratingAverage !== null ? (
-          <div className="mt-1">
+          <div className="mt-1.5">
             <Rating value={product.ratingAverage} count={product.ratingCount} />
           </div>
         ) : null}
@@ -95,7 +95,7 @@ export function ProductCard({ product }: { product: CatalogProductCardDto }) {
           {product.callForPrice ? (
             <Badge variant="callForPrice">استعلام قیمت</Badge>
           ) : (
-            <p className="min-w-0 text-[13px] font-bold text-sabz-800 sm:text-sm">
+            <p className="min-w-0 text-sm font-extrabold text-sabz-800 sm:text-[15px]">
               {formatCardPrice(product.priceFrom, product.variantCount, product.callForPrice)}
             </p>
           )}

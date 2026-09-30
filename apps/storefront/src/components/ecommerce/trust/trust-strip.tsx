@@ -62,14 +62,14 @@ export function TrustStrip({ items }: { items: TrustItem[] }) {
         </h2>
         <ul
           role="list"
-          className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4"
+          className="stagger grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4"
         >
           {items.map((item) => (
             <li
               key={item.title}
-              className="flex items-start gap-3 rounded-xl border border-sand-200 bg-sand-50 p-4"
+              className="group flex items-start gap-4 rounded-2xl bg-sand-50 p-5 ring-1 ring-inset ring-sand-200 transition-all duration-300 ease-[var(--ease-swift)] hover:-translate-y-1 hover:bg-white hover:shadow-card hover:ring-sabz-200"
             >
-              <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-sabz-50 text-sabz-700">
+              <span className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-gradient-sabz text-white shadow-sm transition-transform duration-300 ease-[var(--ease-spring)] group-hover:scale-110">
                 {TRUST_ICONS[item.icon]}
               </span>
               <span className="min-w-0">

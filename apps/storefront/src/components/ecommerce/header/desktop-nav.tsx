@@ -76,7 +76,7 @@ export function DesktopNav({ categories }: { categories: CatalogCategoryNode[] }
               onFocus={() => openMenu(category.slug)}
             >
               <span
-                className={`relative flex items-center whitespace-nowrap rounded-md px-2.5 py-2 text-sm font-medium transition-colors hover:bg-sabz-50 hover:text-sabz-800 ${
+                className={`relative flex items-center whitespace-nowrap rounded-md px-2 py-2 text-sm font-medium transition-colors hover:bg-sabz-50 hover:text-sabz-800 ${
                   openSlug === category.slug ? 'bg-sabz-50 text-sabz-800' : 'text-gray-700'
                 }`}
               >
@@ -129,7 +129,7 @@ export function DesktopNav({ categories }: { categories: CatalogCategoryNode[] }
             <li key={category.id}>
               <Link
                 href={`/categories/${category.slug}`}
-                className="group flex items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-2 text-sm font-medium text-gray-700 hover:bg-sabz-50 hover:text-sabz-800"
+                className="group flex items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-2 text-sm font-medium text-gray-700 hover:bg-sabz-50 hover:text-sabz-800"
               >
                 <span>{category.name}</span>
                 <span className="rounded-full bg-sabz-50 px-1.5 py-0.5 text-[11px] font-semibold text-sabz-600">
@@ -153,17 +153,19 @@ export function DesktopNav({ categories }: { categories: CatalogCategoryNode[] }
 
       {openCategory ? (
         <div id={`megamenu-${openCategory.slug}`} className="absolute inset-x-0 top-full z-50">
-          <div className="overflow-hidden rounded-2xl border border-sand-200 bg-white shadow-xl shadow-sabz-900/5">
-            <div className="h-1 bg-sabz-700" aria-hidden="true" />
+          <div className="animate-zoom-in origin-top overflow-hidden rounded-2xl border border-sand-200 bg-white shadow-xl shadow-sabz-900/10">
+            <div className="h-1 bg-gradient-to-l from-sabz-400 via-sabz-600 to-sabz-800" aria-hidden="true" />
             <div className="grid grid-cols-2 gap-x-8 gap-y-6 p-6 xl:grid-cols-3">
               {openCategory.children.map((child) => (
                 <div key={child.id}>
                   <Link
                     href={`/categories/${child.slug}`}
                     onClick={() => closeMenu(false, null)}
-                    className="flex items-center justify-between rounded-sm border-b border-sand-100 pb-2 text-sm font-bold text-ink-900 hover:text-sabz-700"
+                    className="group flex items-center justify-between rounded-sm border-b border-sand-100 pb-2 text-sm font-bold text-ink-900 transition-colors hover:text-sabz-700"
                   >
-                    <span>{child.name}</span>
+                    <span className="transition-transform duration-300 ease-[var(--ease-swift)] group-hover:-translate-x-0.5">
+                      {child.name}
+                    </span>
                     <span className="rounded-full bg-sabz-50 px-2 py-0.5 text-[11px] font-semibold text-sabz-600">
                       {formatFaNumber(child.publishedProductCount)}
                     </span>
@@ -175,7 +177,7 @@ export function DesktopNav({ categories }: { categories: CatalogCategoryNode[] }
                           <Link
                             href={`/categories/${grandchild.slug}`}
                             onClick={() => closeMenu(false, null)}
-                            className="flex items-center justify-between rounded-md px-2 py-1.5 text-[13px] text-gray-600 hover:bg-sabz-50 hover:text-sabz-800"
+                            className="flex items-center justify-between rounded-md px-2 py-1.5 text-[13px] text-gray-600 transition-colors hover:bg-sabz-50 hover:text-sabz-800"
                           >
                             <span>{grandchild.name}</span>
                             <span className="text-xs text-gray-500">

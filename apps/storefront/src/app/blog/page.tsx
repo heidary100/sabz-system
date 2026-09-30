@@ -39,7 +39,7 @@ export default async function BlogIndexPage({ searchParams }: PageProps) {
         <span aria-hidden="true"> / </span>
         <span aria-current="page">وبلاگ</span>
       </nav>
-      <h1 className="mt-3 text-2xl font-bold tracking-tight text-ink-900">وبلاگ</h1>
+      <h1 className="mt-3 text-balance text-2xl font-extrabold text-ink-900">وبلاگ</h1>
       <p className="mt-1 text-sm text-gray-500">راهنماهای خرید و تازه‌های فروشگاه</p>
 
       {categories.length > 0 ? (

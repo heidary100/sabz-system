@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useTransitionMount } from '@/components/ecommerce/ui/use-transition-mount';
 import type { CatalogBrandDto, CatalogCategoryNode } from '@sabz/types';
 import type { ListingState } from '@/lib/listing';
 import { getActivePills } from '@/lib/listing';
@@ -38,6 +39,7 @@ export function FiltersSheet({
   const closeRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const activeCount = getActivePills(state).length;
+  const [shouldRender, animState] = useTransitionMount(open);
 
   const close = useCallback((returnFocus = true) => {
     setOpen(false);
@@ -104,7 +106,7 @@ export function FiltersSheet({
         ) : null}
       </button>
 
-      {open
+      {shouldRender
         ? createPortal(
             <div
               ref={dialogRef}
@@ -116,9 +118,13 @@ export function FiltersSheet({
               <div
                 aria-hidden="true"
                 onClick={() => close(false)}
-                className="fixed inset-0 bg-ink-900/40"
+                data-state={animState}
+                className="drawer-backdrop fixed inset-0 bg-ink-900/40 backdrop-blur-[2px]"
               />
-              <div className="fixed inset-x-0 bottom-0 flex max-h-[85dvh] flex-col rounded-t-2xl bg-sand-50 shadow-overlay">
+              <div
+                data-state={animState}
+                className="sheet-panel fixed inset-x-0 bottom-0 flex max-h-[85dvh] flex-col rounded-t-2xl bg-sand-50 shadow-overlay"
+              >
                 <div className="flex items-center justify-between border-b border-sand-200 bg-white px-4 py-3">
                   <p className="text-sm font-bold text-ink-900">فیلترها</p>
                   <button

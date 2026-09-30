@@ -42,7 +42,7 @@ function CategoryFacetLink({
     </>
   );
   const className =
-    'inline-flex min-h-11 items-center rounded-sm py-1 text-start text-sm text-gray-600 hover:text-sabz-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700';
+    'inline-flex min-h-11 w-full items-center rounded-md py-1 text-start text-sm text-gray-600 transition-all duration-200 hover:ps-1 hover:text-sabz-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700';
   if (href) {
     return (
       <Link href={href} className={className} onClick={onClick}>
@@ -103,7 +103,7 @@ export function FiltersPanel({
   const completeTotal = brandsTotal ?? brands.length;
 
   return (
-    <aside className={pending ? 'opacity-60' : ''} aria-busy={pending}>
+    <aside className={`transition-opacity duration-300 ${pending ? 'opacity-60' : ''}`} aria-busy={pending}>
       <div className="rounded-xl border border-sand-200 bg-white p-5">
         {selectedCategory ? (
           <div className="mb-5">
@@ -204,7 +204,7 @@ export function FiltersPanel({
                             apply({ brand: selected ? '' : brand.slug })
                           }
                           aria-pressed={selected}
-                          className={`inline-flex min-h-11 items-center gap-2 rounded-sm py-1 text-start text-sm ${
+                          className={`inline-flex min-h-11 w-full items-center gap-2 rounded-md py-1 text-start text-sm transition-all duration-200 hover:ps-1 ${
                             selected
                               ? 'font-semibold text-sabz-800'
                               : 'text-gray-600 hover:text-sabz-700'

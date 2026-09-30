@@ -10,7 +10,7 @@ import type { BlogPostCardDto } from '@sabz/types';
  */
 export function BlogCard({ post }: { post: BlogPostCardDto }) {
   return (
-    <article className="flex h-full flex-col overflow-hidden rounded-xl border border-sand-200 bg-white transition hover:border-sabz-300">
+    <article className="hover-lift group flex h-full flex-col overflow-hidden rounded-xl border border-sand-200 bg-white shadow-card transition-colors hover:border-sabz-300">
       {post.coverImageUrl ? (
         <Link
           href={`/blog/${post.slug}`}
@@ -24,7 +24,7 @@ export function BlogCard({ post }: { post: BlogPostCardDto }) {
             alt=""
             loading="lazy"
             decoding="async"
-            className="aspect-[16/9] w-full object-cover"
+            className="aspect-[16/9] w-full object-cover transition-transform duration-500 ease-[var(--ease-swift)] group-hover:scale-[1.04] motion-reduce:group-hover:scale-100"
           />
         </Link>
       ) : null}
@@ -37,10 +37,10 @@ export function BlogCard({ post }: { post: BlogPostCardDto }) {
             {post.category.name}
           </Link>
         ) : null}
-        <h3 className="text-sm font-bold leading-6 text-ink-900">
+        <h3 className="text-sm font-bold leading-6 text-ink-900 transition-colors group-hover:text-sabz-700">
           <Link
             href={`/blog/${post.slug}`}
-            className="hover:text-sabz-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700"
+            className="focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700"
           >
             {post.title}
           </Link>

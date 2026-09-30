@@ -18,32 +18,32 @@ body {
   .hover-lift {
     transition:
       transform 300ms var(--ease-swift),
-      box-shadow 300ms var(--ease-swift);
+      box-shadow 300ms var(--ease-swift),
+      border-color 300ms var(--ease-swift);
   }
   .hover-lift:hover {
-    transform: translateY(-2px);
+    transform: translateY(-3px);
     box-shadow: var(--shadow-lift);
   }
 }
-
 
 /* Rich-text product description (rendered by components/rich-text.tsx).
    RTL-first typography for the sanitized HTML persisted by the product API. */
 @layer components {
   .rich-text {
-    @apply text-base/7 text-neutral-700;
+    @apply text-base/8 text-neutral-700;
   }
   .rich-text p {
     @apply mb-4 mt-0;
   }
   .rich-text h2 {
-    @apply mb-3 mt-6 text-xl/8 font-bold text-neutral-900;
+    @apply mb-3 mt-7 text-xl/8 font-bold text-ink-900;
   }
   .rich-text h3 {
-    @apply mb-2 mt-5 text-lg/7 font-semibold text-neutral-900;
+    @apply mb-2 mt-6 text-lg/7 font-semibold text-ink-900;
   }
   .rich-text h1 {
-    @apply mb-3 mt-6 text-2xl/9 font-bold text-neutral-900;
+    @apply mb-3 mt-7 text-2xl/9 font-bold text-ink-900;
   }
   .rich-text h2:first-child,
   .rich-text h3:first-child,
@@ -62,13 +62,16 @@ body {
     @apply list-decimal;
   }
   .rich-text li {
-    @apply mb-1;
+    @apply mb-1.5;
+  }
+  .rich-text li::marker {
+    @apply text-sabz-600;
   }
   .rich-text blockquote {
-    @apply mb-4 rounded-md border-s-4 border-green-800 bg-green-50 px-4 py-2 text-neutral-600;
+    @apply mb-4 rounded-lg border-s-4 border-sabz-700 bg-sabz-50 px-4 py-2 text-neutral-600;
   }
   .rich-text strong {
-    @apply font-bold text-neutral-900;
+    @apply font-bold text-ink-900;
   }
   .rich-text em {
     @apply italic;
@@ -77,16 +80,16 @@ body {
     @apply underline;
   }
   .rich-text a {
-    @apply text-green-800 underline underline-offset-4 hover:text-green-900;
+    @apply font-medium text-sabz-700 underline decoration-sabz-300 underline-offset-4 transition-colors hover:text-sabz-800;
   }
   .rich-text img {
-    @apply my-2 h-auto max-w-full rounded-lg;
+    @apply my-3 h-auto max-w-full rounded-xl;
     display: block;
     margin-inline-start: auto;
     margin-inline-end: auto;
   }
   .rich-text figure {
-    @apply my-4 max-w-full;
+    @apply my-5 max-w-full;
     width: fit-content;
   }
   .rich-text figure[data-align='left'] {
@@ -103,26 +106,26 @@ body {
   }
   .rich-text figure > img,
   .rich-text figure > a > img {
-    @apply h-auto max-w-full rounded-lg;
+    @apply h-auto max-w-full rounded-xl;
     display: block;
   }
   .rich-text figcaption {
-    @apply mt-1.5 text-center text-sm text-neutral-500;
+    @apply mt-2 text-center text-sm text-neutral-500;
   }
   .rich-text hr {
-    @apply my-6 border-t border-neutral-200;
+    @apply my-7 border-t border-sand-200;
   }
   .rich-text table {
-    @apply my-4 w-full border-collapse;
+    @apply my-5 w-full border-collapse overflow-hidden rounded-xl;
     border: 1px solid #e5e7eb;
   }
   .rich-text th,
   .rich-text td {
-    @apply border px-3 py-2 text-sm/6;
+    @apply border px-3 py-2.5 text-sm/6;
     border-color: #e5e7eb;
   }
   .rich-text th {
-    @apply bg-neutral-100 font-semibold text-neutral-900;
+    @apply bg-sand-100 font-semibold text-ink-900;
   }
 }
 
@@ -188,6 +191,17 @@ summary:focus-visible,
      than ink-900 so dark sections and light content zones read as layers. */
   --color-ink-950: #191713;
 
+  /* SS-246 radius consolidation: the app previously used six overlapping
+     scales (sm/md/lg/xl/2xl/full) with no system. One canonical ramp —
+     chips stay `full`, inputs/buttons land on md/lg, cards/surfaces on
+     xl/2xl — so every surface shares the same geometry language. */
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 0.875rem;
+  --radius-xl: 1.125rem;
+  --radius-2xl: 1.5rem;
+  --radius-3xl: 2rem;
+
   /* Elevation ladder (SS-221): resting card, hover lift, and portalled
      overlay. Only three steps so depth stays meaningful. */
   --shadow-card: 0 1px 2px rgb(25 23 19 / 0.05), 0 4px 14px rgb(25 23 19 / 0.06);
@@ -197,6 +211,351 @@ summary:focus-visible,
   /* Motion signature (SS-221): one fast-decelerating curve for every
      interactive transition so hover/press/drawer movement feels like one
      system. Reduced-motion users never see it (global rule collapses
-     durations to ~0). */
+     durations to ~0). --ease-spring adds a gentle overshoot reserved for
+     celebratory micro-feedback (badge pop, add-to-cart confirmation). */
   --ease-swift: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ------------------------------------------------------------------ */
+/* Motion system (SS-246): pure-CSS choreography, zero JS.             */
+/* Every entrance is guarded by prefers-reduced-motion, so the global  */
+/* kill-switch stays the single source of truth for stillness.         */
+/* ------------------------------------------------------------------ */
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Keyframes: the shared vocabulary. fade-up is the default entrance for
+     sections and rails; zoom-in for modals/sheets; pop for celebratory
+     micro-feedback; shimmer for loading skeletons. */
+  @keyframes ss-fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(14px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  @keyframes ss-fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes ss-zoom-in {
+    from {
+      opacity: 0;
+      transform: scale(0.96) translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+  }
+  @keyframes ss-pop {
+    0% {
+      opacity: 0;
+      transform: scale(0.4);
+    }
+    60% {
+      opacity: 1;
+      transform: scale(1.12);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+  @keyframes ss-shimmer {
+    from {
+      background-position: 200% 0;
+    }
+    to {
+      background-position: -200% 0;
+    }
+  }
+  @keyframes ss-slide-up {
+    from {
+      transform: translateY(100%);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+  @keyframes ss-slide-down {
+    from {
+      transform: translateY(0);
+    }
+    to {
+      transform: translateY(100%);
+    }
+  }
+  @keyframes ss-grow-x {
+    from {
+      transform: scaleX(0);
+    }
+    to {
+      transform: scaleX(1);
+    }
+  }
+
+  /* Page transition (SS-246): App Router template remounts on navigation,
+     so a single class gives every route a soft rise — the no-JS page
+     transition. Kept short so back/forward feels instant. */
+  .page-enter {
+    animation: ss-fade-up 380ms var(--ease-swift) both;
+  }
+
+  /* One-shot entrances for above-the-fold content (hero copy, first
+     section) where a scroll-timeline would already be past its range. */
+  .animate-fade-up {
+    animation: ss-fade-up 600ms var(--ease-swift) both;
+  }
+  .animate-fade-in {
+    animation: ss-fade-in 450ms var(--ease-swift) both;
+  }
+  .animate-zoom-in {
+    animation: ss-zoom-in 320ms var(--ease-swift) both;
+  }
+  .animate-pop {
+    animation: ss-pop 380ms var(--ease-spring) both;
+  }
+  .animate-grow-x {
+    animation: ss-grow-x 400ms var(--ease-swift) both;
+    transform-origin: right center;
+  }
+  [dir='ltr'] .animate-grow-x {
+    transform-origin: left center;
+  }
+
+  /* Drawer choreography: mounted-while-transitioning panels (see
+     useTransitionMount) drive open/close through these classes; data-state
+     on the wrapper picks the enter/exit pair. --drawer-travel is the
+     off-screen X position: start-side panels (mobile menu, right in RTL)
+     come from +100%, end-side panels (mini-cart, left in RTL) from -100% —
+     set by the --end modifier. The app is RTL-only (fa), so the signs are
+     written for dir="rtl". */
+  .drawer-panel {
+    --drawer-travel: 100%;
+  }
+  .drawer-panel--end {
+    --drawer-travel: -100%;
+  }
+  @keyframes ss-drawer-in {
+    from {
+      transform: translateX(var(--drawer-travel));
+    }
+    to {
+      transform: translateX(0);
+    }
+  }
+  @keyframes ss-drawer-out {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(var(--drawer-travel));
+    }
+  }
+  .drawer-panel[data-state='open'] {
+    animation: ss-drawer-in 360ms var(--ease-swift) both;
+  }
+  .drawer-panel[data-state='closed'] {
+    animation: ss-drawer-out 280ms var(--ease-swift) both;
+    pointer-events: none;
+  }
+  .drawer-backdrop[data-state='open'] {
+    animation: ss-fade-in 300ms ease both;
+  }
+  .drawer-backdrop[data-state='closed'] {
+    animation: ss-fade-in 280ms ease both reverse;
+    pointer-events: none;
+  }
+  /* Bottom sheets (mobile filters) rise from below. */
+  .sheet-panel[data-state='open'] {
+    animation: ss-slide-up 360ms var(--ease-swift) both;
+  }
+  .sheet-panel[data-state='closed'] {
+    animation: ss-slide-down 280ms var(--ease-swift) both;
+    pointer-events: none;
+  }
+
+  /* Hero autoplay progress (SS-246): the active slide's segment fills over
+     the autoplay window; the component drives play-state and duration
+     inline. RTL origin (right) so the fill matches the reading direction;
+     keyed display keeps non-active segments hidden. */
+  .hero-progress {
+    transform-origin: right center;
+    animation: ss-grow-x linear both;
+  }
+
+  /* Hero copy choreography: each child of .hero-copy rises in sequence on
+     the slide that becomes active; non-active slides hold opacity 0 so a
+     scroll back replays the reveal. 'both' fill + the global reduced-motion
+     collapse guarantees the copy is always visible for stillness users. */
+  .hero-copy > * {
+    opacity: 0;
+  }
+  [data-active='true'] .hero-copy > * {
+    animation: ss-fade-up 650ms var(--ease-swift) both;
+  }
+  [data-active='true'] .hero-copy > *:nth-child(1) {
+    animation-delay: 60ms;
+  }
+  [data-active='true'] .hero-copy > *:nth-child(2) {
+    animation-delay: 150ms;
+  }
+  [data-active='true'] .hero-copy > *:nth-child(3) {
+    animation-delay: 240ms;
+  }
+  [data-active='true'] .hero-copy > *:nth-child(4) {
+    animation-delay: 330ms;
+  }
+
+  /* Scroll-driven reveals (SS-246): sections and grids rise as they enter
+     the viewport with zero JS via animation-timeline: view(). The
+     @supports guard keeps unsupported browsers fully visible; the
+     no-preference media guard keeps reduced-motion users still. */
+  @supports (animation-timeline: view()) {
+    .reveal {
+      animation: ss-fade-up 1ms var(--ease-swift) both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 45%;
+    }
+    .reveal-zoom {
+      animation: ss-zoom-in 1ms var(--ease-swift) both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 50%;
+    }
+    /* Staggered children: each item's visible range is offset along the
+       shared timeline so grids cascade without JS. */
+    .stagger > * {
+      animation: ss-fade-up 1ms var(--ease-swift) both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 38%;
+    }
+    .stagger > *:nth-child(2) {
+      animation-range: entry 6% entry 44%;
+    }
+    .stagger > *:nth-child(3) {
+      animation-range: entry 12% entry 50%;
+    }
+    .stagger > *:nth-child(4) {
+      animation-range: entry 18% entry 56%;
+    }
+    .stagger > *:nth-child(5) {
+      animation-range: entry 24% entry 62%;
+    }
+    .stagger > *:nth-child(6) {
+      animation-range: entry 30% entry 68%;
+    }
+    .stagger > *:nth-child(n + 7) {
+      animation-range: entry 34% entry 72%;
+    }
+  }
+
+  /* Scroll-driven header elevation (SS-246): the sticky header gains its
+     shadow as the document scrolls — zero JS via animation-timeline:
+     scroll(). Reduced-motion users get the static (no-shadow) header. */
+  @keyframes ss-header-elevate {
+    from {
+      box-shadow: 0 0 0 0 rgb(25 23 19 / 0);
+      border-color: var(--color-sand-200);
+    }
+    to {
+      box-shadow: 0 12px 32px -16px rgb(25 23 19 / 0.18);
+      border-color: transparent;
+    }
+  }
+  .site-header {
+    animation: ss-header-elevate linear both;
+    animation-timeline: scroll(root block);
+    animation-range: 0 64px;
+  }
+
+  /* Shimmer skeleton (SS-246): replaces animate-pulse with a directional
+     sweep that reads as "loading" rather than "flickering". */
+  .skeleton-shimmer {
+    background-image: linear-gradient(
+      100deg,
+      transparent 30%,
+      rgb(255 255 255 / 0.55) 50%,
+      transparent 70%
+    );
+    background-size: 200% 100%;
+    background-repeat: no-repeat;
+    animation: ss-shimmer 1.6s linear infinite;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Brand decoration (SS-246): the bold-expressive layer. Greens and    */
+/* ink only (AGENTS.md §9), decorative elements are always aria-hidden */
+/* and pointer-events-none at the call site.                           */
+/* ------------------------------------------------------------------ */
+@layer utilities {
+  /* Primary action gradient: sabz-600 → sabz-800, the brand's signature
+     button/glass treatment. */
+  .bg-gradient-sabz {
+    background-image: linear-gradient(135deg, #4a6d4b 0%, #344e41 100%);
+  }
+  /* Ink stage gradient for cinematic dark sections (hero, footer top). */
+  .bg-gradient-ink {
+    background-image: linear-gradient(160deg, #23211b 0%, #191713 55%, #1c2419 100%);
+  }
+  /* Gradient display text — reserved for single hero/stat lines. */
+  .text-gradient-sabz {
+    background-image: linear-gradient(120deg, #7d9873 0%, #a3b18a 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  /* Frosted glass card used on top of imagery and dark stages. */
+  .glass {
+    background-color: rgb(255 255 255 / 0.72);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+  }
+  .glass-dark {
+    background-color: rgb(25 23 19 / 0.55);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+  }
+}
+
+/* Brand selection: green highlight keeps the personality alive even in
+   text selection. */
+::selection {
+  background-color: var(--color-sabz-700);
+  color: #ffffff;
+}
+
+/* Calm, brand-tinted scrollbars (WebKit + Firefox). Thin so they never
+   compete with content; sand track disappears against the background.
+   Layered base: utilities like the slider's [scrollbar-width:none] must be
+   able to override it (unlayered CSS would always win the cascade). */
+@layer base {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-sand-200) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background-color: var(--color-sand-200);
+    border-radius: 999px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: var(--color-sabz-300);
+  }
 }

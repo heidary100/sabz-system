@@ -86,7 +86,7 @@ export default async function HomePage() {
       {shouldShowSection(featuredCategories) ? (
         <section aria-labelledby="categories-heading" className="mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-14 lg:px-8">
           <SectionHeader id="categories-heading" title="دسته‌بندی‌ها" actionHref="/categories" />
-          <ul role="list" className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+          <ul role="list" className="stagger mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
             {featuredCategories.map((category) => (
               <CategoryTile key={category.id} category={category} variant="child" />
             ))}
@@ -99,7 +99,7 @@ export default async function HomePage() {
 
       {/* In-stock products: what the customer can actually get now */}
       {shouldShowSection(inStock.items) ? (
-        <section aria-labelledby="instock-heading" className="border-t border-sand-200 bg-white">
+        <section aria-labelledby="instock-heading" className="reveal border-t border-sand-200 bg-sand-50/60">
           <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-14 lg:px-8">
             <SectionHeader
               id="instock-heading"
@@ -107,7 +107,7 @@ export default async function HomePage() {
               subtitle="محصولاتی که هم‌اکنون موجودی دارند"
               actionHref="/products?inStockOnly=true"
             />
-            <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            <div className="stagger mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
               {inStock.items.map((product) => (
                 <ProductCardWithWishlist key={product.id} product={product} />
               ))}
@@ -118,14 +118,14 @@ export default async function HomePage() {
 
       {/* Latest products: newest published rows */}
       {shouldShowSection(latest.items) ? (
-        <section aria-labelledby="latest-heading" className="mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-14 lg:px-8">
+        <section aria-labelledby="latest-heading" className="reveal mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-14 lg:px-8">
           <SectionHeader
             id="latest-heading"
             title="جدیدترین محصولات"
             subtitle="تازه‌ترین کالاهای منتشرشده در فروشگاه"
             actionHref="/products?sort=newest"
           />
-          <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+          <div className="stagger mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
             {latest.items.map((product) => (
               <ProductCardWithWishlist key={product.id} product={product} />
             ))}
@@ -135,7 +135,7 @@ export default async function HomePage() {
 
       {/* Alphabetical browse rail: the live site's A–Z directory, compact. */}
       {shouldShowSection(alphabetical.items) ? (
-        <section aria-labelledby="alphabetical-heading" className="border-t border-sand-200 bg-white">
+        <section aria-labelledby="alphabetical-heading" className="reveal border-t border-sand-200 bg-white">
           <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-14 lg:px-8">
             <SectionHeader
               id="alphabetical-heading"
@@ -144,7 +144,7 @@ export default async function HomePage() {
               actionLabel="مرور الفبایی کامل"
               actionHref="/products?sort=name"
             />
-            <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            <div className="stagger mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
               {alphabetical.items.map((product) => (
                 <ProductCardWithWishlist key={product.id} product={product} />
               ))}

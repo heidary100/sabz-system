@@ -92,3 +92,22 @@ export function salePercentFrom(
   }
   return Math.round(((reference - price) / reference) * 100);
 }
+
+/**
+ * Persian (Jalali) date for order/RFQ timestamps (SS-246): fa-IR resolves to
+ * the Solar Hijri calendar by default, with Persian digits — one formatter
+ * so every surface shows dates the same way.
+ */
+const faDateFormatter = new Intl.DateTimeFormat('fa-IR', {
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+});
+
+export function formatFaDate(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+  return faDateFormatter.format(date);
+}

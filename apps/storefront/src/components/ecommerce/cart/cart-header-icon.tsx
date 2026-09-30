@@ -20,7 +20,7 @@ export function CartHeaderIcon() {
       onClick={() => setMiniCartOpen(true)}
       aria-haspopup="dialog"
       aria-label={ready && count > 0 ? `سبد خرید، ${formatFaNumber(count)} قلم` : 'سبد خرید'}
-      className="relative flex min-h-11 min-w-11 items-center justify-center rounded-md p-2 text-gray-600 hover:bg-sabz-50 hover:text-sabz-700"
+      className="relative flex min-h-11 min-w-11 items-center justify-center rounded-xl p-2 text-gray-600 transition-colors duration-200 hover:bg-sabz-50 hover:text-sabz-700"
     >
       <svg viewBox="0 0 24 24" fill="none" strokeWidth={1.5} stroke="currentColor" aria-hidden="true" className="size-6">
         <path
@@ -30,9 +30,12 @@ export function CartHeaderIcon() {
         />
       </svg>
       {ready && count > 0 ? (
+        // Keyed on the count so every change replays the spring pop — the
+        // celebratory beat when an item lands in the cart (SS-246).
         <span
+          key={count}
           aria-hidden="true"
-          className="absolute end-0 top-0 flex min-h-5 min-w-5 items-center justify-center rounded-full bg-sabz-700 px-1 text-[11px] font-bold text-white"
+          className="animate-pop absolute end-0 top-0 flex min-h-5 min-w-5 items-center justify-center rounded-full bg-sabz-700 px-1 text-[11px] font-bold text-white"
         >
           {formatFaNumber(count)}
         </span>

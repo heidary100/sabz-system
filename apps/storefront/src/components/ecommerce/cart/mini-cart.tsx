@@ -7,17 +7,19 @@ import { createPortal } from 'react-dom';
 import { useCart } from '@/components/ecommerce/cart/cart-provider';
 import { CartQtyStepper } from '@/components/ecommerce/cart/cart-qty-stepper';
 import { buttonVariants } from '@/components/ecommerce/ui/button';
+import { useTransitionMount } from '@/components/ecommerce/ui/use-transition-mount';
 import { mediaImageUrl } from '@/lib/catalog';
 import { formatFaNumber, formatToman } from '@/lib/format';
 import { CART_MAX_QUANTITY } from '@/lib/cart';
 
 /**
- * Off-canvas mini-cart drawer (SS-232): the same dialog contract as the
- * mobile menu (`role="dialog"` + `aria-modal`, Escape closes, body scroll
- * locks, focus moves in on open and back to the header icon on close, Tab
- * trap) mirrored to the `end` side so it never collides with the nav
- * drawer. No entrance animation — consistent with the nav drawer and
- * reduced-motion-safe by construction.
+ * Off-canvas mini-cart drawer (SS-232, animated SS-246): the same dialog
+ * contract as the mobile menu (`role="dialog"` + `aria-modal`, Escape
+ * closes, body scroll locks, focus moves in on open and back to the header
+ * icon on close, Tab trap) mirrored to the `end` side so it never collides
+ * with the nav drawer. Slides in/out via the shared drawer choreography
+ * (useTransitionMount keeps it mounted through the exit); the global
+ * reduced-motion rule collapses both animations to instant.
  */
 export function MiniCart() {
   const {
@@ -37,6 +39,7 @@ export function MiniCart() {
   } = useCart();
   const closeRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const [shouldRender, animState] = useTransitionMount(miniCartOpen);
 
   const close = useCallback(
     (returnFocus = true) => {
@@ -88,7 +91,7 @@ export function MiniCart() {
     };
   }, [miniCartOpen, close]);
 
-  if (!miniCartOpen) {
+  if (!shouldRender) {
     return null;
   }
 
@@ -98,8 +101,16 @@ export function MiniCart() {
 
   return createPortal(
     <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="سبد خرید" className="fixed inset-0 z-50">
-      <div aria-hidden="true" onClick={() => close(false)} className="fixed inset-0 bg-ink-900/40" />
-      <div className="fixed inset-y-0 end-0 flex w-[26rem] max-w-[92vw] flex-col overflow-hidden rounded-s-2xl bg-white shadow-2xl">
+      <div
+        aria-hidden="true"
+        onClick={() => close(false)}
+        data-state={animState}
+        className="drawer-backdrop fixed inset-0 bg-ink-900/40 backdrop-blur-[2px]"
+      />
+      <div
+        data-state={animState}
+        className="drawer-panel drawer-panel--end fixed inset-y-0 end-0 flex w-[26rem] max-w-[92vw] flex-col overflow-hidden rounded-s-2xl bg-white shadow-overlay"
+      >
         <div className="flex items-center justify-between border-b border-sand-100 bg-sand-50 px-4 py-3">
           <h2 className="text-base font-bold text-ink-900">
             سبد خرید

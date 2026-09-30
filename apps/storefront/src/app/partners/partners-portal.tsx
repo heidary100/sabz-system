@@ -254,7 +254,7 @@ export function PartnersPortal() {
   if (status === 'login') {
     return (
       <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
-        <h1 className="text-2xl font-bold tracking-tight text-ink-900">همکاری با ما</h1>
+        <h1 className="text-balance text-2xl font-extrabold text-ink-900">همکاری با ما</h1>
         <div className="mt-8 rounded-2xl border border-sand-200 bg-white">
           <div className="flex flex-col items-center px-6 py-16 text-center">
             <h2 className="text-lg font-semibold text-ink-900">برای ثبت درخواست همکاری وارد شوید</h2>
@@ -274,7 +274,7 @@ export function PartnersPortal() {
   if (status === 'error') {
     return (
       <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
-        <h1 className="text-2xl font-bold tracking-tight text-ink-900">همکاری با ما</h1>
+        <h1 className="text-balance text-2xl font-extrabold text-ink-900">همکاری با ما</h1>
         <div className="mt-8 rounded-2xl border border-sand-200 bg-white">
           <div className="flex flex-col items-center px-6 py-16 text-center">
             <h2 className="text-lg font-semibold text-ink-900">خطا در بارگذاری صفحه همکاری</h2>
@@ -293,7 +293,7 @@ export function PartnersPortal() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 px-4 py-10 sm:px-6">
-      <h1 className="text-2xl font-bold tracking-tight text-ink-900">همکاری با ما</h1>
+      <h1 className="text-balance text-2xl font-extrabold text-ink-900">همکاری با ما</h1>
 
       {error !== null && (
         <p role="status" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">

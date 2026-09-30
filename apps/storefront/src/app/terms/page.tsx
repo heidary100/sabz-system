@@ -84,7 +84,7 @@ export default function TermsPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
       <p className="text-sm text-gray-500">فروشگاه</p>
-      <h1 className="mt-1 text-2xl font-bold tracking-tight text-ink-900">
+      <h1 className="mt-1 text-balance text-2xl font-extrabold text-ink-900">
         شرایط و قوانین استفاده از سرویس‌ها و خدمات سبز سیستم
       </h1>
 
