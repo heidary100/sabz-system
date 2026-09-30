@@ -525,6 +525,7 @@ export class CheckoutService {
         createdAt: true,
         items: {
           select: {
+            id: true,
             variantId: true,
             productName: true,
             variantName: true,
@@ -679,6 +680,7 @@ export class CheckoutService {
         user: { select: { mobile: true } },
         items: {
           select: {
+            id: true,
             variantId: true,
             productName: true,
             variantName: true,
@@ -1223,6 +1225,7 @@ export class CheckoutService {
     postalCode: string | null;
     createdAt: Date;
     items: Array<{
+      id: string;
       variantId: string;
       productName: string;
       variantName: string | null;
@@ -1241,6 +1244,7 @@ export class CheckoutService {
       postalCode: order.postalCode,
     };
     const items: OrderItemDto[] = order.items.map((item) => ({
+      id: item.id,
       variantId: item.variantId,
       productName: item.productName,
       variantName: item.variantName,

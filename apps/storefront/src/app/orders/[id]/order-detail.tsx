@@ -204,6 +204,11 @@ export function OrderDetail({ id }: { id: string }) {
             {cancelling ? 'در حال لغو…' : 'لغو سفارش'}
           </Button>
         ) : null}
+        {order.status === 'DELIVERED' ? (
+          <Link href={`/orders/${order.id}/return`} className={buttonVariants({ variant: 'outline' })}>
+            درخواست مرجوعی
+          </Link>
+        ) : null}
         <Link href="/orders" className={buttonVariants({ variant: 'ghost' })}>
           بازگشت به سفارش‌ها
         </Link>

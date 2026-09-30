@@ -182,6 +182,8 @@ model User {
 
   reviews Review[]
 
+  returnRequests ReturnRequest[]
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
@@ -937,6 +939,8 @@ model Order {
 
   rfq Rfq?
 
+  returnRequests ReturnRequest[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -967,6 +971,65 @@ model OrderItem {
 
   @@index([orderId])
   @@index([variantId])
+}
+
+/// Return request (SS-242, master plan §6 Stage 3 + spec order-management
+/// §8). One row per owner order return; eligibility (owned DELIVERED order
+/// within the return window, per-item quantities) is enforced in
+/// ReturnsService, not by the schema. Items snapshot the order-line
+/// identity (variant + names + SKU) so later catalog edits never rewrite
+/// history. No order-status mutation and no restock/refund side effects —
+/// the request records the operator decision only. Hard-deleted with the
+/// user (cascade); orders are Restrict-guarded while a request exists.
+/// Audit trail lives in AuditLog (RETURN_REQUESTED / APPROVED / REJECTED /
+/// RECEIVED / COMPLETED / CANCELLED, entity 'ReturnRequest').
+model ReturnRequest {
+  id      String @id @default(uuid())
+  userId  String
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Restrict)
+
+  status ReturnStatus @default(PENDING)
+
+  /// Owner-stated reason (1–1000 chars, validated in the DTO).
+  reason String
+
+  /// Operator rejection reason (required on reject, validated in the DTO).
+  rejectReason String?
+
+  receivedAt  DateTime?
+  completedAt DateTime?
+  cancelledAt DateTime?
+
+  items ReturnItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?
+  updatedBy String?
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+  @@index([orderId])
+}
+
+/// One returned line (SS-242). References the source order line; quantity
+/// never exceeds the ordered quantity (validated in ReturnsService).
+/// Hard-deleted with the request (cascade).
+model ReturnItem {
+  id          String        @id @default(uuid())
+  returnId    String
+  request     ReturnRequest @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  orderItemId String
+  variantId   String
+
+  productName String
+  variantName String?
+  sku         String
+  quantity    Int
+
+  @@index([returnId])
 }
 
 /// Tag assignment preserving source ordering (SS-203). Derived rows:
@@ -1151,6 +1214,21 @@ model Review {
   @@unique([userId, productId])
   @@index([productId, status, createdAt])
   @@index([status, createdAt])
+}
+
+/// Return lifecycle (SS-242, master plan §6 Stage 3). PENDING = owner
+/// request awaiting operator review; APPROVED = operator accepted, awaiting
+/// item receipt; RECEIVED = items received, awaiting inspection close-out;
+/// COMPLETED = closed; REJECTED = operator declined; CANCELLED = owner
+/// withdrew while PENDING. No order-status mutation and no restock/refund
+/// side effects in SS-242 — the request records the decision only.
+enum ReturnStatus {
+  PENDING
+  APPROVED
+  RECEIVED
+  COMPLETED
+  REJECTED
+  CANCELLED
 }
 
 /// Blog category (SS-238, master plan §5.10). Optional filing for posts;

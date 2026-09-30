@@ -19,6 +19,8 @@ import { OrdersPage } from '../pages/orders-page'
 import { PartnerDetailPage } from '../pages/partner-detail-page'
 import { PartnersPage } from '../pages/partners-page'
 import { PricingPage } from '../pages/pricing-page'
+import { ReturnDetailPage } from '../pages/return-detail-page'
+import { ReturnsPage } from '../pages/returns-page'
 import { RfqDetailPage } from '../pages/rfq-detail-page'
 import { RfqPage } from '../pages/rfq-page'
 import { ReviewsPage } from '../pages/reviews-page'
@@ -108,6 +110,22 @@ export default function App() {
               element={
                 <RequireRole roles={ADMIN_ROLES}>
                   <ReviewsPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="returns"
+              element={
+                <RequireRole roles={ADMIN_ROLES}>
+                  <ReturnsPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="returns/:id"
+              element={
+                <RequireRole roles={ADMIN_ROLES}>
+                  <ReturnDetailPage />
                 </RequireRole>
               }
             />
