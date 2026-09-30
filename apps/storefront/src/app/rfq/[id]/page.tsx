@@ -8,7 +8,7 @@ export default async function RfqPage({ params }: { params: Promise<{ id: string
   const { id } = await params;
   return (
     <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
-      <h1 className="text-2xl font-bold tracking-tight text-ink-900">جزئیات استعلام</h1>
+      <h1 className="text-balance text-2xl font-extrabold text-ink-900">جزئیات استعلام</h1>
       <div className="mt-6">
         <RfqDetail id={id} />
       </div>

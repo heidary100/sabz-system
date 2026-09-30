@@ -7,7 +7,7 @@ export const metadata: Metadata = { title: 'استعلام‌ها' };
 export default function RfqPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
-      <h1 className="text-2xl font-bold tracking-tight text-ink-900">استعلام‌ها</h1>
+      <h1 className="text-balance text-2xl font-extrabold text-ink-900">استعلام‌ها</h1>
       <div className="mt-6">
         <RfqList />
       </div>

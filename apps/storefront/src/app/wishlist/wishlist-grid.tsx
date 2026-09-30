@@ -84,7 +84,7 @@ export function WishlistGrid() {
   if (status === 'login') {
     return (
       <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
-        <h1 className="text-2xl font-bold tracking-tight text-ink-900">علاقه‌مندی‌ها</h1>
+        <h1 className="text-balance text-2xl font-extrabold text-ink-900">علاقه‌مندی‌ها</h1>
         <div className="mt-8 rounded-2xl border border-sand-200 bg-white">
           <div className="flex flex-col items-center px-6 py-16 text-center">
             <span className="flex size-14 items-center justify-center rounded-full bg-sabz-50 text-sabz-600">
@@ -113,7 +113,7 @@ export function WishlistGrid() {
   if (status === 'error') {
     return (
       <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
-        <h1 className="text-2xl font-bold tracking-tight text-ink-900">علاقه‌مندی‌ها</h1>
+        <h1 className="text-balance text-2xl font-extrabold text-ink-900">علاقه‌مندی‌ها</h1>
         <div className="mt-8 rounded-2xl border border-sand-200 bg-white">
           <div className="flex flex-col items-center px-6 py-16 text-center">
             <h2 className="text-lg font-semibold text-ink-900">خطا در بارگذاری علاقه‌مندی‌ها</h2>
@@ -130,7 +130,7 @@ export function WishlistGrid() {
   if (items.length === 0) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
-        <h1 className="text-2xl font-bold tracking-tight text-ink-900">علاقه‌مندی‌ها</h1>
+        <h1 className="text-balance text-2xl font-extrabold text-ink-900">علاقه‌مندی‌ها</h1>
         <div className="mt-8 rounded-2xl border border-sand-200 bg-white">
           <div className="flex flex-col items-center px-6 py-16 text-center">
             <span className="flex size-14 items-center justify-center rounded-full bg-sabz-50 text-sabz-600">
@@ -161,7 +161,7 @@ export function WishlistGrid() {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-      <h1 className="text-2xl font-bold tracking-tight text-ink-900">علاقه‌مندی‌ها</h1>
+      <h1 className="text-balance text-2xl font-extrabold text-ink-900">علاقه‌مندی‌ها</h1>
       <p className="mt-1 text-sm text-gray-500">
         {items.length.toLocaleString('fa-IR')} محصول
       </p>
