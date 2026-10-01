@@ -4,6 +4,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Ip,
   Param,
   ParseUUIDPipe,
   Post,
@@ -45,12 +46,17 @@ export class OrdersController {
   @ApiResponse({ status: 404, description: 'Address/product not found.' })
   @ApiResponse({ status: 409, description: 'Insufficient stock or order not cancellable.' })
   @ApiResponse({ status: 422, description: 'Call-for-price line in the cart.' })
-  async checkout(@CurrentUser() user: AuthUser, @Body() dto: PlaceOrderDto) {
+  async checkout(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: PlaceOrderDto,
+    @Ip() ipAddress?: string,
+  ) {
     return this.checkoutService.placeOrder(
       user.userId,
       dto.addressId,
       dto.paymentMethod,
       dto.shippingMethod,
+      ipAddress,
     );
   }
 
@@ -95,8 +101,9 @@ export class OrdersController {
   async cancel(
     @CurrentUser() user: AuthUser,
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Ip() ipAddress?: string,
   ) {
-    return this.checkoutService.cancelOrder(user.userId, id);
+    return this.checkoutService.cancelOrder(user.userId, id, ipAddress);
   }
 
   @Get(':id/invoice')

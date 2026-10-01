@@ -274,6 +274,7 @@ export class CheckoutService {
     addressId: string,
     paymentMethod: PaymentMethod,
     shippingMethod: string,
+    ipAddress?: string,
   ): Promise<PlaceOrderResult> {
     this.assertPaymentEnabled(paymentMethod);
     const method = this.requireShippingMethod(shippingMethod);
@@ -364,6 +365,16 @@ export class CheckoutService {
         entity: 'Order',
         entityId: order.id,
       });
+      // SS-244A: money-movement audit (operator transitions already log
+      // ORDER_STATUS_CHANGED; this covers the customer placement itself).
+      await this.audit.log({
+        userId,
+        action: 'ORDER_PLACED',
+        entity: 'Order',
+        entityId: order.id,
+        after: { orderNumber, total: totals.total.toString() },
+        ipAddress,
+      });
       return {
         orderId: order.id,
         orderNumber,
@@ -397,6 +408,7 @@ export class CheckoutService {
       addressId: string;
       paymentMethod: PaymentMethod;
       shippingMethod: string;
+      ipAddress?: string;
     },
   ): Promise<PlaceOrderResult> {
     if (!Number.isInteger(input.quantity) || input.quantity < 1) {
@@ -522,6 +534,15 @@ export class CheckoutService {
         body: `سفارش ${orderNumber} ثبت شد.`,
         entity: 'Order',
         entityId: order.id,
+      });
+      // SS-244A: same placement audit as placeOrder (RFQ-quoted path).
+      await this.audit.log({
+        userId,
+        action: 'ORDER_PLACED',
+        entity: 'Order',
+        entityId: order.id,
+        after: { orderNumber, total: totals.total.toString(), rfqId: input.rfqId },
+        ipAddress: input.ipAddress,
       });
       return {
         orderId: order.id,
@@ -679,7 +700,11 @@ export class CheckoutService {
     return this.toDetail(order);
   }
 
-  async cancelOrder(userId: string, orderId: string): Promise<OrderDetailDto> {
+  async cancelOrder(
+    userId: string,
+    orderId: string,
+    ipAddress?: string,
+  ): Promise<OrderDetailDto> {
     const order = await this.prisma.order.findFirst({
       where: { id: orderId, userId },
       select: {
@@ -722,6 +747,17 @@ export class CheckoutService {
     await this.prisma.order.update({
       where: { id: order.id },
       data: { status: OrderStatus.CANCELLED },
+    });
+    // SS-244A: owner-cancel audit (restock notes already carry the trail;
+    // this records the status decision itself).
+    await this.audit.log({
+      userId,
+      action: 'ORDER_CANCELLED',
+      entity: 'Order',
+      entityId: order.id,
+      before: { status: order.status },
+      after: { status: OrderStatus.CANCELLED },
+      ipAddress,
     });
     return this.orderDetail(userId, order.id);
   }
