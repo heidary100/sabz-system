@@ -26,3 +26,7 @@ graphify-out/
 # committed (the SS-219 runbook records the fetch location + checksum).
 wc-product-export-*.csv
 /company-logo.png
+
+# Database dumps from scripts/backup/postgres-backup.sh (SS-244A): large,
+# host-local, and potentially sensitive — never committed.
+backups/

@@ -5,6 +5,7 @@ import type {
   RemoveAddressResponse,
 } from '@sabz/types';
 import { PrismaService } from '../../common/database/prisma.service';
+import { AuditService } from '../audit/audit.service';
 import { CreateAddressDto, UpdateAddressDto } from './dto';
 
 const ADDRESS_SELECT = {
@@ -43,7 +44,10 @@ type AddressRow = {
  */
 @Injectable()
 export class AddressesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
+  ) {}
 
   async list(userId: string): Promise<AddressListResponse> {
     const rows = await this.prisma.address.findMany({
@@ -54,7 +58,11 @@ export class AddressesService {
     return { items: rows.map((row) => this.toDto(row)) };
   }
 
-  async create(userId: string, dto: CreateAddressDto): Promise<AddressDto> {
+  async create(
+    userId: string,
+    dto: CreateAddressDto,
+    ipAddress?: string,
+  ): Promise<AddressDto> {
     const siblingCount = await this.prisma.address.count({ where: { userId } });
     // First address is always the default; explicit isDefault promotes.
     const isDefault = siblingCount === 0 || dto.isDefault === true;
@@ -80,6 +88,15 @@ export class AddressesService {
         select: ADDRESS_SELECT,
       });
     });
+    // SS-244A: PII mutation audit (returns-service precedent: direct await).
+    await this.audit.log({
+      userId,
+      action: 'ADDRESS_CREATED',
+      entity: 'Address',
+      entityId: created.id,
+      after: { isDefault: created.isDefault },
+      ipAddress,
+    });
     return this.toDto(created);
   }
 
@@ -87,6 +104,7 @@ export class AddressesService {
     userId: string,
     id: string,
     dto: UpdateAddressDto,
+    ipAddress?: string,
   ): Promise<AddressDto> {
     const existing = await this.prisma.address.findFirst({
       where: { id, userId },
@@ -117,10 +135,22 @@ export class AddressesService {
         select: ADDRESS_SELECT,
       });
     });
+    await this.audit.log({
+      userId,
+      action: 'ADDRESS_UPDATED',
+      entity: 'Address',
+      entityId: updated.id,
+      after: { isDefault: updated.isDefault },
+      ipAddress,
+    });
     return this.toDto(updated);
   }
 
-  async remove(userId: string, id: string): Promise<RemoveAddressResponse> {
+  async remove(
+    userId: string,
+    id: string,
+    ipAddress?: string,
+  ): Promise<RemoveAddressResponse> {
     const existing = await this.prisma.address.findFirst({
       where: { id, userId },
       select: { id: true, isDefault: true },
@@ -146,6 +176,14 @@ export class AddressesService {
           });
         }
       }
+    });
+    await this.audit.log({
+      userId,
+      action: 'ADDRESS_DELETED',
+      entity: 'Address',
+      entityId: existing.id,
+      before: { isDefault: existing.isDefault },
+      ipAddress,
     });
     return { removed: true };
   }

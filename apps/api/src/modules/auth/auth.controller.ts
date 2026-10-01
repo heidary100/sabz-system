@@ -21,6 +21,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { RefreshTokenDto, RequestOtpDto, UpdateProfileDto, VerifyOtpDto } from './dto';
@@ -61,7 +62,12 @@ export class AuthController {
     };
   }
 
+  // SS-244A: coarse per-route flood guard below the global 100/min bucket.
+  // The OtpService Redis limits (15 req/min/IP on request, 10 failures per
+  // 10min/IP on verify) fire first with Persian messages — these throttler
+  // caps only catch floods the service counters miss.
   @Post('request-otp')
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Request an OTP for the given mobile number' })
   @ApiResponse({ status: 200, description: 'OTP sent.' })
@@ -74,6 +80,7 @@ export class AuthController {
   }
 
   @Post('verify-otp')
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Verify an OTP, activate the number, and issue tokens' })
   @ApiResponse({ status: 200, description: 'OTP verified and tokens issued.' })
@@ -115,6 +122,7 @@ export class AuthController {
   }
 
   @Post('refresh')
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Exchange a refresh token for a new token pair' })
   @ApiResponse({ status: 200, description: 'New token pair issued.' })

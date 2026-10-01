@@ -362,6 +362,7 @@ describe('CheckoutService', () => {
       order: { create: jest.Mock };
       rfq: { update: jest.Mock };
     };
+    let quotedAudit: { log: jest.Mock };
 
     const quotedInput = (overrides: Record<string, unknown> = {}) => ({
       rfqId: RFQ_ID,
@@ -396,7 +397,7 @@ describe('CheckoutService', () => {
         stores as unknown as PrismaService,
         ledger as unknown as InventoryService,
         {} as unknown as PricingService,
-        { log: jest.fn() } as unknown as AuditService,
+        (quotedAudit = { log: jest.fn() }) as unknown as AuditService,
         {
           notify: jest.fn(),
           notifyOperators: jest.fn(),
@@ -450,6 +451,19 @@ describe('CheckoutService', () => {
           orderId: 'order-1',
         }),
       });
+    });
+
+    it('audits ORDER_PLACED on the quoted path (SS-244A)', async () => {
+      await quoted.placeQuotedOrder(USER_ID, quotedInput({ ipAddress: '10.0.0.1' }));
+
+      expect(quotedAudit.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'ORDER_PLACED',
+          entity: 'Order',
+          entityId: 'order-1',
+          ipAddress: '10.0.0.1',
+        }),
+      );
     });
 
     it('rejects a shortfall with 409 before reserving', async () => {

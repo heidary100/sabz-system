@@ -5,6 +5,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Ip,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -49,8 +50,12 @@ export class AddressesController {
   @ApiResponse({ status: 201, description: 'Address created.' })
   @ApiResponse({ status: 400, description: 'Invalid address fields.' })
   @ApiResponse({ status: 401, description: 'Unauthorized.' })
-  async create(@CurrentUser() user: AuthUser, @Body() dto: CreateAddressDto) {
-    return this.addressesService.create(user.userId, dto);
+  async create(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: CreateAddressDto,
+    @Ip() ipAddress?: string,
+  ) {
+    return this.addressesService.create(user.userId, dto, ipAddress);
   }
 
   @Patch(':id')
@@ -64,8 +69,9 @@ export class AddressesController {
     @CurrentUser() user: AuthUser,
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
     @Body() dto: UpdateAddressDto,
+    @Ip() ipAddress?: string,
   ) {
-    return this.addressesService.update(user.userId, id, dto);
+    return this.addressesService.update(user.userId, id, dto, ipAddress);
   }
 
   @Delete(':id')
@@ -78,7 +84,8 @@ export class AddressesController {
   async remove(
     @CurrentUser() user: AuthUser,
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Ip() ipAddress?: string,
   ) {
-    return this.addressesService.remove(user.userId, id);
+    return this.addressesService.remove(user.userId, id, ipAddress);
   }
 }
