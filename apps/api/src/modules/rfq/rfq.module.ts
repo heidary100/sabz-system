@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AuditModule } from '../audit/audit.module';
 import { AuthModule } from '../auth/auth.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { OrdersModule } from '../orders/orders.module';
 import { RfqController } from './rfq.controller';
 import { RfqService } from './rfq.service';
@@ -15,7 +16,7 @@ import { RfqService } from './rfq.service';
  * module cycle.
  */
 @Module({
-  imports: [AuthModule, OrdersModule, AuditModule],
+  imports: [AuthModule, OrdersModule, AuditModule, NotificationsModule],
   controllers: [RfqController],
   providers: [RfqService],
 })

@@ -13,6 +13,7 @@ import type {
 } from '@sabz/types';
 import { PrismaService } from '../../common/database/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { NotificationService } from '../notifications/notification.service';
 import { CreateApplicationDto, UpdateApplicationDto } from './dto';
 
 const EDITABLE_STATUSES: PartnerApprovalStatus[] = [
@@ -33,6 +34,7 @@ export class PartnersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
+    private readonly notifications: NotificationService,
   ) {}
 
   async createApplication(
@@ -234,6 +236,16 @@ export class PartnersService {
       };
     });
 
+    // SS-243: operator alert on fresh submissions (best-effort, never throws).
+    if (wantsSubmit) {
+      await this.notifications.notifyOperators({
+        type: 'PARTNER_SUBMITTED',
+        title: 'درخواست همکاری جدید',
+        body: 'یک درخواست همکاری برای بررسی ثبت شد.',
+        entity: 'Partner',
+        entityId: partner.id,
+      });
+    }
     return this.toSummary(result);
   }
 

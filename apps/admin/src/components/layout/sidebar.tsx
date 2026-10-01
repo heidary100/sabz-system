@@ -1,6 +1,7 @@
 import * as Headless from '@headlessui/react'
 import clsx from 'clsx'
 import {
+  Bell,
   Briefcase,
   Boxes,
   ClipboardList,
@@ -39,6 +40,7 @@ export const NAV_ITEMS: Array<{ to: string; label: string; icon: LucideIcon }> =
   { to: '/warehouses', label: 'انبارها', icon: Warehouse },
   { to: '/orders', label: 'سفارش‌ها', icon: ShoppingCart },
   { to: '/returns', label: 'مرجوعی‌ها', icon: Undo2 },
+  { to: '/notifications', label: 'اعلان‌ها', icon: Bell },
   { to: '/pricing', label: 'قیمت‌گذاری', icon: Percent },
   { to: '/rfq', label: 'استعلام‌ها', icon: FileText },
   { to: '/reviews', label: 'نقدها', icon: Star },

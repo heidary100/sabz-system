@@ -16,6 +16,7 @@ import { InventoryReservationsPage } from '../pages/inventory-reservations-page'
 import { LoginPage } from '../pages/login-page'
 import { OrderDetailPage } from '../pages/order-detail-page'
 import { OrdersPage } from '../pages/orders-page'
+import { NotificationsPage } from '../pages/notifications-page'
 import { PartnerDetailPage } from '../pages/partner-detail-page'
 import { PartnersPage } from '../pages/partners-page'
 import { PricingPage } from '../pages/pricing-page'
@@ -110,6 +111,14 @@ export default function App() {
               element={
                 <RequireRole roles={ADMIN_ROLES}>
                   <ReviewsPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="notifications"
+              element={
+                <RequireRole roles={ADMIN_ROLES}>
+                  <NotificationsPage />
                 </RequireRole>
               }
             />

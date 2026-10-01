@@ -8,6 +8,7 @@ import { PrismaService } from '../src/common/database/prisma.service';
 import { AppRole } from '../src/modules/auth/enums/app-role.enum';
 import { RolesService } from '../src/modules/auth/roles/roles.service';
 import { AuditService } from '../src/modules/audit/audit.service';
+import { NotificationService } from '../src/modules/notifications/notification.service';
 import { AdminPartnersService } from '../src/modules/partners/admin-partners.service';
 
 jest.setTimeout(30_000);
@@ -47,7 +48,11 @@ describe('Admin partner review database integration (SS-040)', () => {
 
     const auditService = new AuditService(prisma);
     const rolesService = new RolesService(prisma);
-    service = new AdminPartnersService(prisma, auditService, rolesService);
+    const notifications = new NotificationService(
+      prisma,
+      { get: () => undefined } as unknown as import('@nestjs/config').ConfigService,
+    );
+    service = new AdminPartnersService(prisma, auditService, rolesService, notifications);
   });
 
   afterAll(async () => {
@@ -189,6 +194,10 @@ describe('Admin partner review database integration (SS-040)', () => {
       failingPrisma as unknown as PrismaService,
       new AuditService(prisma),
       new RolesService(prisma),
+      new NotificationService(
+        prisma,
+        { get: () => undefined } as unknown as import('@nestjs/config').ConfigService,
+      ),
     );
 
     await expect(

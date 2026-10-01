@@ -6,6 +6,7 @@ import {
 import { ReturnStatus } from '@prisma/client';
 import { PrismaService } from '../../common/database/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { NotificationService } from '../notifications/notification.service';
 import { ReturnsService } from './returns.service';
 
 const USER_ID = 'user-1';
@@ -105,6 +106,10 @@ describe('ReturnsService (SS-242)', () => {
     service = new ReturnsService(
       prisma as unknown as PrismaService,
       audit as unknown as AuditService,
+      {
+        notify: jest.fn(),
+        notifyOperators: jest.fn(),
+      } as unknown as NotificationService,
     );
   });
 

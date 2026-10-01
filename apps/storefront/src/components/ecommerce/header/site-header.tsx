@@ -9,6 +9,7 @@ import { DesktopNav } from './desktop-nav';
 import { MobileMenu } from './mobile-menu';
 import { SearchInput } from './search-input';
 import { SearchOverlay } from './search-overlay';
+import { NotificationHeaderIcon } from './notification-header-icon';
 import { WishlistHeaderIcon } from './wishlist-header-icon';
 
 /**
@@ -50,6 +51,7 @@ export function SiteHeader({ categories }: { categories: CatalogCategoryNode[] }
               </svg>
             </Link>
             <WishlistHeaderIcon />
+            <NotificationHeaderIcon />
             <CompareHeaderIcon />
             <CartHeaderIcon />
             <MiniCart />
