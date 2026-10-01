@@ -376,6 +376,50 @@ model AuditLog {
   @@index([entity, createdAt])
 }
 
+/// In-app notification row (SS-243, master plan §6 Stage 3). One row per
+/// recipient: owner events (order/shipment/return/RFQ/partner decisions)
+/// address the customer, admin alerts fan out to one row per OPERATOR/ADMIN
+/// user. Real SMS/email delivery is a future ticket (no credentials in
+/// repo) — the API ships a log-only stub behind NOTIFICATIONS_SMS_ENABLED.
+model Notification {
+  id     String           @id @default(uuid())
+  /// Recipient. Scalar by design (AuditLog precedent): no FK, so lookups
+  /// never join and a missing user never breaks the queue.
+  userId String
+  type   NotificationType
+
+  /// Persian title + body, rendered at emit time.
+  title String
+  body  String
+
+  /// Backlink for the UI (e.g. Order/<orderId>, Rfq/<rfqId>).
+  entity   String?
+  entityId String?
+
+  readAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([userId, readAt])
+}
+
+/// Notification event catalogue (SS-243). *_SUBMITTED/*_REQUESTED rows fan
+/// out to operators; decision/status rows address the owner.
+enum NotificationType {
+  ORDER_PLACED
+  ORDER_STATUS_CHANGED
+  SHIPMENT_UPDATED
+  RETURN_REQUESTED
+  RETURN_STATUS_CHANGED
+  RFQ_CREATED
+  RFQ_QUOTED
+  RFQ_DECIDED
+  PARTNER_SUBMITTED
+  PARTNER_APPROVED
+  PARTNER_REJECTED
+}
+
 model Category {
   id       String     @id @default(uuid())
   name     String

@@ -166,6 +166,14 @@ export {
 } from './shipping/shipping';
 
 export {
+  NOTIFICATION_TYPE_FA,
+  NotificationDto,
+  NotificationListResponse,
+  NotificationType,
+  UnreadCountResponse,
+} from './notifications/notifications';
+
+export {
   AddCartItemInput,
   CartItemDto,
   CartResponse,

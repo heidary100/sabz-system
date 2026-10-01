@@ -17,6 +17,7 @@ import { PrismaService } from '../../common/database/prisma.service';
 import { AppRole } from '../auth/enums/app-role.enum';
 import { RolesService } from '../auth/roles/roles.service';
 import { AuditService } from '../audit/audit.service';
+import { NotificationService } from '../notifications/notification.service';
 import {
   ApprovePartnerDto,
   ChangeTierDto,
@@ -33,6 +34,7 @@ export class AdminPartnersService {
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
     private readonly rolesService: RolesService,
+    private readonly notifications: NotificationService,
   ) {}
 
   async list(query: ListPartnersQueryDto): Promise<PaginatedResult<AdminPartnerListItem>> {
@@ -166,6 +168,7 @@ export class AdminPartnersService {
     reviewerId: string,
     ipAddress?: string,
   ): Promise<AdminPartnerDetail> {
+    let applicantUserId = '';
     await this.prisma.$transaction(async (tx) => {
       const partner = await tx.partner.findUnique({
         where: { id: partnerId },
@@ -174,6 +177,7 @@ export class AdminPartnersService {
       if (!partner || partner.deletedAt !== null) {
         throw new NotFoundException('درخواست همکاری یافت نشد.');
       }
+      applicantUserId = partner.profile.userId;
 
       const tier = await tx.partnerTier.findUnique({ where: { id: dto.tierId } });
       if (!tier) {
@@ -252,6 +256,16 @@ export class AdminPartnersService {
       );
     });
 
+    // SS-243: applicant approval notice (best-effort, never throws).
+    if (applicantUserId !== '') {
+      await this.notifications.notify(applicantUserId, {
+        type: 'PARTNER_APPROVED',
+        title: 'درخواست همکاری تأیید شد',
+        body: 'درخواست همکاری شما تأیید شد؛ قیمت‌های همکار فعال است.',
+        entity: 'Partner',
+        entityId: partnerId,
+      });
+    }
     return this.getDetail(partnerId);
   }
 
@@ -261,14 +275,22 @@ export class AdminPartnersService {
     reviewerId: string,
     ipAddress?: string,
   ): Promise<AdminPartnerDetail> {
+    let applicantUserId = '';
     await this.prisma.$transaction(async (tx) => {
       const partner = await tx.partner.findUnique({
         where: { id: partnerId },
-        select: { id: true, deletedAt: true, approvalStatus: true },
+        select: {
+          id: true,
+          deletedAt: true,
+          approvalStatus: true,
+          profile: { select: { userId: true } },
+        },
       });
       if (!partner || partner.deletedAt !== null) {
         throw new NotFoundException('درخواست همکاری یافت نشد.');
       }
+      // Defensive (see approve): skip the notice when the join is absent.
+      applicantUserId = partner.profile?.userId ?? '';
 
       const rejectedAt = new Date();
       const result = await tx.partner.updateMany({
@@ -309,6 +331,16 @@ export class AdminPartnersService {
       );
     });
 
+    // SS-243: applicant rejection notice (best-effort, never throws).
+    if (applicantUserId !== '') {
+      await this.notifications.notify(applicantUserId, {
+        type: 'PARTNER_REJECTED',
+        title: 'درخواست همکاری رد شد',
+        body: `درخواست همکاری شما رد شد: ${dto.reason}`,
+        entity: 'Partner',
+        entityId: partnerId,
+      });
+    }
     return this.getDetail(partnerId);
   }
 
@@ -331,7 +363,6 @@ export class AdminPartnersService {
       if (!partner || partner.deletedAt !== null) {
         throw new NotFoundException('درخواست همکاری یافت نشد.');
       }
-
       const tier = await tx.partnerTier.findUnique({ where: { id: dto.tierId } });
       if (!tier) {
         throw new BadRequestException('تایر معتبر نیست.');

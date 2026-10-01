@@ -9,6 +9,7 @@ import {
 import { Prisma, RfqStatus } from '@prisma/client';
 import { PrismaService } from '../../common/database/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { NotificationService } from '../notifications/notification.service';
 import { CheckoutService } from '../orders/checkout.service';
 import { RfqService } from './rfq.service';
 
@@ -82,6 +83,10 @@ describe('RfqService (SS-235 B2)', () => {
       prisma as unknown as PrismaService,
       checkout as unknown as CheckoutService,
       audit as unknown as AuditService,
+      {
+        notify: jest.fn(),
+        notifyOperators: jest.fn(),
+      } as unknown as NotificationService,
     );
   });
 

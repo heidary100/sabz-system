@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AuditModule } from '../audit/audit.module';
 import { AuthModule } from '../auth/auth.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { AdminPartnersController } from './admin-partners.controller';
 import { AdminPartnersService } from './admin-partners.service';
 import { DocumentsService } from './documents.service';
@@ -17,7 +18,7 @@ import { LocalDiskStorage } from './storage/local-disk.storage';
  * global infrastructure module: it belongs to the Partner domain.
  */
 @Module({
-  imports: [AuditModule, AuthModule],
+  imports: [AuditModule, AuthModule, NotificationsModule],
   controllers: [PartnersController, AdminPartnersController],
   providers: [
     PartnersService,

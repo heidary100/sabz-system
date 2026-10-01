@@ -14,6 +14,7 @@ import type {
 import { RETURN_STATUS_FA } from '@sabz/types';
 import { PrismaService } from '../../common/database/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { NotificationService } from '../notifications/notification.service';
 import {
   CreateReturnRequestDto,
   ListAdminReturnsQueryDto,
@@ -79,6 +80,7 @@ export class ReturnsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly notifications: NotificationService,
   ) {}
 
   /** Owner files a return request for an owned DELIVERED order. */
@@ -188,6 +190,14 @@ export class ReturnsService {
         entityId: created.id,
         after: { orderId: dto.orderId, items: dto.items.length },
         ipAddress,
+      });
+      // SS-243: operator alert (best-effort, never throws).
+      await this.notifications.notifyOperators({
+        type: 'RETURN_REQUESTED',
+        title: 'درخواست مرجوعی جدید',
+        body: `درخواست مرجوعی برای سفارش ${order.orderNumber} ثبت شد.`,
+        entity: 'ReturnRequest',
+        entityId: created.id,
       });
       return toDto(created);
     } catch (error) {
@@ -318,6 +328,14 @@ export class ReturnsService {
       after: { status: 'APPROVED' },
       ipAddress,
     });
+    // SS-243: owner decision notice (best-effort, never throws).
+    await this.notifications.notify(updated.userId, {
+      type: 'RETURN_STATUS_CHANGED',
+      title: 'درخواست مرجوعی تأیید شد',
+      body: 'درخواست مرجوعی شما تأیید شد؛ لطفاً کالا را ارسال کنید.',
+      entity: 'ReturnRequest',
+      entityId: id,
+    });
     return toAdminDto(updated);
   }
 
@@ -347,6 +365,14 @@ export class ReturnsService {
       after: { status: 'REJECTED' },
       ipAddress,
     });
+    // SS-243: owner decision notice (best-effort, never throws).
+    await this.notifications.notify(updated.userId, {
+      type: 'RETURN_STATUS_CHANGED',
+      title: 'درخواست مرجوعی رد شد',
+      body: `درخواست مرجوعی شما رد شد: ${reason.trim()}`,
+      entity: 'ReturnRequest',
+      entityId: id,
+    });
     return toAdminDto(updated);
   }
 
@@ -371,6 +397,14 @@ export class ReturnsService {
       after: { status: 'RECEIVED' },
       ipAddress,
     });
+    // SS-243: owner receipt notice (best-effort, never throws).
+    await this.notifications.notify(updated.userId, {
+      type: 'RETURN_STATUS_CHANGED',
+      title: 'کالای مرجوعی دریافت شد',
+      body: 'کالای مرجوعی شما به انبار رسید و در حال بررسی است.',
+      entity: 'ReturnRequest',
+      entityId: id,
+    });
     return toAdminDto(updated);
   }
 
@@ -394,6 +428,14 @@ export class ReturnsService {
       before: { status: 'RECEIVED' },
       after: { status: 'COMPLETED' },
       ipAddress,
+    });
+    // SS-243: owner close-out notice (best-effort, never throws).
+    await this.notifications.notify(updated.userId, {
+      type: 'RETURN_STATUS_CHANGED',
+      title: 'مرجوعی تکمیل شد',
+      body: 'فرایند مرجوعی شما تکمیل شد.',
+      entity: 'ReturnRequest',
+      entityId: id,
     });
     return toAdminDto(updated);
   }

@@ -43,6 +43,7 @@ import {
 } from '@sabz/types';
 import { PrismaService } from '../../common/database/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { NotificationService } from '../notifications/notification.service';
 import {
   activeInventoryWhere,
   deriveAvailable,
@@ -234,6 +235,7 @@ export class CheckoutService {
     private readonly inventory: InventoryService,
     private readonly pricing: PricingService,
     private readonly audit: AuditService,
+    private readonly notifications: NotificationService,
   ) {}
 
   shippingMethods(): { items: ShippingMethodDto[] } {
@@ -345,6 +347,22 @@ export class CheckoutService {
           await tx.cartItem.deleteMany({ where: { cartId: cart.id } });
         }
         return created;
+      });
+      // SS-243: owner confirmation + operator alert (best-effort, never
+      // throws — the order is already committed above).
+      await this.notifications.notify(userId, {
+        type: 'ORDER_PLACED',
+        title: 'سفارش شما ثبت شد',
+        body: `سفارش ${orderNumber} با موفقیت ثبت شد.`,
+        entity: 'Order',
+        entityId: order.id,
+      });
+      await this.notifications.notifyOperators({
+        type: 'ORDER_PLACED',
+        title: 'سفارش جدید',
+        body: `سفارش ${orderNumber} ثبت شد.`,
+        entity: 'Order',
+        entityId: order.id,
       });
       return {
         orderId: order.id,
@@ -488,6 +506,22 @@ export class CheckoutService {
           },
         });
         return created;
+      });
+      // SS-243: owner confirmation + operator alert (best-effort; the lost
+      // race below replays an already-notified order, so it stays silent).
+      await this.notifications.notify(userId, {
+        type: 'ORDER_PLACED',
+        title: 'سفارش شما ثبت شد',
+        body: `سفارش ${orderNumber} با موفقیت ثبت شد.`,
+        entity: 'Order',
+        entityId: order.id,
+      });
+      await this.notifications.notifyOperators({
+        type: 'ORDER_PLACED',
+        title: 'سفارش جدید',
+        body: `سفارش ${orderNumber} ثبت شد.`,
+        entity: 'Order',
+        entityId: order.id,
       });
       return {
         orderId: order.id,
@@ -847,6 +881,7 @@ export class CheckoutService {
       where: { id: orderId },
       select: {
         id: true,
+        userId: true,
         orderNumber: true,
         status: true,
         paymentMethod: true,
@@ -924,6 +959,14 @@ export class CheckoutService {
       before: { status: current, paymentStatus: order.paymentStatus },
       after: { status: updated.status, paymentStatus: updated.paymentStatus },
       ipAddress,
+    });
+    // SS-243: owner status notice (best-effort, never throws).
+    await this.notifications.notify(order.userId, {
+      type: 'ORDER_STATUS_CHANGED',
+      title: 'وضعیت سفارش تغییر کرد',
+      body: `سفارش ${order.orderNumber} به وضعیت «${ORDER_STATUS_FA[next as keyof typeof ORDER_STATUS_FA]}» رسید.`,
+      entity: 'Order',
+      entityId: order.id,
     });
     return this.adminDetail(order.id);
   }
@@ -1183,6 +1226,7 @@ export class CheckoutService {
       where: { id: orderId },
       select: {
         id: true,
+        userId: true,
         orderNumber: true,
         shippingMethod: true,
         shipment: {
@@ -1239,6 +1283,17 @@ export class CheckoutService {
       after: { trackingNumber: updated.trackingNumber, status: updated.status },
       ipAddress,
     });
+    // SS-243: owner shipment notice (best-effort, never throws).
+    await this.notifications.notify(order.userId, {
+      type: 'SHIPMENT_UPDATED',
+      title: 'مرسوله به‌روزرسانی شد',
+      body:
+        updated.trackingNumber !== null
+          ? `کد رهگیری سفارش ${order.orderNumber}: ${updated.trackingNumber}`
+          : `وضعیت مرسوله سفارش ${order.orderNumber} به‌روزرسانی شد.`,
+      entity: 'Order',
+      entityId: order.id,
+    });
     return this.adminDetail(order.id);
   }
 
@@ -1257,6 +1312,8 @@ export class CheckoutService {
       where: { id: orderId },
       select: {
         id: true,
+        userId: true,
+        orderNumber: true,
         shippingMethod: true,
         shipment: { select: { id: true, status: true } },
       },
@@ -1298,6 +1355,14 @@ export class CheckoutService {
       before: { status: shipment.status },
       after: { status: input.status },
       ipAddress,
+    });
+    // SS-243: owner tracking checkpoint notice (best-effort, never throws).
+    await this.notifications.notify(order.userId, {
+      type: 'SHIPMENT_UPDATED',
+      title: 'مرسوله به‌روزرسانی شد',
+      body: `مرسوله سفارش ${order.orderNumber} به مرحله بعد رسید.`,
+      entity: 'Order',
+      entityId: order.id,
     });
     return this.adminDetail(order.id);
   }

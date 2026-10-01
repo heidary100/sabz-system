@@ -23,6 +23,7 @@ import type {
 import { RFQ_STATUS_FA } from '@sabz/types';
 import { PrismaService } from '../../common/database/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { NotificationService } from '../notifications/notification.service';
 import { CheckoutService } from '../orders/checkout.service';
 import { AcceptRfqDto } from './dto/accept-rfq.dto';
 import { CreateRfqDto } from './dto/create-rfq.dto';
@@ -69,6 +70,7 @@ export class RfqService {
     private readonly prisma: PrismaService,
     private readonly checkout: CheckoutService,
     private readonly audit: AuditService,
+    private readonly notifications: NotificationService,
   ) {}
 
   /** Partner files a quotation request against a call-for-price variant. */
@@ -99,6 +101,14 @@ export class RfqService {
       entityId: created.id,
       after: { variantId: variant.id, quantity: dto.quantity },
       ipAddress,
+    });
+    // SS-243: operator alert (best-effort, never throws).
+    await this.notifications.notifyOperators({
+      type: 'RFQ_CREATED',
+      title: 'استعلام جدید',
+      body: 'یک استعلام قیمت جدید ثبت شد.',
+      entity: 'Rfq',
+      entityId: created.id,
     });
     return this.toDto(created);
   }
@@ -186,6 +196,14 @@ export class RfqService {
       },
       ipAddress,
     });
+    // SS-243: owner quotation notice (best-effort, never throws).
+    await this.notifications.notify(row.userId, {
+      type: 'RFQ_QUOTED',
+      title: 'استعلام قیمت‌گذاری شد',
+      body: 'برای استعلام شما قیمت اعلام شد؛ آن را بررسی و پذیرش کنید.',
+      entity: 'Rfq',
+      entityId: row.id,
+    });
     return this.toDto(updated);
   }
 
@@ -215,6 +233,14 @@ export class RfqService {
       before: { status: row.status },
       after: { status: RfqStatus.REJECTED },
       ipAddress,
+    });
+    // SS-243: owner decision notice (best-effort, never throws).
+    await this.notifications.notify(row.userId, {
+      type: 'RFQ_DECIDED',
+      title: 'استعلام رد شد',
+      body: 'استعلام شما رد شد.',
+      entity: 'Rfq',
+      entityId: row.id,
     });
     return this.toDto(updated);
   }
@@ -273,6 +299,15 @@ export class RfqService {
       before: { status: row.status },
       after: { status: RfqStatus.ACCEPTED, orderId: result.orderId },
       ipAddress,
+    });
+    // SS-243: owner acceptance notice (best-effort; the order-placed
+    // notice already fired inside placeQuotedOrder).
+    await this.notifications.notify(userId, {
+      type: 'RFQ_DECIDED',
+      title: 'استعلام پذیرفته شد',
+      body: `استعلام شما پذیرفته شد و سفارش ${result.orderNumber} ساخته شد.`,
+      entity: 'Rfq',
+      entityId: row.id,
     });
     return result;
   }

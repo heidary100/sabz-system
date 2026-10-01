@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AuditModule } from '../audit/audit.module';
 import { AuthModule } from '../auth/auth.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { AdminReturnsController } from './admin-returns.controller';
 import { ReturnsController } from './returns.controller';
 import { ReturnsService } from './returns.service';
@@ -12,7 +13,7 @@ import { ReturnsService } from './returns.service';
  * dependencies, hence no module cycle.
  */
 @Module({
-  imports: [AuthModule, AuditModule],
+  imports: [AuthModule, AuditModule, NotificationsModule],
   controllers: [AdminReturnsController, ReturnsController],
   providers: [ReturnsService],
   exports: [ReturnsService],

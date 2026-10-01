@@ -2,6 +2,7 @@ import { BadRequestException, UnprocessableEntityException } from '@nestjs/commo
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/database/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { NotificationService } from '../notifications/notification.service';
 import { InventoryService } from '../inventory/inventory.service';
 import { PricingService } from '../pricing/pricing.service';
 import { CheckoutService } from './checkout.service';
@@ -93,6 +94,10 @@ describe('CheckoutService', () => {
       inventory,
       pricing,
       audit as unknown as AuditService,
+      {
+        notify: jest.fn(),
+        notifyOperators: jest.fn(),
+      } as unknown as NotificationService,
     );
   });
 
@@ -392,6 +397,10 @@ describe('CheckoutService', () => {
         ledger as unknown as InventoryService,
         {} as unknown as PricingService,
         { log: jest.fn() } as unknown as AuditService,
+        {
+          notify: jest.fn(),
+          notifyOperators: jest.fn(),
+        } as unknown as NotificationService,
       );
       stores.address.findFirst.mockResolvedValue({
         fullName: 'علی احمدی',

@@ -10,6 +10,7 @@ import { PrismaService } from '../../common/database/prisma.service';
 import { AppRole } from '../auth/enums/app-role.enum';
 import { RolesService } from '../auth/roles/roles.service';
 import { AuditService } from '../audit/audit.service';
+import { NotificationService } from '../notifications/notification.service';
 import { AdminPartnersService } from './admin-partners.service';
 
 function makePartner(overrides: Partial<Partner> = {}): Partner {
@@ -109,6 +110,10 @@ describe('AdminPartnersService', () => {
       prisma as unknown as PrismaService,
       auditService as unknown as AuditService,
       rolesService as unknown as RolesService,
+      {
+        notify: jest.fn(),
+        notifyOperators: jest.fn(),
+      } as unknown as NotificationService,
     );
   });
 

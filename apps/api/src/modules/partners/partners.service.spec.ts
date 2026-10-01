@@ -7,6 +7,7 @@ import {
 import { Partner, PartnerApprovalStatus, PartnerDocumentType } from '@prisma/client';
 import { PrismaService } from '../../common/database/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { NotificationService } from '../notifications/notification.service';
 import { PartnersService } from './partners.service';
 
 function makePartner(overrides: Partial<Partner> = {}): Partner {
@@ -93,6 +94,10 @@ describe('PartnersService', () => {
     service = new PartnersService(
       prisma as unknown as PrismaService,
       auditService as unknown as AuditService,
+      {
+        notify: jest.fn(),
+        notifyOperators: jest.fn(),
+      } as unknown as NotificationService,
     );
   });
 
