@@ -177,3 +177,18 @@ export function buildSearchSubmitParams(current: URLSearchParams, trimmed: strin
   next.delete('page');
   return next.toString();
 }
+
+/**
+ * Resolves the navigation target for a header search submit (SS-245 QA):
+ * listing routes keep their facet state, every other route (home, product,
+ * cart, account, …) would silently drop `q`, so the submit targets
+ * `/products` there instead.
+ */
+export function searchSubmitPath(pathname: string, query: string): string {
+  const isListingRoute =
+    pathname === '/products' || pathname.startsWith('/categories/');
+  if (isListingRoute) {
+    return query ? `${pathname}?${query}` : pathname;
+  }
+  return query ? `/products?${query}` : '/products';
+}
