@@ -12,15 +12,21 @@ import { FiltersPanel } from './filters-panel';
  * Mobile filter sheet (SS-226): the desktop sidebar's content in a
  * bottom-sheet dialog, so the 1,300px filter column never again sits above
  * the product grid on phones. The panel itself is the shared
- * `FiltersPanel` — every change still navigates through the canonical URL
- * builder, so the sheet simply stays open while the listing re-renders and
- * closes on demand.
+ * `FiltersPanel` — facets whose controls navigate on click keep the sheet
+ * open while the listing re-renders; the submit-driven price facet is
+ * committed by the footer button through the form id (SS-245 follow-up,
+ * #289: typed price bounds used to die with the draft on close) and closes
+ * the sheet only on a valid commit.
  *
  * Dialog contract mirrors the SS-218 drawer: `role="dialog"` + `aria-modal`,
  * Escape closes, body scroll locks, focus moves in (trigger button) and back
  * to the opener on close, lightweight Tab trap. Portalled to body so the
  * header's `backdrop-blur` cannot capture the fixed layers.
  */
+
+/** Only one sheet mounts per page, so a static form id cannot collide. */
+const PRICE_FORM_ID = 'filters-sheet-price-form';
+
 export function FiltersSheet({
   state,
   categories,
@@ -147,13 +153,17 @@ export function FiltersSheet({
                     brands={brands}
                     brandsTotal={brandsTotal}
                     basePath={basePath}
+                    priceFormId={PRICE_FORM_ID}
+                    onPriceApplied={() => close()}
                   />
                 </div>
 
                 <div className="border-t border-sand-200 bg-white px-4 py-3">
+                  {/* Submits the price facet's form by id — typed bounds are
+                      committed together with closing the sheet (#289). */}
                   <button
-                    type="button"
-                    onClick={() => close()}
+                    type="submit"
+                    form={PRICE_FORM_ID}
                     className="min-h-12 w-full rounded-md bg-sabz-700 text-sm font-semibold text-white hover:bg-sabz-800"
                   >
                     نمایش نتایج

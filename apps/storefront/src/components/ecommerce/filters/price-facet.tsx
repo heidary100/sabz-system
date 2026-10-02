@@ -19,13 +19,21 @@ const PRICE_PRESETS: Array<{ label: string; from: string; to: string }> = [
  * (SS-226). The server is authoritative; this component only sanitizes input
  * and navigates via the canonical `buildListingHref(basePath, …)`. Invalid
  * input blocks apply with an inline message instead of producing a broken URL.
+ *
+ * `formId` lets an external submit button (the mobile sheet's «نمایش نتایج»)
+ * drive this form across the portal; `onApplied` fires only after a valid
+ * commit so the sheet closes on success and stays open on a validation error.
  */
 export function PriceFacet({
   state,
   basePath = '/products',
+  formId,
+  onApplied,
 }: {
   state: ListingState;
   basePath?: string;
+  formId?: string;
+  onApplied?: () => void;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -49,6 +57,7 @@ export function PriceFacet({
         buildListingHref(basePath, state, { priceFrom: nextFrom, priceTo: nextTo }),
       );
     });
+    onApplied?.();
   }
 
   function clear() {
@@ -65,7 +74,7 @@ export function PriceFacet({
   return (
     <div className="mt-4 border-t border-sand-200 pt-4" aria-busy={pending}>
       <p className="text-sm font-semibold text-ink-900">محدوده قیمت (تومان)</p>
-      <form onSubmit={apply} className="mt-2">
+      <form id={formId} onSubmit={apply} className="mt-2">
         <div className="flex items-center gap-2">
           <div className="min-w-0 flex-1">
             <label htmlFor={fromId} className="sr-only">
