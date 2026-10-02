@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import type { CatalogPriceResponseDto } from '@sabz/types';
-import { authFetch, hasSession } from '@/lib/auth-client';
+import { authFetch } from '@/lib/auth-client';
 import { formatToman } from '@/lib/format';
+import { useHasSession } from '@/components/ecommerce/wishlist/use-has-session';
 
 /**
  * Partner tier price line (SS-235 B1). Renders only for signed-in customers
@@ -25,10 +26,11 @@ export function TierPriceLine({
   /** Raw variant base price (Rial) for the cheaper-than comparison. */
   basePrice: string;
 }) {
-  // Signed-in snapshot: the panel remounts on variant navigation, so a
-  // post-login appearance needs at most one navigation; guests keep the
-  // initial null without any synchronous setState inside the effect below.
-  const [signedIn] = useState(() => hasSession());
+  // Session via useHasSession (SS-231): a useState(() => hasSession())
+  // initializer read localStorage during hydration — the #291 mismatch class
+  // (latent here: both passes render null today). The hook renders false on
+  // first paint and flips true post-hydration, re-running the effect below.
+  const signedIn = useHasSession();
   const [resolved, setResolved] = useState<string | null>(null);
 
   useEffect(() => {
