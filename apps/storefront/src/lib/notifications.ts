@@ -24,9 +24,10 @@ export { NOTIFICATION_TYPE_FA };
 /** Persian label for a notification type (shared @sabz/types map). */
 export function notificationTypeLabel(type: NotificationType): string {
   // Fall back to the raw code so a stale @sabz/types dist (e.g. an old
-  // storefront container image) can never crash the page — the label just
-  // renders untranslated until the image is rebuilt.
-  return NOTIFICATION_TYPE_FA[type] ?? type;
+  // storefront container image) can never crash the page — there the whole
+  // map is undefined, not just missing a key, so the lookup itself must be
+  // optional-chained; the label just renders untranslated until the rebuild.
+  return NOTIFICATION_TYPE_FA?.[type] ?? type;
 }
 
 function unauthorized(): ApiError {

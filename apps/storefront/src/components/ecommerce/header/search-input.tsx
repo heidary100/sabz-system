@@ -2,15 +2,16 @@
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
-import { buildSearchSubmitParams } from '@/lib/nav';
+import { buildSearchSubmitParams, searchSubmitPath } from '@/lib/nav';
 import { buttonVariants } from '@/components/ecommerce/ui/button';
 
 /**
  * Header search entry (SS-124, SS-211): submits on the current route with the
  * `q` URL param while preserving every other listing param
  * (category/brand/condition/sort) — the URL stays the single source of truth
- * for listing state. The form remounts on external `q` changes so back/forward
- * navigation never leaves stale text (no state-sync effect needed).
+ * for listing state. Non-listing routes (home, product, …) target `/products`
+ * so `q` is never dropped (SS-245). The form remounts on external `q` changes
+ * so back/forward navigation never leaves stale text (no state-sync effect).
  */
 export function SearchInput({
   compact = false,
@@ -61,7 +62,7 @@ function SearchForm({
   // route-aware helper: q drops, page resets, other params survive.
   function submitSearch(nextValue: string) {
     const query = buildSearchSubmitParams(searchParams, nextValue.trim());
-    router.push(query ? `${pathname}?${query}` : pathname);
+    router.push(searchSubmitPath(pathname, query));
     onSubmitted?.();
   }
 

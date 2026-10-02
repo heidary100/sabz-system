@@ -8,6 +8,7 @@ import {
   findCategoryPath,
   findSiblings,
   navRoots,
+  searchSubmitPath,
   splitNavCategories,
 } from './nav';
 
@@ -103,6 +104,32 @@ describe('buildSearchSubmitParams', () => {
     const emoji = '\u{1F600}';
     const out = buildSearchSubmitParams(current, emoji.repeat(100));
     expect(out).toBe(`q=${encodeURIComponent(emoji.repeat(64))}`);
+  });
+});
+
+describe('searchSubmitPath', () => {
+  it('keeps listing routes on themselves with their query', () => {
+    expect(searchSubmitPath('/products', 'q=x')).toBe('/products?q=x');
+    expect(searchSubmitPath('/categories/stock-goods', 'q=x&brand=a')).toBe(
+      '/categories/stock-goods?q=x&brand=a',
+    );
+  });
+
+  it('keeps a facet-preserving empty submit on the listing route', () => {
+    expect(searchSubmitPath('/products', '')).toBe('/products');
+    expect(searchSubmitPath('/categories/stock-goods', '')).toBe(
+      '/categories/stock-goods',
+    );
+  });
+
+  it('targets /products from non-listing routes so q is never dropped (SS-245)', () => {
+    expect(searchSubmitPath('/', 'q=x')).toBe('/products?q=x');
+    expect(searchSubmitPath('/products/some-slug', 'q=x')).toBe('/products?q=x');
+    expect(searchSubmitPath('/cart', 'q=x')).toBe('/products?q=x');
+  });
+
+  it('targets /products without q from non-listing routes', () => {
+    expect(searchSubmitPath('/', '')).toBe('/products');
   });
 });
 
