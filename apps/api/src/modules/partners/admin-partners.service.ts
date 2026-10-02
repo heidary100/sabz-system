@@ -21,12 +21,18 @@ import { NotificationService } from '../notifications/notification.service';
 import {
   ApprovePartnerDto,
   ChangeTierDto,
+  CreatePartnerTierDto,
   ListPartnersQueryDto,
   RejectPartnerDto,
+  UpdatePartnerTierDto,
 } from './dto';
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 20;
+
+type TierWithCount = Prisma.PartnerTierGetPayload<{
+  include: { _count: { select: { partners: true } } };
+}>;
 
 @Injectable()
 export class AdminPartnersService {
@@ -75,6 +81,7 @@ export class AdminPartnersService {
   async listTiers(): Promise<PartnerTierSummary[]> {
     const tiers = await this.prisma.partnerTier.findMany({
       orderBy: { minOrderQuantity: 'asc' },
+      include: { _count: { select: { partners: true } } },
     });
 
     return tiers.map((tier) => ({
@@ -82,7 +89,164 @@ export class AdminPartnersService {
       name: tier.name,
       discountPercent: tier.discountPercent.toString(),
       minOrderQuantity: tier.minOrderQuantity,
+      partnerCount: tier._count.partners,
     }));
+  }
+
+  /**
+   * Tier admin CRUD (SS-042 follow-up, #90): the client manages the
+   * reference tiers from the admin panel. Unique-name collisions are 409s,
+   * deleting a tier still assigned to partners is a 409 (reassign first),
+   * and each mutation writes one PARTNER_TIER_* audit entry.
+   */
+  private assertDiscountRange(discountPercent: string): void {
+    const value = Number(discountPercent);
+    if (!Number.isFinite(value) || value < 0 || value > 100) {
+      throw new BadRequestException('discountPercent باید بین ۰ و ۱۰۰ باشد.');
+    }
+  }
+
+  private isUniqueViolation(error: unknown): boolean {
+    return error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
+  }
+
+  async createTier(
+    dto: CreatePartnerTierDto,
+    actorId: string,
+    ipAddress?: string,
+  ): Promise<PartnerTierSummary> {
+    this.assertDiscountRange(dto.discountPercent);
+    let tier: TierWithCount;
+    try {
+      tier = await this.prisma.partnerTier.create({
+        data: {
+          name: dto.name,
+          discountPercent: dto.discountPercent,
+          minOrderQuantity: dto.minOrderQuantity,
+          createdBy: actorId,
+          updatedBy: actorId,
+        },
+        include: { _count: { select: { partners: true } } },
+      });
+    } catch (error) {
+      if (this.isUniqueViolation(error)) {
+        throw new ConflictException('پله همکاری با این نام وجود دارد.');
+      }
+      throw error;
+    }
+    await this.auditService.log({
+      userId: actorId,
+      action: 'PARTNER_TIER_CREATED',
+      entity: 'PartnerTier',
+      entityId: tier.id,
+      after: {
+        name: tier.name,
+        discountPercent: tier.discountPercent.toString(),
+        minOrderQuantity: tier.minOrderQuantity,
+      },
+      ipAddress,
+    });
+    return this.toTierSummary(tier);
+  }
+
+  async updateTier(
+    tierId: string,
+    dto: UpdatePartnerTierDto,
+    actorId: string,
+    ipAddress?: string,
+  ): Promise<PartnerTierSummary> {
+    if (dto.discountPercent !== undefined) {
+      this.assertDiscountRange(dto.discountPercent);
+    }
+    const existing = await this.prisma.partnerTier.findUnique({
+      where: { id: tierId },
+    });
+    if (!existing) {
+      throw new NotFoundException('پله همکاری یافت نشد.');
+    }
+    let tier: TierWithCount;
+    try {
+      tier = await this.prisma.partnerTier.update({
+        where: { id: tierId },
+        data: {
+          ...(dto.name !== undefined ? { name: dto.name } : {}),
+          ...(dto.discountPercent !== undefined
+            ? { discountPercent: dto.discountPercent }
+            : {}),
+          ...(dto.minOrderQuantity !== undefined
+            ? { minOrderQuantity: dto.minOrderQuantity }
+            : {}),
+          updatedBy: actorId,
+        },
+        include: { _count: { select: { partners: true } } },
+      });
+    } catch (error) {
+      if (this.isUniqueViolation(error)) {
+        throw new ConflictException('پله همکاری با این نام وجود دارد.');
+      }
+      throw error;
+    }
+    await this.auditService.log({
+      userId: actorId,
+      action: 'PARTNER_TIER_UPDATED',
+      entity: 'PartnerTier',
+      entityId: tier.id,
+      before: {
+        name: existing.name,
+        discountPercent: existing.discountPercent.toString(),
+        minOrderQuantity: existing.minOrderQuantity,
+      },
+      after: {
+        name: tier.name,
+        discountPercent: tier.discountPercent.toString(),
+        minOrderQuantity: tier.minOrderQuantity,
+      },
+      ipAddress,
+    });
+    return this.toTierSummary(tier);
+  }
+
+  async deleteTier(
+    tierId: string,
+    actorId: string,
+    ipAddress?: string,
+  ): Promise<PartnerTierSummary> {
+    const tier = await this.prisma.partnerTier.findUnique({
+      where: { id: tierId },
+      include: { _count: { select: { partners: true } } },
+    });
+    if (!tier) {
+      throw new NotFoundException('پله همکاری یافت نشد.');
+    }
+    if (tier._count.partners > 0) {
+      throw new ConflictException(
+        'این پله همکاری به همکارانی تخصیص یافته است؛ ابتدا آن همکاران را به پله دیگری منتقل کنید.',
+      );
+    }
+    await this.prisma.partnerTier.delete({ where: { id: tierId } });
+    await this.auditService.log({
+      userId: actorId,
+      action: 'PARTNER_TIER_DELETED',
+      entity: 'PartnerTier',
+      entityId: tierId,
+      before: {
+        name: tier.name,
+        discountPercent: tier.discountPercent.toString(),
+        minOrderQuantity: tier.minOrderQuantity,
+      },
+      ipAddress,
+    });
+    return this.toTierSummary(tier);
+  }
+
+  private toTierSummary(tier: TierWithCount): PartnerTierSummary {
+    return {
+      id: tier.id,
+      name: tier.name,
+      discountPercent: tier.discountPercent.toString(),
+      minOrderQuantity: tier.minOrderQuantity,
+      partnerCount: tier._count.partners,
+    };
   }
 
   async getDetail(partnerId: string): Promise<AdminPartnerDetail> {

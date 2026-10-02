@@ -17,6 +17,9 @@ describe('AdminPartnersController', () => {
   let adminService: {
     list: jest.Mock;
     listTiers: jest.Mock;
+    createTier: jest.Mock;
+    updateTier: jest.Mock;
+    deleteTier: jest.Mock;
     getDetail: jest.Mock;
     approve: jest.Mock;
     reject: jest.Mock;
@@ -34,6 +37,9 @@ describe('AdminPartnersController', () => {
     adminService = {
       list: jest.fn(),
       listTiers: jest.fn(),
+      createTier: jest.fn(),
+      updateTier: jest.fn(),
+      deleteTier: jest.fn(),
       getDetail: jest.fn(),
       approve: jest.fn(),
       reject: jest.fn(),
@@ -130,6 +136,22 @@ describe('AdminPartnersController', () => {
       '1.2.3.4',
     );
     expect(result).toEqual({ id: 'partner-1' });
+  });
+
+  it('delegates tier CRUD with dto, reviewer id and ip (#90)', async () => {
+    const createDto = { name: 'Tier 1 – Distributor', discountPercent: '0', minOrderQuantity: 1 };
+    const updateDto = { discountPercent: '12.5' };
+    adminService.createTier.mockResolvedValue({ id: 'tier-1' });
+    adminService.updateTier.mockResolvedValue({ id: 'tier-1' });
+    adminService.deleteTier.mockResolvedValue(undefined);
+
+    await controller.createTier(createDto, user, '1.2.3.4');
+    await controller.updateTier('tier-1', updateDto, user, '1.2.3.4');
+    await controller.deleteTier('tier-1', user, '1.2.3.4');
+
+    expect(adminService.createTier).toHaveBeenCalledWith(createDto, 'reviewer-1', '1.2.3.4');
+    expect(adminService.updateTier).toHaveBeenCalledWith('tier-1', updateDto, 'reviewer-1', '1.2.3.4');
+    expect(adminService.deleteTier).toHaveBeenCalledWith('tier-1', 'reviewer-1', '1.2.3.4');
   });
 
   it('streams a partner document with a safe disposition', async () => {
