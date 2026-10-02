@@ -41,8 +41,10 @@
 
 - The dump uses the custom format (`-Fc`): compressed, restorable with
   `pg_restore --clean --if-exists`. Point-in-time recovery (WAL archiving)
-  is out of scope until the launch-QA ticket (SS-245) decides the
-  production topology.
+  was decided in SS-245: **deferred** — the launch posture stays daily
+  host-cron dumps (RPO ≤ 24h / RTO ≤ 2h); adopt WAL archiving only if the
+  client requires RPO < 24h (trigger + full topology decisions recorded in
+  `docs/07-development/deploy-runbook.md` §1).
 - Media restores must land before the API serves traffic, otherwise product
   images 404 until the volumes are back (see the media storage layout in
   the database design specification).
