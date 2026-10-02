@@ -16,15 +16,16 @@ export const ACTIVE_LABELS = {
   inactive: 'غیرفعال',
 } as const
 
-export type PricingTab = 'rules' | 'overrides' | 'promotions'
+export type PricingTab = 'rules' | 'overrides' | 'promotions' | 'tiers'
 
 export const PRICING_TAB_LABELS: Record<PricingTab, string> = {
   rules: 'قوانین دسته‌بندی',
   overrides: 'اورراید محصول',
   promotions: 'پروموشن‌ها',
+  tiers: 'پله‌های همکاری',
 }
 
-export const PRICING_TABS: PricingTab[] = ['rules', 'overrides', 'promotions']
+export const PRICING_TABS: PricingTab[] = ['rules', 'overrides', 'promotions', 'tiers']
 
 export type PricingActiveFilter = '' | 'active' | 'inactive'
 

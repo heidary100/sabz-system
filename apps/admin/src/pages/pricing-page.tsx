@@ -30,6 +30,7 @@ import {
   useProductOverrideList,
   usePromotionList,
 } from '../hooks/use-pricing-list'
+import { usePartnerTierList } from '../hooks/use-partner-tier-list'
 import { translateApiError } from '../lib/error-messages'
 import { formatDateTime, formatRial } from '../lib/format'
 import { pageNumbers } from '../lib/pagination'
@@ -49,8 +50,10 @@ import {
   deleteProductOverride,
   deletePromotion,
 } from '../services/pricing'
+import { deletePartnerTier } from '../services/partner-tiers'
 import {
   CategoryRuleForm,
+  PartnerTierForm,
   ProductOverrideForm,
   PromotionForm,
 } from '../components/pricing/pricing-forms'
@@ -59,6 +62,7 @@ const CREATE_LABELS: Record<PricingTab, string> = {
   rules: 'افزودن قانون',
   overrides: 'افزودن اورراید',
   promotions: 'افزودن پروموشن',
+  tiers: 'افزودن پله',
 }
 
 function TabButton({
@@ -231,6 +235,7 @@ export function PricingPage() {
   const rules = useCategoryRuleList()
   const overrides = useProductOverrideList()
   const promotions = usePromotionList()
+  const tiers = usePartnerTierList()
 
   const [ruleFormOpen, setRuleFormOpen] = useState(false)
   const [editingRuleId, setEditingRuleId] = useState<string | null>(null)
@@ -244,6 +249,10 @@ export function PricingPage() {
   const [editingPromotionId, setEditingPromotionId] = useState<string | null>(null)
   const [deletingPromotionId, setDeletingPromotionId] = useState<string | null>(null)
 
+  const [tierFormOpen, setTierFormOpen] = useState(false)
+  const [editingTierId, setEditingTierId] = useState<string | null>(null)
+  const [deletingTierId, setDeletingTierId] = useState<string | null>(null)
+
   const editingRule = rules.result?.items.find((item) => item.id === editingRuleId) ?? null
   const deletingRule = rules.result?.items.find((item) => item.id === deletingRuleId) ?? null
   const editingOverride =
@@ -254,6 +263,8 @@ export function PricingPage() {
     promotions.result?.items.find((item) => item.id === editingPromotionId) ?? null
   const deletingPromotion =
     promotions.result?.items.find((item) => item.id === deletingPromotionId) ?? null
+  const editingTier = tiers.tiers?.find((item) => item.id === editingTierId) ?? null
+  const deletingTier = tiers.tiers?.find((item) => item.id === deletingTierId) ?? null
 
   const openCreate = (): void => {
     if (tab === 'rules') {
@@ -262,6 +273,9 @@ export function PricingPage() {
     } else if (tab === 'overrides') {
       setEditingOverrideId(null)
       setOverrideFormOpen(true)
+    } else if (tab === 'tiers') {
+      setEditingTierId(null)
+      setTierFormOpen(true)
     } else {
       setEditingPromotionId(null)
       setPromotionFormOpen(true)
@@ -289,6 +303,14 @@ export function PricingPage() {
       await deletePromotion(deletingPromotionId)
       setDeletingPromotionId(null)
       void promotions.refetch()
+    }
+  }
+
+  const handleDeleteTier = async (): Promise<void> => {
+    if (deletingTierId) {
+      await deletePartnerTier(deletingTierId)
+      setDeletingTierId(null)
+      void tiers.refetch()
     }
   }
 
@@ -578,6 +600,84 @@ export function PricingPage() {
         </div>
       )}
 
+      {tab === 'tiers' && (
+        <div className="space-y-6" role="tabpanel" aria-label={PRICING_TAB_LABELS.tiers}>
+          {tiers.loading && tiers.tiers === null ? (
+            <Loading compact label="در حال بارگذاری…" />
+          ) : tiers.error ? (
+            <div className="glass flex flex-col items-center gap-4 rounded-xl px-6 py-16 text-center">
+              <p className="text-sm/6 text-muted">{translateApiError(tiers.error)}</p>
+              <Button color="primary" onClick={() => void tiers.refetch()}>
+                تلاش مجدد
+              </Button>
+            </div>
+          ) : !tiers.tiers || tiers.tiers.length === 0 ? (
+            <EmptyState
+              icon={<Percent className="size-6" aria-hidden="true" />}
+              title="پله همکاری یافت نشد"
+              description="هنوز پله همکاری ثبت نشده است؛ همکاران تازه‌تأیید بدون پله قابل تأیید نیستند."
+              actions={
+                <Button outline onClick={openCreate}>
+                  افزودن پله
+                </Button>
+              }
+            />
+          ) : (
+            <TableCard>
+              <Table striped>
+                <TableHead>
+                  <TableRow>
+                    <TableHeader>نام پله</TableHeader>
+                    <TableHeader>درصد تخفیف</TableHeader>
+                    <TableHeader>حداقل تعداد</TableHeader>
+                    <TableHeader>همکاران</TableHeader>
+                    <TableHeader>عملیات</TableHeader>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {tiers.tiers.map((tier) => (
+                    <TableRow key={tier.id}>
+                      <TableCell className="font-medium text-foreground">{tier.name}</TableCell>
+                      <TableCell className="text-muted" dir="ltr">
+                        {formatPercentValue(tier.discountPercent)}
+                      </TableCell>
+                      <TableCell className="text-muted" dir="ltr">
+                        {tier.minOrderQuantity}
+                      </TableCell>
+                      <TableCell className="text-muted" dir="ltr">
+                        {tier.partnerCount ?? 0}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            plain
+                            onClick={() => {
+                              setEditingTierId(tier.id)
+                              setTierFormOpen(true)
+                            }}
+                          >
+                            <Pencil data-slot="icon" />
+                            ویرایش
+                          </Button>
+                          <Button outline onClick={() => setDeletingTierId(tier.id)}>
+                            <Trash2 data-slot="icon" />
+                            حذف
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              <p className="mt-4 text-xs text-muted">
+                پله‌ای که همکارانی روی آن تخصیص یافته قابل حذف نیست؛ ابتدا همکاران را به پله
+                دیگری منتقل کنید.
+              </p>
+            </TableCard>
+          )}
+        </div>
+      )}
+
       <CategoryRuleForm
         open={ruleFormOpen}
         rule={editingRule}
@@ -657,6 +757,33 @@ export function PricingPage() {
         confirmLabel="حذف"
         onClose={() => setDeletingPromotionId(null)}
         onConfirm={handleDeletePromotion}
+      />
+
+      <PartnerTierForm
+        open={tierFormOpen}
+        tier={editingTier}
+        onClose={() => {
+          setTierFormOpen(false)
+          setEditingTierId(null)
+        }}
+        onSuccess={() => {
+          setTierFormOpen(false)
+          setEditingTierId(null)
+          void tiers.refetch()
+        }}
+      />
+
+      <DeleteConfirmDialog
+        open={deletingTierId !== null}
+        title="حذف پله همکاری"
+        description={
+          deletingTier
+            ? `آیا از حذف پله همکاری «${deletingTier.name}» مطمئن هستید؟ این عمل قابل بازگشت نیست.`
+            : ''
+        }
+        confirmLabel="حذف"
+        onClose={() => setDeletingTierId(null)}
+        onConfirm={handleDeleteTier}
       />
     </div>
   )

@@ -3,12 +3,15 @@ import type {
   BrandSummary,
   CategoryPriceRuleDto,
   CreateCategoryPriceRuleInput,
+  CreatePartnerTierInput,
   CreateProductPriceOverrideInput,
   CreatePromotionInput,
+  PartnerTierSummary,
   ProductPriceOverrideDto,
   PromotionDto,
   PromotionType,
   UpdateCategoryPriceRuleInput,
+  UpdatePartnerTierInput,
   UpdateProductPriceOverrideInput,
   UpdatePromotionInput,
 } from '@sabz/types'
@@ -36,6 +39,10 @@ import {
   updateProductOverride,
   updatePromotion,
 } from '../../services/pricing'
+import {
+  createPartnerTier,
+  updatePartnerTier,
+} from '../../services/partner-tiers'
 import { getProduct } from '../../services/products'
 
 function isoToLocalInput(iso: string | null | undefined): string {
@@ -775,6 +782,143 @@ export function PromotionForm({
           </Field>
 
           <ActiveField value={isActive} onChange={setIsActive} disabled={submitting} />
+
+          {error && <ErrorMessage>{error}</ErrorMessage>}
+        </div>
+      </AlertBody>
+      <AlertActions>
+        <Button outline onClick={onClose} disabled={submitting}>
+          انصراف
+        </Button>
+        <Button color="primary" onClick={() => void handleSubmit()} disabled={submitting}>
+          {submitting ? 'در حال ذخیره…' : isEdit ? 'ذخیره تغییرات' : 'افزودن'}
+        </Button>
+      </AlertActions>
+    </Alert>
+  )
+}
+
+export function PartnerTierForm({
+  open,
+  tier,
+  onClose,
+  onSuccess,
+}: {
+  open: boolean
+  tier: PartnerTierSummary | null
+  onClose: () => void
+  onSuccess: () => void
+}) {
+  const isEdit = tier !== null
+
+  const [name, setName] = useState('')
+  const [discountPercent, setDiscountPercent] = useState('0')
+  const [minOrderQuantity, setMinOrderQuantity] = useState('1')
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (open) {
+      setName(tier?.name ?? '')
+      setDiscountPercent(tier?.discountPercent ?? '0')
+      setMinOrderQuantity(String(tier?.minOrderQuantity ?? 1))
+      setError(null)
+    }
+  }, [open, tier])
+
+  const handleSubmit = async (): Promise<void> => {
+    if (!name.trim()) {
+      setError('نام پله همکاری الزامی است.')
+      return
+    }
+    const discount = Number(discountPercent)
+    if (!Number.isFinite(discount) || discount < 0 || discount > 100) {
+      setError('درصد تخفیف باید عددی بین ۰ تا ۱۰۰ باشد.')
+      return
+    }
+    const minQty = Number(minOrderQuantity)
+    if (!Number.isInteger(minQty) || minQty < 1) {
+      setError('حداقل تعداد باید عدد صحیح بزرگ‌تر از صفر باشد.')
+      return
+    }
+    setSubmitting(true)
+    setError(null)
+    try {
+      if (isEdit) {
+        const input: UpdatePartnerTierInput = {
+          name: name.trim(),
+          discountPercent: discountPercent.trim(),
+          minOrderQuantity: minQty,
+        }
+        await updatePartnerTier(tier.id, input)
+      } else {
+        const input: CreatePartnerTierInput = {
+          name: name.trim(),
+          discountPercent: discountPercent.trim(),
+          minOrderQuantity: minQty,
+        }
+        await createPartnerTier(input)
+      }
+      onSuccess()
+    } catch (formError) {
+      setError(translateApiError(formError))
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <Alert open={open} onClose={onClose} size="md">
+      <AlertTitle>{isEdit ? 'ویرایش پله همکاری' : 'افزودن پله همکاری'}</AlertTitle>
+      <AlertDescription>
+        {isEdit
+          ? 'پله همکاری را ویرایش کنید؛ همکاران تخصیص‌یافته بلافاصله قیمت جدید را می‌گیرند.'
+          : 'پله همکاری جدید برای قیمت‌گذاری همکاران ثبت کنید.'}
+      </AlertDescription>
+      <AlertBody>
+        <div className="space-y-5">
+          <Field>
+            <Label>نام پله</Label>
+            <Input
+              name="name"
+              value={name}
+              maxLength={80}
+              placeholder="Tier 1 – Distributor"
+              onChange={(event) => setName(event.target.value)}
+              disabled={submitting}
+            />
+          </Field>
+
+          <Field>
+            <Label>درصد تخفیف</Label>
+            <Input
+              name="discountPercent"
+              dir="ltr"
+              inputMode="decimal"
+              placeholder="10"
+              value={discountPercent}
+              onChange={(event) => setDiscountPercent(event.target.value)}
+              disabled={submitting}
+            />
+            <Text className="text-xs text-muted">عدد بین ۰ تا ۱۰۰.</Text>
+          </Field>
+
+          <Field>
+            <Label>حداقل تعداد</Label>
+            <Input
+              name="minOrderQuantity"
+              type="number"
+              dir="ltr"
+              min={1}
+              step={1}
+              value={minOrderQuantity}
+              onChange={(event) => setMinOrderQuantity(event.target.value)}
+              disabled={submitting}
+            />
+            <Text className="text-xs text-muted">
+              حداقل تعداد اقلام سبد برای فعال‌شدن قیمت این پله.
+            </Text>
+          </Field>
 
           {error && <ErrorMessage>{error}</ErrorMessage>}
         </div>
