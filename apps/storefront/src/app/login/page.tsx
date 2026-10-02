@@ -13,6 +13,7 @@ import {
   verifyOtp,
 } from '@/lib/auth-client';
 import { formatFaNumber } from '@/lib/format';
+import { resolveNextTarget } from '@/lib/redirect';
 
 /** Resend cooldown after each OTP request (SS-230). */
 const RESEND_SECONDS = 120;
@@ -85,7 +86,14 @@ export default function LoginPage() {
     setError(null);
     try {
       await verifyOtp(toEnglishDigits(mobile).trim(), normalized);
-      router.push('/account');
+      // Honor ?next= (set by authed routes when redirecting logged-out
+      // visitors); only safe internal paths survive resolveNextTarget.
+      // Read at submit time — window, not useSearchParams, so the client
+      // page stays statically prerenderable.
+      const next = resolveNextTarget(
+        new URLSearchParams(window.location.search).get('next'),
+      );
+      router.push(next);
     } catch (verifyError) {
       setError(messageOf(verifyError, VERIFY_FAILED));
     } finally {
