@@ -55,6 +55,10 @@ interpolation; `apps/*/.env` are read by host-native processes only.
 
 1. Run all migrations (`prisma migrate deploy`) — never seed; the catalog is
    imported via the SS-206–208 runbook (`docs/07-development/import-runbook.md`).
+   Exception: partner-tier reference data (#90) — run
+   `pnpm --filter @sabz/api seed:reference` after the first `migrate deploy`
+   (idempotent; inserts only missing default tiers, never modifies rows).
+   Partner approval requires a non-empty `PartnerTier` table.
 2. Create the first admin account out-of-band: request an OTP for the
    operator's mobile against the public API, verify, then grant the ADMIN
    role via a DB update reviewed by a second person (there is no seeded
