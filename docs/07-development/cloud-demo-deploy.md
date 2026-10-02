@@ -10,14 +10,14 @@
 
 | Component | Host | Notes |
 |---|---|---|
-| API (`@sabz/api`) | Render free web service (image runtime, region Frankfurt) | Product media + business documents **baked into the image**, pushed to `ghcr.io/heidary100/sabz-demo-api:demo` (public package); ephemeral in-container Redis; health check `/api/v1/health`. Free tier = 512 MB RAM / 0.1 CPU, spins down after 15 idle min — kept warm by `.github/workflows/demo-keepalive.yml` (5-min pings). Chosen after Hugging Face made free Docker Spaces PRO-only (2026) |
+| API (`@sabz/api`) | GitHub Codespace (2-core/8 GB, West Europe) + Cloudflare quick tunnel | Product media + business documents **baked into the image**, pulled from the public `ghcr.io/heidary100/sabz-demo-api:demo` package; ephemeral in-container Redis. The Codespace runs the container and `cloudflared` publishes it at a trycloudflare.com URL. Render was tried first (402 card-required even on its free tier, 2026) and HF free Docker Spaces are PRO-only — the Codespace needs no new account and is included in GitHub Free (120 core-h/mo ≈ 60 h) |
 | Postgres | Neon free tier | Restored from a `pg_dump` of the dev DB — catalog, orders, tiers all ride along |
 | Redis | In-container (same Space) | OTP codes / OTP rate counters / throttle buckets only (deploy-runbook §1: all recreatable). Chosen over Upstash because `RedisService` (ioredis) has no TLS support |
 | Storefront (`@sabz/storefront`) | Vercel Hobby | Next.js SSR; `NEXT_PUBLIC_*` inlined at **build time** |
 | Admin (`@sabz/admin`) | Vercel Hobby (second project) | Static Vite SPA; `vercel.json` SPA rewrites; `VITE_API_BASE_URL` inlined at **build time**. (Cloudflare Pages was the original pick — the client could not complete its login — so both frontends ride the same Vercel account.) |
 
-Cost: $0 (Neon, Render free tier and Vercel Hobby all have no-credit-card
-free tiers; both frontends share one Vercel account). Distinct
+Cost: $0 (Neon free, GitHub Free Codespaces quota, Vercel Hobby free;
+both frontends share one Vercel account). Distinct
 hostnames per frontend = the #290 refresh-cookie mitigation
 (deploy-runbook §1).
 
@@ -73,37 +73,41 @@ docker exec sabz-postgres psql "<NEON_POOLED_URL>" -c \
 `seed:reference` is NOT needed after a dump restore (the dev DB has the 3
 tiers); it remains the fallback for a fresh empty database.
 
-## 4. Render web service (API + media + Redis)
+## 4. Codespace + tunnel (API + media + Redis)
 
 Artifacts: `deploy/hf-space/` (Dockerfile.space, start.sh, assemble.sh —
 name kept for history). The image is built locally from the assembled
-layout and pushed to GHCR, then Render deploys **that image** (no repo
-connection, no build on Render's side).
-
-The client's proxy resets long uploads, so plain `docker push` fails on
-the big layers; the blob-level chunked uploader
-(`/tmp/sabz-demo-export/chunked-push.py`, summarized in §8) pushes each
-layer via ghcr's chunked-upload API in ≤4 MB pieces (adaptive halving on
-ghcr's 416 "body too large").
+layout, pushed to GHCR (chunked blob upload — §8), then pulled and run
+inside a Codespace.
 
 ```bash
 deploy/hf-space/assemble.sh                      # → /tmp/sabz-demo-space
 cd /tmp/sabz-demo-space && docker build -t ghcr.io/heidary100/sabz-demo-api:demo .
-python3 chunked-push.py                          # chunked push (§ above)
-# make the package public (Render pulls without credentials):
-gh api --method PATCH /user/packages/container/sabz-demo-api \
-  -f visibility=public   # or flip it in GitHub UI: Packages → sabz-demo-api
+python3 chunked-push.py                          # chunked push (§8)
+gh api --method PATCH /user/packages/container/sabz-demo-api  # n/a: flip
+                                                 # visibility in the GitHub UI
+                                                 # (Packages → sabz-demo-api →
+                                                 # Danger Zone → Public)
+gh cs create --repo heidary100/sabz-system --branch feat/ss-247-cloud-demo-deploy \
+  --display-name sabz-demo --idle-timeout 240m --retention-period 720h --location WestEurope
+# (old gh lacks these flags: POST /user/codespaces with repository_id, ref,
+#  machine=basicLinux32gb, idle_timeout_minutes=240, retention_period_minutes=43200)
+# write /tmp/demo-api.env (env table below) into the codespace, then:
+gh cs ssh -c sabz-demo-… -- 'docker pull ghcr.io/heidary100/sabz-demo-api:demo \
+  && docker run -d --name sabz-api -p 10000:10000 --env-file /tmp/demo-api.env \
+     --restart unless-stopped ghcr.io/heidary100/sabz-demo-api:demo'
+# public exposure (web-editor port forwarding stalls behind some proxies):
+gh cs ssh -c sabz-demo-… -- 'curl -sL -o /tmp/cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 \
+  && chmod +x /tmp/cloudflared && nohup /tmp/cloudflared tunnel --url http://localhost:10000 > /tmp/cf.log 2>&1 &'
+grep -oE "https://[a-z0-9-]+\.trycloudflare\.com" /tmp/cf.log   # the public API URL
 ```
 
-### Render configuration (via API with an account API key)
-
-Service `sabz-demo-api` (Frankfurt, instance type free, image runtime,
-health check `/api/v1/health`, autoDeploy off):
+### Container environment (in `/tmp/demo-api.env` inside the Codespace)
 
 | Variable | Value |
 |---|---|
 | `NODE_ENV` | `development` (demo OTP gate — see §1) |
-| `PORT` | `10000` (Render's expected listen port) |
+| `PORT` | `10000` |
 | `TRUST_PROXY` | `true` |
 | `REDIS_HOST` / `REDIS_PORT` | `localhost` / `6379` (in-container) |
 | `DATABASE_URL` | Neon **pooled** URL with `sslmode=require&pgbouncer=true` (PgBouncer transaction mode needs `pgbouncer=true` for Prisma) |
@@ -117,12 +121,9 @@ health check `/api/v1/health`, autoDeploy off):
 | `SHIPPING_PICKUP_ENABLED` / `_FEE` | `true` / `0` |
 | `WATERMARK_ENABLED` | `true` |
 
-Product-media/document storage paths are **pinned as image ENV** in
-`Dockerfile.space` (a missing variable would otherwise resolve the local
-driver against a relative cwd path and 404 all media).
-
-The service URL is `https://sabz-demo-api.onrender.com`. First deploy
-pulls the ~1.9 GB image from GHCR (several minutes on the free tier).
+Storage paths (`PRODUCT_MEDIA_STORAGE_DIR=/app/.data/product-media`,
+`DOCUMENT_STORAGE_DIR=/app/.data/documents`) are **pinned as image ENV** in
+`Dockerfile.space`.
 
 ## 5. Vercel storefront
 
@@ -136,7 +137,7 @@ pulls the ~1.9 GB image from GHCR (several minutes on the free tier).
 
 | Variable | Value |
 |---|---|
-| `NEXT_PUBLIC_API_BASE_URL` | `https://sabz-demo-api.onrender.com/api/v1` |
+| `NEXT_PUBLIC_API_BASE_URL` | the current tunnel URL + `/api/v1` |
 | `NEXT_PUBLIC_MEDIA_BASE_URL` | same as above (browser media/videos; the image optimizer uses it server-side) |
 | `API_INTERNAL_BASE_URL` | same as above (server components) |
 | `NEXT_PUBLIC_SITE_URL` | `https://sabz-storefront-demo.vercel.app` (set after the first deploy assigns it, then redeploy) |
@@ -159,7 +160,7 @@ time):
 
 | Variable | Value |
 |---|---|
-| `VITE_API_BASE_URL` | `https://sabz-demo-api.onrender.com/api/v1` |
+| `VITE_API_BASE_URL` | the current tunnel URL + `/api/v1` |
 
 `apps/admin/vercel.json` rewrites unmatched paths to `/index.html` so SPA
 deep links (`/orders`, `/pricing`, …) survive a hard refresh (Vercel serves
@@ -173,9 +174,9 @@ static files before applying rewrites, so `/assets/*` is unaffected).
    deploy-runbook §3 plus demo flows:
 
 ```bash
-curl -f https://sabz-demo-api.onrender.com/api/v1/health   # {"status":"ok","redis":"ok"}
+curl -f https://<tunnel>/api/v1/health   # {"status":"ok","redis":"ok"}
 curl -f -o /dev/null -w '%{http_code}\n' \
-  "https://sabz-demo-api.onrender.com/api/v1/catalog/products?limit=1"   # 200
+  "https://<tunnel>/api/v1/catalog/products?limit=1"   # 200
 ```
 
 - Storefront: home → category → product page (**image + thumbnail + video
