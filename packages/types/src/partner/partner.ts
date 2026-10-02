@@ -11,6 +11,22 @@ export interface PartnerTierSummary {
   name: string;
   discountPercent: string;
   minOrderQuantity: number;
+  /** Partners currently assigned — set on the admin list only (#90). */
+  partnerCount?: number;
+}
+
+/** Tier admin CRUD inputs (SS-042 follow-up, #90). */
+export interface CreatePartnerTierInput {
+  name: string;
+  /** Decimal(5,2) as string, 0–100. */
+  discountPercent: string;
+  minOrderQuantity: number;
+}
+
+export interface UpdatePartnerTierInput {
+  name?: string;
+  discountPercent?: string;
+  minOrderQuantity?: number;
 }
 
 export interface PartnerDocumentSummary {
