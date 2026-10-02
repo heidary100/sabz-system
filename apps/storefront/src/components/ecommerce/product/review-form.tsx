@@ -5,9 +5,9 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Button, buttonVariants } from '@/components/ecommerce/ui/button';
 import { ApiError } from '@/lib/api';
-import { hasSession } from '@/lib/auth-client';
 import { formatFaNumber } from '@/lib/format';
 import { createReview } from '@/lib/reviews';
+import { useHasSession } from '@/components/ecommerce/wishlist/use-has-session';
 
 const SUBMIT_FAILED = 'ثبت دیدگاه ناموفق بود؛ لطفاً دوباره تلاش کنید.';
 
@@ -16,6 +16,11 @@ const SUBMIT_FAILED = 'ثبت دیدگاه ناموفق بود؛ لطفاً دو
  * Signed-out visitors get the login link (the API 401s guests). On success
  * the review is PENDING moderation — the notice says so in Persian and no
  * fake row is appended to the list.
+ *
+ * Session visibility goes through `useHasSession()` (SS-231): a direct
+ * `hasSession()` in a state initializer read localStorage during the
+ * hydration pass and flipped the signed-out card into the form — the #291
+ * hydration mismatch on /products/[slug].
  */
 export function ReviewForm({
   productId,
@@ -25,7 +30,7 @@ export function ReviewForm({
   productSlug: string;
 }) {
   const router = useRouter();
-  const [signedIn] = useState(() => hasSession());
+  const signedIn = useHasSession();
   const [rating, setRating] = useState('5');
   const [comment, setComment] = useState('');
   const [pending, setPending] = useState(false);

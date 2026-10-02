@@ -72,6 +72,8 @@ export function FiltersPanel({
   brands,
   brandsTotal,
   basePath = '/products',
+  priceFormId,
+  onPriceApplied,
 }: {
   state: ListingState;
   categories: CatalogCategoryNode[];
@@ -79,6 +81,10 @@ export function FiltersPanel({
   /** Total brand count from the API (may exceed the loaded page). */
   brandsTotal?: number;
   basePath?: string;
+  /** Sheet-only: id for the price form so the footer button can submit it. */
+  priceFormId?: string;
+  /** Sheet-only: fires after a valid price commit so the sheet can close. */
+  onPriceApplied?: () => void;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -296,6 +302,8 @@ export function FiltersPanel({
           key={`${state.priceFrom}|${state.priceTo}`}
           state={state}
           basePath={basePath}
+          formId={priceFormId}
+          onApplied={onPriceApplied}
         />
       </div>
     </aside>
