@@ -28,3 +28,10 @@ export const BLOG_POST_TAG_PREFIX = 'blog:post:';
 export function blogPostTag(slug: string): string {
   return `${BLOG_POST_TAG_PREFIX}${slug}`;
 }
+
+/** Approved-review lists, one tag per product id (SS-244B). */
+export const REVIEW_PRODUCT_TAG_PREFIX = 'review:product:';
+
+export function reviewProductTag(productId: string): string {
+  return `${REVIEW_PRODUCT_TAG_PREFIX}${productId}`;
+}

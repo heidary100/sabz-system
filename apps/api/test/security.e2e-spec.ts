@@ -1,6 +1,10 @@
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { getOptionsToken } from '@nestjs/throttler';
+import {
+  ThrottlerStorageService,
+  getOptionsToken,
+  getStorageToken,
+} from '@nestjs/throttler';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/app.setup';
@@ -17,6 +21,12 @@ async function createApp(options?: { throttlerLimit?: number }): Promise<INestAp
       throttlers: [{ ttl: 60_000, limit: options.throttlerLimit }],
     });
   }
+
+  // Exact-count 429 assertions need per-app counters: pin this spec to the
+  // in-memory storage (production boots the shared Redis storage, SS-244B).
+  moduleBuilder = moduleBuilder
+    .overrideProvider(getStorageToken())
+    .useValue(new ThrottlerStorageService());
 
   const moduleFixture: TestingModule = await moduleBuilder.compile();
   const app = moduleFixture.createNestApplication();
@@ -117,7 +127,10 @@ describe('Security middleware rate limiting from environment (e2e)', () => {
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(getStorageToken())
+      .useValue(new ThrottlerStorageService())
+      .compile();
 
     app = moduleFixture.createNestApplication();
     configureApp(app);

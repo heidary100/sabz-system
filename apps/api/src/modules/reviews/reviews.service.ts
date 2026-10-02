@@ -12,6 +12,11 @@ import type {
 } from '@sabz/types';
 import { REVIEW_STATUS_FA } from '@sabz/types';
 import { PrismaService } from '../../common/database/prisma.service';
+import {
+  productDetailTag,
+  reviewProductTag,
+} from '../../common/storefront-cache/catalog-tags';
+import { StorefrontCacheService } from '../../common/storefront-cache/storefront-cache.service';
 import { AuditService } from '../audit/audit.service';
 import { CreateReviewDto, ListProductReviewsQueryDto } from './dto';
 
@@ -54,6 +59,7 @@ export class ReviewsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly storefrontCache: StorefrontCacheService,
   ) {}
 
   /** Authenticated customer files a review for a published product. */
@@ -182,7 +188,7 @@ export class ReviewsService {
     id: string,
     ipAddress?: string,
   ): Promise<ReviewDto> {
-    await this.requirePending(id);
+    const pending = await this.requirePending(id);
     const updated = await this.prisma.review.update({
       where: { id },
       data: { status: ReviewStatus.APPROVED, updatedBy: reviewerId },
@@ -197,6 +203,7 @@ export class ReviewsService {
       after: { status: 'APPROVED' },
       ipAddress,
     });
+    this.invalidateProductReviews(pending);
     return toDto(updated);
   }
 
@@ -206,7 +213,7 @@ export class ReviewsService {
     id: string,
     ipAddress?: string,
   ): Promise<ReviewDto> {
-    await this.requirePending(id);
+    const pending = await this.requirePending(id);
     const updated = await this.prisma.review.update({
       where: { id },
       data: { status: ReviewStatus.REJECTED, updatedBy: reviewerId },
@@ -221,6 +228,7 @@ export class ReviewsService {
       after: { status: 'REJECTED' },
       ipAddress,
     });
+    this.invalidateProductReviews(pending);
     return toDto(updated);
   }
 
@@ -234,10 +242,17 @@ export class ReviewsService {
     }
   }
 
-  private async requirePending(id: string): Promise<{ id: string }> {
+  private async requirePending(
+    id: string,
+  ): Promise<{ id: string; productId: string; product: { slug: string } }> {
     const review = await this.prisma.review.findUnique({
       where: { id },
-      select: { id: true, status: true },
+      select: {
+        id: true,
+        status: true,
+        productId: true,
+        product: { select: { slug: true } },
+      },
     });
     if (!review) {
       throw new NotFoundException('دیدگاه یافت نشد.');
@@ -246,6 +261,22 @@ export class ReviewsService {
       throw new ConflictException('این دیدگاه قبلاً بررسی شده است.');
     }
     return review;
+  }
+
+  /**
+   * Drops the cached approved-review list plus the catalog detail entry
+   * (card/detail `ratingAverage` aggregates are embedded in catalog DTOs,
+   * not served from the review endpoint). Best-effort: creation writes
+   * PENDING rows (invisible), so only moderation transitions invalidate.
+   */
+  private invalidateProductReviews(pending: {
+    productId: string;
+    product: { slug: string };
+  }): void {
+    void this.storefrontCache.invalidate([
+      reviewProductTag(pending.productId),
+      productDetailTag(pending.product.slug),
+    ]);
   }
 }
 

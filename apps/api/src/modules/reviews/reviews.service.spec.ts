@@ -36,6 +36,7 @@ describe('ReviewsService (SS-236)', () => {
     $transaction: jest.Mock;
   };
   let audit: { log: jest.Mock };
+  let storefrontCache: { invalidate: jest.Mock };
 
   beforeEach(() => {
     prisma = {
@@ -51,9 +52,11 @@ describe('ReviewsService (SS-236)', () => {
       $transaction: jest.fn(),
     };
     audit = { log: jest.fn() };
+    storefrontCache = { invalidate: jest.fn() };
     service = new ReviewsService(
       prisma as unknown as PrismaService,
       audit as unknown as AuditService,
+      storefrontCache as unknown as import('../../common/storefront-cache/storefront-cache.service').StorefrontCacheService,
     );
   });
 
@@ -177,11 +180,15 @@ describe('ReviewsService (SS-236)', () => {
   });
 
   describe('moderation', () => {
+    const pendingRow = () => ({
+      id: REVIEW_ID,
+      status: ReviewStatus.PENDING,
+      productId: PRODUCT_ID,
+      product: { slug: 'test-phone' },
+    });
+
     it('approves a pending review with an audit event', async () => {
-      prisma.review.findUnique.mockResolvedValue({
-        id: REVIEW_ID,
-        status: ReviewStatus.PENDING,
-      });
+      prisma.review.findUnique.mockResolvedValue(pendingRow());
       prisma.review.update.mockResolvedValue(
         reviewRow({ status: ReviewStatus.APPROVED }),
       );
@@ -200,11 +207,22 @@ describe('ReviewsService (SS-236)', () => {
       });
     });
 
+    it('invalidates the review list and catalog detail tags on approve', async () => {
+      prisma.review.findUnique.mockResolvedValue(pendingRow());
+      prisma.review.update.mockResolvedValue(
+        reviewRow({ status: ReviewStatus.APPROVED }),
+      );
+
+      await service.approve(OPERATOR_ID, REVIEW_ID);
+
+      expect(storefrontCache.invalidate).toHaveBeenCalledWith([
+        `review:product:${PRODUCT_ID}`,
+        'catalog:product:test-phone',
+      ]);
+    });
+
     it('rejects a pending review with an audit event', async () => {
-      prisma.review.findUnique.mockResolvedValue({
-        id: REVIEW_ID,
-        status: ReviewStatus.PENDING,
-      });
+      prisma.review.findUnique.mockResolvedValue(pendingRow());
       prisma.review.update.mockResolvedValue(
         reviewRow({ status: ReviewStatus.REJECTED }),
       );
@@ -215,6 +233,10 @@ describe('ReviewsService (SS-236)', () => {
       expect(audit.log).toHaveBeenCalledWith(
         expect.objectContaining({ action: 'REVIEW_REJECTED' }),
       );
+      expect(storefrontCache.invalidate).toHaveBeenCalledWith([
+        `review:product:${PRODUCT_ID}`,
+        'catalog:product:test-phone',
+      ]);
     });
 
     it('404s on unknown ids and 409s on already-moderated rows', async () => {
@@ -231,6 +253,7 @@ describe('ReviewsService (SS-236)', () => {
         ConflictException,
       );
       expect(prisma.review.update).not.toHaveBeenCalled();
+      expect(storefrontCache.invalidate).not.toHaveBeenCalled();
     });
   });
 

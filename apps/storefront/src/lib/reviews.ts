@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import type {
   CreateReviewInput,
   ReviewDto,
@@ -5,13 +6,24 @@ import type {
 } from '@sabz/types';
 import { ApiError, request } from '@/lib/api';
 import { authFetch } from '@/lib/auth-client';
+import { reviewProductTag } from '@/lib/cache-tags';
 
 /**
  * Product reviews client (SS-236): thin boundary over `/reviews`.
  * The approved list is public and read server-side (no client-side
  * catalog fetching, SS-217); submission goes through `authFetch`.
  * Ratings are unit-free (1–5); nothing monetary flows here.
+ *
+ * SS-244B caching: the public list goes through the Next.js Data Cache
+ * (`cache: 'force-cache'` + revalidate window + per-product tag, wrapped
+ * in React `cache()` so sibling call sites share one entry); the API
+ * invalidates the tag on approve/reject, so the window below is only a
+ * stale-while-invalidated safety net. Submission stays `no-store`
+ * (authenticated mutation).
  */
+
+/** Data Cache revalidate window (seconds) for approved-review lists. */
+const REVIEWS_REVALIDATE_SECONDS = 300;
 
 const LIST_FAILED = 'دریافت دیدگاه‌ها ناموفق بود؛ لطفاً دوباره تلاش کنید.';
 const CREATE_FAILED = 'ثبت دیدگاه ناموفق بود؛ لطفاً دوباره تلاش کنید.';
@@ -27,23 +39,35 @@ export function productReviewsPath(
 }
 
 /** Approved reviews of a product, newest first (public, paginated). */
-export async function fetchProductReviews(
-  productId: string,
-  page = 1,
-  limit = 10,
-): Promise<ReviewListResponse> {
-  try {
-    return await request<ReviewListResponse>(productReviewsPath(productId, page, limit), {
-      cache: 'no-store',
-    });
-  } catch {
-    throw new ApiError(0, {
-      statusCode: 0,
-      message: LIST_FAILED,
-      error: LIST_FAILED,
-    });
-  }
-}
+export const fetchProductReviews = cache(
+  async (
+    productId: string,
+    page = 1,
+    limit = 10,
+  ): Promise<ReviewListResponse> => {
+    try {
+      const init: RequestInit & {
+        next?: { revalidate: number; tags: string[] };
+      } = {
+        cache: 'force-cache',
+        next: {
+          revalidate: REVIEWS_REVALIDATE_SECONDS,
+          tags: [reviewProductTag(productId)],
+        },
+      };
+      return await request<ReviewListResponse>(
+        productReviewsPath(productId, page, limit),
+        init,
+      );
+    } catch {
+      throw new ApiError(0, {
+        statusCode: 0,
+        message: LIST_FAILED,
+        error: LIST_FAILED,
+      });
+    }
+  },
+);
 
 /** Files a review for a published product (→ PENDING moderation). */
 export async function createReview(input: CreateReviewInput): Promise<ReviewDto> {
