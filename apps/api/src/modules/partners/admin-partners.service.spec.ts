@@ -5,7 +5,7 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { Partner, PartnerApprovalStatus, PartnerDocumentType } from '@prisma/client';
+import { Partner, PartnerApprovalStatus, PartnerDocumentType, Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/database/prisma.service';
 import { AppRole } from '../auth/enums/app-role.enum';
 import { RolesService } from '../auth/roles/roles.service';
@@ -63,7 +63,13 @@ describe('AdminPartnersService', () => {
       findUnique: jest.Mock;
       updateMany: jest.Mock;
     };
-    partnerTier: { findUnique: jest.Mock; findMany: jest.Mock };
+    partnerTier: {
+      findUnique: jest.Mock;
+      findMany: jest.Mock;
+      create: jest.Mock;
+      update: jest.Mock;
+      delete: jest.Mock;
+    };
     businessDocument: { count: jest.Mock };
     userRole: { upsert: jest.Mock };
     $transaction: jest.Mock;
@@ -93,7 +99,13 @@ describe('AdminPartnersService', () => {
         findUnique: jest.fn(),
         updateMany: jest.fn(),
       },
-      partnerTier: { findUnique: jest.fn(), findMany: jest.fn() },
+      partnerTier: {
+        findUnique: jest.fn(),
+        findMany: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn(),
+        delete: jest.fn(),
+      },
       businessDocument: { count: jest.fn() },
       userRole: { upsert: jest.fn() },
       $transaction: jest.fn(),
@@ -189,19 +201,21 @@ describe('AdminPartnersService', () => {
   });
 
   describe('listTiers', () => {
-    it('returns all tiers ordered by min order quantity', async () => {
+    it('returns all tiers ordered by min order quantity with partner counts', async () => {
       prisma.partnerTier.findMany.mockResolvedValue([
         {
           id: 'tier-3',
           name: 'Tier 3',
           discountPercent: { toString: () => '2.00' },
           minOrderQuantity: 1,
+          _count: { partners: 4 },
         },
         {
           id: 'tier-1',
           name: 'Tier 1',
           discountPercent: { toString: () => '10.00' },
           minOrderQuantity: 100,
+          _count: { partners: 0 },
         },
       ]);
 
@@ -209,11 +223,153 @@ describe('AdminPartnersService', () => {
 
       expect(prisma.partnerTier.findMany).toHaveBeenCalledWith({
         orderBy: { minOrderQuantity: 'asc' },
+        include: { _count: { select: { partners: true } } },
       });
       expect(result).toEqual([
-        { id: 'tier-3', name: 'Tier 3', discountPercent: '2.00', minOrderQuantity: 1 },
-        { id: 'tier-1', name: 'Tier 1', discountPercent: '10.00', minOrderQuantity: 100 },
+        { id: 'tier-3', name: 'Tier 3', discountPercent: '2.00', minOrderQuantity: 1, partnerCount: 4 },
+        { id: 'tier-1', name: 'Tier 1', discountPercent: '10.00', minOrderQuantity: 100, partnerCount: 0 },
       ]);
+    });
+  });
+
+  describe('tier admin CRUD (#90)', () => {
+    const tierRow = (overrides: Record<string, unknown> = {}) => ({
+      id: 'tier-new',
+      name: 'Tier 1 – Distributor',
+      discountPercent: { toString: () => '0' },
+      minOrderQuantity: 1,
+      _count: { partners: 0 },
+      ...overrides,
+    });
+
+    it('creates a tier, writes one audit entry, and returns the summary', async () => {
+      prisma.partnerTier.create.mockResolvedValue(tierRow());
+
+      const result = await service.createTier(
+        { name: 'Tier 1 – Distributor', discountPercent: '0', minOrderQuantity: 1 },
+        'admin-1',
+        '10.0.0.1',
+      );
+
+      expect(prisma.partnerTier.create).toHaveBeenCalledWith({
+        data: {
+          name: 'Tier 1 – Distributor',
+          discountPercent: '0',
+          minOrderQuantity: 1,
+          createdBy: 'admin-1',
+          updatedBy: 'admin-1',
+        },
+        include: { _count: { select: { partners: true } } },
+      });
+      expect(auditService.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: 'admin-1',
+          action: 'PARTNER_TIER_CREATED',
+          entity: 'PartnerTier',
+          entityId: 'tier-new',
+          ipAddress: '10.0.0.1',
+        }),
+      );
+      expect(result).toMatchObject({ id: 'tier-new', partnerCount: 0 });
+    });
+
+    it('maps a duplicate tier name to 409 without auditing', async () => {
+      prisma.partnerTier.create.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('unique', {
+          code: 'P2002',
+          clientVersion: 'test',
+        }),
+      );
+
+      await expect(
+        service.createTier(
+          { name: 'Tier 1 – Distributor', discountPercent: '0', minOrderQuantity: 1 },
+          'admin-1',
+        ),
+      ).rejects.toThrow(ConflictException);
+      expect(auditService.log).not.toHaveBeenCalled();
+    });
+
+    it('rejects an out-of-range discount percent with 400 before touching the database', async () => {
+      await expect(
+        service.createTier(
+          { name: 'Tier X', discountPercent: '120', minOrderQuantity: 1 },
+          'admin-1',
+        ),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.partnerTier.create).not.toHaveBeenCalled();
+    });
+
+    it('updates a tier and audits before/after', async () => {
+      prisma.partnerTier.findUnique.mockResolvedValue(
+        tierRow({ id: 'tier-1', discountPercent: { toString: () => '0' } }),
+      );
+      prisma.partnerTier.update.mockResolvedValue(
+        tierRow({ id: 'tier-1', discountPercent: { toString: () => '12.50' } }),
+      );
+
+      const result = await service.updateTier(
+        'tier-1',
+        { discountPercent: '12.50' },
+        'admin-1',
+      );
+
+      expect(prisma.partnerTier.update).toHaveBeenCalledWith({
+        where: { id: 'tier-1' },
+        data: { discountPercent: '12.50', updatedBy: 'admin-1' },
+        include: { _count: { select: { partners: true } } },
+      });
+      expect(auditService.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'PARTNER_TIER_UPDATED',
+          entityId: 'tier-1',
+          before: expect.objectContaining({ discountPercent: '0' }),
+          after: expect.objectContaining({ discountPercent: '12.50' }),
+        }),
+      );
+      expect(result.discountPercent).toBe('12.50');
+    });
+
+    it('maps a missing tier on update and delete to 404', async () => {
+      prisma.partnerTier.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.updateTier('tier-404', { name: 'X' }, 'admin-1'),
+      ).rejects.toThrow(NotFoundException);
+      await expect(service.deleteTier('tier-404', 'admin-1')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('refuses to delete a tier still assigned to partners with 409', async () => {
+      prisma.partnerTier.findUnique.mockResolvedValue(
+        tierRow({ id: 'tier-1', _count: { partners: 3 } }),
+      );
+
+      await expect(service.deleteTier('tier-1', 'admin-1')).rejects.toThrow(
+        ConflictException,
+      );
+      expect(prisma.partnerTier.delete).not.toHaveBeenCalled();
+    });
+
+    it('deletes an unreferenced tier and writes one audit entry', async () => {
+      prisma.partnerTier.findUnique.mockResolvedValue(
+        tierRow({ id: 'tier-1' }),
+      );
+      prisma.partnerTier.delete.mockResolvedValue(tierRow({ id: 'tier-1' }));
+
+      await service.deleteTier('tier-1', 'admin-1');
+
+      expect(prisma.partnerTier.delete).toHaveBeenCalledWith({
+        where: { id: 'tier-1' },
+      });
+      expect(auditService.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'PARTNER_TIER_DELETED',
+          entity: 'PartnerTier',
+          entityId: 'tier-1',
+        }),
+      );
     });
   });
 

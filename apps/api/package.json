@@ -11,6 +11,7 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "prisma db seed",
     "prisma:bootstrap": "tsx prisma/bootstrap.ts",
+    "seed:reference": "tsx prisma/seed-reference.ts",
     "media:backfill-thumbnails": "tsx prisma/backfill-thumbnails.ts",
     "woo:dry-run": "tsx src/modules/import/cli/dry-run.ts",
     "woo:import": "tsx src/modules/import/cli/import.ts",

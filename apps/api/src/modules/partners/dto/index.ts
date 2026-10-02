@@ -5,3 +5,7 @@ export { ApprovePartnerDto } from './approve-partner.dto';
 export { ChangeTierDto } from './change-tier.dto';
 export { ListPartnersQueryDto } from './list-partners-query.dto';
 export { RejectPartnerDto } from './reject-partner.dto';
+export {
+  CreatePartnerTierDto,
+  UpdatePartnerTierDto,
+} from './partner-tier.dto';

@@ -117,6 +117,7 @@ describe('Admin partner review API (e2e)', () => {
         OR: [
           { userId: { in: userIds } },
           { entityId: { in: partnerIds } },
+          { entityId: { in: tierIds } },
         ],
       },
     });
@@ -244,6 +245,105 @@ describe('Admin partner review API (e2e)', () => {
         .get(`${BASE}/tiers`)
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(403);
+    });
+  });
+
+  describe('tier admin CRUD (#90)', () => {
+    let operator: { accessToken: string };
+    const tierName = `Tier CRUD ${Date.now()}`;
+    let tierId = '';
+
+    beforeAll(async () => {
+      operator = await createUser('+989140000029', 'OPERATOR');
+    });
+
+    it('creates a tier with neutral defaults and one audit entry', async () => {
+      const response = await request(app.getHttpServer())
+        .post(`${BASE}/tiers`)
+        .set('Authorization', `Bearer ${operator.accessToken}`)
+        .send({ name: tierName, discountPercent: '0', minOrderQuantity: 1 })
+        .expect(201);
+
+      tierId = response.body.id;
+      tierIds.push(tierId);
+      expect(response.body).toMatchObject({
+        name: tierName,
+        discountPercent: '0',
+        minOrderQuantity: 1,
+        partnerCount: 0,
+      });
+
+      const audits = await prisma.auditLog.count({
+        where: { action: 'PARTNER_TIER_CREATED', entityId: tierId },
+      });
+      expect(audits).toBe(1);
+    });
+
+    it('maps a duplicate tier name to 409', async () => {
+      await request(app.getHttpServer())
+        .post(`${BASE}/tiers`)
+        .set('Authorization', `Bearer ${operator.accessToken}`)
+        .send({ name: tierName, discountPercent: '0', minOrderQuantity: 1 })
+        .expect(409);
+    });
+
+    it('rejects an out-of-range discount percent with 400', async () => {
+      await request(app.getHttpServer())
+        .post(`${BASE}/tiers`)
+        .set('Authorization', `Bearer ${operator.accessToken}`)
+        .send({ name: `${tierName} bad`, discountPercent: '120', minOrderQuantity: 1 })
+        .expect(400);
+    });
+
+    it('updates the tier and writes one audit entry', async () => {
+      const response = await request(app.getHttpServer())
+        .patch(`${BASE}/tiers/${tierId}`)
+        .set('Authorization', `Bearer ${operator.accessToken}`)
+        .send({ discountPercent: '7.5' })
+        .expect(200);
+
+      expect(response.body).toMatchObject({ discountPercent: '7.5', partnerCount: 0 });
+      const audits = await prisma.auditLog.count({
+        where: { action: 'PARTNER_TIER_UPDATED', entityId: tierId },
+      });
+      expect(audits).toBe(1);
+    });
+
+    it('refuses to delete a tier referenced by a partner with 409', async () => {
+      // A bare tier reference is enough for the delete guard; approving here
+      // would leak an APPROVED row into the list-pagination assertions below.
+      const { partnerId } = await applyAndSubmit(
+        app,
+        (await createUser('+989140000030')).accessToken,
+      );
+      partnerIds.push(partnerId);
+      await prisma.partner.update({
+        where: { id: partnerId },
+        data: { tierId },
+      });
+
+      await request(app.getHttpServer())
+        .delete(`${BASE}/tiers/${tierId}`)
+        .set('Authorization', `Bearer ${operator.accessToken}`)
+        .expect(409);
+
+      await prisma.partner.update({
+        where: { id: partnerId },
+        data: { tierId: null },
+      });
+    });
+
+    it('deletes the unreferenced tier and returns the deleted row', async () => {
+      const response = await request(app.getHttpServer())
+        .delete(`${BASE}/tiers/${tierId}`)
+        .set('Authorization', `Bearer ${operator.accessToken}`)
+        .expect(200);
+      expect(response.body).toMatchObject({ id: tierId, name: tierName });
+
+      const audits = await prisma.auditLog.count({
+        where: { action: 'PARTNER_TIER_DELETED', entityId: tierId },
+      });
+      expect(audits).toBe(1);
     });
   });
 

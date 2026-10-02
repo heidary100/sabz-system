@@ -1,12 +1,14 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpStatus,
   Ip,
   Param,
   ParseUUIDPipe,
   Patch,
+  Post,
   Query,
   StreamableFile,
   UseGuards,
@@ -30,8 +32,10 @@ import { buildAttachmentDisposition } from './download-disposition';
 import {
   ApprovePartnerDto,
   ChangeTierDto,
+  CreatePartnerTierDto,
   ListPartnersQueryDto,
   RejectPartnerDto,
+  UpdatePartnerTierDto,
 } from './dto';
 
 const UUID_PARAM = new ParseUUIDPipe({ errorHttpStatusCode: HttpStatus.NOT_FOUND });
@@ -63,6 +67,55 @@ export class AdminPartnersController {
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   async listTiers() {
     return this.adminPartnersService.listTiers();
+  }
+
+  @Post('tiers')
+  @ApiOperation({ summary: 'Create a partner tier (SS-042 follow-up, #90)' })
+  @ApiResponse({ status: 201, description: 'Tier created.' })
+  @ApiResponse({ status: 400, description: 'Validation error.' })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  @ApiResponse({ status: 409, description: 'Tier name already exists.' })
+  async createTier(
+    @Body() dto: CreatePartnerTierDto,
+    @CurrentUser() user: AuthUser,
+    @Ip() ipAddress?: string,
+  ) {
+    return this.adminPartnersService.createTier(dto, user.userId, ipAddress);
+  }
+
+  @Patch('tiers/:id')
+  @ApiOperation({ summary: 'Update a partner tier' })
+  @ApiParam({ name: 'id', type: 'string', format: 'uuid' })
+  @ApiResponse({ status: 200, description: 'Tier updated.' })
+  @ApiResponse({ status: 400, description: 'Validation error.' })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  @ApiResponse({ status: 404, description: 'Tier not found.' })
+  @ApiResponse({ status: 409, description: 'Tier name already exists.' })
+  async updateTier(
+    @Param('id', UUID_PARAM) tierId: string,
+    @Body() dto: UpdatePartnerTierDto,
+    @CurrentUser() user: AuthUser,
+    @Ip() ipAddress?: string,
+  ) {
+    return this.adminPartnersService.updateTier(tierId, dto, user.userId, ipAddress);
+  }
+
+  @Delete('tiers/:id')
+  @ApiOperation({ summary: 'Delete an unreferenced partner tier' })
+  @ApiParam({ name: 'id', type: 'string', format: 'uuid' })
+  @ApiResponse({ status: 200, description: 'Tier deleted; the deleted row is returned.' })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  @ApiResponse({ status: 404, description: 'Tier not found.' })
+  @ApiResponse({ status: 409, description: 'Tier still assigned to partners.' })
+  async deleteTier(
+    @Param('id', UUID_PARAM) tierId: string,
+    @CurrentUser() user: AuthUser,
+    @Ip() ipAddress?: string,
+  ) {
+    return this.adminPartnersService.deleteTier(tierId, user.userId, ipAddress);
   }
 
   @Get(':id')

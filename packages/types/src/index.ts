@@ -33,12 +33,14 @@ export { ProfileResponse, UpdateProfileInput } from './profile/profile';
 
 export {
   CreatePartnerApplicationInput,
+  CreatePartnerTierInput,
   PartnerApplicationSummary,
   PartnerDocumentSummary,
   PartnerDocumentType,
   PartnerStatus,
   PartnerTierSummary,
   UpdatePartnerApplicationInput,
+  UpdatePartnerTierInput,
 } from './partner/partner';
 
 export {
