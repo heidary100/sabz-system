@@ -1,0 +1,21 @@
+# Vercel CLI uploads the cwd tree; these are dev/caches that must not ride
+# along (the .turbo cache alone is 2.5 GB). Build inputs (root manifests,
+# packages/, apps/) stay included.
+node_modules
+.turbo
+**/.next
+**/dist
+**/.data
+**/coverage
+**/*.tsbuildinfo
+docs
+scripts
+deploy
+.github
+.zcode
+.zcodeignore
+graphify-out
+*.csv
+*.dump
+company-logo.png
+backups
