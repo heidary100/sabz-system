@@ -46,9 +46,14 @@ RUN pnpm --filter @sabz/api prisma:generate \
 
 # Product media + business documents are baked read-only into the image: the
 # Space has no persistent disk, so anything written at runtime is lost on
-# restart (DB records live in Neon and survive). Copies match the absolute
-# storage paths set in the Space env (PRODUCT_MEDIA_STORAGE_DIR /
-# DOCUMENT_STORAGE_DIR).
+# restart (DB records live in Neon and survive). Storage dirs are PINNED here
+# (compose does the same for its volumes) so a missing Space variable cannot
+# silently point the media service at an empty relative path.
+ENV PRODUCT_MEDIA_STORAGE_DRIVER=local \
+    PRODUCT_MEDIA_STORAGE_DIR=/app/.data/product-media \
+    PRODUCT_MEDIA_TEMP_DIR=/app/.data/product-media/tmp \
+    DOCUMENT_STORAGE_DRIVER=local \
+    DOCUMENT_STORAGE_DIR=/app/.data/documents
 COPY media /app/.data/product-media
 COPY documents /app/.data/documents
 
