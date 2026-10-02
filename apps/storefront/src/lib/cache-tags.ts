@@ -33,6 +33,13 @@ export function blogPostTag(slug: string): string {
   return `${BLOG_POST_TAG_PREFIX}${slug}`;
 }
 
+/** Approved-review lists, one tag per product id (SS-244B). */
+export const REVIEW_PRODUCT_TAG_PREFIX = 'review:product:';
+
+export function reviewProductTag(productId: string): string {
+  return `${REVIEW_PRODUCT_TAG_PREFIX}${productId}`;
+}
+
 /** Slugs are API-generated ([a-z0-9-]); anything else is rejected. */
 const PRODUCT_SLUG_PATTERN = /^[a-z0-9-]+$/;
 
@@ -51,6 +58,11 @@ export function isAllowedCatalogTag(tag: unknown): tag is string {
       (tag.startsWith(PRODUCT_DETAIL_TAG_PREFIX) &&
         PRODUCT_SLUG_PATTERN.test(tag.slice(PRODUCT_DETAIL_TAG_PREFIX.length))) ||
       (tag.startsWith(BLOG_POST_TAG_PREFIX) &&
-        PRODUCT_SLUG_PATTERN.test(tag.slice(BLOG_POST_TAG_PREFIX.length))))
+        PRODUCT_SLUG_PATTERN.test(tag.slice(BLOG_POST_TAG_PREFIX.length))) ||
+      // Product ids are UUIDs (hex + hyphens), covered by the slug pattern.
+      (tag.startsWith(REVIEW_PRODUCT_TAG_PREFIX) &&
+        PRODUCT_SLUG_PATTERN.test(
+          tag.slice(REVIEW_PRODUCT_TAG_PREFIX.length),
+        )))
   );
 }

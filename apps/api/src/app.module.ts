@@ -4,6 +4,8 @@ import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { PrismaModule } from './common/database/prisma.module';
 import { RedisModule } from './common/redis/redis.module';
+import { RedisService } from './common/redis/redis.service';
+import { RedisThrottlerStorage } from './common/throttler/redis-throttler.storage';
 import { StorefrontCacheModule } from './common/storefront-cache/storefront-cache.module';
 import { HealthModule } from './health/health.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -27,8 +29,8 @@ import { WishlistModule } from './modules/wishlist/wishlist.module';
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     ThrottlerModule.forRootAsync({
-      inject: [ConfigService],
-      useFactory: (configService: ConfigService) => {
+      inject: [ConfigService, RedisService],
+      useFactory: (configService: ConfigService, redis: RedisService) => {
         const ttl = Number(configService.get('THROTTLE_TTL_MS', 60_000));
         const limit = Number(configService.get('THROTTLE_LIMIT', 100));
 
@@ -39,6 +41,9 @@ import { WishlistModule } from './modules/wishlist/wishlist.module';
               limit: Number.isFinite(limit) && limit > 0 ? limit : 100,
             },
           ],
+          // Redis-backed counters so limits hold across API replicas
+          // (SS-244B); fail-open on Redis outage, never fail the request.
+          storage: new RedisThrottlerStorage(redis),
         };
       },
     }),

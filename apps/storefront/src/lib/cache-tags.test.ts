@@ -8,6 +8,7 @@ import {
   blogPostTag,
   isAllowedCatalogTag,
   productDetailTag,
+  reviewProductTag,
 } from './cache-tags';
 
 /**
@@ -32,6 +33,14 @@ describe('cache tag allowlist', () => {
     expect(isAllowedCatalogTag(blogPostTag('rahnamaye-kharid'))).toBe(true);
   });
 
+  it('accepts well-formed review product tags (UUID ids)', () => {
+    expect(
+      isAllowedCatalogTag(
+        reviewProductTag('3fa85f64-5717-4562-b3fc-2c963f66afa6'),
+      ),
+    ).toBe(true);
+  });
+
   it('rejects malformed detail slugs and foreign tags', () => {
     expect(isAllowedCatalogTag('catalog:product:')).toBe(false);
     expect(isAllowedCatalogTag('catalog:product:پارسی')).toBe(false);
@@ -39,6 +48,8 @@ describe('cache tag allowlist', () => {
     expect(isAllowedCatalogTag('blog:post:')).toBe(false);
     expect(isAllowedCatalogTag('blog:other')).toBe(false);
     expect(isAllowedCatalogTag('catalog:other')).toBe(false);
+    expect(isAllowedCatalogTag('review:product:')).toBe(false);
+    expect(isAllowedCatalogTag('review:other')).toBe(false);
     expect(isAllowedCatalogTag('products')).toBe(false);
   });
 

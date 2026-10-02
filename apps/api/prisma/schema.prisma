@@ -994,6 +994,7 @@ model Order {
   updatedAt DateTime @updatedAt
 
   @@index([userId, createdAt])
+  @@index([userId, status])
   @@index([status, createdAt])
 }
 

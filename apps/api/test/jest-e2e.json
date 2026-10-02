@@ -7,5 +7,6 @@
     "^.+\\.(t|j)s$": "ts-jest"
   },
   "maxWorkers": 1,
-  "globalSetup": "<rootDir>/test-database.setup.ts"
+  "globalSetup": "<rootDir>/test-database.setup.ts",
+  "setupFilesAfterEnv": ["<rootDir>/throttle-isolation.setup.ts"]
 }
