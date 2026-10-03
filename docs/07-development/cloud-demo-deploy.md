@@ -110,7 +110,7 @@ grep -oE "https://[a-z0-9-]+\.trycloudflare\.com" /tmp/cf.log   # the public API
 | `PORT` | `10000` |
 | `TRUST_PROXY` | `true` |
 | `REDIS_HOST` / `REDIS_PORT` | `localhost` / `6379` (in-container) |
-| `DATABASE_URL` | Neon **pooled** URL with `sslmode=require&pgbouncer=true` (PgBouncer transaction mode needs `pgbouncer=true` for Prisma) |
+| `DATABASE_URL` | `postgresql://sabz:sabz@localhost:5432/sabz?schema=public` — the in-Codespace Postgres (see below; Neon was dropped on 2026-10-03 when Codespaces egress to port 5432 turned out blocked) |
 | `CORS_ORIGINS` | `https://sabz-storefront-demo.vercel.app,https://sabz-admin-demo.vercel.app` |
 | `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` | fresh randoms (§2) |
 | `STOREFRONT_REVALIDATE_TOKEN` | `REVALIDATE_TOKEN` from §2 |
@@ -124,6 +124,36 @@ grep -oE "https://[a-z0-9-]+\.trycloudflare\.com" /tmp/cf.log   # the public API
 Storage paths (`PRODUCT_MEDIA_STORAGE_DIR=/app/.data/product-media`,
 `DOCUMENT_STORAGE_DIR=/app/.data/documents`) are **pinned as image ENV** in
 `Dockerfile.space`.
+
+### Database (2026-10-03 change): in-Codespace Postgres
+
+The Codespace's egress policy blocks outbound **5432** (443/22/53 pass), so
+Neon became unreachable at the TCP level even though the credentials and
+data were fine (the dev machine reaches Neon through the local fake-IP
+proxy, masking this). The database now runs as a container **inside the
+Codespace**, on a persistent volume, with the same dump restored:
+
+```bash
+gh cs ssh -c sabz-demo-… -- "docker run -d --name demo-pg --network host \
+  -v sabzpg:/var/lib/postgresql/data -e POSTGRES_USER=sabz -e POSTGRES_PASSWORD=sabz \
+  -e POSTGRES_DB=sabz postgres:16"
+# ship the dump (10 MB — split into 1 MB pieces; plain ssh cat survives, long
+# streams get reset by the client proxy):
+split -b 1m sabz-demo.dump chunk_ && for c in chunk_*; do cat $c | \
+  gh cs ssh -c sabz-demo-… -- 'cat >> /tmp/sabz-demo.dump'; done
+gh cs ssh -c sabz-demo-… -- 'docker cp /tmp/sabz-demo.dump demo-pg:/tmp/ \
+  && docker exec demo-pg pg_restore -U sabz -d sabz --no-owner /tmp/sabz-demo.dump'
+```
+
+Both containers run with `--network host` — the nested-Docker bridge (dind)
+drops inter-container traffic to the pg port, loopback does not. The env
+file lives at `/home/codespace/demo-api.env` (**not /tmp — it is wiped on
+machine stop/start**), and `cloudflared` runs as a container `cf-tunnel`
+(`--restart unless-stopped`), so a wake is: `gh cs start` → wait → read the
+new trycloudflare URL from `docker logs cf-tunnel` → update the 4 Vercel
+envs → redeploy both projects. The DB survives restarts on the `sabzpg`
+volume; it is lost only if the Codespace itself is deleted (30-day
+retention after stop).
 
 ## 5. Vercel storefront
 
