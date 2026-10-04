@@ -9,7 +9,7 @@ coverage/
 .env
 .env.local
 .env.*.local
-!.env.example
+
 
 # Local runtime data (e.g. apps/api/.data/documents from DOCUMENT_STORAGE_DIR)
 .data/
@@ -30,3 +30,6 @@ wc-product-export-*.csv
 # Database dumps from scripts/backup/postgres-backup.sh (SS-244A): large,
 # host-local, and potentially sensitive — never committed.
 backups/
+.vercel
+.env*
+!.env.example

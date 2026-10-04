@@ -1,0 +1,17 @@
+# SS-247 cloud demo: liveness monitor for the demo API (Codespace + CF quick
+# 15 idle minutes; a 5-min ping prevents cold starts for the demo customer).
+# Costs ~300 build-minutes/month against the free 2000 — disable after the
+# demo (Actions → demo-keepalive → Disable, or delete with the demo).
+name: demo-keepalive
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping demo API health
+        run: curl -fsS --max-time 30 https://wagon-temporal-alfred-vid.trycloudflare.com/api/v1/health

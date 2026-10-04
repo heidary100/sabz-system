@@ -1,0 +1,65 @@
+# Sabz System API — Hugging Face Space image (cloud demo deploy, SS-247).
+# NOT used by the docker-compose dev stack (that builds apps/api/Dockerfile).
+# Assembled into a Space repo by deploy/hf-space/assemble.sh, which renames
+# this file to `Dockerfile` (HF Docker Spaces require that exact name).
+# See docs/07-development/cloud-demo-deploy.md for the full runbook.
+
+FROM node:22-slim
+
+ENV PNPM_HOME=/pnpm
+ENV PATH=$PNPM_HOME:$PATH
+
+# FFmpeg: server-side video watermarking (CATALOG-007), same as the dev API
+# image. redis-server: ephemeral demo Redis — OTP codes, OTP attempt/rate
+# counters and throttle buckets only (deploy-runbook §1: all recreatable),
+# so no Upstash account (whose TLS-only endpoint the ioredis client cannot
+# speak) and no persistence.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ffmpeg redis-server \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN corepack enable
+
+WORKDIR /app
+
+# pnpm's workspace globs (apps/*, packages/*) require every member's
+# package.json for --frozen-lockfile even though only the API is built here.
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
+COPY apps/api/package.json ./apps/api/package.json
+COPY apps/admin/package.json ./apps/admin/package.json
+COPY apps/storefront/package.json ./apps/storefront/package.json
+COPY packages ./packages
+
+RUN pnpm install --frozen-lockfile
+
+# Workspace packages are consumed through their built dist output. The dev
+# API image skips @sabz/search (nest dev compiles it from source); the
+# compiled API cannot, so it is built here (SS-219 known-gap follow-up).
+RUN pnpm --filter @sabz/types build \
+    && pnpm --filter @sabz/api-client build \
+    && pnpm --filter @sabz/search build
+
+COPY apps/api ./apps/api
+
+RUN pnpm --filter @sabz/api prisma:generate \
+    && pnpm --filter @sabz/api build
+
+# Product media + business documents are baked read-only into the image: the
+# Space has no persistent disk, so anything written at runtime is lost on
+# restart (DB records live in Neon and survive). Storage dirs are PINNED here
+# (compose does the same for its volumes) so a missing Space variable cannot
+# silently point the media service at an empty relative path.
+ENV PRODUCT_MEDIA_STORAGE_DRIVER=local \
+    PRODUCT_MEDIA_STORAGE_DIR=/app/.data/product-media \
+    PRODUCT_MEDIA_TEMP_DIR=/app/.data/product-media/tmp \
+    DOCUMENT_STORAGE_DRIVER=local \
+    DOCUMENT_STORAGE_DIR=/app/.data/documents
+COPY media /app/.data/product-media
+COPY documents /app/.data/documents
+
+COPY start.sh /app/start.sh
+RUN chmod +x /app/start.sh
+
+EXPOSE 7860
+
+CMD ["/app/start.sh"]
