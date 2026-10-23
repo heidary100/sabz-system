@@ -21,9 +21,7 @@ import { ProductConsultation } from '@/components/ecommerce/product/product-cons
 import { ProductShare } from '@/components/ecommerce/product/product-share';
 import { CompareToggle } from '@/components/ecommerce/compare/compare-toggle';
 import { ProductReviews } from '@/components/ecommerce/product/product-reviews';
-
-const siteUrl =
-  process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3001';
+import { absoluteUrl } from '@/lib/site-url';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -99,7 +97,7 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
       originCountry: product.originCountry,
     }).length > 0;
 
-  const canonicalUrl = `${siteUrl}/products/${product.slug}`;
+  const canonicalUrl = absoluteUrl(`/products/${product.slug}`);
   const jsonLdImages = product.media
     .filter((item) => item.mediaType === 'IMAGE')
     .map((item) => mediaImageUrl(item.url))

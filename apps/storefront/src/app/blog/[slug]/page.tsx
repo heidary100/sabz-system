@@ -6,8 +6,7 @@ import { fetchBlogPostBySlug } from '@/lib/blog';
 import { seoDescriptionFromHtml } from '@/lib/seo';
 import { RichText } from '@/components/rich-text';
 import { ProductShare } from '@/components/ecommerce/product/product-share';
-
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3001';
+import { absoluteUrl } from '@/lib/site-url';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -53,7 +52,7 @@ export default async function BlogArticlePage({ params }: PageProps) {
     notFound();
   }
 
-  const canonicalUrl = new URL(`/blog/${post.slug}`, siteUrl).toString();
+  const canonicalUrl = absoluteUrl(`/blog/${post.slug}`);
   const description =
     post.metaDescription ?? post.excerpt ?? seoDescriptionFromHtml(post.content);
   const jsonLd: Record<string, unknown> = {

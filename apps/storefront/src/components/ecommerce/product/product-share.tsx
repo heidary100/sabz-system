@@ -5,11 +5,15 @@ import { useState } from 'react';
 /**
  * Social share row (SS-227): parity with the live site's share links
  * (Telegram, WhatsApp, X, Facebook, Pinterest, LinkedIn) plus a copy-link
- * button. Client component — the copy action needs clipboard access; the
+ * button. Client component — the copy actions need clipboard access; the
  * share links themselves are plain anchors built from the canonical URL.
+ *
+ * Bale (SS-248): Bale publishes no web share deep-link (verified 2026-10-24
+ * against docs.bale.ai — only bot/channel links exist), so its action copies
+ * the URL for pasting into a Bale chat. No endpoint is invented.
  */
 export function ProductShare({ canonicalUrl }: { canonicalUrl: string }) {
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<'link' | 'bale' | null>(null);
   const url = encodeURIComponent(canonicalUrl);
 
   const links = [
@@ -21,11 +25,11 @@ export function ProductShare({ canonicalUrl }: { canonicalUrl: string }) {
     { label: 'لینکدین', href: `https://www.linkedin.com/shareArticle?mini=true&url=${url}` },
   ];
 
-  async function copyLink() {
+  async function copy(target: 'link' | 'bale') {
     try {
       await navigator.clipboard.writeText(canonicalUrl);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setCopied(target);
+      setTimeout(() => setCopied(null), 2000);
     } catch {
       // Clipboard denied (permissions/insecure context): silently no-op,
       // the share links remain the fallback.
@@ -49,10 +53,19 @@ export function ProductShare({ canonicalUrl }: { canonicalUrl: string }) {
       ))}
       <button
         type="button"
-        onClick={copyLink}
+        onClick={() => copy('bale')}
+        title="بله پیوند اشتراک‌گذاری مستقیم ندارد؛ پیام برای ارسال در بله کپی می‌شود"
         className="inline-flex min-h-9 items-center rounded-full border border-sand-200 bg-white px-3 text-xs text-gray-600 transition-colors hover:border-sabz-300 hover:text-sabz-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700"
       >
-        {copied ? 'کپی شد ✓' : 'کپی لینک'}
+        {copied === 'bale' ? 'کپی شد ✓' : 'بله'}
+        <span className="sr-only"> (کپی پیام برای اشتراک در بله)</span>
+      </button>
+      <button
+        type="button"
+        onClick={() => copy('link')}
+        className="inline-flex min-h-9 items-center rounded-full border border-sand-200 bg-white px-3 text-xs text-gray-600 transition-colors hover:border-sabz-300 hover:text-sabz-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700"
+      >
+        {copied === 'link' ? 'کپی شد ✓' : 'کپی لینک'}
       </button>
     </div>
   );
