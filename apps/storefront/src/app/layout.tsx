@@ -3,13 +3,11 @@ import '@fontsource-variable/vazirmatn';
 import './globals.css';
 import { brand } from '@/lib/brand';
 import { fetchCategoryTree } from '@/lib/catalog';
+import { siteUrl } from '@/lib/site-url';
 import { CartProvider } from '@/components/ecommerce/cart/cart-provider';
 import { CompareProvider } from '@/components/ecommerce/compare/compare-provider';
 import { SiteHeader } from '@/components/ecommerce/header/site-header';
 import { SiteFooter } from '@/components/ecommerce/footer/site-footer';
-
-const siteUrl =
-  process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3001';
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
