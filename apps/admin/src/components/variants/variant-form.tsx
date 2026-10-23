@@ -13,6 +13,7 @@ import { Input } from '../catalyst/input'
 import { Select } from '../catalyst/select'
 import { Text } from '../catalyst/text'
 import { translateApiError, isConflictError } from '../../lib/error-messages'
+import { foldDigitsToEnglish } from '../../lib/digits'
 import { createVariant, updateVariant } from '../../services/variants'
 
 const PRICE_PATTERN = /^\d{1,10}(?:\.\d{1,2})?$/
@@ -84,7 +85,13 @@ export function VariantForm({
   }, [open, variant])
 
   const set = (key: keyof VariantFormValue, value: string): void => {
-    setValues((prev) => ({ ...prev, [key]: value }))
+    // SS-250: money inputs fold Persian/Arabic digits before validation —
+    // ۱۵۰۰ must validate like 1500, not die in a pattern error.
+    const normalized =
+      key === 'price' || key === 'compareAtPrice'
+        ? foldDigitsToEnglish(value)
+        : value
+    setValues((prev) => ({ ...prev, [key]: normalized }))
   }
 
   const priceValid = PRICE_PATTERN.test(values.price.trim())
@@ -197,7 +204,7 @@ export function VariantForm({
           </Field>
 
           <Field>
-            <Label>قیمت (تومان)</Label>
+            <Label>قیمت (ریال)</Label>
             <Input
               name="price"
               dir="ltr"
@@ -207,10 +214,13 @@ export function VariantForm({
               onChange={(event) => set('price', event.target.value)}
               disabled={submitting}
             />
+            <Text className="text-xs text-muted">
+              مبنا ریال است؛ فروشگاه قیمت را به تومان (ریال ÷ ۱۰) نمایش میدهد.
+            </Text>
           </Field>
 
           <Field>
-            <Label>قیمت فروش ویژه (تومان)</Label>
+            <Label>قیمت فروش ویژه (ریال)</Label>
             <Input
               name="compareAtPrice"
               dir="ltr"
