@@ -358,6 +358,64 @@ describe('VariantsService', () => {
       ).rejects.toMatchObject({ status: 404 });
     });
 
+    // SS-251: the invariant is validated on EFFECTIVE values (DTO overlaid on
+    // the stored row), so a partial update cannot sneak past it — dropping
+    // the price under an existing compareAtPrice, or raising compareAtPrice
+    // over the stored price, must both be rejected.
+    it('rejects a price dropped to/below the stored compareAtPrice on update', async () => {
+      tx.product.findUnique.mockResolvedValue(makeProductRow());
+      tx.productVariant.findUnique.mockResolvedValue(
+        makeVariantRow({
+          price: { toString: () => '1500.00' },
+          compareAtPrice: { toString: () => '1800.00' },
+          priceStatus: 'PRICED',
+        }),
+      );
+
+      await expect(
+        service.update('var-1', { price: '1800.00' }, 'actor-1'),
+      ).rejects.toMatchObject({ status: 400 });
+      await expect(
+        service.update('var-1', { price: '1900.00' }, 'actor-1'),
+      ).rejects.toMatchObject({ status: 400 });
+      expect(tx.productVariant.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('rejects compareAtPrice raised to/below the stored price on update', async () => {
+      tx.product.findUnique.mockResolvedValue(makeProductRow());
+      tx.productVariant.findUnique.mockResolvedValue(
+        makeVariantRow({ price: { toString: () => '1500.00' } }),
+      );
+
+      await expect(
+        service.update('var-1', { compareAtPrice: '1500.00' }, 'actor-1'),
+      ).rejects.toMatchObject({ status: 400 });
+      await expect(
+        service.update('var-1', { compareAtPrice: '1200.00' }, 'actor-1'),
+      ).rejects.toMatchObject({ status: 400 });
+      expect(tx.productVariant.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('allows a valid compareAtPrice update above the stored price', async () => {
+      tx.product.findUnique.mockResolvedValue(makeProductRow());
+      tx.productVariant.findUnique
+        .mockResolvedValueOnce(makeVariantRow({ price: { toString: () => '1500.00' } }))
+        .mockResolvedValueOnce(
+          makeVariantRow({
+            price: { toString: () => '1500.00' },
+            compareAtPrice: { toString: () => '1800.00' },
+          }),
+        );
+      tx.productVariant.updateMany.mockResolvedValue({ count: 1 });
+
+      const result = await service.update(
+        'var-1',
+        { compareAtPrice: '1800.00' },
+        'actor-1',
+      );
+      expect(result.compareAtPrice).toBe('1800.00');
+    });
+
     it('throws 409 for a duplicate SKU on update', async () => {
       tx.product.findUnique.mockResolvedValue(makeProductRow());
       tx.productVariant.findUnique

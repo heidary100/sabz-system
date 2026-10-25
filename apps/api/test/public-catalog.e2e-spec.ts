@@ -888,6 +888,27 @@ describe('Public catalog API (SS-120/121/122) (e2e)', () => {
       expect(card.priceFrom).toBe('1500');
       expect(card.callForPrice).toBe(false);
       expect(card.variantCount).toBe(1);
+
+      // SS-251: the update path enforces the same invariant on effective
+      // values — equal/below the stored price is rejected…
+      const variantId = sale.body.id as string;
+      await request(app.getHttpServer())
+        .patch(`/api/v1/admin/variants/${variantId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ compareAtPrice: '1500.00' })
+        .expect(400);
+      await request(app.getHttpServer())
+        .patch(`/api/v1/admin/variants/${variantId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ price: '1800.00' })
+        .expect(400);
+
+      // …and a raise of the reference above the stored price still succeeds.
+      await request(app.getHttpServer())
+        .patch(`/api/v1/admin/variants/${variantId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ compareAtPrice: '1900.00' })
+        .expect(200);
     });
 
     it('marks priceless products call-for-price with empty priceFrom', async () => {
