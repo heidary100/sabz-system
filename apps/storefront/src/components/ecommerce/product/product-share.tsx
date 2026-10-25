@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { shareTextWithoutUrl } from '@/lib/share-message';
 
 /**
  * Social share row (SS-227): parity with the live site's share links
@@ -8,17 +9,34 @@ import { useState } from 'react';
  * button. Client component — the copy actions need clipboard access; the
  * share links themselves are plain anchors built from the canonical URL.
  *
- * Bale (SS-248): Bale publishes no web share deep-link (verified 2026-10-24
- * against docs.bale.ai — only bot/channel links exist), so its action copies
- * the URL for pasting into a Bale chat. No endpoint is invented.
+ * SS-249: when `shareText` is provided (product pages), Telegram and
+ * WhatsApp carry the composed Persian payload (title/brand/public price) and
+ * the Bale action copies it. Blog pages omit `shareText` and share the bare
+ * URL. Bale publishes no web share deep-link (verified 2026-10-24 against
+ * docs.bale.ai — only bot/channel links exist), so its action always copies
+ * for pasting into a Bale chat. No endpoint is invented.
  */
-export function ProductShare({ canonicalUrl }: { canonicalUrl: string }) {
+export function ProductShare({
+  canonicalUrl,
+  shareText,
+}: {
+  canonicalUrl: string;
+  shareText?: string;
+}) {
   const [copied, setCopied] = useState<'link' | 'bale' | null>(null);
   const url = encodeURIComponent(canonicalUrl);
 
+  // Telegram renders its `url` parameter as the shared link, so the text
+  // parameter drops the trailing URL line to avoid duplication. WhatsApp has
+  // a single text parameter, so the full message (URL included) goes there.
+  const telegramText = shareText
+    ? `&text=${encodeURIComponent(shareTextWithoutUrl(shareText, canonicalUrl))}`
+    : '';
+  const whatsappText = encodeURIComponent(shareText ?? canonicalUrl);
+
   const links = [
-    { label: 'تلگرام', href: `https://t.me/share/url?url=${url}` },
-    { label: 'واتساپ', href: `https://wa.me/?text=${url}` },
+    { label: 'تلگرام', href: `https://t.me/share/url?url=${url}${telegramText}` },
+    { label: 'واتساپ', href: `https://wa.me/?text=${whatsappText}` },
     { label: 'ایکس', href: `https://x.com/share?url=${url}` },
     { label: 'فیس‌بوک', href: `https://www.facebook.com/sharer/sharer.php?u=${url}` },
     { label: 'پینترست', href: `https://pinterest.com/pin/create/button/?url=${url}` },
@@ -27,7 +45,9 @@ export function ProductShare({ canonicalUrl }: { canonicalUrl: string }) {
 
   async function copy(target: 'link' | 'bale') {
     try {
-      await navigator.clipboard.writeText(canonicalUrl);
+      await navigator.clipboard.writeText(
+        target === 'bale' && shareText ? shareText : canonicalUrl,
+      );
       setCopied(target);
       setTimeout(() => setCopied(null), 2000);
     } catch {

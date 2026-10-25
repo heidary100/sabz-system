@@ -22,6 +22,7 @@ import { ProductShare } from '@/components/ecommerce/product/product-share';
 import { CompareToggle } from '@/components/ecommerce/compare/compare-toggle';
 import { ProductReviews } from '@/components/ecommerce/product/product-reviews';
 import { absoluteUrl } from '@/lib/site-url';
+import { buildShareMessage } from '@/lib/share-message';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -98,6 +99,23 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
     }).length > 0;
 
   const canonicalUrl = absoluteUrl(`/products/${product.slug}`);
+  // SS-249: anonymous share payload — same price rule as listing cards
+  // (call-for-price when nothing is priced, «از …» only for a real spread),
+  // built from BASE variant values only; tier personalization never reaches
+  // a share (guest price responses pin tierApplied=false in e2e).
+  const pricedVariantPrices = product.variants
+    .filter((variant) => variant.priceStatus === 'PRICED')
+    .map((variant) => Number(variant.price));
+  const shareText = buildShareMessage({
+    title: product.name,
+    brandName: product.brand?.name ?? null,
+    priceFromRial:
+      pricedVariantPrices.length > 0
+        ? String(Math.min(...pricedVariantPrices))
+        : null,
+    variantCount: product.variants.length,
+    url: canonicalUrl,
+  });
   const jsonLdImages = product.media
     .filter((item) => item.mediaType === 'IMAGE')
     .map((item) => mediaImageUrl(item.url))
@@ -213,7 +231,7 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
           </div>
 
           <div className="mt-4">
-            <ProductShare canonicalUrl={canonicalUrl} />
+            <ProductShare canonicalUrl={canonicalUrl} shareText={shareText} />
           </div>
 
           <div className="mt-4 flex items-center gap-3 rounded-xl border border-sand-200 bg-white px-4 py-3">
