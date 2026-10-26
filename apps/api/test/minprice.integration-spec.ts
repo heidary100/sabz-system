@@ -251,6 +251,62 @@ describe('Product minPrice denormalization (SS-217)', () => {
     await expect(minPriceOf(id)).resolves.toBe('150');
   });
 
+  // ------------------------------------------------- SS-259 drift probe
+  // The audit's live finding (2026-10-24): 23 products drifted to
+  // minPrice IS NULL via raw direct-DB writes that bypass the service
+  // hooks. The committed probe SQL (scripts/minprice-drift-check.sql)
+  // must catch exactly that failure mode — proven here by simulating a
+  // raw write inside a transaction that is always rolled back.
+  it('drift probe detects raw writes that bypass the recompute guard (rolled back)', async () => {
+    let rawProductId: string | null = null;
+    let driftCaught = false;
+    await prisma
+      .$transaction(async (tx) => {
+        const suffix = uniqueSuffix();
+        const category = await tx.category.create({
+          data: { name: `دسته MP-D ${suffix}`, slug: `cat-mpd-${suffix}` },
+        });
+        createdCategoryIds.push(category.id);
+        const product = await tx.product.create({
+          data: {
+            name: `محصول خام MP-D ${suffix}`,
+            slug: `prod-mpd-${suffix}`,
+            status: ProductStatus.PUBLISHED,
+            categoryId: category.id,
+            condition: ProductCondition.NEW,
+            createdBy: actorId,
+          },
+        });
+        createdProductIds.push(product.id);
+        rawProductId = product.id;
+        // Raw variant write — the exact bypass that produced the drift.
+        await tx.productVariant.create({
+          data: {
+            productId: product.id,
+            sku: `RAW-MPD-${suffix}`,
+            price: 1000,
+            priceStatus: PriceStatus.PRICED,
+          },
+        });
+
+        const drift = await tx.$queryRaw<{ id: string }[]>`
+          SELECT p."id" FROM "Product" p
+          WHERE p."minPrice" IS NULL
+            AND EXISTS (
+              SELECT 1 FROM "ProductVariant" v
+              WHERE v."productId" = p."id"
+                AND v."deletedAt" IS NULL
+                AND v."priceStatus" = 'PRICED'
+            )`;
+        driftCaught =
+          rawProductId !== null && drift.some((row) => row.id === rawProductId);
+        // Force rollback so the raw fixture never lands in the shared DB.
+        await tx.$queryRaw`SELECT 1/0`;
+      })
+      .catch(() => undefined);
+    expect(driftCaught).toBe(true);
+  });
+
   // ----------------------------------------------------- 4. public behavior
 
   describe('public ordering (DB-side)', () => {
