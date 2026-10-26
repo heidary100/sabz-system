@@ -8,9 +8,12 @@ import { ErrorMessage, Field, FieldGroup, Fieldset, Label, Legend } from '../cat
 import { Input } from '../catalyst/input'
 import { Select } from '../catalyst/select'
 import { Text } from '../catalyst/text'
-import { translateApiError } from '../../lib/error-messages'
+import { translateApiError, isConflictError } from '../../lib/error-messages'
+import { findSlugCollision } from '../../lib/slug-collision'
+import { slugify } from '../../lib/slug'
 import { flattenAllNodes, getDescendantIds, lookupNode, maxSiblingSortOrder } from '../../lib/category-tree-utils'
 import { createCategory, updateCategory } from '../../services/categories'
+import { SlugField } from '../ui/slug-field'
 
 export function CategoryEditor({
   open,
@@ -31,18 +34,23 @@ export function CategoryEditor({
 
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
+  const [slugMode, setSlugMode] = useState<'auto' | 'manual'>('auto')
   const [parentId, setParentId] = useState('')
   const [isVisible, setIsVisible] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [slugConflict, setSlugConflict] = useState<string | null>(null)
 
   useEffect(() => {
     if (open) {
       setName(category?.name ?? '')
       setSlug(category?.slug ?? '')
+      // A persisted slug is a manual value: nothing rewrites it implicitly.
+      setSlugMode(category ? 'manual' : 'auto')
       setParentId(category?.parentId ?? parentPreset?.id ?? '')
       setIsVisible(category?.isVisible ?? true)
       setError(null)
+      setSlugConflict(null)
     }
   }, [open, category, parentPreset])
 
@@ -59,6 +67,16 @@ export function CategoryEditor({
     return lookup ? lookup.path.map((node) => node.name) : []
   }, [tree, parentId])
 
+  // SS-254: collision check against the FULL tree the editor already holds
+  // (complete dataset — the one entity type with an exhaustive client list).
+  const knownCategorySlugs = useMemo(
+    () => flattenAllNodes(tree).map((item) => ({ id: item.id, slug: item.node.slug })),
+    [tree],
+  )
+  const effectiveSlug = slugMode === 'auto' ? slugify(name) : slug
+  const collision =
+    findSlugCollision(knownCategorySlugs, effectiveSlug, category?.id) !== null
+
   const canSubmit = name.trim().length > 0 && !submitting
 
   const handleSubmit = async (): Promise<void> => {
@@ -68,10 +86,11 @@ export function CategoryEditor({
     }
     setSubmitting(true)
     setError(null)
+    setSlugConflict(null)
     try {
       const base = {
         name: name.trim(),
-        ...(slug.trim() ? { slug: slug.trim() } : {}),
+        ...(effectiveSlug.trim() ? { slug: effectiveSlug.trim() } : {}),
         parentId: parentId || null,
         isVisible,
       }
@@ -84,8 +103,11 @@ export function CategoryEditor({
         })
       }
       onSuccess()
-    } catch (error) {
-      setError(translateApiError(error))
+    } catch (submitError) {
+      setError(translateApiError(submitError))
+      if (isConflictError(submitError)) {
+        setSlugConflict(translateApiError(submitError))
+      }
     } finally {
       setSubmitting(false)
     }
@@ -116,19 +138,19 @@ export function CategoryEditor({
                   disabled={submitting}
                 />
               </Field>
-              <Field>
-                <Label>اسلاگ</Label>
-                <Input
-                  name="slug"
-                  dir="ltr"
-                  value={slug}
-                  maxLength={255}
-                  placeholder="در صورت خالی بودن، از نام ساخته میشود"
-                  onChange={(event) => setSlug(event.target.value)}
-                  disabled={submitting}
-                />
-                <Text className="text-xs text-muted">فقط حروف انگلیسی کوچک، اعداد و خط تیره.</Text>
-              </Field>
+              <SlugField
+                name={name}
+                slug={slug}
+                mode={slugMode}
+                onInput={(value) => {
+                  setSlug(value)
+                  setSlugMode('manual')
+                }}
+                onRegenerate={() => setSlugMode('auto')}
+                collisionHint={collision ? 'این نشانی قبلاً استفاده شده است.' : null}
+                conflictMessage={slugConflict}
+                disabled={submitting}
+              />
             </div>
           </Fieldset>
 

@@ -22,7 +22,10 @@ import {
   PRODUCT_CONDITION_ORDER,
   PRODUCT_STATUS_LABELS,
 } from '../../lib/product-labels'
-import { translateApiError } from '../../lib/error-messages'
+import { translateApiError, isConflictError } from '../../lib/error-messages'
+import { slugify } from '../../lib/slug'
+import { SlugField } from '../ui/slug-field'
+import { useProductSlugCollision } from '../../hooks/use-product-slug-collision'
 import { createProduct, updateProduct } from '../../services/products'
 import { deleteVariant } from '../../services/variants'
 import { DESCRIPTION_MAX_LENGTH } from './content-editor/content-editor-constants'
@@ -133,9 +136,20 @@ export function ProductEditor({
   const [values, setValues] = useState<ProductFormValue>(initial)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [slugConflict, setSlugConflict] = useState<string | null>(null)
+  // The component mounts once per page with `product` already resolved, so
+  // the initializer sees the persisted slug: edit mode starts manual (locked).
+  const [slugMode, setSlugMode] = useState<'auto' | 'manual'>(
+    product ? 'manual' : 'auto',
+  )
   const [variantDialog, setVariantDialog] = useState<
     { mode: 'create' } | { mode: 'edit' | 'delete'; variant: VariantSummary } | null
   >(null)
+
+  // Auto mode derives the suggestion from the CURRENT name (same slugger as
+  // the server, pinned by parity fixtures); manual mode freezes the value.
+  const effectiveSlug = slugMode === 'auto' ? slugify(values.name) : values.slug
+  const slugCollision = useProductSlugCollision(effectiveSlug, product?.id)
 
   const dirty = !valuesEqual(values, initial)
 
@@ -184,11 +198,12 @@ export function ProductEditor({
     }
     setSubmitting(true)
     setError(null)
+    setSlugConflict(null)
     try {
       if (product) {
         const updated = await updateProduct(product.id, {
           name: values.name.trim(),
-          ...(values.slug.trim() ? { slug: values.slug.trim() } : {}),
+          ...(effectiveSlug.trim() ? { slug: effectiveSlug.trim() } : {}),
           shortDescription: values.shortDescription.trim() || undefined,
           description: values.description.trim() || undefined,
           brandId: values.brandId,
@@ -205,7 +220,7 @@ export function ProductEditor({
       } else {
         const created = await createProduct({
           name: values.name.trim(),
-          ...(values.slug.trim() ? { slug: values.slug.trim() } : {}),
+          ...(effectiveSlug.trim() ? { slug: effectiveSlug.trim() } : {}),
           shortDescription: values.shortDescription.trim() || undefined,
           description: values.description.trim() || undefined,
           brandId: values.brandId,
@@ -222,6 +237,11 @@ export function ProductEditor({
       }
     } catch (submitError) {
       setError(translateApiError(submitError))
+      // A collision that escaped the hint lands here, field-level, without
+      // losing any input or the manual lock.
+      if (isConflictError(submitError)) {
+        setSlugConflict(translateApiError(submitError))
+      }
     } finally {
       setSubmitting(false)
     }
@@ -313,21 +333,23 @@ export function ProductEditor({
                   disabled={submitting}
                 />
               </Field>
-              <Field className="sm:col-span-2">
-                <Label>اسلاگ</Label>
-                <Input
-                  name="slug"
-                  dir="ltr"
-                  value={values.slug}
-                  maxLength={255}
-                  placeholder="در صورت خالی بودن، از نام ساخته میشود"
-                  onChange={(event) => set('slug', event.target.value)}
+              <div className="sm:col-span-2">
+                <SlugField
+                  name={values.name}
+                  slug={values.slug}
+                  mode={slugMode}
+                  onInput={(value) => {
+                    set('slug', value)
+                    setSlugMode('manual')
+                  }}
+                  onRegenerate={() => setSlugMode('auto')}
+                  collisionHint={
+                    slugCollision ? 'این نشانی قبلاً استفاده شده است.' : null
+                  }
+                  conflictMessage={slugConflict}
                   disabled={submitting}
                 />
-                <Text className="text-xs text-muted">
-                  فقط حروف انگلیسی کوچک، اعداد و خط تیره.
-                </Text>
-              </Field>
+              </div>
               <Field>
                 <Label>وضعیت کالا</Label>
                 <Select
