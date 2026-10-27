@@ -428,6 +428,18 @@ export function ProductEditor({
             </div>
           </EditorSection>
 
+          <EditorSection
+            title="دسته‌بندی محصول"
+            description="روی یک دسته کلیک کنید تا به محصول اختصاص یابد؛ همان مدیریت کامل دسته‌بندی‌ها (کشیدن، ویرایش، زیردسته) همین‌جاست."
+          >
+            <CategoryManager
+              variant="compact"
+              selectedId={values.categoryId || null}
+              onSelect={(id) => set('categoryId', id)}
+              onCreated={handleCategoryCreated}
+            />
+          </EditorSection>
+
           {isEdit && (
             <>
               {/* ProductVariantsSection renders its own card shell. */}
@@ -456,18 +468,6 @@ export function ProductEditor({
         </div>
 
         <div className="space-y-6">
-          <EditorSection
-            title="دسته‌بندی محصول"
-            description="روی یک دسته کلیک کنید تا به محصول اختصاص یابد؛ همان مدیریت کامل دسته‌بندی‌ها (کشیدن، ویرایش، زیردسته) همین‌جاست."
-          >
-            <CategoryManager
-              variant="compact"
-              selectedId={values.categoryId || null}
-              onSelect={(id) => set('categoryId', id)}
-              onCreated={handleCategoryCreated}
-            />
-          </EditorSection>
-
           <EditorSection
             title="برند"
             description="جستجو و انتخاب برند، یا ساخت برند جدید در همین بخش."
