@@ -58,4 +58,13 @@ export class UpdateBrandDto {
   @IsOptional()
   @IsBoolean({ message: 'isFeatured باید مقدار بولین باشد.' })
   isFeatured?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'English display name. Pass null to clear.',
+  })
+  @IsOptional()
+  @Transform(({ value }) => normalizeNullableOptional(value))
+  @IsString({ message: 'nameEn باید رشته باشد.' })
+  @MaxLength(255, { message: 'nameEn باید حداکثر ۲۵۵ کاراکتر باشد.' })
+  nameEn?: string | null;
 }

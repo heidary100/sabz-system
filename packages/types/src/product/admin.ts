@@ -78,6 +78,7 @@ export interface CreateBrandInput {
   name: string;
   slug?: string;
   description?: string;
+  nameEn?: string;
   isFeatured?: boolean;
 }
 
@@ -85,6 +86,7 @@ export interface UpdateBrandInput {
   name?: string;
   slug?: string;
   description?: string | null;
+  nameEn?: string | null;
   isFeatured?: boolean;
 }
 

@@ -28,6 +28,7 @@ const summarySelect = {
   slug: true,
   description: true,
   isFeatured: true,
+  nameEn: true,
   deletedAt: true,
 } satisfies Prisma.BrandSelect;
 
@@ -95,6 +96,7 @@ export class BrandsService {
             slug,
             description: dto.description ?? null,
             isFeatured: dto.isFeatured ?? false,
+            nameEn: dto.nameEn ?? null,
             createdBy: actorId,
           } satisfies Prisma.BrandUncheckedCreateInput,
           select: summarySelect,
@@ -112,6 +114,7 @@ export class BrandsService {
               slug: row.slug,
               description: row.description,
               isFeatured: row.isFeatured,
+              nameEn: row.nameEn,
             },
             ipAddress,
           },
@@ -149,6 +152,7 @@ export class BrandsService {
             slug: true,
             description: true,
             isFeatured: true,
+            nameEn: true,
             deletedAt: true,
           },
         });
@@ -284,6 +288,7 @@ export class BrandsService {
     if (dto.slug !== undefined) data.slug = dto.slug;
     if (dto.description !== undefined) data.description = dto.description;
     if (dto.isFeatured !== undefined) data.isFeatured = dto.isFeatured;
+    if (dto.nameEn !== undefined) data.nameEn = dto.nameEn;
     return data;
   }
 
@@ -303,6 +308,8 @@ export class BrandsService {
       delta.description = side === 'before' ? target.description : (data.description as string | null);
     if (changed('isFeatured'))
       delta.isFeatured = side === 'before' ? target.isFeatured : (data.isFeatured as boolean);
+    if (changed('nameEn'))
+      delta.nameEn = side === 'before' ? target.nameEn : (data.nameEn as string | null);
 
     return delta;
   }
@@ -314,6 +321,7 @@ export class BrandsService {
       slug: row.slug,
       description: row.description,
       isFeatured: row.isFeatured,
+      nameEn: row.nameEn,
     };
   }
 
@@ -332,6 +340,7 @@ interface UpdateTargetRow {
   slug: string;
   description: string | null;
   isFeatured: boolean;
+  nameEn: string | null;
   deletedAt: Date | null;
 }
 
@@ -340,4 +349,5 @@ interface BrandUpdateData {
   slug?: string;
   description?: string | null;
   isFeatured?: boolean;
+  nameEn?: string | null;
 }

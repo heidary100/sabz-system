@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import type { ProductDetail, VariantSummary } from '@sabz/types'
+import type { CategoryDetail, BrandSummary, ProductDetail, VariantSummary } from '@sabz/types'
 import { Save, X } from 'lucide-react'
 import { useBrandOptions } from '../../hooks/use-brand-options'
 import { useCategoryOptions } from '../../hooks/use-category-options'
@@ -28,6 +28,8 @@ import { SlugField } from '../ui/slug-field'
 import { useProductSlugCollision } from '../../hooks/use-product-slug-collision'
 import { createProduct, updateProduct } from '../../services/products'
 import { deleteVariant } from '../../services/variants'
+import { BrandQuickCreateDialog } from '../brands/brand-quick-create-dialog'
+import { CategoryQuickCreateDialog } from '../categories/category-quick-create-dialog'
 import { DESCRIPTION_MAX_LENGTH } from './content-editor/content-editor-constants'
 
 // The rich-text editor is only needed on this route, so it is code-split to
@@ -126,8 +128,8 @@ export function ProductEditor({
   onMutate?: () => void
 }) {
   const isEdit = product !== null
-  const { categories } = useCategoryOptions()
-  const { brands } = useBrandOptions()
+  const { brands, refetch: refetchBrands } = useBrandOptions()
+  const { categories, refetch: refetchCategories } = useCategoryOptions()
 
   const initial = useMemo<ProductFormValue>(
     () => (product ? fromProduct(product) : EMPTY),
@@ -145,6 +147,23 @@ export function ProductEditor({
   const [variantDialog, setVariantDialog] = useState<
     { mode: 'create' } | { mode: 'edit' | 'delete'; variant: VariantSummary } | null
   >(null)
+  // SS-255 inline entity creation: the dialogs never touch `values` — on
+  // success the options refetch first, then the returned entity is selected,
+  // and only then does the dialog close.
+  const [brandDialogOpen, setBrandDialogOpen] = useState(false)
+  const [categoryDialogOpen, setCategoryDialogOpen] = useState(false)
+
+  const handleBrandCreated = async (created: BrandSummary): Promise<void> => {
+    await refetchBrands()
+    set('brandId', created.id)
+    setBrandDialogOpen(false)
+  }
+
+  const handleCategoryCreated = async (created: CategoryDetail): Promise<void> => {
+    await refetchCategories()
+    set('categoryId', created.id)
+    setCategoryDialogOpen(false)
+  }
 
   // Auto mode derives the suggestion from the CURRENT name (same slugger as
   // the server, pinned by parity fixtures); manual mode freezes the value.
@@ -456,35 +475,59 @@ export function ProductEditor({
             <div className="space-y-5">
               <Field>
                 <Label>برند</Label>
-                <Select
-                  name="brandId"
-                  value={values.brandId}
-                  onChange={(event) => set('brandId', event.target.value)}
-                  disabled={submitting}
-                >
-                  <option value="">انتخاب کنید</option>
-                  {brands.map((brand) => (
-                    <option key={brand.id} value={brand.id}>
-                      {brand.name}
-                    </option>
-                  ))}
-                </Select>
+                <div className="flex items-center gap-2">
+                  <Select
+                    name="brandId"
+                    value={values.brandId}
+                    onChange={(event) => set('brandId', event.target.value)}
+                    disabled={submitting}
+                    className="min-w-0 flex-1"
+                  >
+                    <option value="">انتخاب کنید</option>
+                    {brands.map((brand) => (
+                      <option key={brand.id} value={brand.id}>
+                        {brand.name}
+                      </option>
+                    ))}
+                  </Select>
+                  <Button
+                    type="button"
+                    outline
+                    onClick={() => setBrandDialogOpen(true)}
+                    disabled={submitting}
+                    className="shrink-0"
+                  >
+                    + برند جدید
+                  </Button>
+                </div>
               </Field>
               <Field>
                 <Label>دسته بندی</Label>
-                <Select
-                  name="categoryId"
-                  value={values.categoryId}
-                  onChange={(event) => set('categoryId', event.target.value)}
-                  disabled={submitting}
-                >
-                  <option value="">انتخاب کنید</option>
-                  {categories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
-                  ))}
-                </Select>
+                <div className="flex items-center gap-2">
+                  <Select
+                    name="categoryId"
+                    value={values.categoryId}
+                    onChange={(event) => set('categoryId', event.target.value)}
+                    disabled={submitting}
+                    className="min-w-0 flex-1"
+                  >
+                    <option value="">انتخاب کنید</option>
+                    {categories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </Select>
+                  <Button
+                    type="button"
+                    outline
+                    onClick={() => setCategoryDialogOpen(true)}
+                    disabled={submitting}
+                    className="shrink-0"
+                  >
+                    + دسته‌بندی جدید
+                  </Button>
+                </div>
               </Field>
             </div>
           </EditorSection>
@@ -592,6 +635,18 @@ export function ProductEditor({
         confirmLabel="حذف واریانت"
         onClose={() => setVariantDialog(null)}
         onConfirm={handleVariantDelete}
+      />
+
+      <BrandQuickCreateDialog
+        open={brandDialogOpen}
+        onClose={() => setBrandDialogOpen(false)}
+        onSuccess={handleBrandCreated}
+      />
+
+      <CategoryQuickCreateDialog
+        open={categoryDialogOpen}
+        onClose={() => setCategoryDialogOpen(false)}
+        onSuccess={handleCategoryCreated}
       />
     </div>
   )

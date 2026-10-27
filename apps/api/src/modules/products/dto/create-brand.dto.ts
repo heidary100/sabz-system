@@ -47,6 +47,15 @@ export class CreateBrandDto {
   @MaxLength(1000, { message: 'description باید حداکثر ۱۰۰۰ کاراکتر باشد.' })
   description?: string;
 
+  @ApiPropertyOptional({
+    description: 'English display name (SS-203). Omitted keeps it null.',
+  })
+  @IsOptional()
+  @Transform(({ value }) => normalizeOptional(value))
+  @IsString({ message: 'nameEn باید رشته باشد.' })
+  @MaxLength(255, { message: 'nameEn باید حداکثر ۲۵۵ کاراکتر باشد.' })
+  nameEn?: string;
+
   @ApiPropertyOptional({ description: 'Whether the brand is featured.' })
   @IsOptional()
   @IsBoolean({ message: 'isFeatured باید مقدار بولین باشد.' })
