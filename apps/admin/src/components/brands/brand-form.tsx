@@ -6,8 +6,13 @@ import { ErrorMessage, Field, Label } from '../catalyst/fieldset'
 import { Input } from '../catalyst/input'
 import { Textarea } from '../catalyst/textarea'
 import { Text } from '../catalyst/text'
-import { translateApiError } from '../../lib/error-messages'
-import { createBrand, updateBrand } from '../../services/brands'
+import { translateApiError, isConflictError } from '../../lib/error-messages'
+import { findSlugCollision } from '../../lib/slug-collision'
+import { slugify } from '../../lib/slug'
+import { SlugField } from '../ui/slug-field'
+import { createBrand, listBrands, updateBrand } from '../../services/brands'
+
+const COLLISION_DATASET_LIMIT = 100
 
 export function BrandForm({
   open,
@@ -24,18 +29,48 @@ export function BrandForm({
 
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
+  const [slugMode, setSlugMode] = useState<'auto' | 'manual'>('auto')
   const [description, setDescription] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [slugConflict, setSlugConflict] = useState<string | null>(null)
+  const [knownBrands, setKnownBrands] = useState<BrandSummary[]>([])
 
   useEffect(() => {
     if (open) {
       setName(brand?.name ?? '')
       setSlug(brand?.slug ?? '')
+      // A persisted slug is a manual value: nothing rewrites it implicitly.
+      setSlugMode(brand ? 'manual' : 'auto')
       setDescription(brand?.description ?? '')
       setError(null)
+      setSlugConflict(null)
     }
   }, [open, brand])
+
+  // SS-254 collision dataset: one fetch per open. Complete today (all brands
+  // fit the 100-row cap); if the catalog ever outgrows it, the hint degrades
+  // to found-only warnings — it never claims availability.
+  useEffect(() => {
+    if (!open) return
+    let active = true
+    void listBrands({ page: 1, limit: COLLISION_DATASET_LIMIT })
+      .then((page) => {
+        if (active) setKnownBrands(page.items)
+      })
+      .catch(() => {
+        // Hint is best-effort; the server 409 stays authoritative.
+      })
+    return () => {
+      active = false
+    }
+  }, [open])
+
+  // Auto mode derives the suggestion from the CURRENT name (same slugger as
+  // the server, pinned by parity fixtures); manual mode freezes the value.
+  const effectiveSlug = slugMode === 'auto' ? slugify(name) : slug
+  const collision =
+    findSlugCollision(knownBrands, effectiveSlug, brand?.id) !== null
 
   const canSubmit = name.trim().length > 0 && !submitting
 
@@ -46,10 +81,11 @@ export function BrandForm({
     }
     setSubmitting(true)
     setError(null)
+    setSlugConflict(null)
     try {
       const base = {
         name: name.trim(),
-        ...(slug.trim() ? { slug: slug.trim() } : {}),
+        ...(effectiveSlug.trim() ? { slug: effectiveSlug.trim() } : {}),
         description: description.trim() || null,
       }
       if (isEdit) {
@@ -58,8 +94,13 @@ export function BrandForm({
         await createBrand(base as CreateBrandInput)
       }
       onSuccess()
-    } catch (error) {
-      setError(translateApiError(error))
+    } catch (submitError) {
+      setError(translateApiError(submitError))
+      // A collision that escaped the hint lands here, field-level, without
+      // losing any input or the manual lock.
+      if (isConflictError(submitError)) {
+        setSlugConflict(translateApiError(submitError))
+      }
     } finally {
       setSubmitting(false)
     }
@@ -84,21 +125,19 @@ export function BrandForm({
             />
           </Field>
 
-          <Field>
-            <Label>اسلاگ</Label>
-            <Input
-              name="slug"
-              dir="ltr"
-              value={slug}
-              maxLength={255}
-              placeholder="در صورت خالی بودن، از نام ساخته می‌شود"
-              onChange={(event) => setSlug(event.target.value)}
-              disabled={submitting}
-            />
-            <Text className="text-xs text-muted">
-              فقط حروف انگلیسی کوچک، اعداد و خط تیره.
-            </Text>
-          </Field>
+          <SlugField
+            name={name}
+            slug={slug}
+            mode={slugMode}
+            onInput={(value) => {
+              setSlug(value)
+              setSlugMode('manual')
+            }}
+            onRegenerate={() => setSlugMode('auto')}
+            collisionHint={collision ? 'این نشانی قبلاً استفاده شده است.' : null}
+            conflictMessage={slugConflict}
+            disabled={submitting}
+          />
 
           <Field>
             <Label>توضیح</Label>
