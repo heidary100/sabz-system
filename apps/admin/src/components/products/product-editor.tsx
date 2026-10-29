@@ -323,11 +323,9 @@ export function ProductEditor({
         <div className="danger-box rounded-lg px-4 py-3 text-sm">{error}</div>
       )}
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="space-y-6 lg:col-span-2">
-          <EditorSection title="اطلاعات پایه">
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-              <Field className="sm:col-span-2">
+      <EditorSection title="اطلاعات پایه">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+              <Field className="sm:col-span-3">
                 <Label>نام محصول</Label>
                 <Input
                   name="name"
@@ -337,7 +335,7 @@ export function ProductEditor({
                   disabled={submitting}
                 />
               </Field>
-              <div className="sm:col-span-2">
+              <div className="sm:col-span-3">
                 <SlugField
                   name={values.name}
                   slug={values.slug}
@@ -440,62 +438,39 @@ export function ProductEditor({
             />
           </EditorSection>
 
-          {isEdit && (
-            <>
-              {/* ProductVariantsSection renders its own card shell. */}
-              <ProductVariantsSection
-                variants={product.variants}
-                manageable={manageable}
-                onCreate={() => setVariantDialog({ mode: 'create' })}
-                onEdit={(variant) => setVariantDialog({ mode: 'edit', variant })}
-                onDelete={(variant) => setVariantDialog({ mode: 'delete', variant })}
-              />
-
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
+            <div className="lg:col-span-3">
               <EditorSection
-                title="رسانه ها"
-                description="تصاویر و ویدئوهای محصول با واترمارک خودکار برند."
+                title="برند"
+                description="جستجو و انتخاب برند، یا ساخت برند جدید در همین بخش."
               >
-                <ProductMediaGrid
-                  media={product.media}
-                  variants={product.variants}
-                  productId={product.id}
-                  manageable={manageable}
-                  onRefetch={onMutate ?? (() => undefined)}
+                <BrandSection
+                  selectedId={values.brandId || null}
+                  onSelect={(id) => set('brandId', id)}
+                  disabled={submitting}
                 />
               </EditorSection>
-            </>
-          )}
-        </div>
-
-        <div className="space-y-6">
-          <EditorSection
-            title="برند"
-            description="جستجو و انتخاب برند، یا ساخت برند جدید در همین بخش."
-          >
-            <BrandSection
-              selectedId={values.brandId || null}
-              onSelect={(id) => set('brandId', id)}
-              disabled={submitting}
-            />
-          </EditorSection>
-
-          <EditorSection
-            title="وضعیت"
-            description={
-              isEdit
-                ? `وضعیت فعلی: ${PRODUCT_STATUS_LABELS[product.status]}. تغییر وضعیت از طریق اقدامات انتشار/آرشیو انجام میشود.`
-                : 'محصول جدید همیشه به صورت پیشنویس ایجاد میشود و برای انتشار باید حداقل یک واریانت داشته باشد.'
-            }
-          >
-            {isEdit ? (
-              <ProductStatusBadge status={product.status} />
-            ) : (
-              <ProductStatusBadge status="DRAFT" />
-            )}
-          </EditorSection>
+            </div>
+            <div className="lg:col-span-2">
+              <EditorSection
+                title="وضعیت"
+                description={
+                  isEdit
+                    ? `وضعیت فعلی: ${PRODUCT_STATUS_LABELS[product.status]}. تغییر وضعیت از طریق اقدامات انتشار/آرشیو انجام میشود.`
+                    : 'محصول جدید همیشه به صورت پیشنویس ایجاد میشود و برای انتشار باید حداقل یک واریانت داشته باشد.'
+                }
+              >
+                {isEdit ? (
+                  <ProductStatusBadge status={product.status} />
+                ) : (
+                  <ProductStatusBadge status="DRAFT" />
+                )}
+              </EditorSection>
+            </div>
+          </div>
 
           <EditorSection title="ابعاد و وزن (اختیاری)">
-            <div className="grid grid-cols-1 gap-5">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
               <Field>
                 <Label>وزن (کیلوگرم)</Label>
                 <Input
@@ -543,8 +518,32 @@ export function ProductEditor({
               </Field>
             </div>
           </EditorSection>
-        </div>
-      </div>
+
+          {isEdit && (
+            <>
+              {/* ProductVariantsSection renders its own card shell. */}
+              <ProductVariantsSection
+                variants={product.variants}
+                manageable={manageable}
+                onCreate={() => setVariantDialog({ mode: 'create' })}
+                onEdit={(variant) => setVariantDialog({ mode: 'edit', variant })}
+                onDelete={(variant) => setVariantDialog({ mode: 'delete', variant })}
+              />
+
+              <EditorSection
+                title="رسانه ها"
+                description="تصاویر و ویدئوهای محصول با واترمارک خودکار برند."
+              >
+                <ProductMediaGrid
+                  media={product.media}
+                  variants={product.variants}
+                  productId={product.id}
+                  manageable={manageable}
+                  onRefetch={onMutate ?? (() => undefined)}
+                />
+              </EditorSection>
+            </>
+          )}
 
       <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
         <Button outline onClick={handleCancel} disabled={submitting}>
