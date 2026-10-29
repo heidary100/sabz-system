@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { VariantSummary } from '@sabz/types'
+import { RefreshCw } from 'lucide-react'
 import {
   Alert,
   AlertActions,
@@ -14,6 +15,7 @@ import { Select } from '../catalyst/select'
 import { Text } from '../catalyst/text'
 import { translateApiError, isConflictError } from '../../lib/error-messages'
 import { foldDigitsToEnglish } from '../../lib/digits'
+import { suggestSku } from '../../lib/sku-suggestion'
 import { createVariant, updateVariant } from '../../services/variants'
 
 const PRICE_PATTERN = /^\d{1,10}(?:\.\d{1,2})?$/
@@ -74,12 +76,16 @@ export function VariantForm({
   const isEdit = variant !== null
 
   const [values, setValues] = useState<VariantFormValue>(EMPTY)
+  const [skuTouched, setSkuTouched] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (open) {
-      setValues(variant ? fromVariant(variant) : EMPTY)
+      // SS-256: create mode opens with an editable suggestion. The value is
+      // name-independent, so no later field change can regenerate it.
+      setValues(variant ? fromVariant(variant) : { ...EMPTY, sku: suggestSku() })
+      setSkuTouched(false)
       setError(null)
     }
   }, [open, variant])
@@ -91,7 +97,17 @@ export function VariantForm({
       key === 'price' || key === 'compareAtPrice'
         ? foldDigitsToEnglish(value)
         : value
+    if (key === 'sku') {
+      setSkuTouched(true)
+    }
     setValues((prev) => ({ ...prev, [key]: normalized }))
+  }
+
+  // SS-256: the suggestion is only ever replaced while the field is untouched
+  // or empty — a manual edit can never be discarded by regenerate.
+  const canRegenerate = !isEdit && (!skuTouched || values.sku.trim() === '')
+  const regenerateSuggestion = (): void => {
+    setValues((prev) => ({ ...prev, sku: suggestSku() }))
   }
 
   const priceValid = PRICE_PATTERN.test(values.price.trim())
@@ -163,7 +179,15 @@ export function VariantForm({
       <AlertBody>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field>
-            <Label>SKU</Label>
+            <div className="flex items-center justify-between gap-2">
+              <Label>SKU</Label>
+              {canRegenerate && (
+                <Button outline onClick={regenerateSuggestion} disabled={submitting}>
+                  <RefreshCw data-slot="icon" />
+                  تولید پیشنهاد
+                </Button>
+              )}
+            </div>
             <Input
               name="sku"
               dir="ltr"
