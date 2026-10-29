@@ -28,6 +28,7 @@ export function BrandForm({
   const isEdit = brand !== null
 
   const [name, setName] = useState('')
+  const [nameEn, setNameEn] = useState('')
   const [slug, setSlug] = useState('')
   const [slugMode, setSlugMode] = useState<'auto' | 'manual'>('auto')
   const [description, setDescription] = useState('')
@@ -39,6 +40,7 @@ export function BrandForm({
   useEffect(() => {
     if (open) {
       setName(brand?.name ?? '')
+      setNameEn(brand?.nameEn ?? '')
       setSlug(brand?.slug ?? '')
       // A persisted slug is a manual value: nothing rewrites it implicitly.
       setSlugMode(brand ? 'manual' : 'auto')
@@ -85,6 +87,7 @@ export function BrandForm({
     try {
       const base = {
         name: name.trim(),
+        nameEn: nameEn.trim() || null,
         ...(effectiveSlug.trim() ? { slug: effectiveSlug.trim() } : {}),
         description: description.trim() || null,
       }
@@ -123,6 +126,20 @@ export function BrandForm({
               onChange={(event) => setName(event.target.value)}
               disabled={submitting}
             />
+          </Field>
+
+          <Field>
+            <Label>نام انگلیسی (اختیاری)</Label>
+            <Input
+              name="nameEn"
+              dir="ltr"
+              value={nameEn}
+              maxLength={255}
+              placeholder="مثلاً Dell"
+              onChange={(event) => setNameEn(event.target.value)}
+              disabled={submitting}
+            />
+            <Text className="text-xs text-muted">نام نمایشی انگلیسی برند.</Text>
           </Field>
 
           <SlugField

@@ -158,11 +158,13 @@ describe('Admin brand API (SS-103) (e2e)', () => {
         name: `Dell ${Date.now()}`,
         slug: `dell-${Date.now()}`,
         description: 'تولیدکننده سختافزار',
+        nameEn: 'Dell',
         isFeatured: true,
       });
       expect(created.slug).toBeDefined();
       expect(created.description).toBe('تولیدکننده سختافزار');
       expect(created.isFeatured).toBe(true);
+      expect(created.nameEn).toBe('Dell');
       expect(created).not.toHaveProperty('logoKey');
 
       const list = await request(app.getHttpServer())
@@ -191,7 +193,15 @@ describe('Admin brand API (SS-103) (e2e)', () => {
       expect(updated.body.name).toBe('Dell Technologies');
       expect(updated.body.isFeatured).toBe(false);
       expect(updated.body.description).toBeNull();
-      expect(updated.body).not.toHaveProperty('logoKey');
+      expect(updated.body.nameEn).toBe('Dell');
+      // nameEn accepts null to clear (description precedent).
+      const cleared = await request(app.getHttpServer())
+        .patch(`${BASE}/${created.id}`)
+        .set('Authorization', `Bearer ${operator.accessToken}`)
+        .send({ nameEn: null })
+        .expect(200);
+      expect(cleared.body.nameEn).toBeNull();
+      expect(cleared.body).not.toHaveProperty('logoKey');
 
       await request(app.getHttpServer())
         .delete(`${BASE}/${created.id}`)

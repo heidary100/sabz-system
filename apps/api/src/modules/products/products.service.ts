@@ -48,6 +48,7 @@ const listSelect = {
       slug: true,
       description: true,
       isFeatured: true,
+      nameEn: true,
     },
   },
   category: {
@@ -86,6 +87,7 @@ const detailSelect = {
       slug: true,
       description: true,
       isFeatured: true,
+      nameEn: true,
     },
   },
   category: {

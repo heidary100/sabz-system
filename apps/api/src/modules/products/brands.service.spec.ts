@@ -18,6 +18,7 @@ function makeSummaryRow(overrides: Record<string, unknown> = {}) {
     slug: 'dell',
     description: null,
     isFeatured: false,
+    nameEn: null,
     deletedAt: null,
     ...overrides,
   };
@@ -102,7 +103,7 @@ describe('BrandsService', () => {
       });
       expect(result).toEqual({
         items: [
-          { id: 'brand-1', name: 'دل', slug: 'dell', description: null, isFeatured: false },
+          { id: 'brand-1', name: 'دل', slug: 'dell', description: null, isFeatured: false, nameEn: null },
         ],
         total: 1,
         page: 1,
@@ -121,6 +122,7 @@ describe('BrandsService', () => {
         slug: 'dell',
         description: null,
         isFeatured: false,
+        nameEn: null,
       });
       expect(result).not.toHaveProperty('logoKey');
       expect(result).not.toHaveProperty('deletedAt');
@@ -183,6 +185,53 @@ describe('BrandsService', () => {
       );
     });
 
+    it('persists nameEn on create and defaults it to null when omitted (SS-255)', async () => {
+      tx.brand.create
+        .mockResolvedValueOnce(makeSummaryRow({ nameEn: 'Dell' }))
+        .mockResolvedValueOnce(makeSummaryRow());
+
+      const withNameEn = await service.create({ name: 'دل', nameEn: 'Dell' }, actorId);
+      expect(tx.brand.create).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({ data: expect.objectContaining({ nameEn: 'Dell' }) }),
+      );
+      expect(withNameEn.nameEn).toBe('Dell');
+
+      const without = await service.create({ name: 'دل' }, actorId);
+      expect(tx.brand.create).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({ data: expect.objectContaining({ nameEn: null }) }),
+      );
+      expect(without.nameEn).toBeNull();
+    });
+
+    it('sets and clears nameEn on update, auditing the delta (SS-255)', async () => {
+      tx.brand.findUnique
+        .mockResolvedValueOnce({ id: 'brand-1', name: 'دل', slug: 'dell', description: null, isFeatured: false, nameEn: null, deletedAt: null })
+        .mockResolvedValueOnce(makeSummaryRow({ nameEn: 'Dell' }));
+      tx.brand.updateMany.mockResolvedValue({ count: 1 });
+
+      const set = await service.update('brand-1', { nameEn: 'Dell' }, actorId);
+      expect(tx.brand.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ nameEn: 'Dell' }) }),
+      );
+      expect(audit.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'BRAND_UPDATED',
+          before: expect.objectContaining({ nameEn: null }),
+          after: expect.objectContaining({ nameEn: 'Dell' }),
+        }),
+        tx,
+      );
+      expect(set.nameEn).toBe('Dell');
+
+      tx.brand.findUnique
+        .mockResolvedValueOnce({ id: 'brand-1', name: 'دل', slug: 'dell', description: null, isFeatured: false, nameEn: 'Dell', deletedAt: null })
+        .mockResolvedValueOnce(makeSummaryRow({ nameEn: null }));
+      const cleared = await service.update('brand-1', { nameEn: null }, actorId);
+      expect(cleared.nameEn).toBeNull();
+    });
+
     it('maps a P2002 duplicate slug to 409', async () => {
       const error = new Prisma.PrismaClientKnownRequestError('dup', {
         code: 'P2002',
@@ -199,7 +248,7 @@ describe('BrandsService', () => {
   describe('update', () => {
     it('updates changed fields including isFeatured and audits BRAND_UPDATED', async () => {
       tx.brand.findUnique
-        .mockResolvedValueOnce({ id: 'brand-1', name: 'دل', slug: 'dell', description: null, isFeatured: false, deletedAt: null })
+        .mockResolvedValueOnce({ id: 'brand-1', name: 'دل', slug: 'dell', description: null, isFeatured: false, nameEn: null, deletedAt: null })
         .mockResolvedValueOnce(makeSummaryRow({ isFeatured: true }));
       tx.brand.updateMany.mockResolvedValue({ count: 1 });
 
@@ -221,7 +270,7 @@ describe('BrandsService', () => {
 
     it('returns the detail for a no-op update without auditing', async () => {
       tx.brand.findUnique
-        .mockResolvedValueOnce({ id: 'brand-1', name: 'دل', slug: 'dell', description: null, isFeatured: false, deletedAt: null })
+        .mockResolvedValueOnce({ id: 'brand-1', name: 'دل', slug: 'dell', description: null, isFeatured: false, nameEn: null, deletedAt: null })
         .mockResolvedValueOnce(makeSummaryRow());
       const result = await service.update('brand-1', {}, actorId);
       expect(result.name).toBe('دل');
@@ -231,7 +280,7 @@ describe('BrandsService', () => {
 
     it('throws 404 for a no-op update when the brand is concurrently soft-deleted', async () => {
       tx.brand.findUnique
-        .mockResolvedValueOnce({ id: 'brand-1', name: 'دل', slug: 'dell', description: null, isFeatured: false, deletedAt: null })
+        .mockResolvedValueOnce({ id: 'brand-1', name: 'دل', slug: 'dell', description: null, isFeatured: false, nameEn: null, deletedAt: null })
         .mockResolvedValueOnce(makeSummaryRow({ deletedAt: now }));
       await expect(service.update('brand-1', {}, actorId)).rejects.toBeInstanceOf(NotFoundException);
     });
@@ -245,7 +294,7 @@ describe('BrandsService', () => {
 
     it('throws 404 when a concurrent soft-delete removed it during update', async () => {
       tx.brand.findUnique
-        .mockResolvedValueOnce({ id: 'brand-1', name: 'دل', slug: 'dell', description: null, isFeatured: false, deletedAt: null })
+        .mockResolvedValueOnce({ id: 'brand-1', name: 'دل', slug: 'dell', description: null, isFeatured: false, nameEn: null, deletedAt: null })
         .mockResolvedValueOnce(makeSummaryRow({ deletedAt: now }));
       tx.brand.updateMany.mockResolvedValue({ count: 0 });
       await expect(service.update('brand-1', { name: 'x' }, actorId)).rejects.toBeInstanceOf(
@@ -258,7 +307,7 @@ describe('BrandsService', () => {
     });
 
     it('maps a P2002 duplicate slug to 409', async () => {
-      tx.brand.findUnique.mockResolvedValue({ id: 'brand-1', name: 'دل', slug: 'dell', description: null, isFeatured: false, deletedAt: null });
+      tx.brand.findUnique.mockResolvedValue({ id: 'brand-1', name: 'دل', slug: 'dell', description: null, isFeatured: false, nameEn: null, deletedAt: null });
       const error = new Prisma.PrismaClientKnownRequestError('dup', {
         code: 'P2002',
         clientVersion: '6',

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { CategoryTreeNode } from '@sabz/types'
+import type { CategoryDetail, CategoryTreeNode } from '@sabz/types'
 import { Folder } from 'lucide-react'
 import { Alert, AlertActions, AlertBody, AlertDescription, AlertTitle } from '../catalyst/alert'
 import { Badge } from '../catalyst/badge'
@@ -28,7 +28,7 @@ export function CategoryEditor({
   parentPreset: CategoryTreeNode | null
   tree: CategoryTreeNode[]
   onClose: () => void
-  onSuccess: () => void
+  onSuccess: (result: CategoryDetail, mode: 'create' | 'edit') => void
 }) {
   const isEdit = category !== null
 
@@ -95,14 +95,15 @@ export function CategoryEditor({
         isVisible,
       }
       if (isEdit && category) {
-        await updateCategory(category.id, base)
+        const updated = await updateCategory(category.id, base)
+        onSuccess(updated, 'edit')
       } else {
-        await createCategory({
+        const created = await createCategory({
           ...base,
           sortOrder: maxSiblingSortOrder(tree, parentId || null),
         })
+        onSuccess(created, 'create')
       }
-      onSuccess()
     } catch (submitError) {
       setError(translateApiError(submitError))
       if (isConflictError(submitError)) {

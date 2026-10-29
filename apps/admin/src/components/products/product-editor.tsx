@@ -1,9 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import type { ProductDetail, VariantSummary } from '@sabz/types'
+import type { CategoryDetail, ProductDetail, VariantSummary } from '@sabz/types'
 import { Save, X } from 'lucide-react'
-import { useBrandOptions } from '../../hooks/use-brand-options'
-import { useCategoryOptions } from '../../hooks/use-category-options'
 import { Button } from '../catalyst/button'
 import { Field, Label } from '../catalyst/fieldset'
 import { Heading } from '../catalyst/heading'
@@ -28,6 +26,8 @@ import { SlugField } from '../ui/slug-field'
 import { useProductSlugCollision } from '../../hooks/use-product-slug-collision'
 import { createProduct, updateProduct } from '../../services/products'
 import { deleteVariant } from '../../services/variants'
+import { BrandSection } from '../brands/brand-section'
+import { CategoryManager } from '../categories/category-manager'
 import { DESCRIPTION_MAX_LENGTH } from './content-editor/content-editor-constants'
 
 // The rich-text editor is only needed on this route, so it is code-split to
@@ -126,8 +126,6 @@ export function ProductEditor({
   onMutate?: () => void
 }) {
   const isEdit = product !== null
-  const { categories } = useCategoryOptions()
-  const { brands } = useBrandOptions()
 
   const initial = useMemo<ProductFormValue>(
     () => (product ? fromProduct(product) : EMPTY),
@@ -145,6 +143,12 @@ export function ProductEditor({
   const [variantDialog, setVariantDialog] = useState<
     { mode: 'create' } | { mode: 'edit' | 'delete'; variant: VariantSummary } | null
   >(null)
+
+  // SS-255 revision: the category manager refetches its own tree; the host
+  // only adopts the created category's stable id for THIS product.
+  const handleCategoryCreated = (created: CategoryDetail): void => {
+    set('categoryId', created.id)
+  }
 
   // Auto mode derives the suggestion from the CURRENT name (same slugger as
   // the server, pinned by parity fixtures); manual mode freezes the value.
@@ -319,11 +323,9 @@ export function ProductEditor({
         <div className="danger-box rounded-lg px-4 py-3 text-sm">{error}</div>
       )}
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="space-y-6 lg:col-span-2">
-          <EditorSection title="اطلاعات پایه">
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-              <Field className="sm:col-span-2">
+      <EditorSection title="اطلاعات پایه">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+              <Field className="sm:col-span-3">
                 <Label>نام محصول</Label>
                 <Input
                   name="name"
@@ -333,7 +335,7 @@ export function ProductEditor({
                   disabled={submitting}
                 />
               </Field>
-              <div className="sm:col-span-2">
+              <div className="sm:col-span-3">
                 <SlugField
                   name={values.name}
                   slug={values.slug}
@@ -424,88 +426,51 @@ export function ProductEditor({
             </div>
           </EditorSection>
 
-          {isEdit && (
-            <>
-              {/* ProductVariantsSection renders its own card shell. */}
-              <ProductVariantsSection
-                variants={product.variants}
-                manageable={manageable}
-                onCreate={() => setVariantDialog({ mode: 'create' })}
-                onEdit={(variant) => setVariantDialog({ mode: 'edit', variant })}
-                onDelete={(variant) => setVariantDialog({ mode: 'delete', variant })}
-              />
+          <EditorSection
+            title="دسته‌بندی محصول"
+            description="روی یک دسته کلیک کنید تا به محصول اختصاص یابد؛ همان مدیریت کامل دسته‌بندی‌ها (کشیدن، ویرایش، زیردسته) همین‌جاست."
+          >
+            <CategoryManager
+              variant="compact"
+              selectedId={values.categoryId || null}
+              onSelect={(id) => set('categoryId', id)}
+              onCreated={handleCategoryCreated}
+            />
+          </EditorSection>
 
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
+            <div className="lg:col-span-3">
               <EditorSection
-                title="رسانه ها"
-                description="تصاویر و ویدئوهای محصول با واترمارک خودکار برند."
+                title="برند"
+                description="جستجو و انتخاب برند، یا ساخت برند جدید در همین بخش."
               >
-                <ProductMediaGrid
-                  media={product.media}
-                  variants={product.variants}
-                  productId={product.id}
-                  manageable={manageable}
-                  onRefetch={onMutate ?? (() => undefined)}
+                <BrandSection
+                  selectedId={values.brandId || null}
+                  onSelect={(id) => set('brandId', id)}
+                  disabled={submitting}
                 />
               </EditorSection>
-            </>
-          )}
-        </div>
-
-        <div className="space-y-6">
-          <EditorSection title="دسته بندی و برند">
-            <div className="space-y-5">
-              <Field>
-                <Label>برند</Label>
-                <Select
-                  name="brandId"
-                  value={values.brandId}
-                  onChange={(event) => set('brandId', event.target.value)}
-                  disabled={submitting}
-                >
-                  <option value="">انتخاب کنید</option>
-                  {brands.map((brand) => (
-                    <option key={brand.id} value={brand.id}>
-                      {brand.name}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-              <Field>
-                <Label>دسته بندی</Label>
-                <Select
-                  name="categoryId"
-                  value={values.categoryId}
-                  onChange={(event) => set('categoryId', event.target.value)}
-                  disabled={submitting}
-                >
-                  <option value="">انتخاب کنید</option>
-                  {categories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
             </div>
-          </EditorSection>
-
-          <EditorSection
-            title="وضعیت"
-            description={
-              isEdit
-                ? `وضعیت فعلی: ${PRODUCT_STATUS_LABELS[product.status]}. تغییر وضعیت از طریق اقدامات انتشار/آرشیو انجام میشود.`
-                : 'محصول جدید همیشه به صورت پیشنویس ایجاد میشود و برای انتشار باید حداقل یک واریانت داشته باشد.'
-            }
-          >
-            {isEdit ? (
-              <ProductStatusBadge status={product.status} />
-            ) : (
-              <ProductStatusBadge status="DRAFT" />
-            )}
-          </EditorSection>
+            <div className="lg:col-span-2">
+              <EditorSection
+                title="وضعیت"
+                description={
+                  isEdit
+                    ? `وضعیت فعلی: ${PRODUCT_STATUS_LABELS[product.status]}. تغییر وضعیت از طریق اقدامات انتشار/آرشیو انجام میشود.`
+                    : 'محصول جدید همیشه به صورت پیشنویس ایجاد میشود و برای انتشار باید حداقل یک واریانت داشته باشد.'
+                }
+              >
+                {isEdit ? (
+                  <ProductStatusBadge status={product.status} />
+                ) : (
+                  <ProductStatusBadge status="DRAFT" />
+                )}
+              </EditorSection>
+            </div>
+          </div>
 
           <EditorSection title="ابعاد و وزن (اختیاری)">
-            <div className="grid grid-cols-1 gap-5">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
               <Field>
                 <Label>وزن (کیلوگرم)</Label>
                 <Input
@@ -553,8 +518,32 @@ export function ProductEditor({
               </Field>
             </div>
           </EditorSection>
-        </div>
-      </div>
+
+          {isEdit && (
+            <>
+              {/* ProductVariantsSection renders its own card shell. */}
+              <ProductVariantsSection
+                variants={product.variants}
+                manageable={manageable}
+                onCreate={() => setVariantDialog({ mode: 'create' })}
+                onEdit={(variant) => setVariantDialog({ mode: 'edit', variant })}
+                onDelete={(variant) => setVariantDialog({ mode: 'delete', variant })}
+              />
+
+              <EditorSection
+                title="رسانه ها"
+                description="تصاویر و ویدئوهای محصول با واترمارک خودکار برند."
+              >
+                <ProductMediaGrid
+                  media={product.media}
+                  variants={product.variants}
+                  productId={product.id}
+                  manageable={manageable}
+                  onRefetch={onMutate ?? (() => undefined)}
+                />
+              </EditorSection>
+            </>
+          )}
 
       <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
         <Button outline onClick={handleCancel} disabled={submitting}>

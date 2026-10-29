@@ -29,6 +29,8 @@ export interface BrandSummary {
   slug: string;
   description: string | null;
   isFeatured: boolean;
+  /** English display name (SS-203); null when never set. */
+  nameEn: string | null;
 }
 
 export interface VariantSummary {
