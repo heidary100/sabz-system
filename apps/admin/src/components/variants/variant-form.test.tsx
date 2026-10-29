@@ -167,4 +167,28 @@ describe('VariantForm SKU suggestion (SS-256)', () => {
       )
     }
   })
+
+  it('groups thousands while typing and submits the canonical raw value', async () => {
+    renderForm()
+    const price = screen.getByRole('textbox', { name: 'قیمت (ریال)' })
+    fireEvent.input(price, { target: { value: '1500000' } })
+    expect((price as HTMLInputElement).value).toBe('1,500,000')
+
+    createVariantMock.mockResolvedValueOnce({ ...existing, sku: SUGGESTION_A })
+    fireEvent.click(submitButton())
+    await waitFor(() => expect(createVariantMock).toHaveBeenCalledTimes(1))
+    expect(createVariantMock.mock.calls[0]![1]).toEqual(
+      expect.objectContaining({ price: '1500000' }),
+    )
+  })
+
+  it('shows stored prices grouped in edit mode', () => {
+    renderForm({ variant: { ...existing, price: '1500000', compareAtPrice: '1800000' } })
+    expect(
+      (screen.getByRole('textbox', { name: 'قیمت (ریال)' }) as HTMLInputElement).value,
+    ).toBe('1,500,000')
+    expect(
+      (screen.getByRole('textbox', { name: 'قیمت فروش ویژه (ریال)' }) as HTMLInputElement).value,
+    ).toBe('1,800,000')
+  })
 })

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import type { ChangeEvent } from 'react'
 import type {
   BrandSummary,
   CategoryPriceRuleDto,
@@ -29,6 +30,11 @@ import { Select } from '../catalyst/select'
 import { Text } from '../catalyst/text'
 import { useCategoryOptions } from '../../hooks/use-category-options'
 import { translateApiError } from '../../lib/error-messages'
+import {
+  applyMoneyInput,
+  groupMoneyDigits,
+  restoreMoneyCaret,
+} from '../../lib/money-input'
 import { PROMOTION_TYPE_LABELS } from '../../lib/pricing-labels'
 import { listBrands } from '../../services/brands'
 import {
@@ -146,20 +152,32 @@ function ValueField({
   onChange: (next: string) => void
   disabled: boolean
 }) {
+  const isPercent = type === 'PERCENT'
+  // SS-265: only the money branch groups thousands; the parent state (and
+  // validateValue/submit) keeps the canonical raw value.
+  const handleChange = (event: ChangeEvent<HTMLInputElement>): void => {
+    if (isPercent) {
+      onChange(event.target.value)
+      return
+    }
+    const next = applyMoneyInput(event.target.value, event.target.selectionStart ?? 0)
+    restoreMoneyCaret(event.target, next.caret)
+    onChange(next.state)
+  }
   return (
     <Field>
-      <Label>{type === 'PERCENT' ? 'درصد تخفیف' : 'مبلغ تخفیف (ریال)'}</Label>
+      <Label>{isPercent ? 'درصد تخفیف' : 'مبلغ تخفیف (ریال)'}</Label>
       <Input
         name="value"
         dir="ltr"
         inputMode="decimal"
-        placeholder={type === 'PERCENT' ? '۱۰' : '۵۰۰۰۰'}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
+        placeholder={isPercent ? '۱۰' : '۵۰۰۰۰'}
+        value={isPercent ? value : groupMoneyDigits(value)}
+        onChange={handleChange}
         disabled={disabled}
       />
       <Text className="text-xs text-muted">
-        {type === 'PERCENT' ? 'عدد بین ۱ تا ۱۰۰.' : 'مبلغ به ریال، بدون جداکننده.'}
+        {isPercent ? 'عدد بین ۱ تا ۱۰۰.' : 'مبلغ به ریال؛ جداکننده هزارگان خودکار اعمال میشود.'}
       </Text>
     </Field>
   )

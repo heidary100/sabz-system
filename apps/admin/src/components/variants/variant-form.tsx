@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import type { ChangeEvent } from 'react'
 import type { VariantSummary } from '@sabz/types'
 import { RefreshCw } from 'lucide-react'
 import {
@@ -15,6 +16,11 @@ import { Select } from '../catalyst/select'
 import { Text } from '../catalyst/text'
 import { translateApiError, isConflictError } from '../../lib/error-messages'
 import { foldDigitsToEnglish } from '../../lib/digits'
+import {
+  applyMoneyInput,
+  groupMoneyDigits,
+  restoreMoneyCaret,
+} from '../../lib/money-input'
 import { suggestSku } from '../../lib/sku-suggestion'
 import { createVariant, updateVariant } from '../../services/variants'
 
@@ -101,6 +107,17 @@ export function VariantForm({
       setSkuTouched(true)
     }
     setValues((prev) => ({ ...prev, [key]: normalized }))
+  }
+
+  // SS-265: money state stays canonical (raw, what gets submitted); the
+  // input shows thousands grouping. set() still folds digits (SS-250).
+  const setMoney = (
+    key: 'price' | 'compareAtPrice',
+    event: ChangeEvent<HTMLInputElement>,
+  ): void => {
+    const next = applyMoneyInput(event.target.value, event.target.selectionStart ?? 0)
+    restoreMoneyCaret(event.target, next.caret)
+    set(key, next.state)
   }
 
   // SS-256: the suggestion is only ever replaced while the field is untouched
@@ -233,9 +250,9 @@ export function VariantForm({
               name="price"
               dir="ltr"
               inputMode="decimal"
-              value={values.price}
-              placeholder="مثلاً 1500.00"
-              onChange={(event) => set('price', event.target.value)}
+              value={groupMoneyDigits(values.price)}
+              placeholder="مثلاً 1,500,000"
+              onChange={(event) => setMoney('price', event)}
               disabled={submitting}
             />
             <Text className="text-xs text-muted">
@@ -249,9 +266,9 @@ export function VariantForm({
               name="compareAtPrice"
               dir="ltr"
               inputMode="decimal"
-              value={values.compareAtPrice}
+              value={groupMoneyDigits(values.compareAtPrice)}
               placeholder="اختیاری؛ باید از قیمت بیشتر باشد"
-              onChange={(event) => set('compareAtPrice', event.target.value)}
+              onChange={(event) => setMoney('compareAtPrice', event)}
               disabled={submitting}
             />
             <Text className="text-xs text-muted">قیمت قبل از تخفیف؛ در صورت خالی بودن هنگام ویرایش، پاک میشود.</Text>
