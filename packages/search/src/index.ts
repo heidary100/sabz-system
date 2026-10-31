@@ -1,6 +1,8 @@
 export {
+  FUZZY_MIN_TOKEN_LENGTH,
   MAX_QUERY_GRAPHEMES,
   compactFa,
+  isFuzzyEligible,
   normalizeFa,
   normalizeSku,
   tokenizeQuery,

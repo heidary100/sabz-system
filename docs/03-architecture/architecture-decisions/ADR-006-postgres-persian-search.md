@@ -152,6 +152,55 @@ moment they are committed. No rebuild step exists. The integration suite
 proves imported-shaped rows (with `sourceSystem`, `focusKeyword`) are found
 immediately.
 
+## Decision 8: Fuzzy similarity requires a minimum token length (SS-264)
+
+The SS-216 fuzzy branches (`%`, `word_similarity ≥ 0.3`, SKU `similarity ≥ 0.6`)
+matched short tokens against unrelated text: `word_similarity` is Jaccard
+similarity over the best *contiguous* trigram extent of the field, so any two
+shared consecutive trigrams clear the 0.3 bar (e.g. «ورتی» ↔ «پارتی» = 0.600,
+«Anker» ↔ any `speaker` text = 0.333). Measured on the real catalog
+(2026-11-01, frozen in `docs/01-planning/ux-redesign-audit-2026-10.md` §A.3):
+«ورتی» (4 code points, a typo of the 5-cp brand «وریتی») matched 25% of the
+catalog and «Anker» (5 cp) matched 136 products with the brand owning 2.
+
+**Why not threshold tuning:** the legitimate typo pairs and the false-positive
+pairs sit in the same 0.4–0.6 band (measured: the پارتی false positive scores
+0.600 while the relevant وریتی products score 0.400) — no threshold separates
+them. **Decision:** every fuzzy branch requires
+`char_length(normalized token) ≥ FUZZY_MIN_TOKEN_LENGTH = 6` (Unicode code
+points, measured on the same normalized expression the indexes use; `nt` for
+text branches, `st` for the SKU branch). Exact, contains, prefix and compact
+branches stay ungated; the score mirror is gated identically so a match can
+never contradict its score. The gate lives in the SQL builder
+(`public-catalog-search.ts`) on the per-token constants row (`nl`/`sl`), so
+SQL and TypeScript cannot drift; TS parity (`Array.from(normalizeFa(x)).length`)
+is pinned in the catalog-search integration spec.
+
+**Measured outcome (dev catalog, instrument runs 2026-11-01):**
+- Recall battery (32 queries): 0 zero-result regressions before and after;
+  nonsense controls stay 0.
+- «Anker»: 136 → 2 (exactly the ANKER products); «ورتی»: 276 → 0 (user-approved
+  consequence — a 4-cp typo query loses its fuzzy path; the 5-cp correct
+  spelling «وریتی» is unaffected via brand-exact/contains).
+- Labeled top-5 precision: Anker 0.4 → 1.0; the committed instrument averages
+  0.9 both before and after (the fix trades ورتی's fuzzy relevance for Anker's
+  correctness), so the binding proof is the per-query acceptance in the
+  hermetic regression spec (`catalog-search-regression.integration-spec.ts`).
+- Endpoint p50 (dev, 5× warm curls): unchanged-fuzzy query (کیبورد) 0.215 s →
+  0.215 s; gated queries drop ~2× (گوشی 0.207 → 0.111 s, ورتی 0.254 → 0.098 s,
+  Anker 0.236 → 0.109 s) — short-circuiting the per-row `word_similarity` calls
+  pays for the added initplan length check.
+
+**Known limitation (documented, measured):** compound-spelling recall for
+short joined forms now rides only the compact/contains tiers when the token is
+below the gate — joined «لپتاپ» (5 cp) no longer fuzz-matches spaced/ZWNJ
+compound names (live catalog: 134 → 125 hits, battery recall intact). The
+compact branch covers `Product.name` only; extending compact coverage to
+category/tag names, if ever needed, is a separate decision. Multi-token
+queries where each token independently matches via exact/contains/prefix are
+unaffected. Residual for ≥6-cp tokens: two-consecutive-trigram extents
+(0.4–0.5 band) still match — accepted; the precision instrument measures it.
+
 ## Operational requirements and known limitations
 
 - **Extension privilege:** `CREATE EXTENSION pg_trgm` needs superuser or an

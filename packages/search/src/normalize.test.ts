@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  FUZZY_MIN_TOKEN_LENGTH,
   MAX_QUERY_GRAPHEMES,
   compactFa,
+  isFuzzyEligible,
   normalizeFa,
   normalizeSku,
   tokenizeQuery,
@@ -174,5 +176,51 @@ describe('truncateQuery', () => {
     expect(truncateQuery(undefined)).toBe('');
     expect(truncateQuery('abc', 0)).toBe('');
     expect(truncateQuery('abc', -1)).toBe('');
+  });
+});
+
+describe('isFuzzyEligible / FUZZY_MIN_TOKEN_LENGTH (SS-264)', () => {
+  // The helper takes an ALREADY-NORMALIZED token; these cases pin the
+  // code-point boundary at 6 on the normalized form.
+  it('freezes the gate at 6 code points (SS-264 policy)', () => {
+    expect(FUZZY_MIN_TOKEN_LENGTH).toBe(6);
+  });
+
+  it('admits tokens at exactly 6 code points and rejects 5', () => {
+    expect(isFuzzyEligible(normalizeFa('کیبورد'))).toBe(true); // 6 cp
+    expect(isFuzzyEligible(normalizeFa('لپتاپ'))).toBe(false); // 5 cp
+    expect(isFuzzyEligible(normalizeFa('ورتی'))).toBe(false); // 4 cp — the SS-264 exemplar
+    expect(isFuzzyEligible(normalizeFa('Anker'))).toBe(false); // 5 cp — the SS-264 exemplar
+    expect(isFuzzyEligible(normalizeFa('speaker'))).toBe(true); // 7 cp
+  });
+
+  it('measures the NORMALIZED form: ZWNJ becomes a space (length-neutral), diacritics shrink', () => {
+    // لپ‌تاپ → 'لپ تاپ' — ZWNJ replaced by one space: 6 code points.
+    expect(Array.from(normalizeFa('لپ\u200cتاپ')).length).toBe(6);
+    expect(isFuzzyEligible(normalizeFa('لپ\u200cتاپ'))).toBe(true);
+    // Diacritics are stripped before the length check: سَامَت (6 raw) → سام? no — سامت.
+    expect(Array.from(normalizeFa('\u0633\u064e\u0627\u0645\u064e\u062a')).length).toBe(4);
+    expect(isFuzzyEligible(normalizeFa('\u0633\u064e\u0627\u0645\u064e\u062a'))).toBe(false);
+  });
+
+  it('folding Arabic variants is length-neutral: eligibility is unchanged', () => {
+    // ي/ك folding replaces 1 code point with 1 code point, so eligibility
+    // must be identical across Arabic/Persian spellings.
+    expect(isFuzzyEligible(normalizeFa('كيبورد'))).toBe(isFuzzyEligible(normalizeFa('کیبورد')));
+    expect(isFuzzyEligible(normalizeFa('موبايل'))).toBe(isFuzzyEligible(normalizeFa('موبایل')));
+    expect(isFuzzyEligible(normalizeFa('كي'))).toBe(isFuzzyEligible(normalizeFa('کی')));
+  });
+
+  it('counts code points, not UTF-16 units', () => {
+    // 3 astral emoji = 6 UTF-16 code units but only 3 code points: a
+    // .length-based check would admit it, the code-point check must not.
+    expect(isFuzzyEligible('\u{1F600}'.repeat(3))).toBe(false);
+    expect('\u{1F600}'.repeat(3).length).toBe(6); // the trap this test pins
+    expect(isFuzzyEligible('\u{1F600}'.repeat(6))).toBe(true);
+  });
+
+  it('rejects empty and whitespace-collapsed tokens', () => {
+    expect(isFuzzyEligible('')).toBe(false);
+    expect(isFuzzyEligible('  ')).toBe(false);
   });
 });
