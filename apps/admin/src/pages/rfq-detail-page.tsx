@@ -3,6 +3,11 @@ import { Link, useParams } from 'react-router-dom'
 import { useRfqDetail } from '../hooks/use-rfq-detail'
 import { translateApiError } from '../lib/error-messages'
 import { formatDateTime, formatRial } from '../lib/format'
+import {
+  applyMoneyInput,
+  groupMoneyDigits,
+  restoreMoneyCaret,
+} from '../lib/money-input'
 import { RFQ_STATUS_LABELS } from '../lib/rfq-labels'
 import { RfqStatusBadge } from '../components/rfq/rfq-status-badge'
 import { FileText } from 'lucide-react'
@@ -93,9 +98,14 @@ function QuoteForm({
             inputMode="decimal"
             dir="ltr"
             placeholder="۱۵۰۰۰۰"
-            value={unitPrice}
+            value={groupMoneyDigits(unitPrice)}
             disabled={mutating}
-            onChange={(event) => setUnitPrice(event.target.value)}
+            onChange={(event) => {
+              // SS-265: state stays canonical; the input groups thousands.
+              const next = applyMoneyInput(event.target.value, event.target.selectionStart ?? 0)
+              restoreMoneyCaret(event.target, next.caret)
+              setUnitPrice(next.state)
+            }}
           />
         </Field>
         <Field>

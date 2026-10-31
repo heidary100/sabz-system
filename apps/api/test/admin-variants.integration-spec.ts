@@ -173,6 +173,27 @@ describe('Admin variant API database integration (SS-104)', () => {
     ).rejects.toMatchObject({ status: 409 });
   });
 
+  it('resolves concurrent duplicate-SKU creates as exactly one success and one 409 (SS-256)', async () => {
+    // No preflight lookup: the ProductVariant_sku_key unique index is the
+    // final authority — both inserts race, one wins, the loser's P2002 maps
+    // to ConflictException inside the same request.
+    const productId = await createProduct();
+    const sku = `SKU-RACE-${Date.now()}-${Math.random()}`;
+    const results = await Promise.allSettled([
+      service.create(productId, { sku, price: '10.00' }, actorId),
+      service.create(productId, { sku, price: '10.00' }, actorId),
+    ]);
+
+    const fulfilled = results.filter((r) => r.status === 'fulfilled');
+    const rejected = results.filter((r) => r.status === 'rejected');
+    expect(fulfilled).toHaveLength(1);
+    expect(rejected).toHaveLength(1);
+    expect((rejected[0] as PromiseRejectedResult).reason).toMatchObject({ status: 409 });
+
+    createdVariantIds.push((fulfilled[0] as PromiseFulfilledResult<{ id: string }>).value.id);
+    expect(await prisma.productVariant.findUnique({ where: { sku } })).toMatchObject({ sku });
+  });
+
   it('lists only active variants and excludes soft-deleted ones', async () => {
     const productId = await createProduct();
     const activeId = await createVariant(productId);
