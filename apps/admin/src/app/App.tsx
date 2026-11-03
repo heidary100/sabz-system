@@ -28,6 +28,7 @@ import { ReviewsPage } from '../pages/reviews-page'
 import { ProductDetailPage } from '../pages/product-detail-page'
 import { ProductEditorPage } from '../pages/product-editor-page'
 import { ProductsPage } from '../pages/products-page'
+import { CatalogGridPage } from '../pages/catalog-grid-page'
 import { RolesPage } from '../pages/roles-page'
 import { UserDetailPage } from '../pages/user-detail-page'
 import { UsersPage } from '../pages/users-page'
@@ -223,6 +224,14 @@ export default function App() {
               element={
                 <RequireRole roles={ADMIN_ROLES}>
                   <ProductsPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="products/grid"
+              element={
+                <RequireRole roles={ADMIN_ROLES}>
+                  <CatalogGridPage />
                 </RequireRole>
               }
             />

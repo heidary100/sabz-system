@@ -18,6 +18,7 @@ import {
   Sprout,
   Star,
   Tag,
+  Table2,
   Undo2,
   Users,
   Warehouse,
@@ -34,6 +35,7 @@ const SIDEBAR_STORAGE_KEY = 'sabz-admin-sidebar'
 export const NAV_ITEMS: Array<{ to: string; label: string; icon: LucideIcon }> = [
   { to: '/dashboard', label: 'پیشخوان', icon: LayoutDashboard },
   { to: '/products', label: 'محصولات', icon: Package },
+  { to: '/products/grid', label: 'شبکه کاتالوگ', icon: Table2 },
   { to: '/categories', label: 'دسته‌بندی‌ها', icon: FolderTree },
   { to: '/brands', label: 'برندها', icon: Tag },
   { to: '/inventory', label: 'موجودی', icon: Boxes },
