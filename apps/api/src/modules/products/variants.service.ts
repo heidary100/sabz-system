@@ -281,8 +281,11 @@ export class VariantsService {
    * - compareAtPrice requires PRICED status (a call-for-price row has no
    *   meaningful reference price).
    * - compareAtPrice must strictly exceed price (it is the pre-discount mark).
+   *
+   * Public so the SS-257 catalog-grid batch path enforces the same SS-251
+   * invariant instead of a second implementation.
    */
-  private validatePricing(effective: {
+  validatePricing(effective: {
     price: string;
     compareAtPrice: string | null;
     priceStatus: PriceStatus;

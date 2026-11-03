@@ -107,6 +107,17 @@ export {
 } from './product/admin';
 
 export {
+  CatalogGridBatchInput,
+  CatalogGridBatchResponse,
+  CatalogGridBatchRowInput,
+  CatalogGridListQuery,
+  CatalogGridListResponse,
+  CatalogGridRow,
+  CatalogGridRowOutcome,
+  CatalogGridRowResult,
+} from './product/catalog-grid';
+
+export {
   AttributeDto,
   AttributeValueDto,
   ProductSpecDto,
