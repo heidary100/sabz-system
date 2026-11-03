@@ -25,6 +25,33 @@
 /** Maximum catalog-search query length, in user-perceived characters. */
 export const MAX_QUERY_GRAPHEMES = 64;
 
+/**
+ * Minimum normalized token length, in Unicode code points, for a token to
+ * enter any fuzzy similarity branch (`%`, `word_similarity >= 0.3`, SKU
+ * `similarity >= 0.6`) — SS-264.
+ *
+ * Evidence (frozen instruments, dev catalog, probed 2026-11-01):
+ * - «ورتی» (4 code points) fuzz-matches «پارتی» products at
+ *   `word_similarity` 0.600 — HIGHER than its relevant «وریتی» products
+ *   (0.400) — so no similarity threshold can separate them.
+ * - «Anker» (5 code points) fuzz-matches ~136 products through
+ *   `speaker`-type words (`word_similarity('anker','speaker') = 0.333`).
+ * 6 is the smallest minimum that removes both exemplars while every
+ * 32-query recall-battery probe survives via the exact/contains/prefix
+ * branches (see test/fixtures/ss264-search/). Tokens below this length
+ * keep exact, contains, prefix and compact matching — only fuzzy is off.
+ *
+ * The authoritative gate runs in SQL over `char_length(normalize_fa(…))`
+ * (same expression as the trigram indexes); this constant and
+ * `isFuzzyEligible` pin the policy for TS-side tests and callers.
+ */
+export const FUZZY_MIN_TOKEN_LENGTH = 6;
+
+/** Whether an already-NORMALIZED token is allowed into fuzzy branches. */
+export function isFuzzyEligible(normalizedToken: string): boolean {
+  return Array.from(normalizedToken).length >= FUZZY_MIN_TOKEN_LENGTH;
+}
+
 // U+064B-U+0652 Arabic diacritics (fathatan..sukun), U+0670 superscript alef.
 const DIACRITICS_PATTERN = /[\u064b-\u0652\u0670]/g;
 // U+200E LRM / U+200F RLM directional marks: pure formatting noise, deleted.

@@ -44,6 +44,65 @@ describe('buildCatalogSearchPageSql (SS-216)', () => {
     expect(built.sql).not.toContain('unaccent');
   });
 
+  // ---------------------------------------------------------------------
+  // SS-264: the fuzzy token-length gate
+  // ---------------------------------------------------------------------
+
+  it('wraps every word_similarity branch in the SS-264 normalized-length guard', () => {
+    const built = buildCatalogSearchPageSql(base);
+    // FROZEN BRANCH INVENTORY for a single-token query (SS-264): changing the
+    // branch structure must update this deliberately, never silently.
+    // match predicate: name ws, nameEn ws, aux ws, brand ws ×2, category ws,
+    //   tag ws + the `%` branches on name/nameEn = 9 OR-guards
+    // score mirror: brand, category, tag (`WHEN … nl >= ? AND greatest/ws`)
+    //   + the final name similarity GREATEST (`CASE WHEN … nl >= ?`) = 4
+    expect((built.sql.match(/OR \(t0\.nl >= \? AND/g) ?? []).length).toBe(9);
+    // 3 WHEN guards (brand/category/tag) + 1 CASE WHEN (final GREATEST),
+    // which the plain WHEN regex also counts.
+    expect((built.sql.match(/WHEN t0\.nl >= \?/g) ?? []).length).toBe(4);
+    expect((built.sql.match(/CASE WHEN t0\.nl >= \?/g) ?? []).length).toBe(1);
+    // Every word_similarity occurrence lives inside those guarded regions.
+    expect((built.sql.match(/word_similarity\(/g) ?? []).length).toBe(17);
+  });
+
+  it('wraps the SKU similarity branch in the same normalized-SKU-length guard', () => {
+    const built = buildCatalogSearchPageSql(base);
+    // match predicate EXISTS branch + score CASE = 2 sl guards; the SKU
+    // similarity function appears 3× (match WHEN, score WHEN, score THEN),
+    // all inside the guarded regions; the final name-similarity GREATEST
+    // contributes 2 more \bsimilarity( behind the nl CASE guard.
+    expect((built.sql.match(/\.sl >= \?/g) ?? []).length).toBe(2);
+    expect((built.sql.match(/OR \(t0\.sl >= \? AND \bsimilarity\(/g) ?? []).length).toBe(1);
+    expect((built.sql.match(/WHEN t0\.sl >= \?\s+AND \bsimilarity\(/g) ?? []).length).toBe(1);
+    expect((built.sql.match(/\bsimilarity\(/g) ?? []).length).toBe(5);
+  });
+
+  it('keeps exact, contains, prefix and compact branches ungated', () => {
+    const built = buildCatalogSearchPageSql(base);
+    // Name contains + nameEn/slug/aux contains are bare LIKEs, never preceded
+    // by the length guard; exact/compact/SKU tiers are untouched.
+    expect(built.sql).toContain(`normalize_fa(p."name") LIKE '%' || t0.nt || '%'`);
+    expect(built.sql).toContain(`normalize_fa(p."name") = t0.nt`);
+    expect(built.sql).toContain(`compact_fa(p."name") = t0.ct`);
+    expect(built.sql).toContain(`compact_fa(p."name") LIKE '%' || t0.ct || '%'`);
+    expect(built.sql).toContain(`normalize_sku(v."sku") = t0.st`);
+    expect(built.sql).toContain(`normalize_sku(v."sku") LIKE t0.st || '%'`);
+    expect(built.sql).toMatch(/CASE WHEN normalize_fa\(p\."name"\) = t0\.nt/);
+    // None of the exact/contains/prefix literals sit behind a guard.
+    expect(built.sql).not.toContain(`nl >= ? AND normalize_fa(p."name") LIKE`);
+    expect(built.sql).not.toContain(`nl >= ? AND normalize_sku(v."sku") =`);
+  });
+
+  it('binds the frozen gate value (6) as a parameter and gates every token', () => {
+    const built = buildCatalogSearchPageSql({ ...base, tokens: ['ورتی', 'Anker'] });
+    expect(built.values).toContain(6);
+    // Both token-AND predicates carry the guard (t0 and t1).
+    expect(built.sql).toContain('t0.nl >= ?');
+    expect(built.sql).toContain('t1.nl >= ?');
+    expect(built.sql).toContain('t0.sl >= ?');
+    expect(built.sql).toContain('t1.sl >= ?');
+  });
+
   it('relevance sort orders by the summed per-token score', () => {
     const built = buildCatalogSearchPageSql(base);
     expect(built.sql).toContain('AS "score"');

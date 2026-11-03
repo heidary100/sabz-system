@@ -1,4 +1,5 @@
 import { Prisma } from '@prisma/client';
+import { FUZZY_MIN_TOKEN_LENGTH } from '@sabz/search';
 
 /**
  * PostgreSQL catalog search (SS-216).
@@ -27,6 +28,15 @@ import { Prisma } from '@prisma/client';
  * heavier per-token scoring `GREATEST(...)` (not index-decomposable) runs
  * only on rows the match predicates already narrowed. Residual predicates
  * may still honestly scan at small scale — see scripts/search-explain.ts.
+ *
+ * SS-264 precision gate: every fuzzy similarity branch (`%`,
+ * `word_similarity >= 0.3`, SKU `similarity >= 0.6`) additionally requires
+ * the token's NORMALIZED length (computed once per query as `nl`/`sl` in the
+ * constants row) to reach `FUZZY_MIN_TOKEN_LENGTH` (@sabz/search). Short
+ * tokens keep exact/contains/prefix/compact matching — only fuzzy is off.
+ * The gate lives in SQL (the same `char_length` of the same normalized
+ * expression the indexes use), so SQL and TypeScript cannot drift; the
+ * TS-side parity is pinned in the catalog-search integration spec.
  */
 
 /** Sort mode for the search query. `relevance` = default/`newest` with q. */
@@ -76,14 +86,17 @@ const AUX_TEXT_SQL = Prisma.sql`normalize_fa(coalesce(p."subtitle", '') || ' ' |
  * ref contains 150 > trigram similarity ≤ 100). Every branch of the match
  * predicate has a strictly positive scoring counterpart, so score > 0 can
  * never contradict a match. `q` is the token's constants row
- * (`nt`/`ct`/`st` = normalized/compact/SKU forms, computed once per query).
+ * (`nt`/`ct`/`st` = normalized/compact/SKU forms, `nl`/`sl` = their
+ * char_length, computed once per query; the SS-264 fuzzy branches also
+ * require `nl`/`sl >= FUZZY_MIN_TOKEN_LENGTH`).
  */
 function tokenScore(q: Prisma.Sql): Prisma.Sql {
   return Prisma.sql`GREATEST(
     (SELECT max(CASE
         WHEN normalize_sku(v."sku") = ${q}.st THEN 1000
         WHEN normalize_sku(v."sku") LIKE ${q}.st || '%' THEN 600
-        WHEN similarity(normalize_sku(v."sku"), ${q}.st) >= 0.6
+        WHEN ${q}.sl >= ${FUZZY_MIN_TOKEN_LENGTH}
+          AND similarity(normalize_sku(v."sku"), ${q}.st) >= 0.6
           THEN (similarity(normalize_sku(v."sku"), ${q}.st) * 100)::int
         ELSE 0
       END)
@@ -105,7 +118,8 @@ function tokenScore(q: Prisma.Sql): Prisma.Sql {
              OR normalize_fa(coalesce(b."nameEn", '')) = ${q}.nt THEN 400
         WHEN normalize_fa(b."name") LIKE '%' || ${q}.nt || '%'
              OR normalize_fa(coalesce(b."nameEn", '')) LIKE '%' || ${q}.nt || '%' THEN 150
-        WHEN greatest(
+        WHEN ${q}.nl >= ${FUZZY_MIN_TOKEN_LENGTH}
+          AND greatest(
                word_similarity(${q}.nt, normalize_fa(b."name")),
                word_similarity(${q}.nt, normalize_fa(coalesce(b."nameEn", '')))
              ) >= 0.3
@@ -120,7 +134,8 @@ function tokenScore(q: Prisma.Sql): Prisma.Sql {
     (SELECT max(CASE
         WHEN normalize_fa(c."name") = ${q}.nt THEN 380
         WHEN normalize_fa(c."name") LIKE '%' || ${q}.nt || '%' THEN 150
-        WHEN word_similarity(${q}.nt, normalize_fa(c."name")) >= 0.3
+        WHEN ${q}.nl >= ${FUZZY_MIN_TOKEN_LENGTH}
+          AND word_similarity(${q}.nt, normalize_fa(c."name")) >= 0.3
           THEN (word_similarity(${q}.nt, normalize_fa(c."name")) * 100)::int
         ELSE 0
       END)
@@ -130,19 +145,23 @@ function tokenScore(q: Prisma.Sql): Prisma.Sql {
         WHEN normalize_fa(g."name") = ${q}.nt
              OR normalize_fa(g."key") = ${q}.nt THEN 360
         WHEN normalize_fa(g."name") LIKE '%' || ${q}.nt || '%' THEN 150
-        WHEN word_similarity(${q}.nt, normalize_fa(g."name")) >= 0.3
+        WHEN ${q}.nl >= ${FUZZY_MIN_TOKEN_LENGTH}
+          AND word_similarity(${q}.nt, normalize_fa(g."name")) >= 0.3
           THEN (word_similarity(${q}.nt, normalize_fa(g."name")) * 100)::int
         ELSE 0
       END)
       FROM "ProductTag" pt
       JOIN "Tag" g ON g."id" = pt."tagId"
       WHERE pt."productId" = p."id"),
-    (greatest(
-       word_similarity(${q}.nt, normalize_fa(p."name")),
-       word_similarity(${q}.nt, normalize_fa(coalesce(p."nameEn", ''))),
-       similarity(normalize_fa(p."name"), ${q}.nt),
-       similarity(normalize_fa(coalesce(p."nameEn", '')), ${q}.nt)
-     ) * 100)::int
+    CASE WHEN ${q}.nl >= ${FUZZY_MIN_TOKEN_LENGTH}
+      THEN (greatest(
+         word_similarity(${q}.nt, normalize_fa(p."name")),
+         word_similarity(${q}.nt, normalize_fa(coalesce(p."nameEn", ''))),
+         similarity(normalize_fa(p."name"), ${q}.nt),
+         similarity(normalize_fa(coalesce(p."nameEn", '')), ${q}.nt)
+       ) * 100)::int
+      ELSE 0
+    END
   )`;
 }
 
@@ -151,20 +170,23 @@ function tokenScore(q: Prisma.Sql): Prisma.Sql {
  * field (token-AND across tokens, field-OR within a token). The
  * `${q}.nt <> ''` guard makes a hypothetical TS/SQL parity drift on empty
  * normalization fail closed instead of degrading into `LIKE '%%'`
- * (matches everything).
+ * (matches everything). SS-264: every fuzzy similarity branch (`%`,
+ * `word_similarity`, SKU `similarity >= 0.6`) is additionally gated on the
+ * token's normalized length (`nl`/`sl >= FUZZY_MIN_TOKEN_LENGTH`); exact,
+ * contains, prefix and compact branches are deliberately ungated.
  */
 function tokenMatch(q: Prisma.Sql): Prisma.Sql {
   return Prisma.sql`(
     ${q}.nt <> ''
     AND (
       normalize_fa(p."name") LIKE '%' || ${q}.nt || '%'
-      OR normalize_fa(p."name") % ${q}.nt
-      OR word_similarity(${q}.nt, normalize_fa(p."name")) >= 0.3
-      OR normalize_fa(p."nameEn") % ${q}.nt
-      OR word_similarity(${q}.nt, normalize_fa(coalesce(p."nameEn", ''))) >= 0.3
+      OR (${q}.nl >= ${FUZZY_MIN_TOKEN_LENGTH} AND normalize_fa(p."name") % ${q}.nt)
+      OR (${q}.nl >= ${FUZZY_MIN_TOKEN_LENGTH} AND word_similarity(${q}.nt, normalize_fa(p."name")) >= 0.3)
+      OR (${q}.nl >= ${FUZZY_MIN_TOKEN_LENGTH} AND normalize_fa(p."nameEn") % ${q}.nt)
+      OR (${q}.nl >= ${FUZZY_MIN_TOKEN_LENGTH} AND word_similarity(${q}.nt, normalize_fa(coalesce(p."nameEn", ''))) >= 0.3)
       OR normalize_fa(p."slug") LIKE '%' || ${q}.nt || '%'
       OR ${AUX_TEXT_SQL} LIKE '%' || ${q}.nt || '%'
-      OR word_similarity(${q}.nt, ${AUX_TEXT_SQL}) >= 0.3
+      OR (${q}.nl >= ${FUZZY_MIN_TOKEN_LENGTH} AND word_similarity(${q}.nt, ${AUX_TEXT_SQL}) >= 0.3)
       OR compact_fa(p."name") LIKE '%' || ${q}.ct || '%'
       OR EXISTS (
         SELECT 1 FROM "ProductVariant" v
@@ -172,7 +194,7 @@ function tokenMatch(q: Prisma.Sql): Prisma.Sql {
           AND (
             normalize_sku(v."sku") = ${q}.st
             OR normalize_sku(v."sku") LIKE ${q}.st || '%'
-            OR similarity(normalize_sku(v."sku"), ${q}.st) >= 0.6
+            OR (${q}.sl >= ${FUZZY_MIN_TOKEN_LENGTH} AND similarity(normalize_sku(v."sku"), ${q}.st) >= 0.6)
           )
       )
       OR EXISTS (
@@ -183,8 +205,8 @@ function tokenMatch(q: Prisma.Sql): Prisma.Sql {
             OR normalize_fa(coalesce(b."nameEn", '')) = ${q}.nt
             OR normalize_fa(b."name") LIKE '%' || ${q}.nt || '%'
             OR normalize_fa(coalesce(b."nameEn", '')) LIKE '%' || ${q}.nt || '%'
-            OR word_similarity(${q}.nt, normalize_fa(b."name")) >= 0.3
-            OR word_similarity(${q}.nt, normalize_fa(coalesce(b."nameEn", ''))) >= 0.3
+            OR (${q}.nl >= ${FUZZY_MIN_TOKEN_LENGTH} AND word_similarity(${q}.nt, normalize_fa(b."name")) >= 0.3)
+            OR (${q}.nl >= ${FUZZY_MIN_TOKEN_LENGTH} AND word_similarity(${q}.nt, normalize_fa(coalesce(b."nameEn", ''))) >= 0.3)
           )
       )
       OR EXISTS (
@@ -193,7 +215,7 @@ function tokenMatch(q: Prisma.Sql): Prisma.Sql {
           AND (
             normalize_fa(c."name") = ${q}.nt
             OR normalize_fa(c."name") LIKE '%' || ${q}.nt || '%'
-            OR word_similarity(${q}.nt, normalize_fa(c."name")) >= 0.3
+            OR (${q}.nl >= ${FUZZY_MIN_TOKEN_LENGTH} AND word_similarity(${q}.nt, normalize_fa(c."name")) >= 0.3)
           )
       )
       OR EXISTS (
@@ -204,7 +226,7 @@ function tokenMatch(q: Prisma.Sql): Prisma.Sql {
             normalize_fa(g."name") = ${q}.nt
             OR normalize_fa(g."key") = ${q}.nt
             OR normalize_fa(g."name") LIKE '%' || ${q}.nt || '%'
-            OR word_similarity(${q}.nt, normalize_fa(g."name")) >= 0.3
+            OR (${q}.nl >= ${FUZZY_MIN_TOKEN_LENGTH} AND word_similarity(${q}.nt, normalize_fa(g."name")) >= 0.3)
           )
       )
     )
@@ -226,11 +248,13 @@ export function buildCatalogSearchPageSql(query: CatalogSearchQuery): Prisma.Sql
   const { tokens, filters, sort, page, limit } = query;
   const offset = (page - 1) * limit;
 
-  // Per-token constants (normalized/compact/SKU forms), evaluated once per
-  // query as uncorrelated subselects; aliases are digits-only by construction.
+  // Per-token constants (normalized/compact/SKU forms + their char_length,
+  // the SS-264 fuzzy-gate input), evaluated once per query as uncorrelated
+  // subselects; aliases are digits-only by construction.
   const tokenSources = tokens.map((token, index) =>
     Prisma.sql`CROSS JOIN (
-      SELECT normalize_fa(${token}) AS nt, compact_fa(${token}) AS ct, normalize_sku(${token}) AS st
+      SELECT normalize_fa(${token}) AS nt, compact_fa(${token}) AS ct, normalize_sku(${token}) AS st,
+             char_length(normalize_fa(${token})) AS nl, char_length(normalize_sku(${token})) AS sl
     ) t${Prisma.raw(String(index))}`,
   );
 

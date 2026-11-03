@@ -227,6 +227,27 @@ describe('Catalog search (SS-216)', () => {
         expect(rows[0]?.result).toBe(normalizeSku(fixture));
       },
     );
+
+    // SS-264: the fuzzy gate measures token length IN SQL over the same
+    // normalized expression the indexes use. These pin the TS mirror
+    // (`Array.from(normalizeFa(x)).length`) so the gate cannot drift.
+    it.each(NORMALIZE_FA_PARITY_FIXTURES)(
+      'char_length(normalize_fa) equals the TS code-point count for %j',
+      async (fixture) => {
+        const rows = await prisma.$queryRaw<{ result: number }[]>`
+          SELECT char_length(normalize_fa(${fixture})) AS result`;
+        expect(rows[0]?.result).toBe(Array.from(normalizeFa(fixture)).length);
+      },
+    );
+
+    it.each(NORMALIZE_SKU_PARITY_FIXTURES)(
+      'char_length(normalize_sku) equals the TS code-point count for %j',
+      async (fixture) => {
+        const rows = await prisma.$queryRaw<{ result: number }[]>`
+          SELECT char_length(normalize_sku(${fixture})) AS result`;
+        expect(rows[0]?.result).toBe(Array.from(normalizeSku(fixture)).length);
+      },
+    );
   });
 
   // ---------------------------------------------------------------------
@@ -241,6 +262,7 @@ describe('Catalog search (SS-216)', () => {
     let tagProduct: { id: string };
     let keywordProduct: { id: string };
     let draftProduct: { id: string };
+    let gateProduct: { id: string };
 
     const FA_NAME = 'گوشی موبایل آزمونی سرسبز';
     const EN_NAME = 'Galaxy TestPhone X54';
@@ -285,6 +307,14 @@ describe('Catalog search (SS-216)', () => {
         skus: ['SS216-DRAFT-BASE'],
         status: ProductStatus.DRAFT,
       });
+      // SS-264 gate probe host: «باردگان» fuzz-matches the 5-cp «باردی» and
+      // the 6-cp «باردیک» (pre-gate), contains the 4-cp «بارد», and matches
+      // none of them exactly — a clean single-tier probe per token length.
+      gateProduct = await createFixture({
+        name: 'گوشی آزمون باردگان زرد',
+        skus: ['SS264-GATE-BASE'],
+        price: '1500000',
+      });
     });
 
     it('finds a product by an exact Persian name token', async () => {
@@ -292,15 +322,21 @@ describe('Catalog search (SS-216)', () => {
       expect(result.items.map((item) => item.id)).toContain(faProduct.id);
     });
 
-    it('treats ZWNJ, space and multi-space variants identically', async () => {
+    it('treats ZWNJ, space and multi-space variants identically for ungated tiers', async () => {
       const spaced = await catalog.listProducts({ q: 'گوشی موبایل آزمونی' });
       const zwnj = await catalog.listProducts({ q: 'گوشی\u200cموبایل آزمونی' });
       const wide = await catalog.listProducts({ q: 'گوشی    موبایل آزمونی' });
       const idsOf = (r: { items: { id: string }[] }) =>
         r.items.map((item) => item.id).sort();
-      expect(idsOf(spaced)).toEqual(idsOf(zwnj));
+      // Space and multi-space tokenize identically → identical result sets.
       expect(idsOf(spaced)).toEqual(idsOf(wide));
       expect(idsOf(spaced)).toContain(faProduct.id);
+      // The ZWNJ compound is ONE 11-cp token; the space form is two tokens
+      // («گوشی» = 4 cp, fuzzy-gated since SS-264). The long compound's fuzzy
+      // tier can match MORE than the split tokens (e.g. a name-initial
+      // «گوشی» run), so full set-equality across tokenizations no longer
+      // holds — what must hold is that the target is found by every spelling.
+      expect(idsOf(zwnj)).toContain(faProduct.id);
     });
 
     it('matches Arabic ي/ك spellings against Persian data', async () => {
@@ -316,11 +352,43 @@ describe('Catalog search (SS-216)', () => {
       expect(arabicKaf.items.map((item) => item.id)).toContain(brandProduct.id);
     });
 
-    it('tolerates a typo via trigram similarity', async () => {
-      // «ازمون» (no madda) vs the indexed «آزمونی» — no exact/prefix/contains
-      // match, only the trigram tier.
+    it('matches the madda spelling via the contains tier (5 cp: fuzzy-gated since SS-264)', async () => {
+      // «آزمون» (5 code points) is a substring of the indexed «آزمونی», so
+      // this rides the contains tier; since SS-264 it is BELOW the fuzzy
+      // gate. The pure trigram tier is exercised at the 6-cp boundary in the
+      // SS-264 describe below.
       const result = await catalog.listProducts({ q: '\u0622\u0632\u0645\u0648\u0646' });
       expect(result.items.map((item) => item.id)).toContain(faProduct.id);
+    });
+
+    it('SS-264: keeps a 5-cp near-word out of fuzzy entirely', async () => {
+      // «باردی» shares a long trigram run with «باردگان» (word_similarity
+      // far above 0.3 pre-gate) but is neither a substring nor above
+      // FUZZY_MIN_TOKEN_LENGTH — it must match nothing at all.
+      const result = await catalog.listProducts({ q: 'باردی' });
+      expect(result.items.map((item) => item.id)).not.toContain(faProduct.id);
+      expect(result.total).toBe(0);
+    });
+
+    it('SS-264: keeps trigram typo tolerance at the 6-cp boundary', async () => {
+      // «باردیک» (6 code points) stays fuzzy-eligible and finds the product
+      // that exact/prefix/contains branches all miss.
+      const result = await catalog.listProducts({ q: 'باردیک' });
+      expect(result.items.map((item) => item.id)).toContain(gateProduct.id);
+    });
+
+    it('SS-264: short tokens still match through the contains tier', async () => {
+      // «بارد» (4 cp) is a substring of «باردگان» — contains is ungated.
+      const result = await catalog.listProducts({ q: 'بارد' });
+      expect(result.items.map((item) => item.id)).toContain(gateProduct.id);
+    });
+
+    it('SS-264: drops pure-fuzzy typo recall below the boundary (documented tradeoff)', async () => {
+      // «ازمون» (4 cp, no madda, NOT a substring of «آزمونی») matched only
+      // via the trigram tier before the gate. Short-token typo tolerance is
+      // the accepted cost of the precision gate (issue #307).
+      const result = await catalog.listProducts({ q: 'ازمون' });
+      expect(result.items.map((item) => item.id)).not.toContain(faProduct.id);
     });
 
     it('finds products by English model name', async () => {
@@ -366,7 +434,12 @@ describe('Catalog search (SS-216)', () => {
     });
 
     it('finds products by category name including compound variants', async () => {
-      const result = await catalog.listProducts({ q: 'لپتاپ آزمونی' });
+      // The ZWNJ query normalizes to «لپ تاپ» (6 cp) and contains-matches the
+      // normalized category name «دسته لپ تاپ آزمونی» — the contains tier is
+      // ungated. The JOINED 5-cp spelling «لپتاپ» no longer fuzz-matches
+      // spaced/ZWNJ compound names (SS-264 boundary; measured on the live
+      // catalog: 134 → 125 hits with battery recall intact).
+      const result = await catalog.listProducts({ q: 'لپ\u200cتاپ آزمونی' });
       expect(result.items.map((item) => item.id)).toContain(brandProduct.id);
     });
 
@@ -441,9 +514,11 @@ describe('Catalog search (SS-216)', () => {
 
     it('composes search with category subtree, brand, condition and price filters', async () => {
       // Brand product lives in «دسته لپ‌تاپ آزمونی»; searching its category
-      // with a brand token must find it, another category must not.
+      // with a brand token must find it, another category must not. The ZWNJ
+      // spelling contains-matches the normalized category name (the joined
+      // 5-cp «لپتاپ» lost its fuzzy path to compound names — SS-264).
       const inCategory = await catalog.listProducts({
-        q: 'لپتاپ',
+        q: 'لپ\u200cتاپ',
         brand: undefined,
       });
       expect(inCategory.items.map((item) => item.id)).toContain(brandProduct.id);

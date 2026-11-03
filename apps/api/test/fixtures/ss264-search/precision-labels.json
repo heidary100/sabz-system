@@ -1,0 +1,97 @@
+{
+  "instrument": "SS-264 labeled top-5 precision set (10 queries)",
+  "frozenSource": "docs/01-planning/ux-redesign-audit-2026-10.md §A.3 v0 (2026-10-24) + user labeling 2026-11-01",
+  "scoring": "P@5 = |top5 ∩ relevant| / min(5, |top5|); empty top5 scores 0; binary relevance; average over all queries must be >= 0.9 (4.5/5). Top-5 = first page of the API relevance order (score DESC, createdAt DESC, id DESC).",
+  "labelPolicy": "v0 scores (ورتی 3/5, Anker 2/5) were human-labeled in the audit and are frozen forever; the relevant product identities were recovered from the live dev catalog on 2026-11-01. The 8 remaining queries were labeled 2026-11-01 by the documented relevance rule per query (approved by the user; review/edit this file in the PR). Rules are resolved against the live catalog by the instrument script; the CI-hermetic regression spec holds its own explicit fixture identities with the same rules.",
+  "relevantRuleShape": "nameContains matches normalize_fa(Product.name); nameEnContains matches normalize_fa(Product.nameEn); auxContains matches normalize_fa(subtitle || ' ' || focusKeyword); brandName matches the product's live Brand.name exactly. Relevance standard: the query term appears in the product's operator-authored text or brand assignment.",
+  "queries": [
+    {
+      "q": "ورتی",
+      "frozenFrom": "v0-audit",
+      "v0Score": 0.6,
+      "relevanceRule": {
+        "nameContains": "وریتی",
+        "brandName": "وریتی"
+      },
+      "relevantNote": "وریتی (Verity) products. Measured 2026-11-01: word_similarity('ورتی', relevant name)=0.400 while the پارتی false positive scores 0.600 — no threshold separates them, so the N=6 gate removes this typo'd 4-cp query from fuzzy entirely and it returns ~0 results. Consequence accepted by the user 2026-11-01."
+    },
+    {
+      "q": "Anker",
+      "frozenFrom": "v0-audit",
+      "v0Score": 0.4,
+      "relevanceRule": {
+        "nameContains": "انکر",
+        "brandName": "ANKER"
+      },
+      "relevantNote": "The two ANKER-brand products (WOO-18794, WOO-18789). Post-gate recall survives via brand name-exact (normalize_fa('ANKER')='anker'); top-5 must contain only Anker products."
+    },
+    {
+      "q": "پارتی",
+      "frozenFrom": "user-2026-11-01",
+      "relevanceRule": {
+        "nameContains": "پارتی",
+        "auxContains": "پارتی"
+      },
+      "relevantNote": "Products the operator itself labels پارتی: name OR subtitle/focusKeyword contains پارتی (e.g. WOO-18576, WOO-14821, Leitu PartyBox 500/1000, and the Koluman MUSIC BOX whose focusKeyword says پارتی باکس)."
+    },
+    {
+      "q": "اسپیکر",
+      "frozenFrom": "user-2026-11-01",
+      "relevanceRule": {
+        "nameContains": "اسپیکر"
+      },
+      "relevantNote": "Products whose Persian name contains اسپیکر."
+    },
+    {
+      "q": "شارژر",
+      "frozenFrom": "user-2026-11-01",
+      "relevanceRule": {
+        "nameContains": "شارژر"
+      },
+      "relevantNote": "Charger products whose Persian name contains شارژر."
+    },
+    {
+      "q": "SSD",
+      "frozenFrom": "user-2026-11-01",
+      "relevanceRule": {
+        "nameContains": "ssd",
+        "nameEnContains": "ssd"
+      },
+      "relevantNote": "SSD storage products — 'SSD' appears verbatim in the Persian names (حافظه SSD ...) and in nameEn."
+    },
+    {
+      "q": "هارد",
+      "frozenFrom": "user-2026-11-01",
+      "relevanceRule": {
+        "nameContains": "هارد"
+      },
+      "relevantNote": "Hard-drive products whose Persian name contains هارد."
+    },
+    {
+      "q": "وریتی",
+      "frozenFrom": "user-2026-11-01",
+      "relevanceRule": {
+        "nameContains": "وریتی",
+        "brandName": "وریتی"
+      },
+      "relevantNote": "Products whose Persian name contains وریتی OR that carry the وریتی brand assignment (operator-asserted association; includes the mis-branded Xiaomi powerbank — flagged for SS-258 brand dedup)."
+    },
+    {
+      "q": "Porodo",
+      "frozenFrom": "user-2026-11-01",
+      "relevanceRule": {
+        "nameEnContains": "porodo",
+        "nameContains": "پرودو"
+      },
+      "relevantNote": "Porodo products (Persian پرودو in name or Porodo in nameEn)."
+    },
+    {
+      "q": "کیبورد",
+      "frozenFrom": "user-2026-11-01",
+      "relevanceRule": {
+        "nameContains": "کیبورد"
+      },
+      "relevantNote": "Keyboard products whose Persian name contains کیبورد."
+    }
+  ]
+}
