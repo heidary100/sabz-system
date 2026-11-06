@@ -163,7 +163,10 @@ export function Sidebar({
     <>
       <aside
         className={clsx(
-          'rule-double-edge glass sticky top-0 z-30 hidden h-svh shrink-0 flex-col lg:flex',
+          // SS-266: solid chrome — backdrop-blur on a sticky rail recomputes
+          // every frame table rows scroll beneath it (mobile drawer below
+          // keeps glass: it is a scrimmed overlay, not over live content).
+          'rule-double-edge bg-surface-strong sticky top-0 z-30 hidden h-svh shrink-0 flex-col lg:flex',
           'motion-reduce:transition-none transition-[width] duration-300 ease-out',
           collapsed ? 'w-[4.75rem]' : 'w-64',
         )}
