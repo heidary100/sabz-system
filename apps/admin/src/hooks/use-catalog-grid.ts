@@ -1,18 +1,41 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import type {
   CatalogGridListResponse,
   CatalogGridRow,
+  CatalogGridSortField,
+  PriceStatus,
+  ProductCondition,
   ProductStatus,
 } from '@sabz/types'
 import { listCatalogGrid } from '../services/catalog-grid'
 
+/**
+ * Server-paginated catalog grid rows with URL-driven filter state (SS-257
+ * rework). The URL search params are the single source of truth — every
+ * filter/sort/page change is a `replace` navigation, so filtered views are
+ * shareable and the browser back button leaves the page instead of stepping
+ * through keystrokes.
+ */
+
 export interface CatalogGridFilters {
   search: string
   sku: string
-  status: ProductStatus | ''
-  categoryId: string
-  brandId: string
+  statuses: ProductStatus[]
+  categoryIds: string[]
+  brandIds: string[]
+  priceStatus: PriceStatus | ''
+  condition: ProductCondition | ''
+  minPrice: string
+  maxPrice: string
+  stockStatus: '' | 'IN_STOCK' | 'OUT_OF_STOCK'
+  sortBy: CatalogGridSortField | ''
+  sortDir: 'asc' | 'desc'
   page: number
+}
+
+export type CatalogGridFilterPatch = Partial<Omit<CatalogGridFilters, 'page'>> & {
+  page?: number
 }
 
 /** Server-side patch of a saved row (authoritative values from the batch response). */
@@ -22,48 +45,157 @@ export interface CatalogGridRowPatch {
   compareAtPrice: string | null
   expectedUpdatedAt: string
   stock?: number
+  sku?: string
+  barcode?: string | null
+  variantName?: string | null
+  priceStatus?: PriceStatus
 }
 
 const DEFAULT_LIMIT = 50
 
-/** Server-paginated catalog grid rows + filter state (SS-257). */
+function csv(value: string | null): string[] {
+  return (value ?? '')
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean)
+}
+
+function parseFilters(params: URLSearchParams): CatalogGridFilters {
+  const pageRaw = Number.parseInt(params.get('page') ?? '1', 10)
+  return {
+    search: params.get('q') ?? '',
+    sku: params.get('sku') ?? '',
+    statuses: csv(params.get('status')) as ProductStatus[],
+    categoryIds: csv(params.get('category')),
+    brandIds: csv(params.get('brand')),
+    priceStatus: (params.get('pstatus') ?? '') as PriceStatus | '',
+    condition: (params.get('cond') ?? '') as ProductCondition | '',
+    minPrice: params.get('min') ?? '',
+    maxPrice: params.get('max') ?? '',
+    stockStatus: (params.get('stock') ?? '') as CatalogGridFilters['stockStatus'],
+    sortBy: (params.get('sort') ?? '') as CatalogGridSortField | '',
+    sortDir: params.get('dir') === 'desc' ? 'desc' : 'asc',
+    page: Number.isFinite(pageRaw) && pageRaw > 0 ? pageRaw : 1,
+  }
+}
+
+function serializeFilters(filters: CatalogGridFilters): URLSearchParams {
+  const next = new URLSearchParams()
+  if (filters.search.trim()) {
+    next.set('q', filters.search.trim())
+  }
+  if (filters.sku.trim()) {
+    next.set('sku', filters.sku.trim())
+  }
+  if (filters.statuses.length > 0) {
+    next.set('status', filters.statuses.join(','))
+  }
+  if (filters.categoryIds.length > 0) {
+    next.set('category', filters.categoryIds.join(','))
+  }
+  if (filters.brandIds.length > 0) {
+    next.set('brand', filters.brandIds.join(','))
+  }
+  if (filters.priceStatus) {
+    next.set('pstatus', filters.priceStatus)
+  }
+  if (filters.condition) {
+    next.set('cond', filters.condition)
+  }
+  if (filters.minPrice.trim()) {
+    next.set('min', filters.minPrice.trim())
+  }
+  if (filters.maxPrice.trim()) {
+    next.set('max', filters.maxPrice.trim())
+  }
+  if (filters.stockStatus) {
+    next.set('stock', filters.stockStatus)
+  }
+  if (filters.sortBy) {
+    next.set('sort', filters.sortBy)
+    next.set('dir', filters.sortDir)
+  }
+  if (filters.page > 1) {
+    next.set('page', String(filters.page))
+  }
+  return next
+}
+
 export function useCatalogGrid() {
-  const [filters, setFilters] = useState<CatalogGridFilters>({
-    search: '',
-    sku: '',
-    status: '',
-    categoryId: '',
-    brandId: '',
-    page: 1,
-  })
+  const [searchParams, setSearchParams] = useSearchParams()
+  const filters = parseFilters(searchParams)
   const [result, setResult] = useState<CatalogGridListResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<unknown>(null)
   const requestSeq = useRef(0)
 
-  const setSearch = useCallback((search: string) => {
-    setFilters((prev) => (prev.search === search ? prev : { ...prev, search, page: 1 }))
-  }, [])
+  const setFilters = useCallback(
+    (patch: CatalogGridFilterPatch): void => {
+      setSearchParams(
+        serializeFilters({ ...parseFilters(searchParams), ...patch }),
+        { replace: true },
+      )
+    },
+    [searchParams, setSearchParams],
+  )
 
-  const setSku = useCallback((sku: string) => {
-    setFilters((prev) => (prev.sku === sku ? prev : { ...prev, sku, page: 1 }))
-  }, [])
+  const setSearch = useCallback(
+    (search: string) => setFilters({ search, page: 1 }),
+    [setFilters],
+  )
 
-  const setStatus = useCallback((status: ProductStatus | '') => {
-    setFilters((prev) => (prev.status === status ? prev : { ...prev, status, page: 1 }))
-  }, [])
+  const setSku = useCallback((sku: string) => setFilters({ sku, page: 1 }), [setFilters])
 
-  const setCategoryId = useCallback((categoryId: string) => {
-    setFilters((prev) => (prev.categoryId === categoryId ? prev : { ...prev, categoryId, page: 1 }))
-  }, [])
+  const setStatuses = useCallback(
+    (statuses: ProductStatus[]) => setFilters({ statuses, page: 1 }),
+    [setFilters],
+  )
 
-  const setBrandId = useCallback((brandId: string) => {
-    setFilters((prev) => (prev.brandId === brandId ? prev : { ...prev, brandId, page: 1 }))
-  }, [])
+  const setCategoryIds = useCallback(
+    (categoryIds: string[]) => setFilters({ categoryIds, page: 1 }),
+    [setFilters],
+  )
 
-  const setPage = useCallback((page: number) => {
-    setFilters((prev) => (prev.page === page ? prev : { ...prev, page }))
-  }, [])
+  const setBrandIds = useCallback(
+    (brandIds: string[]) => setFilters({ brandIds, page: 1 }),
+    [setFilters],
+  )
+
+  const setPriceStatus = useCallback(
+    (priceStatus: PriceStatus | '') => setFilters({ priceStatus, page: 1 }),
+    [setFilters],
+  )
+
+  const setCondition = useCallback(
+    (condition: ProductCondition | '') => setFilters({ condition, page: 1 }),
+    [setFilters],
+  )
+
+  const setStockStatus = useCallback(
+    (stockStatus: CatalogGridFilters['stockStatus']) =>
+      setFilters({ stockStatus, page: 1 }),
+    [setFilters],
+  )
+
+  const setPriceRange = useCallback(
+    (minPrice: string, maxPrice: string) => setFilters({ minPrice, maxPrice, page: 1 }),
+    [setFilters],
+  )
+
+  const setSort = useCallback(
+    (sortBy: CatalogGridSortField): void => {
+      const nextDir =
+        filters.sortBy === sortBy && filters.sortDir === 'asc' ? 'desc' : 'asc'
+      setFilters({ sortBy, sortDir: nextDir, page: 1 })
+    },
+    [filters.sortBy, filters.sortDir, setFilters],
+  )
+
+  const setPage = useCallback((page: number) => setFilters({ page }), [setFilters])
+
+  const clearAllFilters = useCallback((): void => {
+    setSearchParams(new URLSearchParams(), { replace: true })
+  }, [setSearchParams])
 
   const refetch = useCallback(async () => {
     const seq = ++requestSeq.current
@@ -72,9 +204,16 @@ export function useCatalogGrid() {
     const query = {
       search: filters.search.trim() || undefined,
       sku: filters.sku.trim() || undefined,
-      status: filters.status || undefined,
-      categoryId: filters.categoryId || undefined,
-      brandId: filters.brandId || undefined,
+      statuses: filters.statuses.length > 0 ? filters.statuses : undefined,
+      categoryIds: filters.categoryIds.length > 0 ? filters.categoryIds : undefined,
+      brandIds: filters.brandIds.length > 0 ? filters.brandIds : undefined,
+      priceStatus: filters.priceStatus || undefined,
+      condition: filters.condition || undefined,
+      minPrice: filters.minPrice.trim() || undefined,
+      maxPrice: filters.maxPrice.trim() || undefined,
+      stockStatus: filters.stockStatus || undefined,
+      sortBy: filters.sortBy || undefined,
+      sortDir: filters.sortBy ? filters.sortDir : undefined,
       page: filters.page,
       limit: DEFAULT_LIMIT,
     }
@@ -93,7 +232,8 @@ export function useCatalogGrid() {
         setLoading(false)
       }
     }
-  }, [filters])
+    // Refetch tracks the URL params themselves so every navigation refetches.
+  }, [searchParams])
 
   useEffect(() => {
     void refetch()
@@ -124,6 +264,11 @@ export function useCatalogGrid() {
                 compareAtPrice: patch.compareAtPrice,
                 stock: patch.stock ?? item.stock,
                 expectedUpdatedAt: patch.expectedUpdatedAt,
+                sku: patch.sku ?? item.sku,
+                barcode: patch.barcode !== undefined ? patch.barcode : item.barcode,
+                variantName:
+                  patch.variantName !== undefined ? patch.variantName : item.variantName,
+                priceStatus: patch.priceStatus ?? item.priceStatus,
               }
             }),
           }
@@ -142,10 +287,16 @@ export function useCatalogGrid() {
     error,
     setSearch,
     setSku,
-    setStatus,
-    setCategoryId,
-    setBrandId,
+    setStatuses,
+    setCategoryIds,
+    setBrandIds,
+    setPriceStatus,
+    setCondition,
+    setStockStatus,
+    setPriceRange,
+    setSort,
     setPage,
+    clearAllFilters,
     refetch,
     applyRowPatches,
   }

@@ -1,19 +1,29 @@
 import type { PaginatedResult } from '../api/pagination';
-import type { PriceStatus, ProductStatus } from './type';
+import type { PriceStatus, ProductCondition, ProductStatus } from './type';
 
 /**
- * SS-257 admin catalog grid (v1). One editable row = one ProductVariant.
- * Price/compareAtPrice/priceStatus live on the variant; `stock` is the
- * aggregate quantityOnHand across qualifying warehouses (never persisted —
- * same derivation as the inventory read API). `expectedUpdatedAt` is the
- * optimistic-concurrency token the admin echoes back on batch save.
+ * SS-257 admin catalog grid. One editable row = one ProductVariant.
+ * Price/compareAtPrice/priceStatus/sku/barcode/name live on the variant;
+ * `stock` is the aggregate quantityOnHand across qualifying warehouses
+ * (never persisted — same derivation as the inventory read API).
+ * `expectedUpdatedAt` is the optimistic-concurrency token the admin echoes
+ * back on batch save. Product-level fields (productName/productStatus/
+ * condition/createdAt/brand/category) are display-only: they are edited via
+ * the row action (edit page), never inline, because a product can span
+ * several variant rows.
  */
 export interface CatalogGridRow {
   variantId: string;
   productId: string;
   productName: string;
   productSlug: string;
+  productStatus: ProductStatus;
+  condition: ProductCondition;
+  createdAt: string;
   sku: string;
+  barcode: string | null;
+  /** Variant display label (variant.name). */
+  variantName: string | null;
   brandName: string | null;
   categoryName: string;
   thumbnailUrl: string | null;
@@ -27,14 +37,37 @@ export interface CatalogGridRow {
 }
 
 export interface CatalogGridListQuery {
+  /** Global search: product name/slug, brand name/nameEn, category name, SKU. */
   search?: string;
+  /** Dedicated SKU filter (case-insensitive contains). */
   sku?: string;
   status?: ProductStatus;
   categoryId?: string;
   brandId?: string;
+  /** Multi-select filters (comma-separated in the query string). */
+  statuses?: ProductStatus[];
+  categoryIds?: string[];
+  brandIds?: string[];
+  priceStatus?: PriceStatus;
+  condition?: ProductCondition;
+  /** Inclusive variant price range (Decimal(12,2) strings). */
+  minPrice?: string;
+  maxPrice?: string;
+  /** Aggregate-stock bucket: IN_STOCK (onHand > 0) or OUT_OF_STOCK (0/absent). */
+  stockStatus?: 'IN_STOCK' | 'OUT_OF_STOCK';
+  sortBy?: CatalogGridSortField;
+  sortDir?: 'asc' | 'desc';
   page?: number;
   limit?: number;
 }
+
+export type CatalogGridSortField =
+  | 'name'
+  | 'sku'
+  | 'price'
+  | 'compareAtPrice'
+  | 'createdAt'
+  | 'stock';
 
 export type CatalogGridListResponse = PaginatedResult<CatalogGridRow>;
 
@@ -48,6 +81,9 @@ export interface CatalogGridBatchRowInput {
   priceStatus?: PriceStatus;
   /** Absolute desired quantityOnHand in the variant's single qualifying warehouse. */
   stock?: number;
+  sku?: string;
+  barcode?: string | null;
+  variantName?: string | null;
 }
 
 export interface CatalogGridBatchInput {
@@ -75,6 +111,10 @@ export interface CatalogGridRowResult {
   price?: string;
   compareAtPrice?: string | null;
   stock?: number;
+  sku?: string;
+  barcode?: string | null;
+  variantName?: string | null;
+  priceStatus?: PriceStatus;
 }
 
 export interface CatalogGridBatchResponse {

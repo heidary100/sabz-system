@@ -7,7 +7,7 @@ import type {
 import { batchUpdateCatalogGrid } from '../services/catalog-grid'
 
 /**
- * Client editing model for the SS-257 catalog grid.
+ * Client editing model for the SS-257 products grid.
  *
  * Server-loaded values and unsaved drafts are strictly separate: a row only
  * has a draft when the operator touched an editable field, and the draft
@@ -16,6 +16,10 @@ import { batchUpdateCatalogGrid } from '../services/catalog-grid'
  * drop — no request is issued, so the server and database are provably
  * untouched. Saving is explicit and chunks drafts into ≤50-row requests;
  * every row keeps its own status so partial failures stay recoverable.
+ *
+ * Inline-editable fields are the VARIANT fields (sku/barcode/name/price/
+ * compareAtPrice/priceStatus/stock). Product-level fields are edited via the
+ * row action (edit page) — a product can span several grid rows.
  */
 
 export type CatalogRowStatus =
@@ -28,6 +32,15 @@ export type CatalogRowStatus =
   | 'conflict-locked'
   | 'not-found'
 
+export type CatalogEditableField =
+  | 'price'
+  | 'compareAtPrice'
+  | 'stock'
+  | 'sku'
+  | 'barcode'
+  | 'variantName'
+  | 'priceStatus'
+
 export interface CatalogRowDraft {
   /** Row version the edit started from — the batch write is conditional on it. */
   baseUpdatedAt: string
@@ -36,9 +49,18 @@ export interface CatalogRowDraft {
   compareAtPrice?: string | null
   /** Integer-as-string input state (empty string = invalid, reported on save). */
   stock?: string
+  sku?: string
+  /** `null` = explicitly cleared. */
+  barcode?: string | null
+  /** `null` = explicitly cleared. */
+  variantName?: string | null
+  priceStatus?: PriceStatus
 }
 
 export interface CatalogRowServerValues {
+  sku: string
+  barcode: string | null
+  variantName: string | null
   price: string
   compareAtPrice: string | null
   stock: number
@@ -52,6 +74,9 @@ export interface SaveOutcome {
 
 const GRID_PRICE_PATTERN = /^\d{1,10}(?:\.\d{1,2})?$/
 const GRID_STOCK_PATTERN = /^\d+$/
+const SKU_MAX = 64
+const BARCODE_MAX = 64
+const VARIANT_NAME_MAX = 255
 const BATCH_CHUNK_SIZE = 50
 
 /** Rows that an explicit «ذخیره» submits: touched or locally-corrected rows. */
@@ -65,10 +90,13 @@ const FAILED: readonly CatalogRowStatus[] = [
   'not-found',
 ]
 
-const LOCAL_FIELD_ERRORS: Record<string, string> = {
+export const LOCAL_FIELD_ERRORS: Record<string, string> = {
   price: 'قالب قیمت معتبر نیست؛ حداکثر ۲ رقم اعشار.',
   compareAtPrice: 'قالب قیمت فروش ویژه معتبر نیست؛ حداکثر ۲ رقم اعشار.',
   stock: 'موجودی باید عدد صحیح نامنفی باشد.',
+  sku: `شناسه کالا الزامی است و حداکثر ${SKU_MAX} کاراکتر است.`,
+  barcode: `بارکد حداکثر ${BARCODE_MAX} کاراکتر است.`,
+  variantName: `نام واریانت حداکثر ${VARIANT_NAME_MAX} کاراکتر است.`,
 }
 
 function chunk<T>(items: T[], size: number): T[][] {
@@ -110,7 +138,7 @@ export function useCatalogDrafts() {
   const editCell = useCallback(
     (
       row: CatalogRowServerValues & { variantId: string; expectedUpdatedAt: string },
-      field: 'price' | 'compareAtPrice' | 'stock',
+      field: CatalogEditableField,
       rawValue: string,
     ): void => {
       let canonical: string | null | undefined
@@ -119,8 +147,15 @@ export function useCatalogDrafts() {
       } else if (field === 'compareAtPrice') {
         const cleaned = rawValue.replace(/[^\d.]/g, '')
         canonical = cleaned === '' ? null : cleaned
-      } else {
+      } else if (field === 'stock') {
         canonical = rawValue.replace(/[^\d]/g, '')
+      } else if (field === 'sku') {
+        canonical = rawValue.trim()
+      } else if (field === 'barcode' || field === 'variantName') {
+        const trimmed = rawValue.trim()
+        canonical = trimmed === '' ? null : trimmed
+      } else {
+        canonical = rawValue === 'CALL_FOR_PRICE' || rawValue === 'PRICED' ? rawValue : undefined
       }
 
       setDrafts((prev) => {
@@ -132,35 +167,72 @@ export function useCatalogDrafts() {
           next.price = canonical as string
         } else if (field === 'compareAtPrice') {
           next.compareAtPrice = canonical as string | null
-        } else {
+        } else if (field === 'stock') {
           next.stock = canonical as string
+        } else if (field === 'sku') {
+          next.sku = canonical as string
+        } else if (field === 'barcode') {
+          next.barcode = canonical as string | null
+        } else if (field === 'variantName') {
+          next.variantName = canonical as string | null
+        } else if (canonical !== undefined) {
+          next.priceStatus = canonical as PriceStatus
         }
 
         // A draft exists only for values that differ from the server row:
         // reverting a cell to its loaded value drops it from the draft, and
         // a fully-reverted row becomes clean again (no no-op saves).
-        const serverPrice = row.price
-        const serverCompareAt = row.compareAtPrice
-        const serverStock = String(row.stock)
-        if (next.price !== undefined && next.price === serverPrice) {
+        if (next.price !== undefined && next.price === row.price) {
           delete next.price
         }
         if (next.compareAtPrice !== undefined) {
           const matchesServer =
             next.compareAtPrice === null
-              ? serverCompareAt === null
-              : serverCompareAt !== null && next.compareAtPrice === serverCompareAt
+              ? row.compareAtPrice === null
+              : row.compareAtPrice !== null && next.compareAtPrice === row.compareAtPrice
           if (matchesServer) {
             delete next.compareAtPrice
           }
         }
-        if (next.stock !== undefined && next.stock === serverStock) {
+        if (next.stock !== undefined && next.stock === String(row.stock)) {
           delete next.stock
         }
+        if (next.sku !== undefined && next.sku === row.sku) {
+          delete next.sku
+        }
+        if (next.barcode !== undefined) {
+          const matchesServer =
+            next.barcode === null
+              ? row.barcode === null
+              : row.barcode !== null && next.barcode === row.barcode
+          if (matchesServer) {
+            delete next.barcode
+          }
+        }
+        if (next.variantName !== undefined) {
+          const matchesServer =
+            next.variantName === null
+              ? row.variantName === null
+              : row.variantName !== null && next.variantName === row.variantName
+          if (matchesServer) {
+            delete next.variantName
+          }
+        }
+        if (
+          next.priceStatus !== undefined &&
+          next.priceStatus === row.priceStatus
+        ) {
+          delete next.priceStatus
+        }
+
         if (
           next.price === undefined &&
           next.compareAtPrice === undefined &&
-          next.stock === undefined
+          next.stock === undefined &&
+          next.sku === undefined &&
+          next.barcode === undefined &&
+          next.variantName === undefined &&
+          next.priceStatus === undefined
         ) {
           const nextDrafts = { ...prev }
           delete nextDrafts[row.variantId]
@@ -229,6 +301,31 @@ export function useCatalogDrafts() {
         } else {
           invalid.stock = LOCAL_FIELD_ERRORS.stock!
         }
+      }
+      if (draft.sku !== undefined) {
+        const trimmed = draft.sku.trim()
+        if (trimmed.length > 0 && trimmed.length <= SKU_MAX) {
+          input.sku = trimmed
+        } else {
+          invalid.sku = LOCAL_FIELD_ERRORS.sku!
+        }
+      }
+      if (draft.barcode !== undefined) {
+        if (draft.barcode === null || draft.barcode.length <= BARCODE_MAX) {
+          input.barcode = draft.barcode
+        } else {
+          invalid.barcode = LOCAL_FIELD_ERRORS.barcode!
+        }
+      }
+      if (draft.variantName !== undefined) {
+        if (draft.variantName === null || draft.variantName.length <= VARIANT_NAME_MAX) {
+          input.variantName = draft.variantName
+        } else {
+          invalid.variantName = LOCAL_FIELD_ERRORS.variantName!
+        }
+      }
+      if (draft.priceStatus !== undefined) {
+        input.priceStatus = draft.priceStatus
       }
       if (Object.keys(invalid).length > 0) {
         return { invalid }

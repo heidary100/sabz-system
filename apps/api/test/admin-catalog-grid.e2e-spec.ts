@@ -141,6 +141,18 @@ describe('Admin catalog grid API (SS-257) (e2e)', () => {
   async function createProduct(
     overrides: { status?: ProductStatus } = {},
   ): Promise<string> {
+    const { productId } = await createProductDetailed(overrides);
+    return productId;
+  }
+
+  /** Detailed variant used by the advanced-filter tests to assert on brand/category. */
+  async function createProductDetailed(
+    overrides: {
+      status?: ProductStatus;
+      condition?: ProductCondition;
+      name?: string;
+    } = {},
+  ): Promise<{ productId: string; brandId: string; categoryId: string }> {
     const brand = await prisma.brand.create({
       data: {
         name: `برند ${Date.now()}-${Math.random()}`,
@@ -157,16 +169,16 @@ describe('Admin catalog grid API (SS-257) (e2e)', () => {
     categoryIds.push(category.id);
     const product = await prisma.product.create({
       data: {
-        name: `محصول شبکه ${Date.now()}-${Math.random()}`,
+        name: overrides.name ?? `محصول شبکه ${Date.now()}-${Math.random()}`,
         slug: `prod-grid-${Date.now()}-${Math.random()}`,
         brandId: brand.id,
         categoryId: category.id,
-        condition: ProductCondition.NEW,
+        condition: overrides.condition ?? ProductCondition.NEW,
         status: overrides.status ?? ProductStatus.PUBLISHED,
       },
     });
     productIds.push(product.id);
-    return product.id;
+    return { productId: product.id, brandId: brand.id, categoryId: category.id };
   }
 
   async function createVariant(
@@ -770,6 +782,327 @@ describe('Admin catalog grid API (SS-257) (e2e)', () => {
         .expect(200);
       expect(independent.body.results[0].outcome).toBe('VALIDATION_ERROR');
       expect(independent.body.results[1].outcome).toBe('SUCCESS');
+    });
+  });
+
+  describe('list — advanced filters, global search and sort (rework)', () => {
+    /** Distinctive brand/category so global-search matches are unambiguous. */
+    async function createSearchFixture(): Promise<{
+      productId: string;
+      brandId: string;
+      categoryId: string;
+      sku: string;
+    }> {
+      const brand = await prisma.brand.create({
+        data: { name: 'انکر جستجو', slug: `brand-gs-${Date.now()}-${Math.random()}` },
+      });
+      brandIds.push(brand.id);
+      const category = await prisma.category.create({
+        data: { name: 'هندزفری جستجو', slug: `cat-gs-${Date.now()}-${Math.random()}` },
+      });
+      categoryIds.push(category.id);
+      const product = await prisma.product.create({
+        data: {
+          name: 'پاوربانک جستجو',
+          slug: `prod-gs-${Date.now()}-${Math.random()}`,
+          brandId: brand.id,
+          categoryId: category.id,
+          condition: ProductCondition.NEW,
+          status: ProductStatus.PUBLISHED,
+        },
+      });
+      productIds.push(product.id);
+      const sku = `GS-${Date.now()}`;
+      await createVariant(product.id, { sku, price: '500000.00' });
+      return { productId: product.id, brandId: brand.id, categoryId: category.id, sku };
+    }
+
+    async function listGrid(
+      token: string,
+      query: Record<string, string>,
+    ): Promise<{ items: Array<Record<string, unknown>>; total: number }> {
+      const res = await request(app.getHttpServer())
+        .get(GRID)
+        .query(query)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+      return res.body;
+    }
+
+    it('global search matches product name, brand, category and SKU', async () => {
+      const operator = await createUser('OPERATOR');
+      const fixture = await createSearchFixture();
+
+      for (const term of ['پاوربانک', 'انکر جستجو', 'هندزفری جستجو', fixture.sku]) {
+        const result = await listGrid(operator.accessToken, { search: term });
+        expect(result.items.some((row) => row.sku === fixture.sku)).toBe(true);
+      }
+      const none = await listGrid(operator.accessToken, { search: 'ناکسان-۹۹' });
+      expect(none.total).toBe(0);
+    });
+
+    it('multi-select brand/status filters combine (AND) with the rest', async () => {
+      const operator = await createUser('OPERATOR');
+      const { brandId: brandA, productId: productA } = await createProductDetailed();
+      const { brandId: brandB } = await createProductDetailed();
+      await createVariant(productA, { sku: `MS-A-${Date.now()}` });
+
+      const both = await listGrid(operator.accessToken, {
+        brandIds: `${brandA},${brandB}`,
+      });
+      expect(both.total).toBeGreaterThanOrEqual(1);
+
+      const single = await listGrid(operator.accessToken, { brandIds: brandA });
+      expect(single.items.every((row) => row.productId === productA)).toBe(true);
+
+      const archived = await listGrid(operator.accessToken, {
+        brandIds: brandA,
+        statuses: `${ProductStatus.ARCHIVED},${ProductStatus.DRAFT}`,
+      });
+      expect(archived.total).toBe(0);
+    });
+
+    it('filters by priceStatus, condition and price range', async () => {
+      const operator = await createUser('OPERATOR');
+      const { brandId } = await createProductDetailed({ condition: ProductCondition.REFURBISHED });
+      const priced = await createVariant(
+        (await prisma.product.findFirstOrThrow({ where: { brandId }, select: { id: true } })).id,
+        { sku: `PS-PRICED-${Date.now()}`, price: '500000.00' },
+      );
+      const callForPrice = await prisma.productVariant.create({
+        data: {
+          productId: priced.productId,
+          sku: `PS-CFP-${Date.now()}`,
+          price: '0.00',
+          priceStatus: PriceStatus.CALL_FOR_PRICE,
+        },
+      });
+      variantIds.push(callForPrice.id);
+
+      const cfp = await listGrid(operator.accessToken, {
+        brandId,
+        priceStatus: PriceStatus.CALL_FOR_PRICE,
+      });
+      expect(cfp.total).toBe(1);
+      expect(cfp.items[0]!.sku).toBe(callForPrice.sku);
+
+      const refurbished = await listGrid(operator.accessToken, {
+        brandId,
+        condition: ProductCondition.REFURBISHED,
+      });
+      expect(refurbished.total).toBe(2);
+
+      const range = await listGrid(operator.accessToken, {
+        brandId,
+        minPrice: '400000',
+        maxPrice: '600000',
+      });
+      expect(range.items.map((row) => row.sku)).toEqual([priced.sku]);
+    });
+
+    it('filters by aggregate stock bucket and sorts on stock', async () => {
+      const operator = await createUser('OPERATOR');
+      const { brandId } = await createProductDetailed();
+      const productId = (
+        await prisma.product.findFirstOrThrow({ where: { brandId }, select: { id: true } })
+      ).id;
+      const empty = await createVariant(productId, { sku: `ST-EMPTY-${Date.now()}` });
+      const full = await createVariant(productId, { sku: `ST-FULL-${Date.now()}` });
+      const warehouse = await createWarehouse();
+      await createItem(empty.id, warehouse, 0);
+      await createItem(full.id, warehouse, 9);
+
+      const out = await listGrid(operator.accessToken, {
+        brandId,
+        stockStatus: 'OUT_OF_STOCK',
+      });
+      expect(out.items.map((row) => row.sku)).toEqual([empty.sku]);
+
+      const inStock = await listGrid(operator.accessToken, {
+        brandId,
+        stockStatus: 'IN_STOCK',
+      });
+      expect(inStock.items.map((row) => row.sku)).toEqual([full.sku]);
+
+      const byStockDesc = await listGrid(operator.accessToken, {
+        brandId,
+        sortBy: 'stock',
+        sortDir: 'desc',
+      });
+      expect(byStockDesc.items.map((row) => row.sku)).toEqual([full.sku, empty.sku]);
+
+      const byStockAsc = await listGrid(operator.accessToken, {
+        brandId,
+        sortBy: 'stock',
+        sortDir: 'asc',
+      });
+      expect(byStockAsc.items.map((row) => row.sku)).toEqual([empty.sku, full.sku]);
+    });
+
+    it('sorts by price, sku, product name and compareAt (nulls last)', async () => {
+      const operator = await createUser('OPERATOR');
+      const { brandId } = await createProductDetailed();
+      const productId = (
+        await prisma.product.findFirstOrThrow({ where: { brandId }, select: { id: true } })
+      ).id;
+      const low = await createVariant(productId, { sku: `SO-A-${Date.now()}`, price: '100000.00' });
+      const high = await createVariant(productId, { sku: `SO-B-${Date.now()}`, price: '900000.00' });
+      const sale = await createVariant(productId, {
+        sku: `SO-C-${Date.now()}`,
+        price: '200000.00',
+        compareAtPrice: '250000.00',
+      });
+      const noSale = await createVariant(productId, { sku: `SO-D-${Date.now()}`, price: '300000.00' });
+      void low;
+      void high;
+
+      const byPrice = await listGrid(operator.accessToken, {
+        brandId,
+        sortBy: 'price',
+        sortDir: 'asc',
+      });
+      expect(byPrice.items.map((row) => row.price)).toEqual([
+        '100000',
+        '200000',
+        '300000',
+        '900000',
+      ]);
+
+      const bySku = await listGrid(operator.accessToken, {
+        brandId,
+        sortBy: 'sku',
+        sortDir: 'asc',
+      });
+      const createdSkus = [low.sku, high.sku, sale.sku, noSale.sku].sort();
+      expect(bySku.items.map((row) => row.sku)).toEqual(createdSkus);
+
+      const byCompareAt = await listGrid(operator.accessToken, {
+        brandId,
+        sortBy: 'compareAtPrice',
+        sortDir: 'asc',
+      });
+      expect(byCompareAt.items[0]!.sku).toBe(sale.sku);
+      // Every null-compareAt row sorts last (relative order = id tiebreak).
+      expect(new Set(byCompareAt.items.slice(1).map((row) => row.sku))).toEqual(
+        new Set([low.sku, high.sku, noSale.sku]),
+      );
+    });
+  });
+
+  describe('batch — variant field updates (rework)', () => {
+    it('updates sku/barcode/variantName/price/compareAt/stock in one row and echoes authoritative values', async () => {
+      const operator = await createUser('OPERATOR');
+      const productId = await createProduct();
+      const variant = await createVariant(productId, {
+        sku: `VF-OLD-${Date.now()}`,
+        price: '100000.00',
+      });
+      const warehouse = await createWarehouse();
+      await createItem(variant.id, warehouse, 5);
+
+      const newSku = `VF-NEW-${Date.now()}`;
+      const res = await request(app.getHttpServer())
+        .post(BATCH)
+        .set('Authorization', `Bearer ${operator.accessToken}`)
+        .send({
+          rows: [
+            {
+              variantId: variant.id,
+              expectedUpdatedAt: variant.updatedAt.toISOString(),
+              sku: newSku,
+              barcode: 'BC-12345',
+              variantName: 'نام واریانت شبکه',
+              price: '120000.00',
+              compareAtPrice: '150000.00',
+              stock: 8,
+            },
+          ],
+        })
+        .expect(200);
+      expect(res.body.results[0]!.outcome).toBe('SUCCESS');
+      expect(res.body.results[0]!.sku).toBe(newSku);
+      expect(res.body.results[0]!.barcode).toBe('BC-12345');
+      expect(res.body.results[0]!.variantName).toBe('نام واریانت شبکه');
+
+      const after = await prisma.productVariant.findUnique({ where: { id: variant.id } });
+      expect(after!.sku).toBe(newSku);
+      expect(after!.barcode).toBe('BC-12345');
+      expect(after!.name).toBe('نام واریانت شبکه');
+      expect(after!.price.toString()).toBe('120000');
+
+      const audit = await prisma.auditLog.findFirstOrThrow({
+        where: { entityId: variant.id, action: 'PRODUCT_VARIANT_UPDATED' },
+      });
+      const beforeDelta = audit.before as Record<string, unknown>;
+      const afterDelta = audit.after as Record<string, unknown>;
+      expect(beforeDelta['sku']).toBe(variant.sku);
+      expect(afterDelta['sku']).toBe(newSku);
+      expect(afterDelta['name']).toBe('نام واریانت شبکه');
+    });
+
+    it('rejects a duplicate SKU as a row VALIDATION_ERROR without writing the row', async () => {
+      const operator = await createUser('OPERATOR');
+      const productId = await createProduct();
+      const first = await createVariant(productId, { sku: `DUP-${Date.now()}` });
+      const second = await createVariant(productId, { sku: `UNIQ-${Date.now()}` });
+
+      const res = await request(app.getHttpServer())
+        .post(BATCH)
+        .set('Authorization', `Bearer ${operator.accessToken}`)
+        .send({
+          rows: [
+            {
+              variantId: second.id,
+              expectedUpdatedAt: second.updatedAt.toISOString(),
+              sku: first.sku,
+            },
+          ],
+        })
+        .expect(200);
+      expect(res.body.results[0]!.outcome).toBe('VALIDATION_ERROR');
+      expect(res.body.results[0]!.fieldErrors!.sku).toContain('قبلاً وجود دارد');
+
+      const secondAfter = await prisma.productVariant.findUnique({
+        where: { id: second.id },
+      });
+      expect(secondAfter!.sku).toBe(second.sku);
+    });
+
+    it('clears barcode and variant name on explicit null', async () => {
+      const operator = await createUser('OPERATOR');
+      const productId = await createProduct();
+      const variant = await prisma.productVariant.create({
+        data: {
+          productId,
+          sku: `NULLCL-${Date.now()}`,
+          price: '100000.00',
+          barcode: 'BC-TO-CLEAR',
+          name: 'برای پاک‌کردن',
+        },
+      });
+      variantIds.push(variant.id);
+
+      const res = await request(app.getHttpServer())
+        .post(BATCH)
+        .set('Authorization', `Bearer ${operator.accessToken}`)
+        .send({
+          rows: [
+            {
+              variantId: variant.id,
+              expectedUpdatedAt: variant.updatedAt.toISOString(),
+              barcode: null,
+              variantName: null,
+            },
+          ],
+        })
+        .expect(200);
+      expect(res.body.results[0]!.outcome).toBe('SUCCESS');
+      expect(res.body.results[0]!.barcode).toBeNull();
+      expect(res.body.results[0]!.variantName).toBeNull();
+
+      const after = await prisma.productVariant.findUnique({ where: { id: variant.id } });
+      expect(after!.barcode).toBeNull();
+      expect(after!.name).toBeNull();
     });
   });
 });

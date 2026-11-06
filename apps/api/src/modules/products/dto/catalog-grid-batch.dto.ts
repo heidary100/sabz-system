@@ -10,6 +10,7 @@ import {
   IsString,
   IsUUID,
   Matches,
+  MaxLength,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -78,6 +79,51 @@ export class CatalogGridBatchRowDto {
   @IsInt({ message: 'stock باید عدد صحیح باشد.' })
   @Min(0, { message: 'stock نمیتواند منفی باشد.' })
   stock?: number;
+
+  @ApiPropertyOptional({ description: 'Globally unique SKU (≤64 chars).' })
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      return trimmed.length > 0 ? trimmed : undefined;
+    }
+    return value;
+  })
+  @IsString({ message: 'sku باید رشته باشد.' })
+  @MaxLength(64, { message: 'sku باید حداکثر ۶۴ کاراکتر باشد.' })
+  sku?: string;
+
+  @ApiPropertyOptional({ description: 'Barcode. Pass null to clear.' })
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (value === null) {
+      return null;
+    }
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      return trimmed.length > 0 ? trimmed : undefined;
+    }
+    return value;
+  })
+  @IsString({ message: 'barcode باید رشته باشد.' })
+  @MaxLength(64, { message: 'barcode باید حداکثر ۶۴ کاراکتر باشد.' })
+  barcode?: string | null;
+
+  @ApiPropertyOptional({ description: 'Variant display label. Pass null to clear.' })
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (value === null) {
+      return null;
+    }
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      return trimmed.length > 0 ? trimmed : undefined;
+    }
+    return value;
+  })
+  @IsString({ message: 'variantName باید رشته باشد.' })
+  @MaxLength(255, { message: 'variantName باید حداکثر ۲۵۵ کاراکتر باشد.' })
+  variantName?: string | null;
 }
 
 export class CatalogGridBatchDto {

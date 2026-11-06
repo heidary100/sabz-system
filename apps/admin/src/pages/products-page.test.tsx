@@ -3,30 +3,47 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CatalogGridBatchResponse, CatalogGridRow } from '@sabz/types'
-import { CatalogGridPage } from './catalog-grid-page'
+import { ProductsPage } from './products-page'
 
 /**
- * SS-257 page behavior. The centerpiece is the zero-drift cancel oracle:
- * editing several cells and discarding must issue ZERO mutation requests —
- * cancel is a pure client-side draft reset (the committed SQL checksum probe
- * proves the same guarantee at the database level).
+ * SS-257 rework: the products page IS the editable catalog grid. The
+ * centerpiece remains the zero-drift cancel oracle (editing then discarding
+ * issues ZERO mutation requests); the rework adds URL-driven advanced
+ * filters, checkbox column visibility, sortable headers, inline variant
+ * fields (SKU/barcode/name/priceStatus) and row actions with variant delete.
  */
 vi.mock('../services/catalog-grid', () => ({
   listCatalogGrid: vi.fn(),
   batchUpdateCatalogGrid: vi.fn(),
 }))
 
+vi.mock('../services/variants', () => ({
+  deleteVariant: vi.fn(),
+}))
+
 vi.mock('../hooks/use-category-options', () => ({
-  useCategoryOptions: () => ({ categories: [] }),
+  useCategoryOptions: () => ({
+    categories: [
+      { id: 'cat-1', name: 'هندزفری' },
+      { id: 'cat-2', name: 'پاوربانک' },
+    ],
+  }),
 }))
 vi.mock('../hooks/use-brand-options', () => ({
-  useBrandOptions: () => ({ brands: [] }),
+  useBrandOptions: () => ({
+    brands: [
+      { id: 'brand-1', name: 'انکر' },
+      { id: 'brand-2', name: 'پرودو' },
+    ],
+  }),
 }))
 
 import { batchUpdateCatalogGrid, listCatalogGrid } from '../services/catalog-grid'
+import { deleteVariant } from '../services/variants'
 
 const mockList = vi.mocked(listCatalogGrid)
 const mockBatch = vi.mocked(batchUpdateCatalogGrid)
+const mockDelete = vi.mocked(deleteVariant)
 
 const TOKEN_A = '2026-11-03T10:00:00.000Z'
 const TOKEN_B = '2026-11-03T10:05:00.000Z'
@@ -37,9 +54,14 @@ function row(overrides: Partial<CatalogGridRow> = {}): CatalogGridRow {
     productId: 'p1',
     productName: 'محصول شبکه',
     productSlug: 'prod-grid',
+    productStatus: 'PUBLISHED',
+    condition: 'NEW',
+    createdAt: '2026-11-01T08:00:00.000Z',
     sku: 'SKU-1',
-    brandName: 'برند الف',
-    categoryName: 'دسته الف',
+    barcode: 'BC-1',
+    variantName: 'واریانت یک',
+    brandName: 'انکر',
+    categoryName: 'هندزفری',
     thumbnailUrl: null,
     priceStatus: 'PRICED',
     price: '100000',
@@ -53,19 +75,27 @@ function row(overrides: Partial<CatalogGridRow> = {}): CatalogGridRow {
 
 const rows: CatalogGridRow[] = [
   row({ variantId: 'v1', sku: 'SKU-1', price: '100000', stock: 5, expectedUpdatedAt: TOKEN_A }),
-  row({ variantId: 'v2', sku: 'SKU-2', price: '200000', stock: 3, expectedUpdatedAt: TOKEN_B }),
+  row({
+    variantId: 'v2',
+    productId: 'p2',
+    productName: 'محصول دوم',
+    sku: 'SKU-2',
+    price: '200000',
+    stock: 3,
+    expectedUpdatedAt: TOKEN_B,
+  }),
 ]
 
-function renderPage() {
+function renderPage(initialEntry = '/products') {
   return render(
-    <MemoryRouter>
-      <CatalogGridPage />
+    <MemoryRouter initialEntries={[initialEntry]}>
+      <ProductsPage />
     </MemoryRouter>,
   )
 }
 
-async function renderAndLoad() {
-  const view = renderPage()
+async function renderAndLoad(initialEntry = '/products') {
+  const view = renderPage(initialEntry)
   await waitFor(() => expect(mockList).toHaveBeenCalled())
   await waitFor(() => expect(screen.getByDisplayValue('100,000')).toBeTruthy())
   return view
@@ -82,9 +112,10 @@ function stockInput(sku: string): HTMLInputElement {
 beforeEach(() => {
   mockList.mockReset()
   mockBatch.mockReset()
+  mockDelete.mockReset()
   mockList.mockResolvedValue({ items: rows, total: rows.length, page: 1, limit: 50 })
   vi.stubGlobal('confirm', vi.fn(() => true))
-  // jsdom has no ResizeObserver; the anchored Headless UI menu needs one.
+  // jsdom has no ResizeObserver; the anchored Headless UI components need one.
   vi.stubGlobal(
     'ResizeObserver',
     class {
@@ -101,13 +132,14 @@ afterEach(() => {
   localStorage.clear()
 })
 
-describe('CatalogGridPage (SS-257)', () => {
+describe('ProductsPage — the editable catalog grid (SS-257 rework)', () => {
   it('renders the required columns from server rows', async () => {
     await renderAndLoad()
-    expect(screen.getByText('SKU-1')).toBeTruthy()
-    expect(screen.getByText('SKU-2')).toBeTruthy()
-    expect(screen.getAllByText('قیمت‌دار').length).toBe(2)
-    expect(screen.getAllByText('برند الف').length).toBe(2)
+    expect(screen.getByDisplayValue('SKU-1')).toBeTruthy()
+    expect(screen.getByDisplayValue('SKU-2')).toBeTruthy()
+    expect(screen.getAllByText('انکر').length).toBeGreaterThanOrEqual(2)
+    // Product-level display fields from the rework payload.
+    expect(screen.getAllByText('منتشرشده').length).toBeGreaterThanOrEqual(2)
     // Stock column shows the aggregate server value.
     expect(screen.getByDisplayValue('5')).toBeTruthy()
   })
@@ -128,9 +160,12 @@ describe('CatalogGridPage (SS-257)', () => {
     expect(screen.queryByText(/ردیف تغییر ذخیرهنشده دارد/)).toBeNull()
   })
 
-  it('explicit save submits the draft with the loaded concurrency token and reconciles the row', async () => {
+  it('explicit save submits the draft with the loaded token and reconciles the row', async () => {
     await renderAndLoad()
     fireEvent.change(priceInput('SKU-1'), { target: { value: '150000' } })
+    fireEvent.change(screen.getByLabelText('شناسه کالا (SKU) — SKU-1'), {
+      target: { value: 'SKU-1B' },
+    })
 
     const newToken = '2026-11-03T11:00:00.000Z'
     mockBatch.mockResolvedValue({
@@ -140,6 +175,10 @@ describe('CatalogGridPage (SS-257)', () => {
           outcome: 'SUCCESS',
           price: '150000',
           compareAtPrice: null,
+          sku: 'SKU-1B',
+          barcode: 'BC-1',
+          variantName: 'واریانت یک',
+          priceStatus: 'PRICED',
           updatedAt: newToken,
           stock: 5,
         },
@@ -152,11 +191,15 @@ describe('CatalogGridPage (SS-257)', () => {
     await waitFor(() => expect(mockBatch).toHaveBeenCalledTimes(1))
     const payload = mockBatch.mock.calls[0]![0]!
     expect(payload.rows).toEqual([
-      { variantId: 'v1', expectedUpdatedAt: TOKEN_A, price: '150000' },
+      { variantId: 'v1', expectedUpdatedAt: TOKEN_A, price: '150000', sku: 'SKU-1B' },
     ])
-    // The row reconciles to the server-confirmed value and new token.
     await waitFor(() => expect(screen.getByText('1 ردیف با موفقیت ذخیره شد')).toBeTruthy())
-    expect(priceInput('SKU-1').value).toBe('150,000')
+    // The row reconciles to the server-confirmed values and new token —
+    // including the NEW sku, which the labels are keyed by.
+    expect(priceInput('SKU-1B').value).toBe('150,000')
+    expect(
+      (screen.getByLabelText('شناسه کالا (SKU) — SKU-1B') as HTMLInputElement).value,
+    ).toBe('SKU-1B')
     // Untouched rows are not part of the request.
     expect(payload.rows.some((entry) => entry.variantId === 'v2')).toBe(false)
   })
@@ -187,7 +230,6 @@ describe('CatalogGridPage (SS-257)', () => {
     await waitFor(() => expect(screen.getByText('1 ردیف ذخیره نشد')).toBeTruthy())
     // Row-level, field-level Persian error on the exact cell.
     expect(screen.getByText('قیمت فروش ویژه باید بیشتر از قیمت فروش باشد.')).toBeTruthy()
-    // The failed draft survives; the successful row was reconciled.
     expect(
       (screen.getByLabelText('قیمت فروش ویژه — SKU-2') as HTMLInputElement).value,
     ).toBe('100,000')
@@ -199,7 +241,6 @@ describe('CatalogGridPage (SS-257)', () => {
     await renderAndLoad()
     fireEvent.change(priceInput('SKU-1'), { target: { value: '150000' } })
 
-    // The server moved ahead: refetch returns the newer authoritative row.
     mockBatch.mockResolvedValue({
       results: [{ variantId: 'v1', outcome: 'CONFLICT_CHANGED', message: 'این ردیف از زمان بارگذاری تغییر کرده است؛ نسخه جدید را ببینید.' }],
       summary: { succeeded: 0, failed: 1 },
@@ -209,7 +250,6 @@ describe('CatalogGridPage (SS-257)', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'ذخیره تغییرات' }))
 
-    // The dialog appears after the authoritative refetch.
     await waitFor(() => expect(screen.getByText('این ردیف تغییر کرده است')).toBeTruthy())
     expect(screen.getByText('300,000')).toBeTruthy() // server price visible
 
@@ -226,28 +266,84 @@ describe('CatalogGridPage (SS-257)', () => {
     } as CatalogGridBatchResponse)
     fireEvent.click(screen.getByRole('button', { name: 'ذخیره تغییرات' }))
     await waitFor(() => expect(screen.getByText('این ردیف تغییر کرده است')).toBeTruthy())
-    // The draft is not silently lost — the operator chooses.
     fireEvent.click(screen.getByRole('button', { name: 'تغییرات من را نگه دار' }))
     await waitFor(() => expect(screen.queryByText('این ردیف تغییر کرده است')).toBeNull())
     expect(priceInput('SKU-1').value).toBe('180,000')
-    // Keeping the draft never wrote anything extra.
     expect(mockBatch).toHaveBeenCalledTimes(2)
   })
 
-  it('persists column visibility toggles and always keeps the fixed columns', async () => {
+  it('persists checkbox column visibility toggles and always keeps the fixed columns', async () => {
     await renderAndLoad()
-    expect(screen.getAllByText('برند').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('انکر').length).toBeGreaterThanOrEqual(2)
 
     fireEvent.click(screen.getByRole('button', { name: 'ستون‌ها' }))
-    fireEvent.click(screen.getByRole('menuitem', { name: 'برند' }))
-    await waitFor(() => expect(screen.queryByText('برند الف')).toBeNull())
-    // The brand COLUMN header is gone; the brand filter label legitimately stays.
-    expect(screen.queryByRole('columnheader', { name: 'برند' })).toBeNull()
+    fireEvent.click(screen.getByRole('checkbox', { name: 'برند' }))
+    // The brand COLUMN disappears; the brand filter options legitimately stay.
+    await waitFor(() => expect(screen.queryByRole('columnheader', { name: 'برند' })).toBeNull())
 
     const stored = JSON.parse(localStorage.getItem('sabz-admin-catalog-grid-columns') ?? '[]') as string[]
     expect(stored).not.toContain('brand')
     expect(stored).toContain('sku') // fixed core persists implicitly
-    expect(screen.getByRole('columnheader', { name: 'SKU' })).toBeTruthy()
-    expect(screen.getByRole('columnheader', { name: 'موجودی' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'شناسه کالا (SKU)' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'موجودی' })).toBeTruthy()
+  })
+
+  it('writes advanced filters to the URL and the API query (multi-select + stock + price)', async () => {
+    await renderAndLoad()
+
+    // Multi-select brand via checkboxes.
+    fireEvent.click(screen.getByRole('button', { name: 'برند' }))
+    fireEvent.click(screen.getByRole('option', { name: /انکر/ }))
+    await waitFor(() => {
+      const last = mockList.mock.calls[mockList.mock.calls.length - 1]![0]!
+      expect(last.brandIds).toEqual(['brand-1'])
+    })
+
+    // Stock bucket + price range go server-side too.
+    fireEvent.change(screen.getByLabelText('موجودی'), {
+      target: { value: 'OUT_OF_STOCK' },
+    })
+    await waitFor(() => {
+      const last = mockList.mock.calls[mockList.mock.calls.length - 1]![0]!
+      expect(last.stockStatus).toBe('OUT_OF_STOCK')
+    })
+    fireEvent.change(screen.getByPlaceholderText('از'), { target: { value: '50000' } })
+    await waitFor(() => {
+      const last = mockList.mock.calls[mockList.mock.calls.length - 1]![0]!
+      expect(last.minPrice).toBe('50000')
+    })
+    // Active-filter chips appear with a clear-all affordance.
+    expect(screen.getAllByRole('listitem').length).toBeGreaterThanOrEqual(2)
+    fireEvent.click(screen.getByRole('button', { name: 'حذف فیلترها' }))
+    await waitFor(() => {
+      const last = mockList.mock.calls[mockList.mock.calls.length - 1]![0]!
+      expect(last.stockStatus).toBeUndefined()
+      expect(last.brandIds).toBeUndefined()
+      expect(last.minPrice).toBeUndefined()
+    })
+  })
+
+  it('sorts via the header control (URL sort/dir) and exposes row actions with variant delete', async () => {
+    await renderAndLoad()
+
+    // Sortable header → server-side sort param.
+    fireEvent.click(screen.getByRole('button', { name: 'قیمت فروش' }))
+    await waitFor(() => {
+      const last = mockList.mock.calls[mockList.mock.calls.length - 1]![0]!
+      expect(last.sortBy).toBe('price')
+      expect(last.sortDir).toBe('asc')
+    })
+
+    // Row actions: detail / edit links + delete → confirm dialog → API.
+    expect(screen.getByLabelText('مشاهده محصول شبکه')).toBeTruthy()
+    expect(screen.getByLabelText('ویرایش محصول شبکه')).toBeTruthy()
+    fireEvent.click(screen.getByLabelText('حذف واریانت SKU-1'))
+    await waitFor(() =>
+      expect(screen.getAllByText('حذف واریانت').length).toBeGreaterThan(0),
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'حذف واریانت' }))
+    await waitFor(() => expect(mockDelete).toHaveBeenCalledWith('v1'))
+    // The grid refetches after the delete.
+    await waitFor(() => expect(mockList.mock.calls.length).toBeGreaterThanOrEqual(2))
   })
 })

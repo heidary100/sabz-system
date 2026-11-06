@@ -35,9 +35,14 @@ const DEFAULT_LOCK_TIMEOUT_MS = 3000;
 /** Mandatory movement reason for grid-driven absolute stock sets. */
 const GRID_ADJUST_REASON = 'ویرایش از شبکه کاتالوگ';
 
+/** Message reused from the variants service for a duplicate SKU row outcome. */
+export const DUPLICATE_SKU_MESSAGE = 'یک واریانت با این sku قبلاً وجود دارد.';
+
 const GRID_ROW_SELECT = {
   id: true,
   sku: true,
+  barcode: true,
+  name: true,
   price: true,
   compareAtPrice: true,
   priceStatus: true,
@@ -47,6 +52,9 @@ const GRID_ROW_SELECT = {
       id: true,
       name: true,
       slug: true,
+      status: true,
+      condition: true,
+      createdAt: true,
       brand: { select: { name: true } },
       category: { select: { name: true } },
       media: {
@@ -60,6 +68,15 @@ const GRID_ROW_SELECT = {
 type GridRowPayload = Prisma.ProductVariantGetPayload<{
   select: typeof GRID_ROW_SELECT;
 }>;
+
+type GridVariantData = {
+  sku?: string;
+  barcode?: string | null;
+  name?: string | null;
+  price?: string;
+  compareAtPrice?: string | null;
+  priceStatus?: PriceStatus;
+};
 
 function escapeLike(search: string): string {
   return search.replace(/[\\%_]/g, '\\$&');
@@ -81,7 +98,7 @@ function isLockTimeoutError(error: unknown): boolean {
 
 /**
  * SS-257 catalog grid: a server-paginated, variant-keyed view over the
- * catalog with inline price/stock editing behind an explicit batch save.
+ * catalog with inline variant-field editing behind an explicit batch save.
  *
  * Writes go through the established domain behavior — pricing through the
  * SS-251 invariant (`VariantsService.validatePricing`, plus the structural
@@ -90,7 +107,7 @@ function isLockTimeoutError(error: unknown): boolean {
  * either rule.
  *
  * Transaction model: each submitted row commits inside ONE interactive
- * transaction (price fields + stock move together or not at all); rows are
+ * transaction (variant fields + stock move together or not at all); rows are
  * independent so a failed row never aborts unrelated rows (partial success).
  */
 @Injectable()
@@ -112,53 +129,211 @@ export class CatalogGridService {
     const page = query.page ?? DEFAULT_PAGE;
     const limit = query.limit ?? DEFAULT_LIMIT;
     const skip = (page - 1) * limit;
-    const search = query.search?.trim();
-    const sku = query.sku?.trim();
+    const baseWhere = this.buildVariantWhere(query);
 
-    const where: Prisma.ProductVariantWhereInput = {
-      deletedAt: null,
-      ...(sku ? { sku: { contains: escapeLike(sku), mode: 'insensitive' } } : {}),
-      product: {
-        deletedAt: null,
-        ...(query.status !== undefined ? { status: query.status } : {}),
-        ...(query.categoryId !== undefined
-          ? { categoryId: query.categoryId }
-          : {}),
-        ...(query.brandId !== undefined ? { brandId: query.brandId } : {}),
-        ...(search
-          ? {
-              OR: [
-                { name: { contains: escapeLike(search), mode: 'insensitive' } },
-                { slug: { contains: escapeLike(search), mode: 'insensitive' } },
-              ],
-            }
-          : {}),
-      },
-    };
+    // Stock-status filtering and stock sorting are aggregate-backed: one
+    // grouped scan over the filtered universe (≈1,100 rows today) decides
+    // the id set / order, then the page is fetched and reordered. Past ~10×
+    // catalog growth this moves into SQL (HAVING / lateral aggregate).
+    if (query.sortBy === 'stock' || query.stockStatus !== undefined) {
+      return this.listWithStockAggregate(query, baseWhere, page, limit, skip);
+    }
 
     const [total, rows] = await this.prisma.$transaction([
-      this.prisma.productVariant.count({ where }),
+      this.prisma.productVariant.count({ where: baseWhere }),
       this.prisma.productVariant.findMany({
-        where,
+        where: baseWhere,
         select: GRID_ROW_SELECT,
-        orderBy: [{ product: { createdAt: 'desc' } }, { id: 'desc' }],
+        orderBy: this.buildOrderBy(query),
         skip,
         take: limit,
       }),
     ]);
 
-    const variantIds = rows.map((row) => row.id);
-    const [stockTotals, itemCounts] = await Promise.all([
-      aggregateVariantStock(this.prisma, variantIds),
-      this.countQualifyingWarehouses(variantIds),
-    ]);
-
     return {
-      items: rows.map((row) => this.toGridRow(row, stockTotals, itemCounts)),
+      items: await this.toGridRows(rows),
       total,
       page,
       limit,
     };
+  }
+
+  private buildVariantWhere(
+    query: ListCatalogGridQueryDto,
+  ): Prisma.ProductVariantWhereInput {
+    const search = query.search?.trim();
+    const sku = query.sku?.trim();
+    const searchLike = search ? escapeLike(search) : '';
+
+    const statusFilter =
+      query.statuses !== undefined && query.statuses.length > 0
+        ? { in: query.statuses }
+        : query.status;
+    const categoryFilter =
+      query.categoryIds !== undefined && query.categoryIds.length > 0
+        ? { in: query.categoryIds }
+        : query.categoryId;
+    const brandFilter =
+      query.brandIds !== undefined && query.brandIds.length > 0
+        ? { in: query.brandIds }
+        : query.brandId;
+
+    return {
+      deletedAt: null,
+      ...(sku ? { sku: { contains: escapeLike(sku), mode: 'insensitive' } } : {}),
+      ...(query.priceStatus !== undefined
+        ? { priceStatus: query.priceStatus }
+        : {}),
+      ...(query.minPrice !== undefined || query.maxPrice !== undefined
+        ? {
+            price: {
+              ...(query.minPrice !== undefined
+                ? { gte: new Prisma.Decimal(query.minPrice) }
+                : {}),
+              ...(query.maxPrice !== undefined
+                ? { lte: new Prisma.Decimal(query.maxPrice) }
+                : {}),
+            },
+          }
+        : {}),
+      product: {
+        deletedAt: null,
+        ...(statusFilter !== undefined ? { status: statusFilter } : {}),
+        ...(categoryFilter !== undefined ? { categoryId: categoryFilter } : {}),
+        ...(brandFilter !== undefined ? { brandId: brandFilter } : {}),
+        ...(query.condition !== undefined ? { condition: query.condition } : {}),
+      },
+      // Global search spans the variant SKU and the product/brand/category
+      // names, AND-composed with the structured filters above.
+      ...(search
+        ? {
+            OR: [
+              { sku: { contains: searchLike, mode: 'insensitive' } },
+              {
+                product: {
+                  is: {
+                    OR: [
+                      { name: { contains: searchLike, mode: 'insensitive' } },
+                      { slug: { contains: searchLike, mode: 'insensitive' } },
+                      {
+                        brand: {
+                          is: {
+                            OR: [
+                              { name: { contains: searchLike, mode: 'insensitive' } },
+                              { nameEn: { contains: searchLike, mode: 'insensitive' } },
+                            ],
+                          },
+                        },
+                      },
+                      {
+                        category: {
+                          is: { name: { contains: searchLike, mode: 'insensitive' } },
+                        },
+                      },
+                    ],
+                  },
+                },
+              },
+            ],
+          }
+        : {}),
+    };
+  }
+
+  private buildOrderBy(
+    query: ListCatalogGridQueryDto,
+  ): Prisma.ProductVariantOrderByWithRelationInput[] {
+    const dir = query.sortDir ?? 'asc';
+    switch (query.sortBy) {
+      case 'name':
+        return [{ product: { name: dir } }, { id: 'desc' }];
+      case 'sku':
+        return [{ sku: dir }, { id: 'desc' }];
+      case 'price':
+        return [{ price: dir }, { id: 'desc' }];
+      case 'compareAtPrice':
+        return [{ compareAtPrice: { sort: dir, nulls: 'last' } }, { id: 'desc' }];
+      case 'createdAt':
+        return [{ product: { createdAt: dir } }, { id: 'desc' }];
+      default:
+        return [{ product: { createdAt: 'desc' } }, { id: 'desc' }];
+    }
+  }
+
+  /**
+   * Stock-status filter / stock-sort path. Resolves aggregate totals for the
+   * filtered universe, applies the bucket filter to the id set, orders by
+   * total when sorting on stock (Prisma `in` does not preserve order, so the
+   * page is fetched by id and remapped), then loads the page rows.
+   */
+  private async listWithStockAggregate(
+    query: ListCatalogGridQueryDto,
+    baseWhere: Prisma.ProductVariantWhereInput,
+    page: number,
+    limit: number,
+    skip: number,
+  ): Promise<CatalogGridListResponse> {
+    const universe = await this.prisma.productVariant.findMany({
+      where: baseWhere,
+      select: { id: true },
+    });
+    const universeIds = universe.map((row) => row.id);
+    const totals = await this.qualifyingStockTotals(universeIds);
+
+    let candidateIds = universeIds;
+    if (query.stockStatus === 'IN_STOCK') {
+      candidateIds = universeIds.filter((id) => (totals.get(id) ?? 0) > 0);
+    } else if (query.stockStatus === 'OUT_OF_STOCK') {
+      candidateIds = universeIds.filter((id) => (totals.get(id) ?? 0) === 0);
+    }
+
+    const dir = query.sortDir ?? 'asc';
+    const orderedIds = [...candidateIds].sort((a, b) => {
+      const diff = (totals.get(a) ?? 0) - (totals.get(b) ?? 0);
+      if (diff !== 0) {
+        return dir === 'asc' ? diff : -diff;
+      }
+      // Deterministic tiebreak keeps pagination stable.
+      return a < b ? -1 : 1;
+    });
+
+    const total = orderedIds.length;
+    const pageIds = orderedIds.slice(skip, skip + limit);
+    const rows = await this.prisma.productVariant.findMany({
+      where: { id: { in: pageIds } },
+      select: GRID_ROW_SELECT,
+    });
+    const byId = new Map(rows.map((row) => [row.id, row]));
+    const orderedRows = pageIds
+      .map((id) => byId.get(id))
+      .filter((row): row is GridRowPayload => row !== undefined);
+
+    return {
+      items: await this.toGridRows(orderedRows),
+      total,
+      page,
+      limit,
+    };
+  }
+
+  /** SUM(quantityOnHand) per variant over qualifying (active) inventory rows. */
+  private async qualifyingStockTotals(
+    variantIds: string[],
+  ): Promise<Map<string, number>> {
+    if (variantIds.length === 0) {
+      return new Map();
+    }
+    const rows = await this.prisma.inventoryItem.groupBy({
+      by: ['variantId'],
+      where: {
+        variantId: { in: variantIds },
+        ...activeInventoryWhere(),
+      },
+      _sum: { quantityOnHand: true },
+    });
+    return new Map(
+      rows.map((row) => [row.variantId, row._sum.quantityOnHand ?? 0]),
+    );
   }
 
   /** Count of qualifying (active variant × active warehouse) inventory rows per variant. */
@@ -176,6 +351,15 @@ export class CatalogGridService {
     return new Map(rows.map((row) => [row.variantId, row._count._all]));
   }
 
+  private async toGridRows(rows: GridRowPayload[]): Promise<CatalogGridRow[]> {
+    const variantIds = rows.map((row) => row.id);
+    const [stockTotals, itemCounts] = await Promise.all([
+      aggregateVariantStock(this.prisma, variantIds),
+      this.countQualifyingWarehouses(variantIds),
+    ]);
+    return rows.map((row) => this.toGridRow(row, stockTotals, itemCounts));
+  }
+
   private toGridRow(
     row: GridRowPayload,
     stockTotals: Map<string, number>,
@@ -191,7 +375,12 @@ export class CatalogGridService {
       productId: row.product.id,
       productName: row.product.name,
       productSlug: row.product.slug,
+      productStatus: row.product.status,
+      condition: row.product.condition,
+      createdAt: row.product.createdAt.toISOString(),
       sku: row.sku,
+      barcode: row.barcode,
+      variantName: row.name,
       brandName: row.product.brand?.name ?? null,
       categoryName: row.product.category.name,
       thumbnailUrl:
@@ -270,10 +459,11 @@ export class CatalogGridService {
    * Execute one submitted row as a single transaction and always resolve to
    * a row outcome instead of throwing for expected row-level conditions:
    * the pricing validation runs on effective values through the SS-251
-   * invariant, the price write is a conditional `updateMany` on the submitted
-   * `updatedAt` version (single statement — no application-code read/compare/
-   * write race), and the stock write reuses the SS-113 conditional absolute
-   * set inside the same transaction so all of a row's fields commit together.
+   * invariant, the variant write is a conditional `updateMany` on the
+   * submitted `updatedAt` version (single statement — no application-code
+   * read/compare/write race), and the stock write reuses the SS-113
+   * conditional absolute set inside the same transaction so all of a row's
+   * fields commit together.
    */
   private async applyRow(
     row: CatalogGridBatchRowInput,
@@ -291,6 +481,9 @@ export class CatalogGridService {
             id: true,
             productId: true,
             deletedAt: true,
+            sku: true,
+            barcode: true,
+            name: true,
             price: true,
             compareAtPrice: true,
             priceStatus: true,
@@ -327,48 +520,64 @@ export class CatalogGridService {
 
         const expected = new Date(row.expectedUpdatedAt);
 
-        const priceData: {
-          price?: string;
-          compareAtPrice?: string | null;
-          priceStatus?: PriceStatus;
-        } = {};
+        const variantData: GridVariantData = {};
+        if (row.sku !== undefined) {
+          variantData.sku = row.sku;
+        }
+        if (row.barcode !== undefined) {
+          variantData.barcode = row.barcode;
+        }
+        if (row.variantName !== undefined) {
+          variantData.name = row.variantName;
+        }
         if (row.price !== undefined) {
-          priceData.price = row.price;
+          variantData.price = row.price;
         }
         if (row.compareAtPrice !== undefined) {
-          priceData.compareAtPrice = row.compareAtPrice;
+          variantData.compareAtPrice = row.compareAtPrice;
         }
         if (row.priceStatus !== undefined) {
-          priceData.priceStatus = row.priceStatus;
+          variantData.priceStatus = row.priceStatus;
         }
-        const priceChanged = Object.keys(priceData).length > 0;
+        const variantFieldsChanged = Object.keys(variantData).length > 0;
+        // Any pricing field submission re-validates the whole effective
+        // pricing triple (a compareAt-only row still needs the SS-251 rule).
+        const pricingFieldsSubmitted =
+          row.price !== undefined ||
+          row.compareAtPrice !== undefined ||
+          row.priceStatus !== undefined;
+        // Only price/priceStatus moves can change the denormalized minimum.
+        const priceFieldsChanged =
+          row.price !== undefined || row.priceStatus !== undefined;
 
-        if (priceChanged) {
-          // SS-251 invariant on effective values (partial updates cannot
-          // sneak past it) — the shared rule, not a second implementation.
-          try {
-            this.variantsService.validatePricing({
-              price: row.price ?? variant.price.toString(),
-              compareAtPrice:
-                row.compareAtPrice !== undefined
-                  ? row.compareAtPrice
-                  : (variant.compareAtPrice?.toString() ?? null),
-              priceStatus: row.priceStatus ?? variant.priceStatus,
-            });
-          } catch (error) {
-            const message =
-              error instanceof BadRequestException
-                ? error.message
-                : 'مقادیر قیمت معتبر نیستند.';
-            return {
-              result: {
-                variantId: row.variantId,
-                outcome: 'VALIDATION_ERROR',
-                message,
-                fieldErrors: { compareAtPrice: message },
-              },
-              productSlug: null,
-            };
+        if (variantFieldsChanged) {
+          if (pricingFieldsSubmitted) {
+            // SS-251 invariant on effective values (partial updates cannot
+            // sneak past it) — the shared rule, not a second implementation.
+            try {
+              this.variantsService.validatePricing({
+                price: row.price ?? variant.price.toString(),
+                compareAtPrice:
+                  row.compareAtPrice !== undefined
+                    ? row.compareAtPrice
+                    : (variant.compareAtPrice?.toString() ?? null),
+                priceStatus: row.priceStatus ?? variant.priceStatus,
+              });
+            } catch (error) {
+              const message =
+                error instanceof BadRequestException
+                  ? error.message
+                  : 'مقادیر قیمت معتبر نیستند.';
+              return {
+                result: {
+                  variantId: row.variantId,
+                  outcome: 'VALIDATION_ERROR',
+                  message,
+                  fieldErrors: { compareAtPrice: message },
+                },
+                productSlug: null,
+              };
+            }
           }
 
           const updated = await tx.productVariant.updateMany({
@@ -380,7 +589,7 @@ export class CatalogGridService {
                 is: { deletedAt: null, status: { not: ProductStatus.ARCHIVED } },
               },
             },
-            data: { ...priceData, updatedBy: actorId },
+            data: { ...variantData, updatedBy: actorId },
           });
           if (updated.count === 0) {
             return {
@@ -392,11 +601,11 @@ export class CatalogGridService {
 
         let appliedStock: number | undefined;
         if (row.stock !== undefined) {
-          if (!priceChanged) {
-            // Stock-only row: the price path is not writing the variant, so
-            // guard the submitted version with a row-locked read (same FOR
-            // UPDATE discipline as recomputeProductMinPrice). The stock write
-            // itself stays a conditional expected-value update.
+          if (!variantFieldsChanged) {
+            // Stock-only row: the variant is not written by the field path,
+            // so guard the submitted version with a row-locked read (same
+            // FOR UPDATE discipline as recomputeProductMinPrice). The stock
+            // write itself stays a conditional expected-value update.
             const locked = await tx.$queryRaw<Array<{ updatedAt: Date }>>(
               Prisma.sql`SELECT "updatedAt" FROM "ProductVariant" WHERE "id" = ${row.variantId} AND "deletedAt" IS NULL FOR UPDATE`,
             );
@@ -488,9 +697,21 @@ export class CatalogGridService {
           );
         }
 
-        if (priceChanged) {
+        if (variantFieldsChanged) {
           const before: Record<string, string | null> = {};
           const after: Record<string, string | null> = {};
+          if (row.sku !== undefined) {
+            before.sku = variant.sku;
+            after.sku = row.sku;
+          }
+          if (row.barcode !== undefined) {
+            before.barcode = variant.barcode;
+            after.barcode = row.barcode;
+          }
+          if (row.variantName !== undefined) {
+            before.name = variant.name;
+            after.name = row.variantName;
+          }
           if (row.price !== undefined) {
             before.price = variant.price.toString();
             after.price = row.price;
@@ -517,14 +738,20 @@ export class CatalogGridService {
             tx,
           );
 
-          await recomputeProductMinPrice(tx, variant.productId);
+          if (priceFieldsChanged) {
+            await recomputeProductMinPrice(tx, variant.productId);
+          }
         }
 
         const current = await tx.productVariant.findUnique({
           where: { id: variant.id },
           select: {
+            sku: true,
+            barcode: true,
+            name: true,
             price: true,
             compareAtPrice: true,
+            priceStatus: true,
             updatedAt: true,
             deletedAt: true,
           },
@@ -547,6 +774,10 @@ export class CatalogGridService {
             updatedAt: current.updatedAt.toISOString(),
             price: current.price.toString(),
             compareAtPrice: current.compareAtPrice?.toString() ?? null,
+            sku: current.sku,
+            barcode: current.barcode,
+            variantName: current.name,
+            priceStatus: current.priceStatus,
             ...(appliedStock !== undefined ? { stock: appliedStock } : {}),
           },
           productSlug: variant.product.slug,
@@ -560,6 +791,21 @@ export class CatalogGridService {
             outcome: 'CONFLICT_LOCKED',
             message:
               'این ردیف در حال حاضر توسط عملیات دیگری قفل شده است؛ کمی بعد دوباره تلاش کنید.',
+          },
+          productSlug: null,
+        };
+      }
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002' &&
+        error.meta?.modelName === 'ProductVariant'
+      ) {
+        return {
+          result: {
+            variantId: row.variantId,
+            outcome: 'VALIDATION_ERROR',
+            message: DUPLICATE_SKU_MESSAGE,
+            fieldErrors: { sku: DUPLICATE_SKU_MESSAGE },
           },
           productSlug: null,
         };

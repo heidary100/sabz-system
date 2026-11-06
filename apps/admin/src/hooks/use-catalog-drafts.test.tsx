@@ -1,15 +1,16 @@
 // @vitest-environment jsdom
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { CatalogGridRowResult } from '@sabz/types'
+import type { CatalogGridBatchResponse } from '@sabz/types'
 import { useCatalogDrafts } from './use-catalog-drafts'
 import type { SaveOutcome } from './use-catalog-drafts'
-import type { CatalogGridBatchResponse } from '@sabz/types'
 
 /**
  * SS-257 client editing model: drafts are separate from server values, the
  * explicit save chunks into ≤50-row requests, per-row outcomes drive the row
  * status, and discard is a pure client-side reset that never calls the API.
+ * Variant fields (sku/barcode/variantName/priceStatus) are inline-editable;
+ * product fields are not.
  */
 vi.mock('../services/catalog-grid', () => ({
   listCatalogGrid: vi.fn(),
@@ -25,19 +26,14 @@ const BASE_TOKEN = '2026-11-03T10:00:00.000Z'
 const serverRow = {
   variantId: 'v1',
   expectedUpdatedAt: BASE_TOKEN,
+  sku: 'SKU-1',
+  barcode: 'BC-1' as string | null,
+  variantName: 'واریانت یک' as string | null,
   price: '100000',
   compareAtPrice: null as string | null,
   stock: 5,
   priceStatus: 'PRICED' as const,
 }
-
-beforeEach(() => {
-  mockBatch.mockReset()
-})
-
-afterEach(() => {
-  vi.clearAllMocks()
-})
 
 type DraftsHook = ReturnType<typeof useCatalogDrafts>
 type DraftsHookRender = { result: { current: DraftsHook } }
@@ -51,8 +47,24 @@ function edit(hook: DraftsHookRender, overrides: Partial<typeof serverRow> = {})
       act(() => hook.result.current.editCell(row, 'compareAtPrice', value)),
     stock: (value: string) =>
       act(() => hook.result.current.editCell(row, 'stock', value)),
+    sku: (value: string) =>
+      act(() => hook.result.current.editCell(row, 'sku', value)),
+    barcode: (value: string) =>
+      act(() => hook.result.current.editCell(row, 'barcode', value)),
+    variantName: (value: string) =>
+      act(() => hook.result.current.editCell(row, 'variantName', value)),
+    priceStatus: (value: string) =>
+      act(() => hook.result.current.editCell(row, 'priceStatus', value)),
   }
 }
+
+beforeEach(() => {
+  mockBatch.mockReset()
+})
+
+afterEach(() => {
+  vi.clearAllMocks()
+})
 
 describe('useCatalogDrafts', () => {
   it('creates a draft on edit and drops it when the value reverts to the server value', () => {
@@ -77,6 +89,30 @@ describe('useCatalogDrafts', () => {
     expect(hook.result.current.drafts['v1']?.compareAtPrice).toBeNull()
   })
 
+  it('edits sku/barcode/variantName/priceStatus and reverts them like any other field', () => {
+    const hook = renderHook(() => useCatalogDrafts())
+    const cells = edit(hook)
+
+    cells.sku('SKU-2')
+    cells.barcode('')
+    cells.variantName('نام تازه')
+    cells.priceStatus('CALL_FOR_PRICE')
+    expect(hook.result.current.drafts['v1']).toMatchObject({
+      sku: 'SKU-2',
+      barcode: null,
+      variantName: 'نام تازه',
+      priceStatus: 'CALL_FOR_PRICE',
+    })
+
+    // Reverting every touched cell back to the server values clears the draft.
+    cells.sku('SKU-1')
+    cells.barcode('BC-1')
+    cells.variantName('واریانت یک')
+    cells.priceStatus('PRICED')
+    expect(hook.result.current.drafts['v1']).toBeUndefined()
+    expect(hook.result.current.hasDirty).toBe(false)
+  })
+
   it('keeps separate baseUpdatedAt per row for optimistic concurrency', () => {
     const hook = renderHook(() => useCatalogDrafts())
     const cellsA = edit(hook, { variantId: 'v1' })
@@ -93,11 +129,10 @@ describe('useCatalogDrafts', () => {
   it('reports locally-invalid rows without calling the API', async () => {
     const hook = renderHook(() => useCatalogDrafts())
     const cells = edit(hook)
-    cells.stock('7')
-    // Force an invalid shape: price with 3 decimals is filtered at input, so
-    // simulate by editing then checking the local validation path directly.
+    cells.price('150000')
+    // An emptied SKU is invalid (SKU is required) — caught locally.
     act(() => {
-      hook.result.current.editCell({ ...serverRow, stock: 5 }, 'stock', '')
+      hook.result.current.editCell({ ...serverRow }, 'sku', '  ')
     })
 
     let outcome!: SaveOutcome
@@ -117,7 +152,17 @@ describe('useCatalogDrafts', () => {
       const id = `row-${index}`
       act(() => {
         hook.result.current.editCell(
-          { variantId: id, expectedUpdatedAt: BASE_TOKEN, price: '100000', compareAtPrice: null, stock: 5, priceStatus: 'PRICED' },
+          {
+            variantId: id,
+            expectedUpdatedAt: BASE_TOKEN,
+            sku: `SKU-${index}`,
+            barcode: null,
+            variantName: null,
+            price: '100000',
+            compareAtPrice: null,
+            stock: 5,
+            priceStatus: 'PRICED',
+          },
           'price',
           `${200000 + index}`,
         )
@@ -149,18 +194,22 @@ describe('useCatalogDrafts', () => {
     cellsB.price('999999')
 
     const newToken = '2026-11-03T11:00:00.000Z'
-    const results: CatalogGridRowResult[] = [
+    const results = [
       {
         variantId: 'v1',
-        outcome: 'SUCCESS',
+        outcome: 'SUCCESS' as const,
         price: '150000',
         compareAtPrice: null,
+        sku: 'SKU-1',
+        barcode: null,
+        variantName: null,
+        priceStatus: 'PRICED' as const,
         updatedAt: newToken,
         stock: 5,
       },
       {
         variantId: 'v2',
-        outcome: 'VALIDATION_ERROR',
+        outcome: 'VALIDATION_ERROR' as const,
         message: 'قیمت فروش ویژه باید بیشتر از قیمت فروش باشد.',
         fieldErrors: { compareAtPrice: 'قیمت فروش ویژه باید بیشتر از قیمت فروش باشد.' },
       },

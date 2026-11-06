@@ -108,6 +108,7 @@ export {
 
 export {
   CatalogGridBatchInput,
+  CatalogGridSortField,
   CatalogGridBatchResponse,
   CatalogGridBatchRowInput,
   CatalogGridListQuery,

@@ -1,61 +1,78 @@
 /**
- * Column definitions + visibility persistence for the SS-257 catalog grid.
+ * Column definitions + visibility persistence for the SS-257 catalog grid
+ * (rendered as the products page).
  *
- * The operational core (name, SKU, stock, both prices, price status) is
- * never hideable, so an operator can always act on a row; only the
- * informational columns (thumbnail, brand, category) toggle. Preference
- * lives in localStorage — the same best-effort persistence the sidebar and
- * theme use — because it is a per-browser display concern, not user data.
+ * The operational core (product name, SKU, stock, both prices, row actions)
+ * is never hideable, so an operator can always act on a row; informational
+ * columns toggle via the checkbox column list. Preference lives in
+ * localStorage — the same best-effort persistence the sidebar and theme use —
+ * because it is a per-browser display concern, not user data.
  */
 
 export type GridColumnKey =
   | 'thumbnail'
   | 'name'
+  | 'variantName'
   | 'sku'
+  | 'barcode'
   | 'brand'
   | 'category'
   | 'stock'
   | 'regularPrice'
   | 'salePrice'
   | 'priceStatus'
+  | 'productStatus'
+  | 'condition'
+  | 'created'
 
 export const GRID_COLUMN_STORAGE_KEY = 'sabz-admin-catalog-grid-columns'
 
 export const GRID_COLUMN_LABELS: Record<GridColumnKey, string> = {
   thumbnail: 'تصویر',
   name: 'نام محصول',
+  variantName: 'نام واریانت',
   sku: 'شناسه کالا (SKU)',
+  barcode: 'بارکد',
   brand: 'برند',
   category: 'دسته‌بندی',
   stock: 'موجودی',
   regularPrice: 'قیمت فروش',
   salePrice: 'قیمت فروش ویژه',
   priceStatus: 'وضعیت قیمت',
+  productStatus: 'وضعیت محصول',
+  condition: 'وضعیت کالا',
+  created: 'تاریخ ایجاد',
 }
 
 export const GRID_ALL_COLUMNS: GridColumnKey[] = [
   'thumbnail',
   'name',
+  'variantName',
   'sku',
+  'barcode',
   'brand',
   'category',
   'stock',
   'regularPrice',
   'salePrice',
   'priceStatus',
+  'productStatus',
+  'condition',
+  'created',
 ]
 
-/** Operational core — always rendered, never toggleable. */
+/** Operational core — always rendered, never toggleable (actions too). */
 export const GRID_FIXED_COLUMNS: GridColumnKey[] = [
   'name',
   'sku',
   'stock',
   'regularPrice',
   'salePrice',
-  'priceStatus',
 ]
 
-export const GRID_HIDEABLE_COLUMNS: GridColumnKey[] = ['thumbnail', 'brand', 'category']
+export const GRID_HIDEABLE_COLUMNS: GridColumnKey[] = GRID_ALL_COLUMNS.filter(
+  (key) => !GRID_FIXED_COLUMNS.includes(key),
+)
 
 const VALID_KEYS = new Set<string>(GRID_ALL_COLUMNS)
 
