@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { CatalogGridBatchResponse, CatalogGridRow } from '@sabz/types'
+import type { CatalogGridBatchResponse, CatalogGridListResponse, CatalogGridRow } from '@sabz/types'
 import { ProductsPage } from './products-page'
 
 /**
@@ -138,8 +138,12 @@ describe('ProductsPage — the editable catalog grid (SS-257 rework)', () => {
     expect(screen.getByDisplayValue('SKU-1')).toBeTruthy()
     expect(screen.getByDisplayValue('SKU-2')).toBeTruthy()
     expect(screen.getAllByText('انکر').length).toBeGreaterThanOrEqual(2)
-    // Product-level display fields from the rework payload.
-    expect(screen.getAllByText('منتشرشده').length).toBeGreaterThanOrEqual(2)
+    // Product status ships hidden in the lean defaults; its chip reveals it.
+    expect(screen.queryByText('منتشرشده')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'ستون وضعیت محصول' }))
+    await waitFor(() =>
+      expect(screen.getAllByText('منتشرشده').length).toBeGreaterThanOrEqual(2),
+    )
     // Stock column shows the aggregate server value.
     expect(screen.getByDisplayValue('5')).toBeTruthy()
   })
@@ -272,20 +276,54 @@ describe('ProductsPage — the editable catalog grid (SS-257 rework)', () => {
     expect(mockBatch).toHaveBeenCalledTimes(2)
   })
 
-  it('persists checkbox column visibility toggles and always keeps the fixed columns', async () => {
+  it('column chips toggle visibility in place and persist (fixed core always visible)', async () => {
     await renderAndLoad()
     expect(screen.getAllByText('انکر').length).toBeGreaterThanOrEqual(2)
 
-    fireEvent.click(screen.getByRole('button', { name: 'ستون‌ها' }))
-    fireEvent.click(screen.getByRole('checkbox', { name: 'برند' }))
+    // Chips render as a row of aria-pressed toggles.
+    const brandChip = screen.getByRole('button', { name: 'ستون برند' })
+    expect(brandChip.getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(brandChip)
     // The brand COLUMN disappears; the brand filter options legitimately stay.
     await waitFor(() => expect(screen.queryByRole('columnheader', { name: 'برند' })).toBeNull())
+    expect(screen.getByRole('button', { name: 'ستون برند' }).getAttribute('aria-pressed')).toBe('false')
 
     const stored = JSON.parse(localStorage.getItem('sabz-admin-catalog-grid-columns') ?? '[]') as string[]
     expect(stored).not.toContain('brand')
     expect(stored).toContain('sku') // fixed core persists implicitly
     expect(screen.getByRole('button', { name: 'شناسه کالا (SKU)' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'موجودی' })).toBeTruthy()
+
+    // Toggling back restores the column.
+    fireEvent.click(screen.getByRole('button', { name: 'ستون برند' }))
+    await waitFor(() => expect(screen.getAllByText('انکر').length).toBeGreaterThanOrEqual(2))
+  })
+
+  it('selects the page size and jumps to a page number', async () => {
+    mockList.mockResolvedValue({
+      items: rows,
+      total: 120,
+      page: 1,
+      limit: 20,
+    } as CatalogGridListResponse)
+    await renderAndLoad()
+
+    fireEvent.change(screen.getByLabelText('تعداد در هر صفحه'), {
+      target: { value: '20' },
+    })
+    await waitFor(() => {
+      const last = mockList.mock.calls[mockList.mock.calls.length - 1]![0]!
+      expect(last.limit).toBe(20)
+      expect(last.page).toBe(1)
+    })
+
+    // Go-to-page clamps to the range and refetches.
+    fireEvent.change(screen.getByLabelText('شماره صفحه'), { target: { value: '7' } })
+    fireEvent.click(screen.getByRole('button', { name: 'برو' }))
+    await waitFor(() => {
+      const last = mockList.mock.calls[mockList.mock.calls.length - 1]![0]!
+      expect(last.page).toBe(6) // ceil(120/20) = 6 pages
+    })
   })
 
   it('writes advanced filters to the URL and the API query (multi-select + stock + price)', async () => {

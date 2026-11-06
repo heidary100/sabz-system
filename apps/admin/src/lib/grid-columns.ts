@@ -74,17 +74,34 @@ export const GRID_HIDEABLE_COLUMNS: GridColumnKey[] = GRID_ALL_COLUMNS.filter(
   (key) => !GRID_FIXED_COLUMNS.includes(key),
 )
 
+/**
+ * Lean default view: the columns an operator needs at a glance fit a normal
+ * desktop viewport without horizontal scrolling. The rest (variant name,
+ * barcode, product status, condition, created) are one chip-click away.
+ */
+export const GRID_DEFAULT_COLUMNS: GridColumnKey[] = [
+  'thumbnail',
+  'name',
+  'sku',
+  'brand',
+  'category',
+  'stock',
+  'regularPrice',
+  'salePrice',
+  'priceStatus',
+]
+
 const VALID_KEYS = new Set<string>(GRID_ALL_COLUMNS)
 
 export function readVisibleColumns(): GridColumnKey[] {
   try {
     const raw = localStorage.getItem(GRID_COLUMN_STORAGE_KEY)
     if (!raw) {
-      return [...GRID_ALL_COLUMNS]
+      return [...GRID_DEFAULT_COLUMNS]
     }
     const parsed: unknown = JSON.parse(raw)
     if (!Array.isArray(parsed)) {
-      return [...GRID_ALL_COLUMNS]
+      return [...GRID_DEFAULT_COLUMNS]
     }
     const stored = parsed.filter(
       (key): key is GridColumnKey => typeof key === 'string' && VALID_KEYS.has(key),
@@ -95,7 +112,7 @@ export function readVisibleColumns(): GridColumnKey[] {
       (a, b) => GRID_ALL_COLUMNS.indexOf(a) - GRID_ALL_COLUMNS.indexOf(b),
     )
   } catch {
-    return [...GRID_ALL_COLUMNS]
+    return [...GRID_DEFAULT_COLUMNS]
   }
 }
 

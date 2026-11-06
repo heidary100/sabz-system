@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from 'vitest'
 import {
-  GRID_ALL_COLUMNS,
   GRID_COLUMN_STORAGE_KEY,
+  GRID_DEFAULT_COLUMNS,
   GRID_FIXED_COLUMNS,
   readVisibleColumns,
   writeVisibleColumns,
@@ -13,8 +13,12 @@ afterEach(() => {
 })
 
 describe('catalog grid column visibility persistence (SS-257)', () => {
-  it('defaults to every column when nothing is stored', () => {
-    expect(readVisibleColumns()).toEqual([...GRID_ALL_COLUMNS])
+  it('defaults to the lean column set when nothing is stored', () => {
+    expect(readVisibleColumns()).toEqual([...GRID_DEFAULT_COLUMNS])
+    // The lean set still contains the operational core.
+    for (const key of GRID_FIXED_COLUMNS) {
+      expect(GRID_DEFAULT_COLUMNS).toContain(key)
+    }
   })
 
   it('round-trips a stored selection', () => {
@@ -34,8 +38,8 @@ describe('catalog grid column visibility persistence (SS-257)', () => {
     expect(visible).toContain('brand')
   })
 
-  it('falls back to defaults on corrupt storage', () => {
+  it('falls back to the lean defaults on corrupt storage', () => {
     localStorage.setItem(GRID_COLUMN_STORAGE_KEY, 'not-json{')
-    expect(readVisibleColumns()).toEqual([...GRID_ALL_COLUMNS])
+    expect(readVisibleColumns()).toEqual([...GRID_DEFAULT_COLUMNS])
   })
 })

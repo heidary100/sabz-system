@@ -32,6 +32,8 @@ export interface CatalogGridFilters {
   sortBy: CatalogGridSortField | ''
   sortDir: 'asc' | 'desc'
   page: number
+  /** Page size — 20/50/100 in the UI, capped at 100 by the API DTO. */
+  limit: number
 }
 
 export type CatalogGridFilterPatch = Partial<Omit<CatalogGridFilters, 'page'>> & {
@@ -51,7 +53,7 @@ export interface CatalogGridRowPatch {
   priceStatus?: PriceStatus
 }
 
-const DEFAULT_LIMIT = 50
+const DEFAULT_PAGE_SIZE = 50
 
 function csv(value: string | null): string[] {
   return (value ?? '')
@@ -76,7 +78,16 @@ function parseFilters(params: URLSearchParams): CatalogGridFilters {
     sortBy: (params.get('sort') ?? '') as CatalogGridSortField | '',
     sortDir: params.get('dir') === 'desc' ? 'desc' : 'asc',
     page: Number.isFinite(pageRaw) && pageRaw > 0 ? pageRaw : 1,
+    limit: parseLimit(params.get('size')),
   }
+}
+
+const LIMIT_OPTIONS = [20, 50, 100]
+
+function parseLimit(raw: string | null): number {
+  const parsed = Number.parseInt(raw ?? '', 10)
+  const DEFAULT_PAGE_SIZE = 50
+  return LIMIT_OPTIONS.includes(parsed) ? parsed : DEFAULT_PAGE_SIZE
 }
 
 function serializeFilters(filters: CatalogGridFilters): URLSearchParams {
@@ -117,6 +128,9 @@ function serializeFilters(filters: CatalogGridFilters): URLSearchParams {
   }
   if (filters.page > 1) {
     next.set('page', String(filters.page))
+  }
+  if (filters.limit !== DEFAULT_PAGE_SIZE) {
+    next.set('size', String(filters.limit))
   }
   return next
 }
@@ -193,6 +207,11 @@ export function useCatalogGrid() {
 
   const setPage = useCallback((page: number) => setFilters({ page }), [setFilters])
 
+  const setLimit = useCallback(
+    (limit: number) => setFilters({ limit, page: 1 }),
+    [setFilters],
+  )
+
   const clearAllFilters = useCallback((): void => {
     setSearchParams(new URLSearchParams(), { replace: true })
   }, [setSearchParams])
@@ -215,7 +234,7 @@ export function useCatalogGrid() {
       sortBy: filters.sortBy || undefined,
       sortDir: filters.sortBy ? filters.sortDir : undefined,
       page: filters.page,
-      limit: DEFAULT_LIMIT,
+      limit: filters.limit,
     }
     try {
       const data = await listCatalogGrid(query)
@@ -282,7 +301,7 @@ export function useCatalogGrid() {
     filters,
     rows,
     total: result?.total ?? 0,
-    limit: result?.limit ?? DEFAULT_LIMIT,
+    limit: result?.limit ?? filters.limit,
     loading,
     error,
     setSearch,
@@ -296,6 +315,7 @@ export function useCatalogGrid() {
     setPriceRange,
     setSort,
     setPage,
+    setLimit,
     clearAllFilters,
     refetch,
     applyRowPatches,

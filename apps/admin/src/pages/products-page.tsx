@@ -54,11 +54,12 @@ import {
 } from '../components/ui/pagination'
 import { DeleteConfirmDialog } from '../components/ui/delete-confirm-dialog'
 import { EditableCell, PriceStatusCell } from '../components/catalog/editable-cell'
-import { ColumnVisibilityMenu } from '../components/catalog/column-visibility-menu'
 import { FilterChips } from '../components/catalog/filter-chips'
 import type { FilterChip } from '../components/catalog/filter-chips'
 import { RowActions } from '../components/catalog/row-actions'
 import { UnsavedChangesBar } from '../components/catalog/unsaved-changes-bar'
+import { ColumnChips } from '../components/catalog/column-chips'
+import { HorizontalScroll } from '../components/ui/horizontal-scroll'
 import { RowConflictDialog } from '../components/catalog/row-conflict-dialog'
 
 const SEARCH_DEBOUNCE_MS = 300
@@ -120,6 +121,7 @@ export function ProductsPage() {
     setPriceRange,
     setSort,
     setPage,
+    setLimit,
   } = grid
   const drafts = useCatalogDrafts()
   const { categories: categoryOptions } = useCategoryOptions()
@@ -135,6 +137,7 @@ export function ProductsPage() {
   const [deleteTarget, setDeleteTarget] = useState<{ variantId: string; sku: string } | null>(
     null,
   )
+  const [pageInput, setPageInput] = useState('')
 
   // Guarded debounced server-side filters. On decline the local input
   // reverts to the committed URL value so it never lies about the query.
@@ -251,6 +254,19 @@ export function ProductsPage() {
       return
     }
     submitAndReconcile(outcome)
+  }
+
+  const goToPage = (): void => {
+    const target = Number.parseInt(pageInput, 10)
+    if (!Number.isFinite(target)) {
+      return
+    }
+    const clamped = Math.min(Math.max(target, 1), totalPages)
+    setPageInput('')
+    if (clamped === grid.filters.page) {
+      return
+    }
+    changeFilter(() => setPage(clamped))()
   }
 
   const handleDiscard = (): void => {
@@ -497,18 +513,15 @@ export function ProductsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
+    <div className="w-full space-y-6">
       <PageHeader
         title="محصولات"
         subtitle="ویرایش سریع قیمت و موجودی؛ تغییرات با «ذخیره تغییرات» اعمال میشود."
         actions={
-          <div className="flex items-center gap-2">
-            <ColumnVisibilityMenu visible={visibleColumns} onToggle={toggleColumn} />
-            <Button color="primary" onClick={() => navigate('/products/new')}>
-              <Plus data-slot="icon" />
-              افزودن محصول
-            </Button>
-          </div>
+          <Button color="primary" onClick={() => navigate('/products/new')}>
+            <Plus data-slot="icon" />
+            افزودن محصول
+          </Button>
         }
       />
 
@@ -624,6 +637,8 @@ export function ProductsPage() {
 
       <FilterChips chips={chips} onClearAll={clearAllFilters} />
 
+      <ColumnChips visible={visibleColumns} onToggle={toggleColumn} />
+
       <UnsavedChangesBar
         dirtyCount={drafts.dirtyCount}
         saving={drafts.saving}
@@ -667,7 +682,7 @@ export function ProductsPage() {
         />
       ) : (
         <TableCard>
-          <div className="overflow-x-auto">
+          <HorizontalScroll>
             <Table striped>
               <TableHead>
                 <TableRow>
@@ -828,9 +843,9 @@ export function ProductsPage() {
                 })}
               </TableBody>
             </Table>
-          </div>
+          </HorizontalScroll>
 
-          <div className="mt-4 border-t border-border pt-4">
+          <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-border pt-4">
             <Pagination aria-label="صفحه‌بندی محصولات">
               <PaginationPrevious
                 disabled={grid.filters.page <= 1 || grid.loading}
@@ -857,6 +872,40 @@ export function ProductsPage() {
                 onClick={() => changeFilter(() => setPage(grid.filters.page + 1))()}
               />
             </Pagination>
+
+            <div className="ms-auto flex flex-wrap items-center gap-2">
+              <Select
+                aria-label="تعداد در هر صفحه"
+                value={String(grid.filters.limit)}
+                onChange={(event) =>
+                  changeFilter(() => setLimit(Number(event.target.value)))()
+                }
+                className="w-auto"
+              >
+                <option value="20">۲۰ ردیف در صفحه</option>
+                <option value="50">۵۰ ردیف در صفحه</option>
+                <option value="100">۱۰۰ ردیف در صفحه</option>
+              </Select>
+              <div className="flex items-center gap-1">
+                <Input
+                  aria-label="شماره صفحه"
+                  dir="ltr"
+                  inputMode="numeric"
+                  placeholder={`صفحه ${grid.filters.page}`}
+                  className="w-20"
+                  value={pageInput}
+                  onChange={(event) => setPageInput(event.target.value.replace(/[^\d]/g, ''))}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      goToPage()
+                    }
+                  }}
+                />
+                <Button outline onClick={goToPage} disabled={pageInput.trim() === ''}>
+                  برو
+                </Button>
+              </div>
+            </div>
           </div>
         </TableCard>
       )}
