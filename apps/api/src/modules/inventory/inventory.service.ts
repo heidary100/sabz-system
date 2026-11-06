@@ -1001,8 +1001,12 @@ export class InventoryService {
    * write is a conditional expected-value update on `quantityOnHand`, so a
    * concurrent absolute set either applies exactly or loses with 409 — one
    * winner, no stale writes. Writes exactly one MANUAL_ADJUSTMENT movement.
+   *
+   * Public so the SS-257 catalog-grid batch can run the same conditional
+   * expected-value write inside ITS OWN transaction (a grid row commits its
+   * price and stock changes atomically) — behavior unchanged.
    */
-  private async applyAbsoluteSet(
+  async applyAbsoluteSet(
     tx: Prisma.TransactionClient,
     params: {
       variantId: string;

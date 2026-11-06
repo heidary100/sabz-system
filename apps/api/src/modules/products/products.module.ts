@@ -13,6 +13,8 @@ import { ProductsController } from './products.controller';
 import { ProductsService } from './products.service';
 import { AdminVariantsController, ProductVariantsController } from './variants.controller';
 import { VariantsService } from './variants.service';
+import { CatalogGridController } from './catalog-grid.controller';
+import { CatalogGridService } from './catalog-grid.service';
 import { AttributesService } from './attributes.service';
 import { TagsService } from './tags.service';
 import {
@@ -67,6 +69,7 @@ export const PRODUCT_MEDIA_TEMP_DIR = 'PRODUCT_MEDIA_TEMP_DIR';
     BrandsController,
     ProductVariantsController,
     AdminVariantsController,
+    CatalogGridController,
     ProductMediaController,
     AdminMediaController,
     AdminDescriptionImagesController,
@@ -81,6 +84,7 @@ export const PRODUCT_MEDIA_TEMP_DIR = 'PRODUCT_MEDIA_TEMP_DIR';
     CategoriesService,
     BrandsService,
     VariantsService,
+    CatalogGridService,
     AttributesService,
     TagsService,
     MediaService,

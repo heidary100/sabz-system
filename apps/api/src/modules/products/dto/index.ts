@@ -17,3 +17,5 @@ export {
   CATALOG_PRODUCT_SORTS,
   ListCatalogProductsQueryDto,
 } from './list-catalog-products-query.dto';
+export { ListCatalogGridQueryDto } from './list-catalog-grid-query.dto';
+export { CatalogGridBatchDto, CatalogGridBatchRowDto } from './catalog-grid-batch.dto';
