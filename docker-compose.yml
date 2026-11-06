@@ -129,6 +129,10 @@ services:
       STOREFRONT_REVALIDATE_TOKEN: ${REVALIDATE_TOKEN:-dev_revalidate_secret_change_me}
     volumes:
       - ./apps/api:/app/apps/api
+      # Workspace packages are mounted live so shared-package changes
+      # (@sabz/types, @sabz/search, ...) reach the watch process without an
+      # image rebuild — node_modules/@sabz/* symlink into /app/packages.
+      - ./packages:/app/packages
       - api_node_modules:/app/apps/api/node_modules
       - api_documents:/app/.data/documents
       - api_product_media:/app/.data/product-media
@@ -162,6 +166,7 @@ services:
     command: ["pnpm", "--filter", "@sabz/admin", "dev", "--host", "0.0.0.0"]
     volumes:
       - ./apps/admin:/app/apps/admin
+      - ./packages:/app/packages
       - admin_node_modules:/app/apps/admin/node_modules
 
   storefront:
@@ -192,6 +197,7 @@ services:
     command: ["pnpm", "--filter", "@sabz/storefront", "dev", "--hostname", "0.0.0.0"]
     volumes:
       - ./apps/storefront:/app/apps/storefront
+      - ./packages:/app/packages
       - storefront_node_modules:/app/apps/storefront/node_modules
 
 volumes:
