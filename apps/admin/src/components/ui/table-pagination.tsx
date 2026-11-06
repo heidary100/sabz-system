@@ -1,34 +1,33 @@
 import { useState } from 'react'
 import clsx from 'clsx'
-import { Button } from '../catalyst/button'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { Input } from '../catalyst/input'
 import { Select } from '../catalyst/select'
-import {
-  Pagination,
-  PaginationGap,
-  PaginationList,
-  PaginationNext,
-  PaginationPage,
-  PaginationPrevious,
-} from './pagination'
 import { pageNumbers } from '../../lib/pagination'
 
 /**
  * Shared pagination bar (SS-268) — ONE composition for every paginated
  * admin table, rendered twice (top + bottom) from the SAME state so both
- * instances always agree. Carries: page-size select, page numbers, RTL
- * arrows, go-to-page and the totals line inside the bar (the totals used to
- * float outside the card on their own line). Pages without limit support
- * simply omit `onLimitChange`; the select then hides.
+ * instances always agree.
  *
- * a11y: `position` disambiguates the two duplicate control sets on one page
- * (nav aria-label «صفحه‌بندی بالا/پایین») and the go-to-page input carries
- * an instance-unique id prefix so labels never collide.
+ * Redesign (SS-268 feedback): three balanced clusters instead of the old
+ * scattered row —
+ *   [count pill + page position]  ·  [segmented pager]  ·  [size · jump]
+ * The segmented pager is the one deliberate accent: joined controls on a
+ * raised segment, current page as the single solid ink block (not
+ * clickable — you are on it), flanked by icon chevrons that point in the
+ * RTL reading direction (prev →, next ←). Jump is Enter-only; the size
+ * select shows bare numerals. Everything rides the semantic tokens, so
+ * both themes and the density scale come for free.
+ *
+ * a11y: `position` disambiguates the two duplicate control sets on one
+ * page (nav aria-label «صفحه‌بندی بالا/پایین») and every label carries it.
+ * Routes without limit support omit `onLimitChange`; the select hides.
  */
 export interface TablePaginationProps {
   page: number
   totalPages: number
-  /** Total matching items across all pages (drives the totals line). */
+  /** Total matching items across all pages (drives the count pill). */
   total: number
   /** Current page size; omit `onLimitChange` to hide the size select. */
   limit?: number
@@ -37,12 +36,14 @@ export interface TablePaginationProps {
   onLimitChange?: (limit: number) => void
   /** Whether the bar sits above or below the table (a11y + edge styling). */
   position: 'top' | 'bottom'
-  /** Noun for the totals line, e.g. «واریانت» / «سفارش». */
+  /** Noun for the count pill, e.g. «واریانت» / «سفارش». */
   totalLabel?: string
   className?: string
 }
 
 const DEFAULT_LIMIT_OPTIONS = [20, 50, 100]
+
+const faDigits = (value: number): string => value.toLocaleString('fa-IR')
 
 export function TablePagination({
   page,
@@ -57,7 +58,7 @@ export function TablePagination({
   className,
 }: TablePaginationProps) {
   const [pageInput, setPageInput] = useState('')
-  const disabled = onPageChange === undefined
+  const positionLabel = position === 'top' ? 'بالا' : 'پایین'
 
   const goToPage = (): void => {
     if (!onPageChange) return
@@ -68,83 +69,128 @@ export function TablePagination({
     if (clamped !== page) onPageChange(clamped)
   }
 
-  const positionLabel = position === 'top' ? 'بالا' : 'پایین'
+  const chevronClasses =
+    'flex size-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-primary-subtle/60 hover:text-primary focus-ring disabled:pointer-events-none disabled:opacity-40'
 
   return (
-    <div
+    <nav
+      aria-label={`صفحه‌بندی ${positionLabel}`}
       className={clsx(
         className,
-        'flex flex-wrap items-center gap-3',
-        position === 'top' ? 'mb-3 border-b border-border pb-3' : 'mt-3 border-t border-border pt-3',
+        'flex flex-wrap items-center justify-between gap-x-4 gap-y-2',
+        position === 'top'
+          ? 'mb-3 border-b border-border pb-3'
+          : 'mt-3 border-t border-border pt-3',
       )}
     >
-      <Pagination aria-label={`صفحه‌بندی ${positionLabel}`}>
-        <PaginationPrevious
-          disabled={page <= 1 || disabled}
-          onClick={() => onPageChange?.(page - 1)}
-        />
-        <PaginationList>
-          {pageNumbers(page, totalPages).map((item, index) =>
-            item === 'gap' ? (
-              <PaginationGap key={`gap-${index}`} />
-            ) : (
-              <PaginationPage
-                key={item}
-                current={item === page}
-                disabled={disabled}
-                onClick={() => onPageChange?.(item)}
-              >
-                {item}
-              </PaginationPage>
-            ),
-          )}
-        </PaginationList>
-        <PaginationNext
-          disabled={page >= totalPages || disabled}
-          onClick={() => onPageChange?.(page + 1)}
-        />
-      </Pagination>
-
-      <div className="ms-auto flex flex-wrap items-center gap-2">
+      {/* Totals cluster (RTL start). */}
+      <div className="flex min-w-0 items-center gap-2">
         {total > 0 ? (
-          <span className="text-xs text-muted" aria-live="polite">
-            مجموع: {total.toLocaleString('fa-IR')} {totalLabel} · صفحه {page} از {totalPages}
+          <span
+            className="rounded-lg bg-primary-subtle px-2.5 py-1 text-xs font-semibold tabular-nums text-primary"
+            aria-live="polite"
+          >
+            {faDigits(total)} {totalLabel}
           </span>
         ) : null}
-        {onLimitChange && limit != null ? (
-          <Select
-            aria-label={`تعداد در هر صفحه (${positionLabel})`}
-            value={String(limit)}
-            onChange={(event) => onLimitChange(Number(event.target.value))}
-            className="w-auto"
+        <span className="text-xs tabular-nums text-muted">
+          صفحه {faDigits(page)} از {faDigits(totalPages)}
+        </span>
+      </div>
+
+      {/* Segmented pager — hidden entirely on single-page result sets. */}
+      {onPageChange && totalPages > 1 ? (
+        <div
+          role="group"
+          aria-label={`رفتن بین صفحات (${positionLabel})`}
+          className="flex items-center gap-0.5 rounded-xl border border-border bg-surface-strong p-1 shadow-xs"
+        >
+          <button
+            type="button"
+            onClick={() => onPageChange(page - 1)}
+            disabled={page <= 1}
+            aria-label="صفحه قبلی"
+            className={chevronClasses}
           >
-            {limitOptions.map((option) => (
-              <option key={option} value={String(option)}>
-                {option.toLocaleString('fa-IR')} {totalLabel} در صفحه
-              </option>
-            ))}
-          </Select>
+            <ChevronRight className="size-4" aria-hidden="true" />
+          </button>
+          {pageNumbers(page, totalPages).map((item, index) =>
+            item === 'gap' ? (
+              <span
+                key={`gap-${index}`}
+                aria-hidden="true"
+                className="w-5 select-none text-center text-xs text-muted"
+              >
+                …
+              </span>
+            ) : item === page ? (
+              <span
+                key={item}
+                aria-current="page"
+                title={`صفحه ${faDigits(item)}`}
+                className="flex size-8 items-center justify-center rounded-lg bg-primary-strong text-sm font-semibold tabular-nums text-white"
+              >
+                {faDigits(item)}
+              </span>
+            ) : (
+              <button
+                key={item}
+                type="button"
+                onClick={() => onPageChange(item)}
+                aria-label={`صفحه ${faDigits(item)}`}
+                className="flex size-8 items-center justify-center rounded-lg text-sm font-medium tabular-nums text-foreground transition-colors hover:bg-primary-subtle/60 hover:text-primary focus-ring"
+              >
+                {faDigits(item)}
+              </button>
+            ),
+          )}
+          <button
+            type="button"
+            onClick={() => onPageChange(page + 1)}
+            disabled={page >= totalPages}
+            aria-label="صفحه بعد"
+            className={chevronClasses}
+          >
+            <ChevronLeft className="size-4" aria-hidden="true" />
+          </button>
+        </div>
+      ) : null}
+
+      {/* Size + jump cluster (RTL end). */}
+      <div className="flex items-center gap-2">
+        {onLimitChange && limit != null ? (
+          <>
+            <Select
+              aria-label={`تعداد در هر صفحه (${positionLabel})`}
+              value={String(limit)}
+              onChange={(event) => onLimitChange(Number(event.target.value))}
+              className="w-auto min-w-16"
+            >
+              {limitOptions.map((option) => (
+                <option key={option} value={String(option)}>
+                  {faDigits(option)}
+                </option>
+              ))}
+            </Select>
+            <span className="text-xs text-muted">در هر صفحه</span>
+          </>
         ) : null}
         {onPageChange && totalPages > 1 ? (
-          <div className="flex items-center gap-1">
-            <Input
-              aria-label={`شماره صفحه (${positionLabel})`}
-              dir="ltr"
-              inputMode="numeric"
-              placeholder={`صفحه ${page}`}
-              className="w-20"
-              value={pageInput}
-              onChange={(event) => setPageInput(event.target.value.replace(/[^\d]/g, ''))}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') goToPage()
-              }}
-            />
-            <Button outline onClick={goToPage} disabled={pageInput.trim() === ''}>
-              برو
-            </Button>
-          </div>
+          <Input
+            aria-label={`شماره صفحه (${positionLabel})`}
+            title="رفتن به صفحه — Enter"
+            dir="ltr"
+            inputMode="numeric"
+            placeholder="صفحه"
+            className="w-16"
+            value={pageInput}
+            onChange={(event) => setPageInput(event.target.value.replace(/[^\d]/g, ''))}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') goToPage()
+            }}
+          />
         ) : null}
       </div>
-    </div>
+    </nav>
   )
 }

@@ -330,9 +330,10 @@ describe('ProductsPage — the editable catalog grid (SS-257 rework)', () => {
       expect(last.page).toBe(1)
     })
 
-    // Go-to-page clamps to the range and refetches (bottom bar input).
+    // Go-to-page clamps to the range and refetches (Enter-submitted jump,
+    // bottom bar input — SS-268 redesign dropped the برو button).
     fireEvent.change(screen.getByLabelText('شماره صفحه (پایین)'), { target: { value: '7' } })
-    fireEvent.click(screen.getAllByRole('button', { name: 'برو' })[1]!)
+    fireEvent.keyDown(screen.getByLabelText('شماره صفحه (پایین)'), { key: 'Enter' })
     await waitFor(() => {
       const last = mockList.mock.calls[mockList.mock.calls.length - 1]![0]!
       expect(last.page).toBe(6) // ceil(120/20) = 6 pages
