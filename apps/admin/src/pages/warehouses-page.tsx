@@ -107,7 +107,7 @@ export function WarehousesPage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
+    <div className="w-full space-y-6">
       <PageHeader
         title="انبارها"
         actions={
@@ -179,7 +179,7 @@ export function WarehousesPage() {
         />
       ) : (
         <TableCard>
-          <Table striped>
+          <Table striped dense>
             <TableHead>
               <TableRow>
                 <TableHeader>کد</TableHeader>

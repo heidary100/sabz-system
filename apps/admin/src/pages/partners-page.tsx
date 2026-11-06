@@ -53,7 +53,7 @@ export function PartnersPage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
+    <div className="w-full space-y-6">
       <PageHeader title="درخواست‌های همکاری" />
 
       <div className="flex w-full max-w-xs items-end gap-4">
@@ -97,7 +97,7 @@ export function PartnersPage() {
         />
       ) : (
         <TableCard>
-          <Table striped>
+          <Table striped dense>
             <TableHead>
               <TableRow>
                 <TableHeader>نام کسب‌وکار</TableHeader>

@@ -70,7 +70,7 @@ export function NotificationsPage() {
   const totalPages = result ? Math.max(1, Math.ceil(result.total / limit)) : 1
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
+    <div className="w-full space-y-6">
       <PageHeader
         title="اعلان‌ها"
         subtitle={
@@ -128,7 +128,7 @@ export function NotificationsPage() {
         />
       ) : (
         <TableCard>
-          <Table striped>
+          <Table striped dense>
             <TableHead>
               <TableRow>
                 <TableHeader>نوع</TableHeader>

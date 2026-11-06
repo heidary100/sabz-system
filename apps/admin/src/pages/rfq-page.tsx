@@ -53,7 +53,7 @@ export function RfqPage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
+    <div className="w-full space-y-6">
       <PageHeader title="استعلام‌ها" />
 
       <div className="flex w-full max-w-xs items-end gap-4">
@@ -98,7 +98,7 @@ export function RfqPage() {
         />
       ) : (
         <TableCard>
-          <Table striped>
+          <Table striped dense>
             <TableHead>
               <TableRow>
                 <TableHeader>محصول</TableHeader>

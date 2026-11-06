@@ -317,7 +317,11 @@ describe('ProductsPage — the editable catalog grid (SS-257 rework)', () => {
     } as CatalogGridListResponse)
     await renderAndLoad()
 
-    fireEvent.change(screen.getByLabelText('تعداد در هر صفحه'), {
+    // SS-268: top + bottom TablePagination instances share one state — both
+    // bars exist, and either drives the shared URL state.
+    expect(screen.getAllByRole('navigation', { name: /صفحه‌بندی/ }).length).toBe(2)
+
+    fireEvent.change(screen.getByLabelText('تعداد در هر صفحه (پایین)'), {
       target: { value: '20' },
     })
     await waitFor(() => {
@@ -326,9 +330,9 @@ describe('ProductsPage — the editable catalog grid (SS-257 rework)', () => {
       expect(last.page).toBe(1)
     })
 
-    // Go-to-page clamps to the range and refetches.
-    fireEvent.change(screen.getByLabelText('شماره صفحه'), { target: { value: '7' } })
-    fireEvent.click(screen.getByRole('button', { name: 'برو' }))
+    // Go-to-page clamps to the range and refetches (bottom bar input).
+    fireEvent.change(screen.getByLabelText('شماره صفحه (پایین)'), { target: { value: '7' } })
+    fireEvent.click(screen.getAllByRole('button', { name: 'برو' })[1]!)
     await waitFor(() => {
       const last = mockList.mock.calls[mockList.mock.calls.length - 1]![0]!
       expect(last.page).toBe(6) // ceil(120/20) = 6 pages

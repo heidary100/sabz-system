@@ -75,7 +75,7 @@ export function UsersPage() {
   const hasActiveFilter = status !== '' || role !== '' || search.trim() !== ''
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
+    <div className="w-full space-y-6">
       <PageHeader title="کاربران" />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -158,7 +158,7 @@ export function UsersPage() {
         />
       ) : (
         <TableCard>
-          <Table striped>
+          <Table striped dense>
             <TableHead>
               <TableRow>
                 <TableHeader>موبایل</TableHeader>

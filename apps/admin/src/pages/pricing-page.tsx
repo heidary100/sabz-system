@@ -155,7 +155,7 @@ function SectionShell({
         />
       ) : (
         <TableCard>
-          <Table striped>{children}</Table>
+          <Table striped dense>{children}</Table>
 
           <div className="mt-4 border-t border-border pt-4">
             <Pagination aria-label={paginationLabel}>
@@ -325,7 +325,7 @@ export function PricingPage() {
     : 1
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
+    <div className="w-full space-y-6">
       <PageHeader
         title="قیمت‌گذاری"
         actions={
@@ -624,7 +624,7 @@ export function PricingPage() {
             />
           ) : (
             <TableCard>
-              <Table striped>
+              <Table striped dense>
                 <TableHead>
                   <TableRow>
                     <TableHeader>نام پله</TableHeader>

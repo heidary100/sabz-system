@@ -107,7 +107,7 @@ export function BlogPage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
+    <div className="w-full space-y-6">
       <PageHeader
         title="وبلاگ"
         actions={
@@ -170,7 +170,7 @@ export function BlogPage() {
         />
       ) : (
         <TableCard>
-          <Table striped>
+          <Table striped dense>
             <TableHead>
               <TableRow>
                 <TableHeader>عنوان</TableHeader>
@@ -320,7 +320,7 @@ export function BlogPage() {
           />
         ) : (
           <TableCard>
-            <Table striped>
+            <Table striped dense>
               <TableHead>
                 <TableRow>
                   <TableHeader>نام</TableHeader>

@@ -206,7 +206,7 @@ export function DashboardPage() {
         <div className="mb-4 flex items-center justify-between gap-4">
           <Subheading>صف‌های انتظار بررسی</Subheading>
         </div>
-        <Table striped>
+        <Table striped dense>
           <TableHead>
             <TableRow>
               <TableHeader>صف</TableHeader>
@@ -234,7 +234,7 @@ export function DashboardPage() {
         <div className="mb-4 flex items-center justify-between gap-4">
           <Subheading>روند ۱۴ روزه سفارش‌ها</Subheading>
         </div>
-        <Table striped>
+        <Table striped dense>
           <TableHead>
             <TableRow>
               <TableHeader>تاریخ</TableHeader>

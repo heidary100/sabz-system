@@ -129,7 +129,7 @@ export function AuditPage() {
   const totalPages = result ? Math.max(1, Math.ceil(result.total / result.limit)) : 1
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
+    <div className="w-full space-y-6">
       <PageHeader title="گزارش فعالیت‌ها" />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -250,7 +250,7 @@ export function AuditPage() {
         />
       ) : (
         <TableCard>
-          <Table striped>
+          <Table striped dense>
             <TableHead>
               <TableRow>
                 <TableHeader>تاریخ و ساعت</TableHeader>

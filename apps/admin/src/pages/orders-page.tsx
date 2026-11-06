@@ -57,7 +57,7 @@ export function OrdersPage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
+    <div className="w-full space-y-6">
       <PageHeader title="سفارش‌ها" />
 
       <div className="flex w-full max-w-xs items-end gap-4">
@@ -102,7 +102,7 @@ export function OrdersPage() {
         />
       ) : (
         <TableCard>
-          <Table striped>
+          <Table striped dense>
             <TableHead>
               <TableRow>
                 <TableHeader>شماره سفارش</TableHeader>

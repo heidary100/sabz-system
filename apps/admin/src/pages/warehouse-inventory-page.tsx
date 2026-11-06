@@ -52,7 +52,7 @@ export function WarehouseInventoryPage() {
 
   if (error && !result) {
     return (
-      <div className="mx-auto max-w-6xl space-y-6">
+      <div className="w-full space-y-6">
         <div className="surface-card flex flex-col items-center gap-4 rounded-xl px-6 py-16 text-center">
           <p className="text-sm/6 text-muted">{translateApiError(error)}</p>
           <Button color="primary" onClick={() => void refetch()}>
@@ -80,7 +80,7 @@ export function WarehouseInventoryPage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
+    <div className="w-full space-y-6">
       <div className="space-y-2">
         <Link
           to="/inventory"
@@ -111,7 +111,7 @@ export function WarehouseInventoryPage() {
         />
       ) : (
         <TableCard>
-          <Table striped>
+          <Table striped dense>
             <TableHead>
               <TableRow>
                 <TableHeader>SKU</TableHeader>

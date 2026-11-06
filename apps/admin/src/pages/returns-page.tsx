@@ -56,7 +56,7 @@ export function ReturnsPage() {
   const totalPages = result ? Math.max(1, Math.ceil(result.total / limit)) : 1
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
+    <div className="w-full space-y-6">
       <PageHeader title="مرجوعی‌ها" />
 
       <div className="flex w-full max-w-xs items-end gap-4">
@@ -111,7 +111,7 @@ export function ReturnsPage() {
         />
       ) : (
         <TableCard>
-          <Table striped>
+          <Table striped dense>
             <TableHead>
               <TableRow>
                 <TableHeader>سفارش</TableHeader>

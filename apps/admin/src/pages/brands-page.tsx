@@ -64,7 +64,7 @@ export function BrandsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
+    <div className="w-full space-y-6">
       <PageHeader
         title="برندها"
         actions={
@@ -97,7 +97,7 @@ export function BrandsPage() {
         />
       ) : (
         <TableCard>
-          <Table striped>
+          <Table striped dense>
             <TableHead>
               <TableRow>
                 <TableHeader>نام</TableHeader>

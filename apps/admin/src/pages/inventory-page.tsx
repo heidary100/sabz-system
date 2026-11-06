@@ -91,7 +91,7 @@ export function InventoryPage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
+    <div className="w-full space-y-6">
       <PageHeader
         title="موجودی"
         actions={
@@ -190,7 +190,7 @@ export function InventoryPage() {
         />
       ) : (
         <TableCard>
-          <Table striped>
+          <Table striped dense>
             <TableHead>
               <TableRow>
                 <TableHeader>SKU</TableHeader>

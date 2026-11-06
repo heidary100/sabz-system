@@ -38,7 +38,11 @@ export function AdminLayout() {
       />
       <div className="flex min-w-0 flex-1 flex-col">
         <AppHeader title={title} onOpenMobile={() => setMobileOpen(true)} />
-        <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 sm:py-8">
+        {/* SS-268: no max-width here — each page owns its width via its own
+            wrapper (full for data tables, capped for forms/details), so a
+            table page can use the whole content column without the old
+            double nesting (max-w-7xl shell + max-w-6xl page). */}
+        <main className="w-full flex-1 px-4 py-4 sm:px-6 sm:py-6">
           <Outlet />
         </main>
       </div>

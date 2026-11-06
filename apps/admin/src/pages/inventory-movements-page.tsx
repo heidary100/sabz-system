@@ -127,7 +127,7 @@ export function InventoryMovementsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
+    <div className="w-full space-y-6">
       <div className="space-y-2">
         <Link to="/inventory" className="text-sm font-medium text-primary hover:underline">
           بازگشت به موجودی
@@ -241,7 +241,7 @@ export function InventoryMovementsPage() {
         />
       ) : (
         <TableCard>
-          <Table striped>
+          <Table striped dense>
             <TableHead>
               <TableRow>
                 <TableHeader>تاریخ و ساعت</TableHeader>
