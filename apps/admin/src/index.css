@@ -174,11 +174,13 @@
   --color-background: var(--sabz-background);
   --color-foreground: var(--sabz-foreground);
   --color-border: var(--sabz-border);
+  --color-border-strong: var(--sabz-border-strong);
   --color-surface: var(--sabz-surface);
   --color-surface-strong: var(--sabz-surface-strong);
   --color-glass: var(--sabz-glass);
   --color-glass-border: var(--sabz-glass-border);
   --color-muted: var(--sabz-muted);
+  --color-focus-ring: var(--sabz-focus-ring);
 
   /* Brand primary family: `primary` is for text/icons/links (mint in dark
      mode), `primary-strong` is the button fill (mid green in both themes),
@@ -215,12 +217,16 @@
 :root {
   color-scheme: light;
 
-  /* Neutral surfaces: the page sits on a warm stone, cards are subtly
-     off-white (never flat white), elevated surfaces and dialogs are pure
-     white. The glass carries a faint green cast from the brand. */
-  --sabz-background: #f6f5f1;
+  /* Neutral surfaces: the page sits on the AGENTS.md warm stone (#f8f7f5),
+     cards are subtly off-white (never flat white), elevated surfaces and
+     dialogs are pure white. The glass carries a faint green cast from the
+     brand. */
+  --sabz-background: #f8f7f5;
   --sabz-foreground: #312e24;
-  --sabz-border: #e2dfd5;
+  --sabz-border: #dad7cd;
+  /* Strong rules (table headers, input borders) carry real 3:1 contrast —
+     the soft #dad7cd edge stays for decorative separation. */
+  --sabz-border-strong: #8a8271;
   --sabz-surface: #fbfaf7;
   --sabz-surface-strong: #ffffff;
   --sabz-glass: rgb(251 250 247 / 0.74);
@@ -253,6 +259,15 @@
   --sabz-info: #275e6f;
   --sabz-info-subtle: #eef6f8;
   --sabz-info-border: #b9dae3;
+
+  /* Keyboard focus ring — the brand ink, one step deeper than the link
+     color so it reads on both the stone background and white surfaces. */
+  --sabz-focus-ring: #2e6136;
+
+  /* Elevation: cards get a whisper of depth (1); dialogs and overlays,
+     which float over a scrimmed page, get real lift (2). */
+  --sabz-elevation-1: 0 1px 2px rgb(49 46 36 / 0.05), 0 2px 8px rgb(49 46 36 / 0.04);
+  --sabz-elevation-2: 0 2px 6px rgb(49 46 36 / 0.08), 0 16px 40px rgb(49 46 36 / 0.12);
 }
 
 .dark {
@@ -260,15 +275,17 @@
 
   /* Layered dark surfaces: deep warm background, one step up for cards,
      a lighter step for elevated panels so the hierarchy stays visible.
-     The glass is a green-black cast rather than neutral black. */
-  --sabz-background: #141310;
-  --sabz-foreground: #e9e7e1;
-  --sabz-border: rgb(232 229 218 / 0.15);
-  --sabz-surface: #211f19;
-  --sabz-surface-strong: #28251e;
+     Borders are SOLID (not alpha) and clearly visible — the old 0.15-alpha
+     border dissolved table grids into the surface (SS-267 dark retune). */
+  --sabz-background: #191713;
+  --sabz-foreground: #ece9e1;
+  --sabz-border: #3a372f;
+  --sabz-border-strong: #726b5d;
+  --sabz-surface: #201e19;
+  --sabz-surface-strong: #262420;
   --sabz-glass: rgb(20 19 16 / 0.74);
   --sabz-glass-border: rgb(142 203 150 / 0.14);
-  --sabz-muted: #b6b09c;
+  --sabz-muted: #a8a396;
 
   /* Brand primary — fresh mint for text/icons/links; the button fill drops
      to a saturated mid green so white text keeps its contrast. */
@@ -291,12 +308,19 @@
   --sabz-warning: #d9a441;
   --sabz-warning-subtle: rgb(217 164 65 / 0.12);
   --sabz-warning-border: rgb(217 164 65 / 0.35);
-  --sabz-danger: #e5655f;
+  --sabz-danger: #ea7570;
   --sabz-danger-subtle: rgb(217 74 68 / 0.12);
   --sabz-danger-border: rgb(229 101 95 / 0.35);
   --sabz-info: #8ec2d0;
   --sabz-info-subtle: rgb(61 141 166 / 0.12);
   --sabz-info-border: rgb(142 194 208 / 0.35);
+
+  --sabz-focus-ring: #8ecb96;
+
+  /* Dark elevation: shadows deepen instead of lightening (never a
+     light-mode inversion). */
+  --sabz-elevation-1: 0 1px 2px rgb(0 0 0 / 0.4), 0 3px 10px rgb(0 0 0 / 0.28);
+  --sabz-elevation-2: 0 2px 8px rgb(0 0 0 / 0.45), 0 16px 44px rgb(0 0 0 / 0.5);
 }
 
 @layer base {
@@ -317,17 +341,26 @@
 }
 
 @layer components {
-  /* Glassmorphic surfaces — subtle, readability-first. Used on the sidebar,
-     header, login card, stat/empty/error cards and dialogs. Dense tables
-     and long forms stay on the near-solid `surface` token. */
+  /* Solid content card — the everyday container for in-flow page content
+     (empty/error states, stat cards, panels). SS-267 scopes glassmorphism
+     to overlays (dialogs, the mobile drawer) and the static login screen:
+     blur over scrolling page content costs a frame-budget stall per scroll
+     frame, which the solid chrome removed from the app header in SS-266. */
+  .surface-card {
+    background-color: var(--sabz-surface);
+    border: 1px solid var(--sabz-border);
+    box-shadow: var(--sabz-elevation-1);
+  }
+
+  /* Glassmorphic surfaces — overlays only now: dialogs (over the scrim),
+     the mobile drawer, and the login/access cards (static ambient backdrop
+     underneath). The blur is only cheap when nothing scrolls beneath. */
   .glass {
     background-color: var(--sabz-glass);
     border: 1px solid var(--sabz-glass-border);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    box-shadow:
-      0 1px 2px rgb(0 0 0 / 0.04),
-      0 8px 24px rgb(0 0 0 / 0.06);
+    box-shadow: var(--sabz-elevation-2);
   }
 
   .glass-strong {
@@ -335,9 +368,7 @@
     border: 1px solid var(--sabz-glass-border);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    box-shadow:
-      0 1px 2px rgb(0 0 0 / 0.04),
-      0 12px 32px rgb(0 0 0 / 0.1);
+    box-shadow: var(--sabz-elevation-2);
   }
 
   /* Semantic notice boxes — one source for the repeated validation/error
@@ -354,10 +385,31 @@
     color: var(--sabz-warning);
   }
 
+  .success-box {
+    background-color: var(--sabz-success-subtle);
+    border: 1px solid var(--sabz-success-border);
+    color: var(--sabz-success);
+  }
+
+  .info-box {
+    background-color: var(--sabz-info-subtle);
+    border: 1px solid var(--sabz-info-border);
+    color: var(--sabz-info);
+  }
+
+  /* Keyboard focus — one token everywhere. Components can apply the class
+     directly or reference var(--color-focus-ring) in their own outline. */
+  .focus-ring:focus-visible {
+    outline: 2px solid var(--color-focus-ring);
+    outline-offset: 2px;
+  }
+
   /* Signature: Persian manuscript ruled margin (جدول).
      The content boundary is drawn as a double hairline rule, echoing the
-     ruled frame of a traditional book page. Applied sparingly: the sidebar
-     edge and the login card crown. Defined after `.glass` so its
+     ruled frame of a traditional book page. SS-267 promotes it from a
+     sidebar decoration to the system identity device — page headers carry
+     it as their title separator and table cards as their top edge — while
+     the sidebar edge keeps the edge variant. Defined after `.glass` so its
      `border-inline-end` overrides the glass border on that edge. */
   .rule-double {
     height: 1px;

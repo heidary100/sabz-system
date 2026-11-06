@@ -12,12 +12,17 @@ export function PageHeader({
   actions?: ReactNode
 }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3">
-      <div className="min-w-0 space-y-1">
-        <Heading level={1}>{title}</Heading>
-        {subtitle && <Text className="text-sm/6 text-muted">{subtitle}</Text>}
+    // rule-double: the Orchard Ledger signature — every page header closes
+    // with the Persian manuscript double rule (SS-267).
+    <div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0 space-y-1">
+          <Heading level={1}>{title}</Heading>
+          {subtitle && <Text className="text-sm/6 text-muted">{subtitle}</Text>}
+        </div>
+        {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
       </div>
-      {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+      <div aria-hidden="true" className="rule-double mt-3" />
     </div>
   )
 }

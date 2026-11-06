@@ -12,7 +12,7 @@ export function EmptyState({
   actions?: ReactNode
 }) {
   return (
-    <div className="glass flex flex-col items-center justify-center gap-4 rounded-xl px-6 py-16 text-center">
+    <div className="surface-card flex flex-col items-center justify-center gap-4 rounded-xl px-6 py-16 text-center">
       {icon && (
         <div className="flex size-12 items-center justify-center rounded-lg bg-primary/10 text-primary">
           {icon}

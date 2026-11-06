@@ -96,7 +96,7 @@ export function ImagePropertiesPanel({
   }
 
   return (
-    <div className="glass w-full rounded-xl border border-glass-border p-4 shadow-sm">
+    <div className="surface-card w-full rounded-xl p-4">
       <div className="mb-3 flex items-center justify-between gap-2">
         <p className="text-sm font-semibold text-foreground">تصویر</p>
         <div className="flex items-center gap-1">

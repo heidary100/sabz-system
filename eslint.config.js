@@ -10,7 +10,8 @@ module.exports = tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    files: ['**/*.js'],
+    // Node-flavored plain-JS files (repo scripts, .mjs tooling).
+    files: ['**/*.js', '**/*.mjs'],
     languageOptions: {
       globals: globals.node,
     },

@@ -282,18 +282,18 @@ export function CategoryManager({
       )}
 
       {loading && !displayedTree ? (
-        <div className={compact ? 'glass flex items-center justify-center rounded-xl px-6 py-10' : 'glass flex items-center justify-center rounded-2xl px-6 py-24'}>
+        <div className={compact ? 'surface-card flex items-center justify-center rounded-xl px-6 py-10' : 'surface-card flex items-center justify-center rounded-2xl px-6 py-24'}>
           <Loading compact label="در حال بارگذاری درخت…" />
         </div>
       ) : error && !displayedTree ? (
-        <div className={compact ? 'glass flex flex-col items-center gap-4 rounded-xl px-6 py-8 text-center' : 'glass flex flex-col items-center gap-4 rounded-2xl px-6 py-16 text-center'}>
+        <div className={compact ? 'surface-card flex flex-col items-center gap-4 rounded-xl px-6 py-8 text-center' : 'surface-card flex flex-col items-center gap-4 rounded-2xl px-6 py-16 text-center'}>
           <p className="text-sm/6 text-muted">{translateApiError(error)}</p>
           <Button color="primary" onClick={() => void refetch()}>
             تلاش مجدد
           </Button>
         </div>
       ) : !displayedTree || displayedTree.length === 0 ? (
-        <div className={compact ? 'glass relative overflow-hidden rounded-xl px-4 py-8 text-center' : 'glass relative overflow-hidden rounded-2xl px-6 py-20 text-center'}>
+        <div className={compact ? 'surface-card relative overflow-hidden rounded-xl px-4 py-8 text-center' : 'surface-card relative overflow-hidden rounded-2xl px-6 py-20 text-center'}>
           <div className={compact ? 'mx-auto mb-4 flex size-10 items-center justify-center rounded-xl border border-primary-border bg-primary-subtle shadow-[0_8px_24px_-12px_rgb(53_112_63/0.4)]' : 'mx-auto mb-6 flex size-16 items-center justify-center rounded-2xl border border-primary-border bg-primary-subtle shadow-[0_8px_24px_-12px_rgb(53_112_63/0.4)]'}>
             <FolderTree className={compact ? 'size-5 text-primary' : 'size-8 text-primary'} aria-hidden="true" />
           </div>
@@ -315,7 +315,7 @@ export function CategoryManager({
         </div>
       ) : (
         <>
-          <div className={compact ? 'glass rounded-xl p-1.5 shadow-inner' : 'glass rounded-2xl p-2 shadow-inner sm:p-3'}>
+          <div className={compact ? 'surface-card rounded-xl p-1.5' : 'surface-card rounded-2xl p-2 sm:p-3'}>
             <div className={compact ? 'rounded-lg border border-border bg-surface/60 p-1' : 'rounded-xl border border-border bg-surface/60 p-1.5 sm:p-2'}>
               <CategoryTree
                 tree={displayedTree}

@@ -281,7 +281,7 @@ export function ProductEditor({
   return (
     <div className="space-y-6">
       {/* Sticky action header */}
-      <div className="sticky top-0 z-20 -mx-4 -mt-4 border-b border-border bg-background/85 px-4 py-3 backdrop-blur-md sm:-mx-6 sm:px-6">
+      <div className="sticky top-0 z-20 -mx-4 -mt-4 border-b border-border bg-surface-strong px-4 py-3 sm:-mx-6 sm:px-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
             <nav className="flex flex-wrap items-center gap-1.5 text-sm text-muted" aria-label="مسیر">

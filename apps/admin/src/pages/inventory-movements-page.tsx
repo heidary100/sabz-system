@@ -202,7 +202,7 @@ export function InventoryMovementsPage() {
       </div>
 
       {variantId !== '' && (
-        <div className="glass flex items-center gap-2 rounded-lg px-3 py-2">
+        <div className="surface-card flex items-center gap-2 rounded-lg px-3 py-2">
           <Badge>فیلتر واریانت</Badge>
           <span dir="ltr" className="font-mono text-xs text-muted">
             {variantId}
@@ -216,7 +216,7 @@ export function InventoryMovementsPage() {
       {loading && !result ? (
         <Loading compact label="در حال بارگذاری…" />
       ) : error ? (
-        <div className="glass flex flex-col items-center gap-4 rounded-xl px-6 py-16 text-center">
+        <div className="surface-card flex flex-col items-center gap-4 rounded-xl px-6 py-16 text-center">
           <p className="text-sm/6 text-muted">{translateApiError(error)}</p>
           <Button color="primary" onClick={() => void refetch()}>
             تلاش مجدد
