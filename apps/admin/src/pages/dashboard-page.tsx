@@ -94,7 +94,7 @@ export function DashboardPage() {
     return (
       <div className="mx-auto max-w-6xl space-y-6">
         <PageHeader title="پیشخوان" />
-        <div className="glass flex flex-col items-center gap-4 rounded-xl px-6 py-16 text-center">
+        <div className="surface-card flex flex-col items-center gap-4 rounded-xl px-6 py-16 text-center">
           <p className="text-sm/6 text-muted">{errorMessage}</p>
           <Button color="primary" onClick={() => void refetch()}>
             تلاش مجدد
@@ -121,7 +121,7 @@ export function DashboardPage() {
       />
 
       {errorMessage && (
-        <div className="glass flex items-center justify-between gap-4 rounded-lg px-4 py-3">
+        <div className="surface-card flex items-center justify-between gap-4 rounded-lg px-4 py-3">
           <p className="text-sm/6 text-muted">{errorMessage}</p>
           <Button color="primary" onClick={() => void refetch()} disabled={loading}>
             تلاش مجدد
@@ -182,7 +182,7 @@ export function DashboardPage() {
           ))}
         </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="glass flex flex-col gap-1 rounded-xl p-4">
+          <div className="surface-card flex flex-col gap-1 rounded-xl p-4">
             <span className="text-sm/5 font-medium text-muted">درآمد تسویه‌شده (ریال)</span>
             <span className="text-3xl/9 font-bold tabular-nums text-green-700 dark:text-green-400">
               {formatRial(dashboard.commerce.paidRevenueRial)}

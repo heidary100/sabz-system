@@ -20,7 +20,7 @@ export function StatCard({
   tone?: StatCardTone
 }) {
   return (
-    <div className="glass flex flex-col gap-1 rounded-xl p-4">
+    <div className="surface-card flex flex-col gap-1 rounded-xl p-4">
       <span className="text-sm/5 font-medium text-muted">{label}</span>
       <span className={clsx('text-3xl/9 font-bold tabular-nums', TONES[tone])}>
         {value}

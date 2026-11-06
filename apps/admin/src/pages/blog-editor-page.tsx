@@ -174,7 +174,7 @@ export function BlogEditorPage() {
     if (fetchError && !post) {
       return (
         <div className="mx-auto max-w-6xl space-y-6">
-          <div className="glass flex flex-col items-center gap-4 rounded-xl px-6 py-16 text-center">
+          <div className="surface-card flex flex-col items-center gap-4 rounded-xl px-6 py-16 text-center">
             <p className="text-sm/6 text-muted">{translateApiError(fetchError)}</p>
             <Button color="primary" onClick={() => void refetchPost()}>
               تلاش مجدد
@@ -229,7 +229,7 @@ export function BlogEditorPage() {
         </p>
       )}
 
-      <div className="glass space-y-5 rounded-xl p-5">
+      <div className="surface-card space-y-5 rounded-xl p-5">
         <Field>
           <Label>عنوان</Label>
           <Input
@@ -340,7 +340,7 @@ export function BlogEditorPage() {
         <ContentEditor value={content} onChange={setContent} disabled={submitting} />
       </div>
 
-      <div className="glass space-y-5 rounded-xl p-5">
+      <div className="surface-card space-y-5 rounded-xl p-5">
         <Field>
           <Label>عنوان سئو</Label>
           <Input

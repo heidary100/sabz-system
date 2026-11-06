@@ -46,7 +46,7 @@ export function PartnerDetailPage() {
   if (error && !partner) {
     return (
       <div className="mx-auto max-w-6xl space-y-6">
-        <div className="glass flex flex-col items-center gap-4 rounded-xl px-6 py-16 text-center">
+        <div className="surface-card flex flex-col items-center gap-4 rounded-xl px-6 py-16 text-center">
           <p className="text-sm/6 text-muted">{translateApiError(error)}</p>
           <Button color="primary" onClick={() => void refetch()}>
             تلاش مجدد

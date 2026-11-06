@@ -273,7 +273,7 @@ export function ContentEditor({
 
   const fullscreenChrome = editor && (
     <div className="fixed inset-0 z-50 flex flex-col bg-background" role="dialog" aria-modal="true" aria-label="ویرایشگر تمامصفحه">
-      <header className="flex items-center justify-between gap-3 border-b border-border bg-glass px-3 py-2.5 backdrop-blur-md sm:px-4">
+      <header className="flex items-center justify-between gap-3 border-b border-border bg-surface-strong px-3 py-2.5 sm:px-4">
         <div className="flex min-w-0 items-center gap-2">
           <Button outline onClick={() => setFullscreen(false)} title="خروج از تمامصفحه">
             <X data-slot="icon" />
