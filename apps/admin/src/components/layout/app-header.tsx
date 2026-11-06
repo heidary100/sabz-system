@@ -8,7 +8,8 @@ export function AppHeader({ title, onOpenMobile }: { title: string; onOpenMobile
   const { user, logout } = useAuth()
 
   return (
-    <header className="glass sticky top-0 z-20 flex h-16 shrink-0 items-center justify-between gap-3 border-b border-border px-4 sm:px-6">
+    // SS-266: solid chrome — no backdrop-blur over scrolling table content.
+    <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center justify-between gap-3 border-b border-border bg-surface-strong px-4 sm:px-6">
       <div className="flex min-w-0 items-center gap-3">
         <IconButton label="باز کردن منو" onClick={onOpenMobile} className="lg:hidden">
           <Menu className="size-5" aria-hidden="true" />

@@ -20,6 +20,7 @@ export function Table({
   dense = false,
   grid = false,
   striped = false,
+  scrollContainer = true,
   className,
   children,
   ...props
@@ -28,6 +29,13 @@ export function Table({
   dense?: boolean
   grid?: boolean
   striped?: boolean
+  /**
+   * Render the built-in horizontal scroll container (default). Set to false
+   * when an outer scroller already owns the overflow (e.g. HorizontalScroll
+   * with the SS-266 mirrored top scrollbar) so exactly one overflow-x-auto
+   * exists for the table.
+   */
+  scrollContainer?: boolean
 } & React.ComponentPropsWithoutRef<'div'>) {
   return (
     <TableContext.Provider
@@ -36,7 +44,12 @@ export function Table({
       <div className="flow-root">
         <div
           {...props}
-          className={clsx(className, '-mx-(--gutter) overflow-x-auto whitespace-nowrap')}
+          className={clsx(
+            className,
+            scrollContainer
+              ? '-mx-(--gutter) overflow-x-auto whitespace-nowrap'
+              : 'whitespace-nowrap',
+          )}
         >
           <div className={clsx('inline-block min-w-full align-middle', !bleed && 'sm:px-(--gutter)')}>
             <table className="min-w-full text-start text-sm/6 text-zinc-950 dark:text-white">

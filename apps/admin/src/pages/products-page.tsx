@@ -682,8 +682,8 @@ export function ProductsPage() {
         />
       ) : (
         <TableCard>
-          <HorizontalScroll>
-            <Table striped>
+          <HorizontalScroll dragToPan>
+            <Table striped dense scrollContainer={false}>
               <TableHead>
                 <TableRow>
                   {showColumn('thumbnail') && <TableHeader>تصویر</TableHeader>}
@@ -764,6 +764,10 @@ export function ProductsPage() {
                             <img
                               src={row.thumbnailUrl}
                               alt=""
+                              width={40}
+                              height={40}
+                              loading="lazy"
+                              decoding="async"
                               className="size-10 rounded-md object-cover"
                             />
                           ) : (

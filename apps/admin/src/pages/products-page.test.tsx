@@ -11,6 +11,8 @@ import { ProductsPage } from './products-page'
  * issues ZERO mutation requests); the rework adds URL-driven advanced
  * filters, checkbox column visibility, sortable headers, inline variant
  * fields (SKU/barcode/name/priceStatus) and row actions with variant delete.
+ * SS-266: editable cells are click-to-edit — tests click the resting cell
+ * button, then change the mounted input by the same aria-label.
  */
 vi.mock('../services/catalog-grid', () => ({
   listCatalogGrid: vi.fn(),
@@ -97,16 +99,29 @@ function renderPage(initialEntry = '/products') {
 async function renderAndLoad(initialEntry = '/products') {
   const view = renderPage(initialEntry)
   await waitFor(() => expect(mockList).toHaveBeenCalled())
-  await waitFor(() => expect(screen.getByDisplayValue('100,000')).toBeTruthy())
+  await waitFor(() => expect(cellText('قیمت فروش — SKU-1')).toBe('100,000'))
   return view
 }
 
-function priceInput(sku: string): HTMLInputElement {
-  return screen.getByLabelText(`قیمت فروش — ${sku}`) as HTMLInputElement
+/**
+ * SS-266 click-to-edit: at rest an editable cell is a text button (same
+ * aria-label); clicking it mounts the real input. Editing = click, then
+ * change the mounted input by the same label.
+ */
+function cellButton(label: string): HTMLButtonElement {
+  return screen.getByLabelText(label) as HTMLButtonElement
 }
 
-function stockInput(sku: string): HTMLInputElement {
-  return screen.getByLabelText(`موجودی — ${sku}`) as HTMLInputElement
+function cellText(label: string): string {
+  return cellButton(label).textContent ?? ''
+}
+
+function editCell(label: string, value: string): void {
+  fireEvent.click(cellButton(label))
+  fireEvent.change(screen.getByLabelText(label), { target: { value } })
+  // Blur ends the editing session (as a click-away does in the browser),
+  // returning the cell to its resting text presentation.
+  fireEvent.blur(screen.getByLabelText(label))
 }
 
 beforeEach(() => {
@@ -135,8 +150,8 @@ afterEach(() => {
 describe('ProductsPage — the editable catalog grid (SS-257 rework)', () => {
   it('renders the required columns from server rows', async () => {
     await renderAndLoad()
-    expect(screen.getByDisplayValue('SKU-1')).toBeTruthy()
-    expect(screen.getByDisplayValue('SKU-2')).toBeTruthy()
+    expect(cellText('شناسه کالا (SKU) — SKU-1')).toBe('SKU-1')
+    expect(cellText('شناسه کالا (SKU) — SKU-2')).toBe('SKU-2')
     expect(screen.getAllByText('انکر').length).toBeGreaterThanOrEqual(2)
     // Product status ships hidden in the lean defaults; its chip reveals it.
     expect(screen.queryByText('منتشرشده')).toBeNull()
@@ -145,20 +160,20 @@ describe('ProductsPage — the editable catalog grid (SS-257 rework)', () => {
       expect(screen.getAllByText('منتشرشده').length).toBeGreaterThanOrEqual(2),
     )
     // Stock column shows the aggregate server value.
-    expect(screen.getByDisplayValue('5')).toBeTruthy()
+    expect(cellText('موجودی — SKU-1')).toBe('5')
   })
 
   it('cancel/discard sends ZERO mutation requests and restores server values (zero-drift oracle)', async () => {
     await renderAndLoad()
 
-    fireEvent.change(priceInput('SKU-1'), { target: { value: '150000' } })
-    fireEvent.change(stockInput('SKU-2'), { target: { value: '42' } })
+    editCell('قیمت فروش — SKU-1', '150000')
+    editCell('موجودی — SKU-2', '42')
     expect(screen.getByText('2 ردیف تغییر ذخیرهنشده دارد')).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: 'لغو تغییرات' }))
 
-    await waitFor(() => expect(screen.getByDisplayValue('100,000')).toBeTruthy())
-    expect(screen.getByDisplayValue('3')).toBeTruthy()
+    await waitFor(() => expect(cellText('قیمت فروش — SKU-1')).toBe('100,000'))
+    expect(cellText('موجودی — SKU-2')).toBe('3')
     // The oracle: not a single write reached the API.
     expect(mockBatch).not.toHaveBeenCalled()
     expect(screen.queryByText(/ردیف تغییر ذخیرهنشده دارد/)).toBeNull()
@@ -166,10 +181,8 @@ describe('ProductsPage — the editable catalog grid (SS-257 rework)', () => {
 
   it('explicit save submits the draft with the loaded token and reconciles the row', async () => {
     await renderAndLoad()
-    fireEvent.change(priceInput('SKU-1'), { target: { value: '150000' } })
-    fireEvent.change(screen.getByLabelText('شناسه کالا (SKU) — SKU-1'), {
-      target: { value: 'SKU-1B' },
-    })
+    editCell('قیمت فروش — SKU-1', '150000')
+    editCell('شناسه کالا (SKU) — SKU-1', 'SKU-1B')
 
     const newToken = '2026-11-03T11:00:00.000Z'
     mockBatch.mockResolvedValue({
@@ -200,20 +213,18 @@ describe('ProductsPage — the editable catalog grid (SS-257 rework)', () => {
     await waitFor(() => expect(screen.getByText('1 ردیف با موفقیت ذخیره شد')).toBeTruthy())
     // The row reconciles to the server-confirmed values and new token —
     // including the NEW sku, which the labels are keyed by.
-    expect(priceInput('SKU-1B').value).toBe('150,000')
-    expect(
-      (screen.getByLabelText('شناسه کالا (SKU) — SKU-1B') as HTMLInputElement).value,
-    ).toBe('SKU-1B')
+    expect(cellText('قیمت فروش — SKU-1B')).toBe('150,000')
+    expect(cellText('شناسه کالا (SKU) — SKU-1B')).toBe('SKU-1B')
     // Untouched rows are not part of the request.
     expect(payload.rows.some((entry) => entry.variantId === 'v2')).toBe(false)
   })
 
   it('reports partial failure in Persian and keeps the failed draft editable', async () => {
     await renderAndLoad()
-    fireEvent.change(priceInput('SKU-1'), { target: { value: '150000' } })
-    fireEvent.change(
-      screen.getByLabelText('قیمت فروش ویژه — SKU-2'),
-      { target: { value: '100000' } },
+    editCell('قیمت فروش — SKU-1', '150000')
+    editCell(
+      'قیمت فروش ویژه — SKU-2',
+      '100000',
     )
 
     mockBatch.mockResolvedValue({
@@ -234,16 +245,14 @@ describe('ProductsPage — the editable catalog grid (SS-257 rework)', () => {
     await waitFor(() => expect(screen.getByText('1 ردیف ذخیره نشد')).toBeTruthy())
     // Row-level, field-level Persian error on the exact cell.
     expect(screen.getByText('قیمت فروش ویژه باید بیشتر از قیمت فروش باشد.')).toBeTruthy()
-    expect(
-      (screen.getByLabelText('قیمت فروش ویژه — SKU-2') as HTMLInputElement).value,
-    ).toBe('100,000')
-    expect(priceInput('SKU-1').value).toBe('150,000')
+    expect(cellText('قیمت فروش ویژه — SKU-2')).toBe('100,000')
+    expect(cellText('قیمت فروش — SKU-1')).toBe('150,000')
     expect(screen.getByText('1 ردیف تغییر ذخیرهنشده دارد')).toBeTruthy()
   })
 
   it('opens the conflict dialog on CONFLICT_CHANGED and lets the operator keep or drop the draft', async () => {
     await renderAndLoad()
-    fireEvent.change(priceInput('SKU-1'), { target: { value: '150000' } })
+    editCell('قیمت فروش — SKU-1', '150000')
 
     mockBatch.mockResolvedValue({
       results: [{ variantId: 'v1', outcome: 'CONFLICT_CHANGED', message: 'این ردیف از زمان بارگذاری تغییر کرده است؛ نسخه جدید را ببینید.' }],
@@ -259,11 +268,11 @@ describe('ProductsPage — the editable catalog grid (SS-257 rework)', () => {
 
     // Dropping the draft reverts the cell to the server value without a write.
     fireEvent.click(screen.getByRole('button', { name: 'نسخه سرور را بپذیرم (لغو تغییر من)' }))
-    await waitFor(() => expect(screen.getByDisplayValue('300,000')).toBeTruthy())
+    await waitFor(() => expect(cellText('قیمت فروش — SKU-1')).toBe('300,000'))
     expect(mockBatch).toHaveBeenCalledTimes(1)
 
     // Second conflict round: the operator keeps their draft this time.
-    fireEvent.change(priceInput('SKU-1'), { target: { value: '180000' } })
+    editCell('قیمت فروش — SKU-1', '180000')
     mockBatch.mockResolvedValue({
       results: [{ variantId: 'v1', outcome: 'CONFLICT_CHANGED', message: 'این ردیف از زمان بارگذاری تغییر کرده است؛ نسخه جدید را ببینید.' }],
       summary: { succeeded: 0, failed: 1 },
@@ -272,7 +281,7 @@ describe('ProductsPage — the editable catalog grid (SS-257 rework)', () => {
     await waitFor(() => expect(screen.getByText('این ردیف تغییر کرده است')).toBeTruthy())
     fireEvent.click(screen.getByRole('button', { name: 'تغییرات من را نگه دار' }))
     await waitFor(() => expect(screen.queryByText('این ردیف تغییر کرده است')).toBeNull())
-    expect(priceInput('SKU-1').value).toBe('180,000')
+    expect(cellText('قیمت فروش — SKU-1')).toBe('180,000')
     expect(mockBatch).toHaveBeenCalledTimes(2)
   })
 
