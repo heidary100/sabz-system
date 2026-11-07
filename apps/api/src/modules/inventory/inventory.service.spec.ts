@@ -27,7 +27,7 @@ function makeItemRow(overrides: Record<string, unknown> = {}) {
     reorderLevel: null,
     criticalLevel: null,
     createdAt: now,
-    variant: { id: 'var-1', sku: 'SKU-1', name: 'واریانت ۱' },
+    variant: { id: 'var-1', sku: 'SKU-1', name: 'نوع ۱' },
     warehouse: { id: 'wh-1', code: 'WH-01', name: 'انبار ۱', status: WarehouseStatus.ACTIVE },
     ...overrides,
   };
@@ -84,7 +84,7 @@ function makeReservationRow(overrides: Record<string, unknown> = {}) {
     expiredAt: null,
     createdAt: now,
     inventoryItem: {
-      variant: { id: 'var-1', sku: 'SKU-1', name: 'واریانت ۱' },
+      variant: { id: 'var-1', sku: 'SKU-1', name: 'نوع ۱' },
       warehouse: {
         id: 'wh-1',
         code: 'WH-01',
@@ -1812,7 +1812,7 @@ describe('InventoryService', () => {
         consumedAt: null,
         expiredAt: null,
         createdAt: '2026-08-21T00:00:00.000Z',
-        variant: { id: 'var-1', sku: 'SKU-1', name: 'واریانت ۱' },
+        variant: { id: 'var-1', sku: 'SKU-1', name: 'نوع ۱' },
         warehouse: {
           id: 'wh-1',
           code: 'WH-01',

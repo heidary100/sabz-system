@@ -63,7 +63,7 @@ function skuInput(): HTMLInputElement {
 }
 
 function submitButton(): HTMLButtonElement {
-  return screen.getByRole('button', { name: 'افزودن واریانت' }) as HTMLButtonElement
+  return screen.getByRole('button', { name: 'افزودن نوع' }) as HTMLButtonElement
 }
 
 function regenerateButton(): HTMLButtonElement {
@@ -96,7 +96,7 @@ describe('VariantForm SKU suggestion (SS-256)', () => {
 
   it('keeps the suggestion when other fields change (name-independent)', () => {
     renderForm()
-    fireEvent.input(screen.getByRole('textbox', { name: 'نام واریانت / ویژگیها' }), {
+    fireEvent.input(screen.getByRole('textbox', { name: 'نام نوع / ویژگیها' }), {
       target: { value: 'آبی' },
     })
     expect(skuInput().value).toBe(SUGGESTION_A)
@@ -105,7 +105,7 @@ describe('VariantForm SKU suggestion (SS-256)', () => {
   it('preserves a manual SKU when the name changes afterwards', () => {
     renderForm()
     fireEvent.input(skuInput(), { target: { value: 'MY-SKU-1' } })
-    fireEvent.input(screen.getByRole('textbox', { name: 'نام واریانت / ویژگیها' }), {
+    fireEvent.input(screen.getByRole('textbox', { name: 'نام نوع / ویژگیها' }), {
       target: { value: 'آبی' },
     })
     expect(skuInput().value).toBe('MY-SKU-1')
@@ -145,7 +145,7 @@ describe('VariantForm SKU suggestion (SS-256)', () => {
     createVariantMock.mockRejectedValueOnce(
       new ApiError(409, {
         statusCode: 409,
-        message: 'یک واریانت با این sku قبلاً وجود دارد.',
+        message: 'یک نوع با این sku قبلاً وجود دارد.',
         error: 'Conflict',
       }),
     )
@@ -153,7 +153,7 @@ describe('VariantForm SKU suggestion (SS-256)', () => {
 
     fillPrice()
     fireEvent.click(submitButton())
-    expect(await screen.findByText('یک واریانت با این sku قبلاً وجود دارد.')).toBeTruthy()
+    expect(await screen.findByText('یک نوع با این sku قبلاً وجود دارد.')).toBeTruthy()
     expect(onConflict).toHaveBeenCalled()
     expect(skuInput().value).toBe(SUGGESTION_A)
 
@@ -188,7 +188,7 @@ describe('VariantForm SKU suggestion (SS-256)', () => {
       (screen.getByRole('textbox', { name: 'قیمت (ریال)' }) as HTMLInputElement).value,
     ).toBe('1,500,000')
     expect(
-      (screen.getByRole('textbox', { name: 'قیمت فروش ویژه (ریال)' }) as HTMLInputElement).value,
+      (screen.getByRole('textbox', { name: 'قیمت قبل از تخفیف (ریال)' }) as HTMLInputElement).value,
     ).toBe('1,800,000')
   })
 })

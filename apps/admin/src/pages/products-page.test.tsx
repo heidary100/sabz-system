@@ -61,8 +61,10 @@ function row(overrides: Partial<CatalogGridRow> = {}): CatalogGridRow {
     createdAt: '2026-11-01T08:00:00.000Z',
     sku: 'SKU-1',
     barcode: 'BC-1',
-    variantName: 'واریانت یک',
+    variantName: 'نوع یک',
     brandName: 'انکر',
+    brandId: 'brand-1',
+    categoryId: 'cat-1',
     categoryName: 'هندزفری',
     thumbnailUrl: null,
     priceStatus: 'PRICED',
@@ -71,6 +73,7 @@ function row(overrides: Partial<CatalogGridRow> = {}): CatalogGridRow {
     stock: 5,
     stockEditable: true,
     expectedUpdatedAt: TOKEN_A,
+    productUpdatedAt: '2026-11-03T09:00:00.000Z',
     ...overrides,
   }
 }
@@ -194,7 +197,7 @@ describe('ProductsPage — the editable catalog grid (SS-257 rework)', () => {
           compareAtPrice: null,
           sku: 'SKU-1B',
           barcode: 'BC-1',
-          variantName: 'واریانت یک',
+          variantName: 'نوع یک',
           priceStatus: 'PRICED',
           updatedAt: newToken,
           stock: 5,
@@ -219,11 +222,72 @@ describe('ProductsPage — the editable catalog grid (SS-257 rework)', () => {
     expect(payload.rows.some((entry) => entry.variantId === 'v2')).toBe(false)
   })
 
+  it('carries product-level edits (name/brand/category) with the product token in the batch (SS-270)', async () => {
+    await renderAndLoad()
+
+    // Product name: click the resting cell, edit the mounted input, blur.
+    fireEvent.click(screen.getByLabelText('نام محصول — SKU-1'))
+    fireEvent.change(screen.getByLabelText('نام محصول — SKU-1'), {
+      target: { value: 'نام محصول از شبکه' },
+    })
+    fireEvent.blur(screen.getByLabelText('نام محصول — SKU-1'))
+    // Brand: EntityCell → searchable combobox input by the same label.
+    fireEvent.click(screen.getByLabelText('برند — SKU-1'))
+    fireEvent.change(screen.getByLabelText('برند — SKU-1'), {
+      target: { value: 'پرودو' },
+    })
+    // Keyboard commit: Enter picks the active (filtered) option — the
+    // reliable Headless Combobox path in jsdom.
+    fireEvent.keyDown(screen.getByLabelText('برند — SKU-1'), { key: 'Enter' })
+
+    const newToken = '2026-11-03T11:30:00.000Z'
+    mockBatch.mockResolvedValue({
+      results: [
+        {
+          variantId: 'v1',
+          outcome: 'SUCCESS',
+          updatedAt: newToken,
+          price: '100000',
+          compareAtPrice: null,
+          sku: 'SKU-1',
+          barcode: 'BC-1',
+          variantName: 'نوع یک',
+          priceStatus: 'PRICED',
+          stock: 5,
+          product: {
+            updatedAt: '2026-11-03T11:30:01.000Z',
+            name: 'نام محصول از شبکه',
+            brandId: 'brand-2',
+            brandName: 'پرودو',
+            categoryId: 'cat-1',
+            categoryName: 'هندزفری',
+          },
+        },
+      ],
+      summary: { succeeded: 1, failed: 0 },
+    } as CatalogGridBatchResponse)
+
+    fireEvent.click(screen.getByRole('button', { name: 'ذخیره تغییرات' }))
+
+    await waitFor(() => expect(mockBatch).toHaveBeenCalledTimes(1))
+    const payload = mockBatch.mock.calls[0]![0]!
+    expect(payload.rows[0]).toMatchObject({
+      variantId: 'v1',
+      productName: 'نام محصول از شبکه',
+      brandId: 'brand-2',
+      expectedProductUpdatedAt: '2026-11-03T09:00:00.000Z',
+    })
+    await waitFor(() =>
+      // The reconciled product name shows on the row and the draft drops.
+      expect(screen.getByLabelText('نام محصول — SKU-1').textContent).toBe('نام محصول از شبکه'),
+    )
+  })
+
   it('reports partial failure in Persian and keeps the failed draft editable', async () => {
     await renderAndLoad()
     editCell('قیمت فروش — SKU-1', '150000')
     editCell(
-      'قیمت فروش ویژه — SKU-2',
+      'قیمت قبل از تخفیف — SKU-2',
       '100000',
     )
 
@@ -233,8 +297,8 @@ describe('ProductsPage — the editable catalog grid (SS-257 rework)', () => {
         {
           variantId: 'v2',
           outcome: 'VALIDATION_ERROR',
-          message: 'قیمت فروش ویژه باید بیشتر از قیمت فروش باشد.',
-          fieldErrors: { compareAtPrice: 'قیمت فروش ویژه باید بیشتر از قیمت فروش باشد.' },
+          message: 'قیمت قبل از تخفیف باید بیشتر از قیمت فروش باشد.',
+          fieldErrors: { compareAtPrice: 'قیمت قبل از تخفیف باید بیشتر از قیمت فروش باشد.' },
         },
       ],
       summary: { succeeded: 1, failed: 1 },
@@ -244,8 +308,8 @@ describe('ProductsPage — the editable catalog grid (SS-257 rework)', () => {
 
     await waitFor(() => expect(screen.getByText('1 ردیف ذخیره نشد')).toBeTruthy())
     // Row-level, field-level Persian error on the exact cell.
-    expect(screen.getByText('قیمت فروش ویژه باید بیشتر از قیمت فروش باشد.')).toBeTruthy()
-    expect(cellText('قیمت فروش ویژه — SKU-2')).toBe('100,000')
+    expect(screen.getByText('قیمت قبل از تخفیف باید بیشتر از قیمت فروش باشد.')).toBeTruthy()
+    expect(cellText('قیمت قبل از تخفیف — SKU-2')).toBe('100,000')
     expect(cellText('قیمت فروش — SKU-1')).toBe('150,000')
     expect(screen.getByText('1 ردیف تغییر ذخیرهنشده دارد')).toBeTruthy()
   })
@@ -389,11 +453,11 @@ describe('ProductsPage — the editable catalog grid (SS-257 rework)', () => {
     // Row actions: detail / edit links + delete → confirm dialog → API.
     expect(screen.getByLabelText('مشاهده محصول شبکه')).toBeTruthy()
     expect(screen.getByLabelText('ویرایش محصول شبکه')).toBeTruthy()
-    fireEvent.click(screen.getByLabelText('حذف واریانت SKU-1'))
+    fireEvent.click(screen.getByLabelText('حذف نوع SKU-1'))
     await waitFor(() =>
-      expect(screen.getAllByText('حذف واریانت').length).toBeGreaterThan(0),
+      expect(screen.getAllByText('حذف نوع').length).toBeGreaterThan(0),
     )
-    fireEvent.click(screen.getByRole('button', { name: 'حذف واریانت' }))
+    fireEvent.click(screen.getByRole('button', { name: 'حذف نوع' }))
     await waitFor(() => expect(mockDelete).toHaveBeenCalledWith('v1'))
     // The grid refetches after the delete.
     await waitFor(() => expect(mockList.mock.calls.length).toBeGreaterThanOrEqual(2))

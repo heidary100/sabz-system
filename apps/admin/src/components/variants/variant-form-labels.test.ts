@@ -24,7 +24,7 @@ describe('variant form money labels (SS-250)', () => {
 
   it('labels both price fields in ریال', () => {
     expect(FORM_SOURCE.includes('قیمت (ریال)')).toBe(true)
-    expect(FORM_SOURCE.includes('قیمت فروش ویژه (ریال)')).toBe(true)
+    expect(FORM_SOURCE.includes('قیمت قبل از تخفیف (ریال)')).toBe(true)
   })
 
   it('explains the Rial base and the Toman display conversion', () => {

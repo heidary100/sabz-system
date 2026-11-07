@@ -156,14 +156,14 @@ export function MediaUploadDialog({
           </Field>
 
           <Field>
-            <Label>واریانت</Label>
+            <Label>نوع</Label>
             <Select
               name="variantId"
               value={variantId}
               onChange={(event) => setVariantId(event.target.value)}
               disabled={busy || variants.length === 0}
             >
-              <option value="">بدون واریانت</option>
+              <option value="">بدون نوع</option>
               {variants.map((variant) => (
                 <option key={variant.id} value={variant.id}>
                   {variant.name ? `${variant.sku} — ${variant.name}` : variant.sku}
@@ -171,7 +171,7 @@ export function MediaUploadDialog({
               ))}
             </Select>
             <Text className="text-xs text-muted">
-              اختیاری؛ رسانه فقط به واریانت های همین محصول قابل انتساب است.
+              اختیاری؛ رسانه فقط به انواع همین محصول قابل انتساب است.
             </Text>
           </Field>
 

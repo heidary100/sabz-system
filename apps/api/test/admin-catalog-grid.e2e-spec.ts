@@ -1011,7 +1011,7 @@ describe('Admin catalog grid API (SS-257) (e2e)', () => {
               expectedUpdatedAt: variant.updatedAt.toISOString(),
               sku: newSku,
               barcode: 'BC-12345',
-              variantName: 'نام واریانت شبکه',
+              variantName: 'نام نوع شبکه',
               price: '120000.00',
               compareAtPrice: '150000.00',
               stock: 8,
@@ -1022,12 +1022,12 @@ describe('Admin catalog grid API (SS-257) (e2e)', () => {
       expect(res.body.results[0]!.outcome).toBe('SUCCESS');
       expect(res.body.results[0]!.sku).toBe(newSku);
       expect(res.body.results[0]!.barcode).toBe('BC-12345');
-      expect(res.body.results[0]!.variantName).toBe('نام واریانت شبکه');
+      expect(res.body.results[0]!.variantName).toBe('نام نوع شبکه');
 
       const after = await prisma.productVariant.findUnique({ where: { id: variant.id } });
       expect(after!.sku).toBe(newSku);
       expect(after!.barcode).toBe('BC-12345');
-      expect(after!.name).toBe('نام واریانت شبکه');
+      expect(after!.name).toBe('نام نوع شبکه');
       expect(after!.price.toString()).toBe('120000');
 
       const audit = await prisma.auditLog.findFirstOrThrow({
@@ -1037,7 +1037,7 @@ describe('Admin catalog grid API (SS-257) (e2e)', () => {
       const afterDelta = audit.after as Record<string, unknown>;
       expect(beforeDelta['sku']).toBe(variant.sku);
       expect(afterDelta['sku']).toBe(newSku);
-      expect(afterDelta['name']).toBe('نام واریانت شبکه');
+      expect(afterDelta['name']).toBe('نام نوع شبکه');
     });
 
     it('rejects a duplicate SKU as a row VALIDATION_ERROR without writing the row', async () => {
@@ -1103,6 +1103,233 @@ describe('Admin catalog grid API (SS-257) (e2e)', () => {
       const after = await prisma.productVariant.findUnique({ where: { id: variant.id } });
       expect(after!.barcode).toBeNull();
       expect(after!.name).toBeNull();
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // SS-270 product-level inline edits (name/brand/category via the batch)
+  // -----------------------------------------------------------------------
+  describe('batch — SS-270 product-level fields', () => {
+    let adminToken: string;
+    beforeAll(async () => {
+      adminToken = (await createUser('ADMIN')).accessToken;
+    });
+    it('updates name/brand/category on a product-only row and echoes the product token', async () => {
+      const productId = await createProduct();
+      const variant = await createVariant(productId);
+      const product = await prisma.product.findUniqueOrThrow({ where: { id: productId } });
+      const brand = await prisma.brand.create({
+        data: { name: `برند جدید ${Date.now()}`, slug: `brand-ss270-${Date.now()}` },
+      });
+      brandIds.push(brand.id);
+      const category = await prisma.category.create({
+        data: { name: `دسته جدید ${Date.now()}`, slug: `cat-ss270-${Date.now()}` },
+      });
+      categoryIds.push(category.id);
+
+      const response = await request(app.getHttpServer())
+        .post(BATCH)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          rows: [
+            {
+              variantId: variant.id,
+              expectedUpdatedAt: variant.updatedAt.toISOString(),
+              expectedProductUpdatedAt: product.updatedAt.toISOString(),
+              productName: 'نام محصول از شبکه',
+              brandId: null,
+              categoryId: category.id,
+            },
+          ],
+        });
+      expect(response.status).toBe(200);
+      const row = response.body.results[0];
+      expect(row.outcome).toBe('SUCCESS');
+      // Variant untouched → its token is unchanged.
+      expect(row.updatedAt).toBe(variant.updatedAt.toISOString());
+      expect(row.product).toMatchObject({
+        name: 'نام محصول از شبکه',
+        brandId: null,
+        brandName: null,
+        categoryId: category.id,
+        categoryName: category.name,
+      });
+      expect(typeof row.product.updatedAt).toBe('string');
+      expect(row.product.updatedAt).not.toBe(product.updatedAt.toISOString());
+
+      // The list row now carries the product token + updated values.
+      const list = await request(app.getHttpServer())
+        .get(GRID)
+        .query({ sku: variant.sku })
+        .set('Authorization', `Bearer ${adminToken}`);
+      const gridRow = list.body.items.find((entry: { variantId: string }) => entry.variantId === variant.id);
+      expect(gridRow.productName).toBe('نام محصول از شبکه');
+      expect(gridRow.brandName).toBeNull();
+      expect(gridRow.productUpdatedAt).toBe(row.product.updatedAt);
+    });
+
+    it('writes product and variant fields of one row together and audits both entities', async () => {
+      const productId = await createProduct();
+      const variant = await createVariant(productId);
+      const product = await prisma.product.findUniqueOrThrow({ where: { id: productId } });
+      const category = await prisma.category.create({
+        data: { name: `دسته سویچ ${Date.now()}`, slug: `cat-ss270b-${Date.now()}` },
+      });
+      categoryIds.push(category.id);
+
+      const response = await request(app.getHttpServer())
+        .post(BATCH)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          rows: [
+            {
+              variantId: variant.id,
+              expectedUpdatedAt: variant.updatedAt.toISOString(),
+              expectedProductUpdatedAt: product.updatedAt.toISOString(),
+              price: '150000.00',
+              productName: 'نام دوگانه',
+              categoryId: category.id,
+            },
+          ],
+        });
+      expect(response.status).toBe(200);
+      const row = response.body.results[0];
+      expect(row.outcome).toBe('SUCCESS');
+      expect(row.price).toBe('150000');
+      expect(row.product.name).toBe('نام دوگانه');
+
+      const audits = await prisma.auditLog.findMany({
+        where: { entityId: { in: [variant.id, productId] } },
+      });
+      expect(audits.map((entry) => entry.action).sort()).toEqual([
+        'PRODUCT_UPDATED',
+        'PRODUCT_VARIANT_UPDATED',
+      ]);
+    });
+
+    it('rejects a stale product token with a row-level CONFLICT_CHANGED', async () => {
+      const productId = await createProduct();
+      const variant = await createVariant(productId);
+      const stale = new Date(Date.now() - 60_000);
+      const response = await request(app.getHttpServer())
+        .post(BATCH)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          rows: [
+            {
+              variantId: variant.id,
+              expectedUpdatedAt: variant.updatedAt.toISOString(),
+              expectedProductUpdatedAt: stale.toISOString(),
+              productName: 'نام دیگری',
+            },
+          ],
+        });
+      expect(response.status).toBe(200);
+      const row = response.body.results[0];
+      expect(row.outcome).toBe('CONFLICT_CHANGED');
+      // Nothing changed.
+      const afterProduct = await prisma.product.findUniqueOrThrow({ where: { id: productId } });
+      expect(afterProduct.name).not.toBe('نام دیگری');
+    });
+
+    it('requires expectedProductUpdatedAt when product fields are submitted', async () => {
+      const productId = await createProduct();
+      const variant = await createVariant(productId);
+      const response = await request(app.getHttpServer())
+        .post(BATCH)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          rows: [
+            {
+              variantId: variant.id,
+              expectedUpdatedAt: variant.updatedAt.toISOString(),
+              productName: 'نام بدون نسخه',
+            },
+          ],
+        });
+      expect(response.status).toBe(200);
+      const row = response.body.results[0];
+      expect(row.outcome).toBe('VALIDATION_ERROR');
+      expect(row.fieldErrors?.productName).toBeTruthy();
+    });
+
+    it('rejects an unknown category with a row-level field error', async () => {
+      const productId = await createProduct();
+      const variant = await createVariant(productId);
+      const product = await prisma.product.findUniqueOrThrow({ where: { id: productId } });
+      const response = await request(app.getHttpServer())
+        .post(BATCH)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          rows: [
+            {
+              variantId: variant.id,
+              expectedUpdatedAt: variant.updatedAt.toISOString(),
+              expectedProductUpdatedAt: product.updatedAt.toISOString(),
+              categoryId: '00000000-0000-4000-8000-000000000000',
+            },
+          ],
+        });
+      expect(response.status).toBe(200);
+      const row = response.body.results[0];
+      expect(row.outcome).toBe('VALIDATION_ERROR');
+      expect(row.fieldErrors?.categoryId).toBeTruthy();
+    });
+
+    it('conflicts on the second row of one product carrying product fields', async () => {
+      const productId = await createProduct();
+      const variantA = await createVariant(productId);
+      const variantB = await createVariant(productId);
+      const product = await prisma.product.findUniqueOrThrow({ where: { id: productId } });
+      const token = adminToken;
+      const response = await request(app.getHttpServer())
+        .post(BATCH)
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          rows: [
+            {
+              variantId: variantA.id,
+              expectedUpdatedAt: variantA.updatedAt.toISOString(),
+              expectedProductUpdatedAt: product.updatedAt.toISOString(),
+              productName: 'نام نسخهٔ اول',
+            },
+            {
+              variantId: variantB.id,
+              expectedUpdatedAt: variantB.updatedAt.toISOString(),
+              expectedProductUpdatedAt: product.updatedAt.toISOString(),
+              productName: 'نام نسخهٔ دوم',
+            },
+          ],
+        });
+      expect(response.status).toBe(200);
+      const byVariant = new Map(
+        response.body.results.map((row: { variantId: string; outcome: string }) => [row.variantId, row.outcome]),
+      );
+      expect(byVariant.get(variantA.id)).toBe('SUCCESS');
+      expect(byVariant.get(variantB.id)).toBe('CONFLICT_CHANGED');
+      const afterProduct = await prisma.product.findUniqueOrThrow({ where: { id: productId } });
+      expect(afterProduct.name).toBe('نام نسخهٔ اول');
+    });
+
+    it('keeps the archived guard for product-only rows', async () => {
+      const productId = await createProduct({ status: ProductStatus.ARCHIVED });
+      const variant = await createVariant(productId);
+      const product = await prisma.product.findUniqueOrThrow({ where: { id: productId } });
+      const response = await request(app.getHttpServer())
+        .post(BATCH)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          rows: [
+            {
+              variantId: variant.id,
+              expectedUpdatedAt: variant.updatedAt.toISOString(),
+              expectedProductUpdatedAt: product.updatedAt.toISOString(),
+              productName: 'نام روی آرشیو',
+            },
+          ],
+        });
+      expect(response.status).toBe(200);
+      expect(response.body.results[0].outcome).toBe('CONFLICT_CHANGED');
     });
   });
 });

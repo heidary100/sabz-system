@@ -204,7 +204,7 @@ describe('Admin inventory read API database integration (SS-112)', () => {
     const productId = await createProduct();
     const skuVariant = await createVariant(productId, { sku: `FINDME-${Date.now()}` });
     const nameVariant = await createVariant(productId, {
-      name: 'واریانت ویژه جستجو',
+      name: 'نوع ویژه جستجو',
     });
     const whA = await createWarehouse();
     await createItem(skuVariant, whA, { quantityOnHand: 1 });

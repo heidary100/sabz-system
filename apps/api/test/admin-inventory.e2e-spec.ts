@@ -107,7 +107,7 @@ describe('Admin inventory read API (SS-112) (e2e)', () => {
         productId: product.id,
         sku: `E2E-INV-SKU-${Date.now()}`,
         price: '100.00',
-        name: 'واریانت قابلیت جستجو',
+        name: 'نوع قابلیت جستجو',
       },
     });
     variantIds.push(variant.id);

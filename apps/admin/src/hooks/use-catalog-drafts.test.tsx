@@ -10,7 +10,9 @@ import type { SaveOutcome } from './use-catalog-drafts'
  * explicit save chunks into ≤50-row requests, per-row outcomes drive the row
  * status, and discard is a pure client-side reset that never calls the API.
  * Variant fields (sku/barcode/variantName/priceStatus) are inline-editable;
- * product fields are not.
+ * SS-270 adds product-level fields (name/brand/category) with a per-product
+ * draft whose CARRIER is the last row the operator touched — the batch
+ * never sends two product edits for one product.
  */
 vi.mock('../services/catalog-grid', () => ({
   listCatalogGrid: vi.fn(),
@@ -28,7 +30,7 @@ const serverRow = {
   expectedUpdatedAt: BASE_TOKEN,
   sku: 'SKU-1',
   barcode: 'BC-1' as string | null,
-  variantName: 'واریانت یک' as string | null,
+  variantName: 'نوع یک' as string | null,
   price: '100000',
   compareAtPrice: null as string | null,
   stock: 5,
@@ -107,7 +109,7 @@ describe('useCatalogDrafts', () => {
     // Reverting every touched cell back to the server values clears the draft.
     cells.sku('SKU-1')
     cells.barcode('BC-1')
-    cells.variantName('واریانت یک')
+    cells.variantName('نوع یک')
     cells.priceStatus('PRICED')
     expect(hook.result.current.drafts['v1']).toBeUndefined()
     expect(hook.result.current.hasDirty).toBe(false)
@@ -210,8 +212,8 @@ describe('useCatalogDrafts', () => {
       {
         variantId: 'v2',
         outcome: 'VALIDATION_ERROR' as const,
-        message: 'قیمت فروش ویژه باید بیشتر از قیمت فروش باشد.',
-        fieldErrors: { compareAtPrice: 'قیمت فروش ویژه باید بیشتر از قیمت فروش باشد.' },
+        message: 'قیمت قبل از تخفیف باید بیشتر از قیمت فروش باشد.',
+        fieldErrors: { compareAtPrice: 'قیمت قبل از تخفیف باید بیشتر از قیمت فروش باشد.' },
       },
     ]
     mockBatch.mockResolvedValue({ results, summary: { succeeded: 1, failed: 1 } } as CatalogGridBatchResponse)
@@ -281,4 +283,126 @@ describe('useCatalogDrafts', () => {
     expect(hook.result.current.hasDirty).toBe(false)
     expect(mockBatch).not.toHaveBeenCalled()
   })
-})
+
+  // -----------------------------------------------------------------------
+  // SS-270 product-level drafts (name/brand/category)
+  // -----------------------------------------------------------------------
+  describe('SS-270 product drafts', () => {
+    const productServer = {
+      productId: 'p1',
+      productName: 'محصول اصلی',
+      brandId: 'brand-1' as string | null,
+      categoryId: 'cat-1',
+      productUpdatedAt: '2026-11-03T09:00:00.000Z',
+    }
+
+    function editProduct(
+      hook: DraftsHookRender,
+      carrierVariantId: string,
+      field: 'productName' | 'brandId' | 'categoryId',
+      value: string,
+    ): void {
+      act(() =>
+        hook.result.current.editProductCell(
+          productServer,
+          carrierVariantId,
+          BASE_TOKEN,
+          field,
+          value,
+        ),
+      )
+    }
+
+    it('creates a product draft keyed by product with the touched row as carrier', () => {
+      const hook = renderHook(() => useCatalogDrafts())
+      editProduct(hook, 'v1', 'productName', 'نام تازه')
+      const draft = hook.result.current.productDrafts['p1']
+      expect(draft).toMatchObject({
+        productId: 'p1',
+        carrierVariantId: 'v1',
+        carrierExpectedUpdatedAt: BASE_TOKEN,
+        baseProductUpdatedAt: productServer.productUpdatedAt,
+        productName: 'نام تازه',
+      })
+    })
+
+    it('moves the carrier to the last touched row of the same product', () => {
+      const hook = renderHook(() => useCatalogDrafts())
+      editProduct(hook, 'v1', 'productName', 'نام تازه')
+      editProduct(hook, 'v2', 'brandId', 'brand-2')
+      const draft = hook.result.current.productDrafts['p1']!
+      expect(draft.carrierVariantId).toBe('v2')
+      // Both pending fields ride the one carrier.
+      expect(draft.productName).toBe('نام تازه')
+      expect(draft.brandId).toBe('brand-2')
+    })
+
+    it('reverts symmetrically: equal-to-server values drop the draft', () => {
+      const hook = renderHook(() => useCatalogDrafts())
+      editProduct(hook, 'v1', 'productName', 'محصول اصلی')
+      editProduct(hook, 'v1', 'brandId', 'brand-1')
+      expect(hook.result.current.productDrafts['p1']).toBeUndefined()
+      expect(hook.result.current.hasDirty).toBe(false)
+    })
+
+    it('submits a product-only carrier row without variant fields and drops the draft on SUCCESS', async () => {
+      mockBatch.mockResolvedValue({
+        results: [
+          {
+            variantId: 'v1',
+            outcome: 'SUCCESS',
+            updatedAt: BASE_TOKEN,
+            product: {
+              updatedAt: '2026-11-03T09:05:00.000Z',
+              name: 'نام تازه',
+              brandId: null,
+              brandName: null,
+              categoryId: 'cat-1',
+              categoryName: 'هندزفری',
+            },
+          },
+        ],
+        summary: { succeeded: 1, failed: 0 },
+      } as CatalogGridBatchResponse)
+      const hook = renderHook(() => useCatalogDrafts())
+      editProduct(hook, 'v1', 'productName', 'نام تازه')
+      await act(async () => {
+        await hook.result.current.saveAll()
+      })
+      expect(mockBatch).toHaveBeenCalledTimes(1)
+      const payload = mockBatch.mock.calls[0]![0]!
+      expect(payload.rows[0]).toEqual({
+        variantId: 'v1',
+        expectedUpdatedAt: BASE_TOKEN,
+        productName: 'نام تازه',
+        expectedProductUpdatedAt: productServer.productUpdatedAt,
+      })
+      // SUCCESS reconciles: the product draft is dropped.
+      expect(hook.result.current.productDrafts['p1']).toBeUndefined()
+      expect(hook.result.current.statuses['v1']).toBe('saved')
+    })
+
+    it('flags a locally-invalid product edit without sending it', async () => {
+      mockBatch.mockResolvedValue({
+        results: [],
+        summary: { succeeded: 0, failed: 0 },
+      } as CatalogGridBatchResponse)
+      const hook = renderHook(() => useCatalogDrafts())
+      editProduct(hook, 'v1', 'categoryId', '')
+      await act(async () => {
+        await hook.result.current.saveAll()
+      })
+      expect(mockBatch).not.toHaveBeenCalled()
+      expect(hook.result.current.errors['v1']?.categoryId).toBeTruthy()
+      expect(hook.result.current.statuses['v1']).toBe('validation-error')
+    })
+
+    it('discardRow drops the product draft of the carrier row', () => {
+      const hook = renderHook(() => useCatalogDrafts())
+      editProduct(hook, 'v1', 'productName', 'نام تازه')
+      act(() => hook.result.current.discardRow('v1'))
+      expect(hook.result.current.productDrafts['p1']).toBeUndefined()
+      expect(hook.result.current.hasDirty).toBe(false)
+    })
+  })
+});

@@ -41,6 +41,15 @@ export type CatalogGridFilterPatch = Partial<Omit<CatalogGridFilters, 'page'>> &
 }
 
 /** Server-side patch of a saved row (authoritative values from the batch response). */
+export interface CatalogGridProductPatch {
+  updatedAt: string
+  name: string
+  brandId: string | null
+  brandName: string | null
+  categoryId: string
+  categoryName: string
+}
+
 export interface CatalogGridRowPatch {
   variantId: string
   price: string
@@ -51,6 +60,8 @@ export interface CatalogGridRowPatch {
   barcode?: string | null
   variantName?: string | null
   priceStatus?: PriceStatus
+  /** SS-270: product values reconcile every row of the same product. */
+  product?: CatalogGridProductPatch
 }
 
 const DEFAULT_PAGE_SIZE = 50
@@ -288,6 +299,18 @@ export function useCatalogGrid() {
                 variantName:
                   patch.variantName !== undefined ? patch.variantName : item.variantName,
                 priceStatus: patch.priceStatus ?? item.priceStatus,
+                // SS-270: product-level values patch EVERY row of the same
+                // product (the product spans rows; its draft is global).
+                ...(patch.product
+                  ? {
+                      productName: patch.product.name,
+                      brandId: patch.product.brandId,
+                      brandName: patch.product.brandName,
+                      categoryId: patch.product.categoryId,
+                      categoryName: patch.product.categoryName,
+                      productUpdatedAt: patch.product.updatedAt,
+                    }
+                  : {}),
               }
             }),
           }

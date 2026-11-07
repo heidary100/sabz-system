@@ -36,7 +36,7 @@ export function VariantInventoryPage() {
   const variantRef = firstRow?.variant ?? null
 
   if (loading && !rows) {
-    return <Loading label="در حال بارگذاری موجودی واریانت…" />
+    return <Loading label="در حال بارگذاری موجودی نوع…" />
   }
 
   if (error && !rows) {
@@ -80,7 +80,7 @@ export function VariantInventoryPage() {
         </Link>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <Heading level={1}>موجودی واریانت</Heading>
+            <Heading level={1}>موجودی نوع</Heading>
             <RouteHelpSection className="ms-auto" />
             {variantRef && (
               <Text className="text-sm text-muted">
@@ -96,7 +96,7 @@ export function VariantInventoryPage() {
               to={`/inventory/movements?variantId=${encodeURIComponent(variantId)}`}
               className="text-sm font-medium text-primary hover:underline"
             >
-              تاریخچه این واریانت
+              تاریخچه این نوع
             </Link>
           )}
           {variantId && (
@@ -104,7 +104,7 @@ export function VariantInventoryPage() {
               to={`/inventory/reservations?variantId=${encodeURIComponent(variantId)}`}
               className="text-sm font-medium text-primary hover:underline"
             >
-              رزروهای این واریانت
+              رزروهای این نوع
             </Link>
           )}
         </div>
@@ -115,8 +115,8 @@ export function VariantInventoryPage() {
           title="موجودی ثبت نشده"
           description={
             variantRef
-              ? `برای واریانت ${variantRef.sku} در هیچ انبار فعالی موجودی ثبت نشده است.`
-              : 'برای این واریانت در هیچ انبار فعالی موجودی ثبت نشده است.'
+              ? `برای نوع ${variantRef.sku} در هیچ انبار فعالی موجودی ثبت نشده است.`
+              : 'برای این نوع در هیچ انبار فعالی موجودی ثبت نشده است.'
           }
           icon={<Boxes className="size-6" />}
         />

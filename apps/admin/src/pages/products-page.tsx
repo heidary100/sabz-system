@@ -47,6 +47,7 @@ import { TablePagination } from '../components/ui/table-pagination'
 import { MultiSelectCheckbox } from '../components/ui/multi-select-checkbox'
 import { DeleteConfirmDialog } from '../components/ui/delete-confirm-dialog'
 import { EditableCell, PriceStatusCell } from '../components/catalog/editable-cell'
+import { EntityCell } from '../components/catalog/entity-cell'
 import { FilterChips } from '../components/catalog/filter-chips'
 import type { FilterChip } from '../components/catalog/filter-chips'
 import { RowActions } from '../components/catalog/row-actions'
@@ -58,6 +59,17 @@ import { RowConflictDialog } from '../components/catalog/row-conflict-dialog'
 const SEARCH_DEBOUNCE_MS = 300
 
 const DIRTY_GUARD_MESSAGE = 'تغییرات ذخیرهنشده دارید؛ با ادامه این تغییرات از بین میروند. ادامه میدهید؟'
+
+/** SS-270: «ستون دارای تغییر ذخیره‌نشده» marker (never color alone). */
+function PendingDot() {
+  return (
+    <span
+      aria-hidden="true"
+      title="ستون دارای تغییر ذخیرهنشده"
+      className="size-1.5 rounded-full bg-warning"
+    />
+  )
+}
 
 function SortableHeader({
   label,
@@ -230,6 +242,7 @@ export function ProductsPage() {
         barcode: result.barcode,
         variantName: result.variantName,
         priceStatus: result.priceStatus,
+        product: result.product,
       })),
     )
     const unresolved = outcome.results.filter(
@@ -263,6 +276,20 @@ export function ProductsPage() {
     }
     submitAndReconcile(outcome)
   }
+
+  // SS-270: Ctrl/Cmd+S triggers the explicit batch save.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
+        event.preventDefault()
+        if (drafts.hasDirty && !drafts.saving) {
+          void handleSave()
+        }
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [drafts.hasDirty, drafts.saving, handleSave])
 
   const handleDiscard = (): void => {
     if (!window.confirm(DIRTY_GUARD_MESSAGE)) {
@@ -424,6 +451,27 @@ export function ProductsPage() {
     if (!rowErrors) return undefined
     return rowErrors[field] ?? rowErrors['_']
   }
+
+  // --- SS-270 product-level helpers -------------------------------------
+  // A product's draft is displayed on EVERY row of that product (the product
+  // spans rows; the carrier row submits in the batch).
+  const serverProduct = (row: CatalogGridRow) => ({
+    productId: row.productId,
+    productName: row.productName,
+    brandId: row.brandId,
+    categoryId: row.categoryId,
+    productUpdatedAt: row.productUpdatedAt,
+  })
+  const productCellStatus = (row: CatalogGridRow): string =>
+    drafts.productDrafts[row.productId] !== undefined ? 'dirty' : 'clean'
+  const productNameValue = (row: CatalogGridRow): string =>
+    drafts.productDrafts[row.productId]?.productName ?? row.productName
+  const brandValue = (row: CatalogGridRow): string | null =>
+    drafts.productDrafts[row.productId]?.brandId ?? row.brandId
+  const categoryValue = (row: CatalogGridRow): string =>
+    drafts.productDrafts[row.productId]?.categoryId ?? row.categoryId
+  const productFieldPending = (field: 'productName' | 'brandId' | 'categoryId'): boolean =>
+    Object.values(drafts.productDrafts).some((draft) => draft[field] !== undefined)
 
   const serverValues = (row: CatalogGridRow) => ({
     variantId: row.variantId,
@@ -693,7 +741,7 @@ export function ProductsPage() {
           title="محصولی یافت نشد"
           description={
             chips.length > 0
-              ? 'با این فیلترها واریانتی ثبت نشده است.'
+              ? 'با این فیلترها نوعی ثبت نشده است.'
               : 'هنوز محصولی ثبت نشده است.'
           }
           actions={
@@ -718,7 +766,7 @@ export function ProductsPage() {
             limit={grid.filters.limit}
             onPageChange={(target) => changeFilter(() => setPage(target))()}
             onLimitChange={(next) => changeFilter(() => setLimit(next))()}
-            totalLabel="واریانت"
+            totalLabel="نوع"
           />
           <HorizontalScroll dragToPan>
             <Table dense scrollContainer={false}>
@@ -728,13 +776,16 @@ export function ProductsPage() {
             <TableRow>
                   {showColumn('thumbnail') && <TableHeader>تصویر</TableHeader>}
                   <TableHeader>
-                    <SortableHeader
-                      label={GRID_COLUMN_LABELS.name}
-                      field="name"
-                      sortBy={grid.filters.sortBy}
-                      sortDir={grid.filters.sortDir}
-                      onSort={(field) => changeFilter(() => setSort(field))()}
-                    />
+                    <span className="inline-flex items-center gap-1.5">
+                      <SortableHeader
+                        label={GRID_COLUMN_LABELS.name}
+                        field="name"
+                        sortBy={grid.filters.sortBy}
+                        sortDir={grid.filters.sortDir}
+                        onSort={(field) => changeFilter(() => setSort(field))()}
+                      />
+                      {productFieldPending('productName') && <PendingDot />}
+                    </span>
                   </TableHeader>
                   {showColumn('variantName') && <TableHeader>{GRID_COLUMN_LABELS.variantName}</TableHeader>}
                   <TableHeader>
@@ -747,8 +798,22 @@ export function ProductsPage() {
                     />
                   </TableHeader>
                   {showColumn('barcode') && <TableHeader>{GRID_COLUMN_LABELS.barcode}</TableHeader>}
-                  {showColumn('brand') && <TableHeader>{GRID_COLUMN_LABELS.brand}</TableHeader>}
-                  {showColumn('category') && <TableHeader>{GRID_COLUMN_LABELS.category}</TableHeader>}
+                  {showColumn('brand') && (
+                    <TableHeader>
+                      <span className="inline-flex items-center gap-1.5">
+                        {GRID_COLUMN_LABELS.brand}
+                        {productFieldPending('brandId') && <PendingDot />}
+                      </span>
+                    </TableHeader>
+                  )}
+                  {showColumn('category') && (
+                    <TableHeader>
+                      <span className="inline-flex items-center gap-1.5">
+                        {GRID_COLUMN_LABELS.category}
+                        {productFieldPending('categoryId') && <PendingDot />}
+                      </span>
+                    </TableHeader>
+                  )}
                   <TableHeader>
                     <SortableHeader
                       label={GRID_COLUMN_LABELS.stock}
@@ -818,9 +883,24 @@ export function ProductsPage() {
                         </TableCell>
                       )}
                       <TableCell className="font-medium text-foreground">
-                        <Link to={`/products/${row.productId}`} className="hover:underline">
-                          {row.productName}
-                        </Link>
+                        <EditableCell
+                          kind="text"
+                          textDir="rtl"
+                          value={productNameValue(row)}
+                          status={productCellStatus(row)}
+                          error={cellError(row, 'productName')}
+                          ariaLabel={`نام محصول — ${row.sku}`}
+                          maxLength={255}
+                          onChange={(value) =>
+                            drafts.editProductCell(
+                              serverProduct(row),
+                              row.variantId,
+                              row.productUpdatedAt,
+                              'productName',
+                              value,
+                            )
+                          }
+                        />
                       </TableCell>
                       {showColumn('variantName') && (
                         <TableCell>{renderEditableColumn(row, 'variantName')}</TableCell>
@@ -830,10 +910,46 @@ export function ProductsPage() {
                         <TableCell>{renderEditableColumn(row, 'barcode')}</TableCell>
                       )}
                       {showColumn('brand') && (
-                        <TableCell className="text-muted">{row.brandName ?? 'بدون برند'}</TableCell>
+                        <TableCell>
+                          <EntityCell
+                            ariaLabel={`برند — ${row.sku}`}
+                            value={brandValue(row)}
+                            options={brandSelectOptions}
+                            nullable
+                            clearLabel="بدون برند"
+                            status={productCellStatus(row)}
+                            error={cellError(row, 'brandId')}
+                            onChange={(id) =>
+                              drafts.editProductCell(
+                                serverProduct(row),
+                                row.variantId,
+                                row.productUpdatedAt,
+                                'brandId',
+                                id ?? '',
+                              )
+                            }
+                          />
+                        </TableCell>
                       )}
                       {showColumn('category') && (
-                        <TableCell className="text-muted">{row.categoryName}</TableCell>
+                        <TableCell>
+                          <EntityCell
+                            ariaLabel={`دسته‌بندی — ${row.sku}`}
+                            value={categoryValue(row)}
+                            options={categorySelectOptions}
+                            status={productCellStatus(row)}
+                            error={cellError(row, 'categoryId')}
+                            onChange={(id) =>
+                              drafts.editProductCell(
+                                serverProduct(row),
+                                row.variantId,
+                                row.productUpdatedAt,
+                                'categoryId',
+                                id ?? '',
+                              )
+                            }
+                          />
+                        </TableCell>
                       )}
                       <TableCell>{renderEditableColumn(row, 'stock')}</TableCell>
                       <TableCell>{renderEditableColumn(row, 'regularPrice')}</TableCell>
@@ -898,20 +1014,20 @@ export function ProductsPage() {
             limit={grid.filters.limit}
             onPageChange={(target) => changeFilter(() => setPage(target))()}
             onLimitChange={(next) => changeFilter(() => setLimit(next))()}
-            totalLabel="واریانت"
+            totalLabel="نوع"
           />
         </TableCard>
       )}
 
       <DeleteConfirmDialog
         open={deleteTarget !== null}
-        title="حذف واریانت"
+        title="حذف نوع"
         description={
           deleteTarget
-            ? `واریانت «${deleteTarget.sku}» حذف میشود. این عملیات قابل بازگشت نیست.`
+            ? `نوع «${deleteTarget.sku}» حذف میشود. این عملیات قابل بازگشت نیست.`
             : ''
         }
-        confirmLabel="حذف واریانت"
+        confirmLabel="حذف نوع"
         onClose={() => setDeleteTarget(null)}
         onConfirm={handleDelete}
       />

@@ -274,13 +274,13 @@ export function ProductDetailPage() {
 
       <DeleteConfirmDialog
         open={variantDialog?.mode === 'delete'}
-        title="حذف واریانت"
+        title="حذف نوع"
         description={
           variantDialog?.mode === 'delete'
-            ? `واریانت «${variantDialog.variant.sku}» از چیدمان فعال محصول حذف میشود.`
+            ? `نوع «${variantDialog.variant.sku}» از چیدمان فعال محصول حذف میشود.`
             : ''
         }
-        confirmLabel="حذف واریانت"
+        confirmLabel="حذف نوع"
         onClose={() => setVariantDialog(null)}
         onConfirm={handleVariantDelete}
       />

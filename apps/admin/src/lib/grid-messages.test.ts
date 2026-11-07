@@ -7,10 +7,10 @@ describe('catalog grid outcome messages (SS-257)', () => {
     const result: CatalogGridRowResult = {
       variantId: 'v1',
       outcome: 'VALIDATION_ERROR',
-      message: 'قیمت فروش ویژه باید بیشتر از قیمت فروش باشد.',
+      message: 'قیمت قبل از تخفیف باید بیشتر از قیمت فروش باشد.',
     }
     expect(gridOutcomeMessage(result)).toBe(
-      'قیمت فروش ویژه باید بیشتر از قیمت فروش باشد.',
+      'قیمت قبل از تخفیف باید بیشتر از قیمت فروش باشد.',
     )
   })
 

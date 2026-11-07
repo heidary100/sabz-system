@@ -704,7 +704,7 @@ export class MediaService implements OnModuleInit {
       select: { id: true },
     });
     if (!variant) {
-      throw new NotFoundException('واریانت یافت نشد.');
+      throw new NotFoundException('نوع یافت نشد.');
     }
   }
 

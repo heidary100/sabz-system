@@ -10,7 +10,10 @@ import type { PriceStatus, ProductCondition, ProductStatus } from './type';
  * back on batch save. Product-level fields (productName/productStatus/
  * condition/createdAt/brand/category) are display-only: they are edited via
  * the row action (edit page), never inline, because a product can span
- * several variant rows.
+ * several variant rows. SS-270: productName/brand/category became inline
+ * editable through the batch API — the row carries `productUpdatedAt` (the
+ * product-level concurrency token) and the batch accepts optional product
+ * fields keyed by the row's variant.
  */
 export interface CatalogGridRow {
   variantId: string;
@@ -25,6 +28,9 @@ export interface CatalogGridRow {
   /** Variant display label (variant.name). */
   variantName: string | null;
   brandName: string | null;
+  /** SS-270 ids for inline product editing. */
+  brandId: string | null;
+  categoryId: string;
   categoryName: string;
   thumbnailUrl: string | null;
   priceStatus: PriceStatus;
@@ -34,6 +40,8 @@ export interface CatalogGridRow {
   /** Inline stock editing allowed only when exactly one qualifying warehouse holds the variant. */
   stockEditable: boolean;
   expectedUpdatedAt: string;
+  /** Product-level optimistic-concurrency token (SS-270). */
+  productUpdatedAt: string;
 }
 
 export interface CatalogGridListQuery {
@@ -84,6 +92,22 @@ export interface CatalogGridBatchRowInput {
   sku?: string;
   barcode?: string | null;
   variantName?: string | null;
+  /** SS-270 product-level fields. Any of these requires
+   * `expectedProductUpdatedAt` (validated in the service). */
+  productName?: string;
+  /** Pass null to clear the brand (mirrors PATCH /admin/products). */
+  brandId?: string | null;
+  categoryId?: string;
+  expectedProductUpdatedAt?: string;
+}
+
+export interface CatalogGridProductResult {
+  updatedAt: string;
+  name: string;
+  brandId: string | null;
+  brandName: string | null;
+  categoryId: string;
+  categoryName: string;
 }
 
 export interface CatalogGridBatchInput {
@@ -115,6 +139,8 @@ export interface CatalogGridRowResult {
   barcode?: string | null;
   variantName?: string | null;
   priceStatus?: PriceStatus;
+  /** Authoritative product values on SUCCESS (SS-270). */
+  product?: CatalogGridProductResult;
 }
 
 export interface CatalogGridBatchResponse {

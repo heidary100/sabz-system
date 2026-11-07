@@ -30,28 +30,28 @@ export function ProductVariantsSection({
     <section className="rounded-xl border border-border bg-surface p-5 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <Subheading>واریانت‌ها</Subheading>
+          <Subheading>انواع</Subheading>
             <Text className="mt-1 text-xs text-muted">
-              SKU و قیمت به واریانت تعلق دارد. موجودی هر واریانت از مسیر «موجودی انبارها» مدیریت میشود.
+              SKU و قیمت به نوع تعلق دارد. موجودی هر نوع از مسیر «موجودی انبارها» مدیریت میشود.
             </Text>
         </div>
         {manageable && (
           <Button color="primary" onClick={onCreate}>
             <Plus data-slot="icon" />
-            افزودن واریانت
+            افزودن نوع
           </Button>
         )}
       </div>
 
       {variants.length === 0 ? (
-        <Text className="mt-4">هنوز واریانتی برای این محصول ثبت نشده است.</Text>
+        <Text className="mt-4">هنوز نوعی برای این محصول ثبت نشده است.</Text>
       ) : (
         <div className="mt-4">
           <Table>
             <TableHead>
               <TableRow>
                 <TableHeader>SKU</TableHeader>
-                <TableHeader>نام واریانت</TableHeader>
+                <TableHeader>نام نوع</TableHeader>
                 <TableHeader>بارکد</TableHeader>
                 <TableHeader>قیمت</TableHeader>
                 {manageable && <TableHeader>عملیات</TableHeader>}

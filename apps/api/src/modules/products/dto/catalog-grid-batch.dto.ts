@@ -124,6 +124,40 @@ export class CatalogGridBatchRowDto {
   @IsString({ message: 'variantName باید رشته باشد.' })
   @MaxLength(255, { message: 'variantName باید حداکثر ۲۵۵ کاراکتر باشد.' })
   variantName?: string | null;
+
+  @ApiPropertyOptional({ description: 'Product name (SS-270 inline product edit).' })
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      return trimmed.length > 0 ? trimmed : undefined;
+    }
+    return value;
+  })
+  @IsString({ message: 'productName باید رشته باشد.' })
+  @MaxLength(255, { message: 'productName باید حداکثر ۲۵۵ کاراکتر باشد.' })
+  productName?: string;
+
+  @ApiPropertyOptional({
+    description: 'Brand id. Pass null to clear (mirrors PATCH /admin/products).',
+  })
+  @IsOptional()
+  @Transform(({ value }) => (value === null ? null : value))
+  @IsUUID('all', { message: 'brandId باید شناسه UUID معتبر باشد.' })
+  brandId?: string | null;
+
+  @ApiPropertyOptional({ description: 'Category id (required non-null domain rule).' })
+  @IsOptional()
+  @IsUUID('all', { message: 'categoryId باید شناسه UUID معتبر باشد.' })
+  categoryId?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'ISO datetime of the product row the admin loaded with. Required when any product field is submitted; the product write is conditional on it.',
+  })
+  @IsOptional()
+  @IsDateString({}, { message: 'expectedProductUpdatedAt باید تاریخ و زمان معتبر ISO باشد.' })
+  expectedProductUpdatedAt?: string;
 }
 
 export class CatalogGridBatchDto {

@@ -196,11 +196,11 @@ export function InventoryMovementsPage() {
 
       {variantId !== '' && (
         <div className="surface-card flex items-center gap-2 rounded-lg px-3 py-2">
-          <Badge>فیلتر واریانت</Badge>
+          <Badge>فیلتر نوع</Badge>
           <span dir="ltr" className="font-mono text-xs text-muted">
             {variantId}
           </span>
-          <Button plain onClick={removeVariantFilter} aria-label="حذف فیلتر واریانت">
+          <Button plain onClick={removeVariantFilter} aria-label="حذف فیلتر نوع">
             حذف
           </Button>
         </div>

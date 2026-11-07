@@ -132,7 +132,7 @@ export class VariantsService {
       return this.toSummary(created);
     } catch (error) {
       if (this.isUniqueViolation(error)) {
-        throw new ConflictException('یک واریانت با این sku قبلاً وجود دارد.');
+        throw new ConflictException('یک نوع با این sku قبلاً وجود دارد.');
       }
       throw error;
     }
@@ -201,7 +201,7 @@ export class VariantsService {
           select: variantSelect,
         });
         if (!current || current.deletedAt !== null) {
-          throw new NotFoundException('واریانت یافت نشد.');
+          throw new NotFoundException('نوع یافت نشد.');
         }
         return current;
       });
@@ -210,7 +210,7 @@ export class VariantsService {
       return this.toSummary(updated);
     } catch (error) {
       if (this.isUniqueViolation(error)) {
-        throw new ConflictException('یک واریانت با این sku قبلاً وجود دارد.');
+        throw new ConflictException('یک نوع با این sku قبلاً وجود دارد.');
       }
       throw error;
     }
@@ -237,7 +237,7 @@ export class VariantsService {
         data: { deletedAt, updatedBy: actorId },
       });
       if (updatedRows.count === 0) {
-        throw new NotFoundException('واریانت یافت نشد.');
+        throw new NotFoundException('نوع یافت نشد.');
       }
 
       await this.auditService.log(
@@ -295,14 +295,14 @@ export class VariantsService {
     }
     if (effective.priceStatus !== PriceStatus.PRICED) {
       throw new BadRequestException(
-        'قیمت فروش ویژه فقط برای واریانت قیمت‌دار مجاز است.',
+        'قیمت قبل از تخفیف فقط برای نوع قیمت‌دار مجاز است.',
       );
     }
     const compareAt = new Prisma.Decimal(effective.compareAtPrice);
     const price = new Prisma.Decimal(effective.price);
     if (compareAt.comparedTo(price) <= 0) {
       throw new BadRequestException(
-        'قیمت فروش ویژه باید بیشتر از قیمت فروش باشد.',
+        'قیمت قبل از تخفیف باید بیشتر از قیمت فروش باشد.',
       );
     }
   }
@@ -338,7 +338,7 @@ export class VariantsService {
       select: variantSelect,
     });
     if (!variant || variant.deletedAt !== null) {
-      throw new NotFoundException('واریانت یافت نشد.');
+      throw new NotFoundException('نوع یافت نشد.');
     }
     return variant;
   }
@@ -352,7 +352,7 @@ export class VariantsService {
       select: variantSelect,
     });
     if (!variant || variant.deletedAt !== null) {
-      throw new NotFoundException('واریانت یافت نشد.');
+      throw new NotFoundException('نوع یافت نشد.');
     }
     return variant;
   }
@@ -373,7 +373,7 @@ export class VariantsService {
       select: { id: true, deletedAt: true, productId: true },
     });
     if (!variant || variant.deletedAt !== null) {
-      throw new NotFoundException('واریانت یافت نشد.');
+      throw new NotFoundException('نوع یافت نشد.');
     }
 
     const product = await tx.product.findUnique({

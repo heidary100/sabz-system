@@ -17,9 +17,13 @@ import { batchUpdateCatalogGrid } from '../services/catalog-grid'
  * untouched. Saving is explicit and chunks drafts into ≤50-row requests;
  * every row keeps its own status so partial failures stay recoverable.
  *
- * Inline-editable fields are the VARIANT fields (sku/barcode/name/price/
- * compareAtPrice/priceStatus/stock). Product-level fields are edited via the
- * row action (edit page) — a product can span several grid rows.
+ * SS-270 product-level fields (productName/brand/category): a product can
+ * span several grid rows, so its edits live in a SEPARATE draft map keyed by
+ * productId and displayed on EVERY row of that product. One row — the
+ * "carrier", the last row the operator touched — carries the product fields
+ * in the batch, guarded by the product's own `expectedProductUpdatedAt`
+ * token; the server rejects a second concurrent carrier with a per-row
+ * conflict, so the client never sends two.
  */
 
 export type CatalogRowStatus =
@@ -40,6 +44,8 @@ export type CatalogEditableField =
   | 'barcode'
   | 'variantName'
   | 'priceStatus'
+
+export type CatalogProductEditableField = 'productName' | 'brandId' | 'categoryId'
 
 export interface CatalogRowDraft {
   /** Row version the edit started from — the batch write is conditional on it. */
@@ -67,6 +73,31 @@ export interface CatalogRowServerValues {
   priceStatus: PriceStatus
 }
 
+export interface CatalogProductServerValues {
+  productId: string
+  productName: string
+  /** null = no brand assigned. */
+  brandId: string | null
+  categoryId: string
+  /** The product's own concurrency token (SS-270). */
+  productUpdatedAt: string
+}
+
+export interface CatalogProductDraft {
+  productId: string
+  /** The row that will carry the product fields in the batch. */
+  carrierVariantId: string
+  /** The carrier row's variant token, captured at edit time. Unused by the
+   * server for product-only rows (the variant write is skipped) but still
+   * required by the DTO. */
+  carrierExpectedUpdatedAt: string
+  baseProductUpdatedAt: string
+  productName?: string
+  /** `null` = explicitly cleared the brand. */
+  brandId?: string | null
+  categoryId?: string
+}
+
 export interface SaveOutcome {
   results: CatalogGridRowResult[]
   requestError: unknown | null
@@ -77,6 +108,7 @@ const GRID_STOCK_PATTERN = /^\d+$/
 const SKU_MAX = 64
 const BARCODE_MAX = 64
 const VARIANT_NAME_MAX = 255
+const PRODUCT_NAME_MAX = 255
 const BATCH_CHUNK_SIZE = 50
 
 /** Rows that an explicit «ذخیره» submits: touched or locally-corrected rows. */
@@ -92,11 +124,13 @@ const FAILED: readonly CatalogRowStatus[] = [
 
 export const LOCAL_FIELD_ERRORS: Record<string, string> = {
   price: 'قالب قیمت معتبر نیست؛ حداکثر ۲ رقم اعشار.',
-  compareAtPrice: 'قالب قیمت فروش ویژه معتبر نیست؛ حداکثر ۲ رقم اعشار.',
+  compareAtPrice: 'قالب قیمت قبل از تخفیف معتبر نیست؛ حداکثر ۲ رقم اعشار.',
   stock: 'موجودی باید عدد صحیح نامنفی باشد.',
   sku: `شناسه کالا الزامی است و حداکثر ${SKU_MAX} کاراکتر است.`,
   barcode: `بارکد حداکثر ${BARCODE_MAX} کاراکتر است.`,
-  variantName: `نام واریانت حداکثر ${VARIANT_NAME_MAX} کاراکتر است.`,
+  variantName: `نام نوع حداکثر ${VARIANT_NAME_MAX} کاراکتر است.`,
+  productName: `نام محصول الزامی است و حداکثر ${PRODUCT_NAME_MAX} کاراکتر است.`,
+  categoryId: 'دسته‌بندی الزامی است.',
 }
 
 function chunk<T>(items: T[], size: number): T[][] {
@@ -109,6 +143,7 @@ function chunk<T>(items: T[], size: number): T[][] {
 
 export function useCatalogDrafts() {
   const [drafts, setDrafts] = useState<Record<string, CatalogRowDraft>>({})
+  const [productDrafts, setProductDrafts] = useState<Record<string, CatalogProductDraft>>({})
   const [statuses, setStatuses] = useState<Record<string, CatalogRowStatus>>({})
   const [errors, setErrors] = useState<Record<string, Record<string, string>>>({})
   const [saving, setSaving] = useState(false)
@@ -251,88 +286,208 @@ export function useCatalogDrafts() {
     [setStatus],
   )
 
+  const editProductCell = useCallback(
+    (
+      product: CatalogProductServerValues,
+      carrierVariantId: string,
+      carrierExpectedUpdatedAt: string,
+      field: CatalogProductEditableField,
+      rawValue: string,
+    ): void => {
+      // Per-field canonical values: productName/categoryId are required
+      // (empty input stays '' and is reported locally on save); brand
+      // nullable (empty string = explicit clear).
+      const nextProductName = field === 'productName' ? rawValue.trim() : undefined
+      const nextBrandId =
+        field === 'brandId' ? (rawValue === '' ? null : rawValue) : undefined
+      const nextCategoryId = field === 'categoryId' ? rawValue : undefined
+
+      setProductDrafts((prev) => {
+        const existing: CatalogProductDraft = prev[product.productId] ?? {
+          productId: product.productId,
+          carrierVariantId,
+          carrierExpectedUpdatedAt,
+          baseProductUpdatedAt: product.productUpdatedAt,
+        }
+        const next: CatalogProductDraft = {
+          ...existing,
+          // The carrier is the last row the operator touched — it carries
+          // the product fields in the batch (the server rejects two).
+          carrierVariantId,
+          carrierExpectedUpdatedAt,
+          baseProductUpdatedAt: product.productUpdatedAt,
+        }
+        if (nextProductName !== undefined) {
+          next.productName = nextProductName
+        }
+        if (nextBrandId !== undefined) {
+          next.brandId = nextBrandId
+        }
+        if (nextCategoryId !== undefined) {
+          next.categoryId = nextCategoryId
+        }
+
+        // Symmetric revert: a value equal to the loaded product drops out.
+        if (next.productName !== undefined && next.productName === product.productName) {
+          delete next.productName
+        }
+        if (next.brandId !== undefined) {
+          const matchesServer =
+            next.brandId === null ? product.brandId === null : next.brandId === product.brandId
+          if (matchesServer) {
+            delete next.brandId
+          }
+        }
+        if (next.categoryId !== undefined && next.categoryId === product.categoryId) {
+          delete next.categoryId
+        }
+
+        if (
+          next.productName === undefined &&
+          next.brandId === undefined &&
+          next.categoryId === undefined
+        ) {
+          const nextDrafts = { ...prev }
+          delete nextDrafts[product.productId]
+          return nextDrafts
+        }
+        return { ...prev, [product.productId]: next }
+      })
+
+      setStatus(carrierVariantId, 'dirty')
+      setErrors((prev) => {
+        const next = { ...prev }
+        delete next[carrierVariantId]
+        return next
+      })
+    },
+    [setStatus],
+  )
+
   const discardAll = useCallback((): void => {
     // Zero-drift cancel: pure client-side reset, nothing is sent anywhere.
     setDrafts({})
+    setProductDrafts({})
     setStatuses({})
     setErrors({})
   }, [])
 
-  const discardRow = useCallback(dropRow, [dropRow])
+  const discardRow = useCallback(
+    (variantId: string) => {
+      // Dropping a row also drops its product draft when it is that row's
+      // carrier — the product fields lived on it in the batch.
+      setProductDrafts((prev) => {
+        const next = { ...prev }
+        for (const [productId, draft] of Object.entries(prev)) {
+          if (draft.carrierVariantId === variantId) {
+            delete next[productId]
+          }
+        }
+        return next
+      })
+      dropRow(variantId)
+    },
+    [dropRow],
+  )
 
   const resolveConflictRow = useCallback(
     (variantId: string, mode: 'keep' | 'drop'): void => {
       if (mode === 'drop') {
-        dropRow(variantId)
+        discardRow(variantId)
         return
       }
       setStatus(variantId, 'dirty')
     },
-    [dropRow, setStatus],
+    [discardRow, setStatus],
   )
 
   const buildRowInput = useCallback(
     (
       variantId: string,
-      draft: CatalogRowDraft,
+      draft: CatalogRowDraft | undefined,
+      productDraft: CatalogProductDraft | undefined,
     ): { input: CatalogGridBatchRowInput } | { invalid: Record<string, string> } => {
       const input: CatalogGridBatchRowInput = {
         variantId,
-        expectedUpdatedAt: draft.baseUpdatedAt,
+        expectedUpdatedAt: draft?.baseUpdatedAt ?? productDraft?.carrierExpectedUpdatedAt ?? '',
       }
       const invalid: Record<string, string> = {}
-      if (draft.price !== undefined) {
-        if (GRID_PRICE_PATTERN.test(draft.price)) {
-          input.price = draft.price
-        } else {
-          invalid.price = LOCAL_FIELD_ERRORS.price!
+      if (draft !== undefined) {
+        if (draft.price !== undefined) {
+          if (GRID_PRICE_PATTERN.test(draft.price)) {
+            input.price = draft.price
+          } else {
+            invalid.price = LOCAL_FIELD_ERRORS.price!
+          }
+        }
+        if (draft.compareAtPrice !== undefined) {
+          if (draft.compareAtPrice === null || GRID_PRICE_PATTERN.test(draft.compareAtPrice)) {
+            input.compareAtPrice = draft.compareAtPrice
+          } else {
+            invalid.compareAtPrice = LOCAL_FIELD_ERRORS.compareAtPrice!
+          }
+        }
+        if (draft.stock !== undefined) {
+          if (GRID_STOCK_PATTERN.test(draft.stock)) {
+            input.stock = Number(draft.stock)
+          } else {
+            invalid.stock = LOCAL_FIELD_ERRORS.stock!
+          }
+        }
+        if (draft.sku !== undefined) {
+          const trimmed = draft.sku.trim()
+          if (trimmed.length > 0 && trimmed.length <= SKU_MAX) {
+            input.sku = trimmed
+          } else {
+            invalid.sku = LOCAL_FIELD_ERRORS.sku!
+          }
+        }
+        if (draft.barcode !== undefined) {
+          if (draft.barcode === null || draft.barcode.length <= BARCODE_MAX) {
+            input.barcode = draft.barcode
+          } else {
+            invalid.barcode = LOCAL_FIELD_ERRORS.barcode!
+          }
+        }
+        if (draft.variantName !== undefined) {
+          if (draft.variantName === null || draft.variantName.length <= VARIANT_NAME_MAX) {
+            input.variantName = draft.variantName
+          } else {
+            invalid.variantName = LOCAL_FIELD_ERRORS.variantName!
+          }
+        }
+        if (draft.priceStatus !== undefined) {
+          input.priceStatus = draft.priceStatus
         }
       }
-      if (draft.compareAtPrice !== undefined) {
-        if (draft.compareAtPrice === null || GRID_PRICE_PATTERN.test(draft.compareAtPrice)) {
-          input.compareAtPrice = draft.compareAtPrice
-        } else {
-          invalid.compareAtPrice = LOCAL_FIELD_ERRORS.compareAtPrice!
+      if (productDraft !== undefined) {
+        if (productDraft.productName !== undefined) {
+          const trimmed = productDraft.productName.trim()
+          if (trimmed.length > 0 && trimmed.length <= PRODUCT_NAME_MAX) {
+            input.productName = trimmed
+          } else {
+            invalid.productName = LOCAL_FIELD_ERRORS.productName!
+          }
         }
-      }
-      if (draft.stock !== undefined) {
-        if (GRID_STOCK_PATTERN.test(draft.stock)) {
-          input.stock = Number(draft.stock)
-        } else {
-          invalid.stock = LOCAL_FIELD_ERRORS.stock!
+        if (productDraft.brandId !== undefined) {
+          input.brandId = productDraft.brandId
         }
-      }
-      if (draft.sku !== undefined) {
-        const trimmed = draft.sku.trim()
-        if (trimmed.length > 0 && trimmed.length <= SKU_MAX) {
-          input.sku = trimmed
-        } else {
-          invalid.sku = LOCAL_FIELD_ERRORS.sku!
+        if (productDraft.categoryId !== undefined) {
+          if (productDraft.categoryId.length > 0) {
+            input.categoryId = productDraft.categoryId
+          } else {
+            invalid.categoryId = LOCAL_FIELD_ERRORS.categoryId!
+          }
         }
-      }
-      if (draft.barcode !== undefined) {
-        if (draft.barcode === null || draft.barcode.length <= BARCODE_MAX) {
-          input.barcode = draft.barcode
-        } else {
-          invalid.barcode = LOCAL_FIELD_ERRORS.barcode!
-        }
-      }
-      if (draft.variantName !== undefined) {
-        if (draft.variantName === null || draft.variantName.length <= VARIANT_NAME_MAX) {
-          input.variantName = draft.variantName
-        } else {
-          invalid.variantName = LOCAL_FIELD_ERRORS.variantName!
-        }
-      }
-      if (draft.priceStatus !== undefined) {
-        input.priceStatus = draft.priceStatus
+        input.expectedProductUpdatedAt = productDraft.baseProductUpdatedAt
       }
       if (Object.keys(invalid).length > 0) {
         return { invalid }
       }
       // A row whose only content was reverted (nothing left to send) still
       // produces a structurally valid, field-less request row — the API
-      // accepts it as a no-op success.
+      // accepts it as a no-op success. Product-only rows (no variant draft)
+      // are likewise valid: the server skips the variant write.
       return { input }
     },
     [],
@@ -343,6 +498,17 @@ export function useCatalogDrafts() {
       for (const result of results) {
         if (result.outcome === 'SUCCESS') {
           dropRow(result.variantId)
+          // A successful carrier drops its product draft — the reconciled
+          // product values arrive via `applyRowPatches` on the page side.
+          setProductDrafts((prev) => {
+            const next = { ...prev }
+            for (const [productId, draft] of Object.entries(prev)) {
+              if (draft.carrierVariantId === result.variantId) {
+                delete next[productId]
+              }
+            }
+            return next
+          })
           setStatuses((prev) => ({ ...prev, [result.variantId]: 'saved' }))
           continue
         }
@@ -364,12 +530,17 @@ export function useCatalogDrafts() {
       const invalidErrors: Record<string, Record<string, string>> = {}
       const validInputs: CatalogGridBatchRowInput[] = []
 
-      for (const id of variantIds) {
-        const draft = drafts[id]
-        if (!draft) {
-          continue
+      // Carrier rows (product drafts) submit even without a variant draft:
+      // their row input carries only the product fields.
+      const ids = [...variantIds]
+      for (const draft of Object.values(productDrafts)) {
+        if (!ids.includes(draft.carrierVariantId)) {
+          ids.push(draft.carrierVariantId)
         }
-        const built = buildRowInput(id, draft)
+      }
+
+      for (const id of ids) {
+        const built = buildRowInput(id, drafts[id], productDraftFor(productDrafts, id))
         if ('invalid' in built) {
           invalidErrors[id] = built.invalid
           continue
@@ -423,7 +594,7 @@ export function useCatalogDrafts() {
       }
       return { results, requestError }
     },
-    [applyResults, buildRowInput, drafts, setStatus],
+    [applyResults, buildRowInput, drafts, productDrafts, setStatus],
   )
 
   const saveAll = useCallback((): Promise<SaveOutcome> => {
@@ -438,29 +609,41 @@ export function useCatalogDrafts() {
 
   const stats = useMemo(() => {
     const values = Object.values(statuses)
-    const dirtyCount = Object.keys(drafts).length
+    const dirtyCount = Object.keys(drafts).length + Object.keys(productDrafts).length
     const savingCount = values.filter((status) => status === 'saving').length
     const failedCount = values.filter(
       (status) => FAILED.includes(status as CatalogRowStatus),
     ).length
     const succeededCount = values.filter((status) => status === 'saved').length
     return { dirtyCount, savingCount, failedCount, succeededCount }
-  }, [drafts, statuses])
+  }, [drafts, productDrafts, statuses])
 
   return {
     drafts,
+    productDrafts,
     statuses,
     errors,
     saving,
     ...stats,
     hasDirty: stats.dirtyCount > 0,
     editCell,
+    editProductCell,
     discardAll,
     discardRow,
     resolveConflictRow,
     saveRows,
     saveAll,
   }
+}
+
+/** The product draft a given variant row carries, if any. */
+function productDraftFor(
+  productDrafts: Record<string, CatalogProductDraft>,
+  variantId: string,
+): CatalogProductDraft | undefined {
+  return Object.values(productDrafts).find(
+    (draft) => draft.carrierVariantId === variantId,
+  )
 }
 
 function statusOf(outcome: CatalogGridRowResult['outcome']): CatalogRowStatus {

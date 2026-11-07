@@ -7,6 +7,7 @@ import { PrismaService } from '../src/common/database/prisma.service';
 import { StorefrontCacheService } from '../src/common/storefront-cache/storefront-cache.service';
 import { InventoryService } from '../src/modules/inventory/inventory.service';
 import { CatalogGridService } from '../src/modules/products/catalog-grid.service';
+import { ProductsService } from '../src/modules/products/products.service'
 import { VariantsService } from '../src/modules/products/variants.service';
 
 jest.setTimeout(60_000);
@@ -39,12 +40,14 @@ describe('Admin catalog grid batch database integration (SS-257)', () => {
     const cache = new StorefrontCacheService(new ConfigService());
     const variantsService = new VariantsService(prisma, audit, cache);
     const inventoryService = new InventoryService(prisma, audit, cache);
+    const productsService = new ProductsService(prisma, audit, cache);
     gridService = new CatalogGridService(
       prisma,
       audit,
       cache,
       variantsService,
       inventoryService,
+      productsService,
       new ConfigService({ LOCK_TIMEOUT_MS: '500' }),
     );
     lockHolderClient = new PrismaService();

@@ -99,8 +99,8 @@ export function ReserveInventoryDialog({
       <AlertTitle>رزرو موجودی</AlertTitle>
       <AlertDescription>
         {variant && warehouse
-          ? `واریانت ${variant.sku}${variant.name ? ` (${variant.name})` : ''} در انبار «${warehouse.name}»`
-          : 'مشخصات واریانت یا انبار در دسترس نیست.'}
+          ? `نوع ${variant.sku}${variant.name ? ` (${variant.name})` : ''} در انبار «${warehouse.name}»`
+          : 'مشخصات نوع یا انبار در دسترس نیست.'}
       </AlertDescription>
       <AlertBody>
         <div className="space-y-5">
