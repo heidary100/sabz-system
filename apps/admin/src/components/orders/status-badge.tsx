@@ -1,28 +1,20 @@
 import type { OrderStatus, PaymentStatus } from '@sabz/types'
 import { ORDER_PAYMENT_STATUS_LABELS, ORDER_STATUS_LABELS } from '../../lib/order-labels'
-import { Badge } from '../catalyst/badge'
-
-const ORDER_STATUS_COLORS: Record<
-  OrderStatus,
-  'amber' | 'orange' | 'lime' | 'green' | 'zinc'
-> = {
-  PENDING: 'amber',
-  PROCESSING: 'orange',
-  SHIPPED: 'lime',
-  DELIVERED: 'green',
-  CANCELLED: 'zinc',
-}
-
-const PAYMENT_STATUS_COLORS: Record<PaymentStatus, 'amber' | 'green' | 'red'> = {
-  PENDING: 'amber',
-  PAID: 'green',
-  FAILED: 'red',
-}
+import { ORDER_STATUS_TONES, PAYMENT_STATUS_TONES } from '../../lib/status-tones'
+import { StatusBadge } from '../ui/status-badge'
 
 export function OrderStatusBadge({ status }: { status: OrderStatus }) {
-  return <Badge color={ORDER_STATUS_COLORS[status]}>{ORDER_STATUS_LABELS[status]}</Badge>
+  return (
+    <StatusBadge tone={ORDER_STATUS_TONES[status]}>
+      {ORDER_STATUS_LABELS[status]}
+    </StatusBadge>
+  )
 }
 
 export function PaymentStatusBadge({ status }: { status: PaymentStatus }) {
-  return <Badge color={PAYMENT_STATUS_COLORS[status]}>{ORDER_PAYMENT_STATUS_LABELS[status]}</Badge>
+  return (
+    <StatusBadge tone={PAYMENT_STATUS_TONES[status]}>
+      {ORDER_PAYMENT_STATUS_LABELS[status]}
+    </StatusBadge>
+  )
 }

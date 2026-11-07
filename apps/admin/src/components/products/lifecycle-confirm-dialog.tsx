@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Alert, AlertActions, AlertDescription, AlertTitle } from '../catalyst/alert'
 import { Button } from '../catalyst/button'
 import { translateApiError } from '../../lib/error-messages'
+import { InlineError } from '../ui/inline-error'
 
 export function LifecycleConfirmDialog({
   open,
@@ -43,9 +44,7 @@ export function LifecycleConfirmDialog({
       <AlertTitle>{title}</AlertTitle>
       <AlertDescription>{description}</AlertDescription>
       {error && (
-        <p className="mt-4 danger-box rounded-lg px-3 py-2 text-sm">
-          {error}
-        </p>
+        <InlineError className="mt-4" message={error} />
       )}
       <AlertActions>
         <Button outline onClick={onClose} disabled={submitting}>

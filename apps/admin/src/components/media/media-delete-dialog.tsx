@@ -10,6 +10,7 @@ import { Button } from '../catalyst/button'
 import { translateApiError, isConflictError } from '../../lib/error-messages'
 import { formatFileSize } from '../../lib/format'
 import { deleteProductMedia } from '../../services/media'
+import { InlineError } from '../ui/inline-error'
 
 export function MediaDeleteDialog({
   open,
@@ -65,9 +66,7 @@ export function MediaDeleteDialog({
         {media?.isPrimary ? ' این تصویر، تصویر اصلی محصول است و پس از حذف، تصویر بعدی بهعنوان اصلی تعیین میشود.' : ''}
       </AlertDescription>
       {error && (
-        <p className="mt-4 danger-box rounded-lg px-3 py-2 text-sm">
-          {error}
-        </p>
+        <InlineError className="mt-4" message={error} />
       )}
       <AlertActions>
         <Button outline onClick={onClose} disabled={submitting}>

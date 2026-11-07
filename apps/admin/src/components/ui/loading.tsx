@@ -21,7 +21,7 @@ export function Loading({
     >
       <span
         aria-hidden="true"
-        className="size-8 animate-spin rounded-full border-2 border-hunter-800 border-t-primary"
+        className="size-8 animate-spin rounded-full border-2 border-hunter-800 border-t-primary motion-reduce:animate-none"
       />
       {label && <span className="text-sm font-medium text-muted">{label}</span>}
     </div>

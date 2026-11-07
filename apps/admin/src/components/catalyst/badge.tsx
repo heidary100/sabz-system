@@ -5,6 +5,12 @@ import { TouchTarget } from './button'
 import { Link } from './link'
 
 const colors = {
+  neutral:
+    'bg-surface-strong text-muted group-data-hover:bg-surface-strong/80 dark:bg-white/5 dark:text-zinc-400 dark:group-data-hover:bg-white/10',
+  info: 'bg-info-subtle text-info group-data-hover:bg-info-subtle/70',
+  success: 'bg-success-subtle text-success group-data-hover:bg-success-subtle/70',
+  warning: 'bg-warning-subtle text-warning group-data-hover:bg-warning-subtle/70',
+  danger: 'bg-danger-subtle text-danger group-data-hover:bg-danger-subtle/70',
   red: 'bg-red-500/15 text-red-700 group-data-hover:bg-red-500/25 dark:bg-red-500/10 dark:text-red-400 dark:group-data-hover:bg-red-500/20',
   orange:
     'bg-orange-500/15 text-orange-700 group-data-hover:bg-orange-500/25 dark:bg-orange-500/10 dark:text-orange-400 dark:group-data-hover:bg-orange-500/20',

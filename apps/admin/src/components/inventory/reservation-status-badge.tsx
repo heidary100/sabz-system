@@ -1,18 +1,12 @@
 import type { ReservationStatus } from '@sabz/types'
-import { Badge } from '../catalyst/badge'
-import { reservationStatusLabel } from '../../lib/inventory-labels'
-
-const STATUS_COLORS: Record<ReservationStatus, 'green' | 'zinc' | 'sky' | 'red'> = {
-  ACTIVE: 'green',
-  RELEASED: 'zinc',
-  CONSUMED: 'sky',
-  EXPIRED: 'red',
-}
+import { RESERVATION_STATUS_LABELS } from '../../lib/inventory-labels'
+import { RESERVATION_STATUS_TONES } from '../../lib/status-tones'
+import { StatusBadge } from '../ui/status-badge'
 
 export function ReservationStatusBadge({ status }: { status: ReservationStatus }) {
   return (
-    <Badge color={STATUS_COLORS[status]}>
-      {reservationStatusLabel(status)}
-    </Badge>
+    <StatusBadge tone={RESERVATION_STATUS_TONES[status]}>
+      {RESERVATION_STATUS_LABELS[status]}
+    </StatusBadge>
   )
 }

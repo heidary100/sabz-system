@@ -1,12 +1,12 @@
 import type { WarehouseStatus } from '@sabz/types'
-import { Badge } from '../catalyst/badge'
 import { WAREHOUSE_STATUS_LABELS } from '../../lib/warehouse-labels'
-
-const STATUS_COLORS: Record<WarehouseStatus, 'zinc' | 'green'> = {
-  ACTIVE: 'green',
-  INACTIVE: 'zinc',
-}
+import { WAREHOUSE_STATUS_TONES } from '../../lib/status-tones'
+import { StatusBadge } from '../ui/status-badge'
 
 export function WarehouseStatusBadge({ status }: { status: WarehouseStatus }) {
-  return <Badge color={STATUS_COLORS[status]}>{WAREHOUSE_STATUS_LABELS[status]}</Badge>
+  return (
+    <StatusBadge tone={WAREHOUSE_STATUS_TONES[status]}>
+      {WAREHOUSE_STATUS_LABELS[status]}
+    </StatusBadge>
+  )
 }

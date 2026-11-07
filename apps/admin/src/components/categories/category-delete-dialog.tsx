@@ -5,6 +5,7 @@ import { Alert, AlertActions, AlertBody, AlertDescription, AlertTitle } from '..
 import { Button } from '../catalyst/button'
 import { translateApiError } from '../../lib/error-messages'
 import { countChildren, lookupNode } from '../../lib/category-tree-utils'
+import { InlineError } from '../ui/inline-error'
 
 const fa = new Intl.NumberFormat('fa-IR')
 
@@ -90,7 +91,7 @@ export function CategoryDeleteDialog({
           </p>
         )}
 
-        {error && <p className="danger-box mt-4 rounded-lg px-3 py-2 text-sm">{error}</p>}
+        {error && <InlineError className="mt-4" message={error} />}
       </AlertBody>
       <AlertActions>
         <Button outline onClick={onClose} disabled={submitting}>

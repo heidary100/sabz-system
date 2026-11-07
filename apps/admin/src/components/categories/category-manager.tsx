@@ -16,6 +16,7 @@ import { Input, InputGroup } from '../catalyst/input'
 import { Text } from '../catalyst/text'
 import { IconButton } from '../ui/icon-button'
 import { Loading } from '../ui/loading'
+import { ErrorState } from '../ui/error-state'
 import { PageHeader } from '../ui/page-header'
 import { Tooltip } from '../ui/tooltip'
 import {
@@ -286,12 +287,11 @@ export function CategoryManager({
           <Loading compact label="در حال بارگذاری درخت…" />
         </div>
       ) : error && !displayedTree ? (
-        <div className={compact ? 'surface-card flex flex-col items-center gap-4 rounded-xl px-6 py-8 text-center' : 'surface-card flex flex-col items-center gap-4 rounded-2xl px-6 py-16 text-center'}>
-          <p className="text-sm/6 text-muted">{translateApiError(error)}</p>
-          <Button color="primary" onClick={() => void refetch()}>
-            تلاش مجدد
-          </Button>
-        </div>
+        <ErrorState
+          message={translateApiError(error)}
+          onRetry={() => void refetch()}
+          size={compact ? 'compact' : 'default'}
+        />
       ) : !displayedTree || displayedTree.length === 0 ? (
         <div className={compact ? 'surface-card relative overflow-hidden rounded-xl px-4 py-8 text-center' : 'surface-card relative overflow-hidden rounded-2xl px-6 py-20 text-center'}>
           <div className={compact ? 'mx-auto mb-4 flex size-10 items-center justify-center rounded-xl border border-primary-border bg-primary-subtle shadow-[0_8px_24px_-12px_rgb(53_112_63/0.4)]' : 'mx-auto mb-6 flex size-16 items-center justify-center rounded-2xl border border-primary-border bg-primary-subtle shadow-[0_8px_24px_-12px_rgb(53_112_63/0.4)]'}>

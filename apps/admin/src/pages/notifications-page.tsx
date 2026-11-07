@@ -17,6 +17,8 @@ import {
 } from '../components/catalyst/table'
 import { EmptyState } from '../components/ui/empty-state'
 import { Loading } from '../components/ui/loading'
+import { ErrorState } from '../components/ui/error-state'
+import { InlineError } from '../components/ui/inline-error'
 import { PageHeader } from '../components/ui/page-header'
 import { TablePagination } from '../components/ui/table-pagination'
 import { TableCard } from '../components/ui/table-card'
@@ -88,20 +90,13 @@ export function NotificationsPage() {
       </div>
 
       {actionError && (
-        <p className="danger-box rounded-lg px-3 py-2 text-sm" role="alert">
-          {actionError}
-        </p>
+        <InlineError message={actionError} />
       )}
 
       {loading && !result ? (
         <Loading compact label="در حال بارگذاری…" />
       ) : error ? (
-        <div className="surface-card flex flex-col items-center gap-4 rounded-xl px-6 py-16 text-center">
-          <p className="text-sm/6 text-muted">{translateApiError(error)}</p>
-          <Button color="primary" onClick={() => void refetch()}>
-            تلاش مجدد
-          </Button>
-        </div>
+        <ErrorState message={translateApiError(error)} onRetry={() => void refetch()} />
       ) : !result || result.items.length === 0 ? (
         <EmptyState
           title="اعلانی یافت نشد"

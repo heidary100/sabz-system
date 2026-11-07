@@ -18,10 +18,11 @@ import {
 } from '../components/catalyst/table'
 import { EmptyState } from '../components/ui/empty-state'
 import { Loading } from '../components/ui/loading'
+import { ErrorState } from '../components/ui/error-state'
 import { TablePagination } from '../components/ui/table-pagination'
 import { PageHeader } from '../components/ui/page-header'
 import { TableCard } from '../components/ui/table-card'
-import { StatusBadge } from '../components/partners/status-badge'
+import { PartnerStatusBadge } from '../components/partners/status-badge'
 
 export function PartnersPage() {
   const navigate = useNavigate()
@@ -69,12 +70,7 @@ export function PartnersPage() {
       {loading && !result ? (
         <Loading compact label="در حال بارگذاری…" />
       ) : error ? (
-        <div className="surface-card flex flex-col items-center gap-4 rounded-xl px-6 py-16 text-center">
-          <p className="text-sm/6 text-muted">{translateApiError(error)}</p>
-          <Button color="primary" onClick={() => void refetch()}>
-            تلاش مجدد
-          </Button>
-        </div>
+        <ErrorState message={translateApiError(error)} onRetry={() => void refetch()} />
       ) : !result || result.items.length === 0 ? (
         <EmptyState
           title="درخواستی یافت نشد"
@@ -123,7 +119,7 @@ export function PartnersPage() {
                     {partner.businessName}
                   </TableCell>
                   <TableCell>
-                    <StatusBadge status={partner.approvalStatus} />
+                    <PartnerStatusBadge status={partner.approvalStatus} />
                   </TableCell>
                   <TableCell className="text-muted">
                     {[partner.province, partner.city].filter(Boolean).join('، ') || '—'}

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { CategoryDetail, CategoryTreeNode } from '@sabz/types'
 import { Folder } from 'lucide-react'
 import { Alert, AlertActions, AlertBody, AlertDescription, AlertTitle } from '../catalyst/alert'
-import { Badge } from '../catalyst/badge'
+import { StatusBadge } from '../ui/status-badge'
 import { Button } from '../catalyst/button'
 import { ErrorMessage, Field, FieldGroup, Fieldset, Label, Legend } from '../catalyst/fieldset'
 import { Input } from '../catalyst/input'
@@ -215,9 +215,9 @@ export function CategoryEditor({
                     {previewPath.length > 1 ? previewPath.join(' ← ') : 'دسته بندی ریشه'}
                   </p>
                 </div>
-                <Badge color={isVisible ? 'green' : 'zinc'}>
+                <StatusBadge tone={isVisible ? 'success' : 'neutral'}>
                   {isVisible ? 'نمایش' : 'مخفی'}
-                </Badge>
+                </StatusBadge>
               </div>
             </FieldGroup>
           </Fieldset>

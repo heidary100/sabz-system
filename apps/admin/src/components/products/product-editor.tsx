@@ -11,6 +11,7 @@ import { Text } from '../catalyst/text'
 import { Textarea } from '../catalyst/textarea'
 import { Loading } from '../ui/loading'
 import { DeleteConfirmDialog } from '../ui/delete-confirm-dialog'
+import { InlineError } from '../ui/inline-error'
 import { ProductStatusBadge } from './product-status-badge'
 import { ProductVariantsSection } from './product-variants-section'
 import { ProductMediaGrid } from './product-media-grid'
@@ -319,9 +320,7 @@ export function ProductEditor({
         </div>
       </div>
 
-      {error && (
-        <div className="danger-box rounded-lg px-4 py-3 text-sm">{error}</div>
-      )}
+      {error && <InlineError className="px-4 py-3" message={error} />}
 
       <EditorSection title="اطلاعات پایه">
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">

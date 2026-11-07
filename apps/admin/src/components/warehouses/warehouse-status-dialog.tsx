@@ -4,6 +4,7 @@ import { Alert, AlertActions, AlertDescription, AlertTitle } from '../catalyst/a
 import { Button } from '../catalyst/button'
 import { isConflictError, translateApiError } from '../../lib/error-messages'
 import { activateWarehouse, deactivateWarehouse } from '../../services/warehouses'
+import { InlineError } from '../ui/inline-error'
 
 export function WarehouseStatusDialog({
   open,
@@ -65,9 +66,7 @@ export function WarehouseStatusDialog({
           : ''}
       </AlertDescription>
       {error && (
-        <p className="mt-4 danger-box rounded-lg px-3 py-2 text-sm">
-          {error}
-        </p>
+        <InlineError className="mt-4" message={error} />
       )}
       <AlertActions>
         <Button outline onClick={onClose} disabled={submitting}>

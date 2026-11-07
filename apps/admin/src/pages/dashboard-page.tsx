@@ -25,6 +25,7 @@ import {
 } from '../components/catalyst/table'
 import { Text } from '../components/catalyst/text'
 import { Loading } from '../components/ui/loading'
+import { ErrorState } from '../components/ui/error-state'
 import { PageHeader } from '../components/ui/page-header'
 import { TableCard } from '../components/ui/table-card'
 import { StatCard } from '../components/dashboard/stat-card'
@@ -94,12 +95,7 @@ export function DashboardPage() {
     return (
       <div className="mx-auto max-w-6xl space-y-6">
         <PageHeader title="پیشخوان" />
-        <div className="surface-card flex flex-col items-center gap-4 rounded-xl px-6 py-16 text-center">
-          <p className="text-sm/6 text-muted">{errorMessage}</p>
-          <Button color="primary" onClick={() => void refetch()}>
-            تلاش مجدد
-          </Button>
-        </div>
+        <ErrorState message={errorMessage} onRetry={() => void refetch()} />
       </div>
     )
   }

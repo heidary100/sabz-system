@@ -76,7 +76,7 @@ function BrandArea({ collapsed }: { collapsed: boolean }) {
       )}
     >
       <span className={clsx('flex items-center gap-2.5', collapsed && 'justify-center')}>
-        <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary-strong text-white shadow-sm ring-1 ring-primary-border">
+        <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary-strong text-on-primary shadow-sm ring-1 ring-primary-border">
           <Sprout className="size-5" aria-hidden="true" />
         </span>
         {!collapsed && (
@@ -202,7 +202,7 @@ export function Sidebar({
           >
             <div className="flex h-16 shrink-0 items-center justify-between border-b border-border ps-4 pe-2">
               <span className="flex items-center gap-2.5">
-                <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary-strong text-white shadow-sm ring-1 ring-primary-border">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary-strong text-on-primary shadow-sm ring-1 ring-primary-border">
                 <Sprout className="size-5" aria-hidden="true" />
               </span>
                 <span className="truncate text-sm font-bold text-foreground">پنل مدیریت سبز</span>

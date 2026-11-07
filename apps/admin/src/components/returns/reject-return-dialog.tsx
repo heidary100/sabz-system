@@ -10,6 +10,7 @@ import {
 import { Button } from '../catalyst/button'
 import { ErrorMessage, Field, Label } from '../catalyst/fieldset'
 import { Textarea } from '../catalyst/textarea'
+import { InlineError } from '../ui/inline-error'
 import { translateApiError } from '../../lib/error-messages'
 
 function validateReason(raw: string): string | null {
@@ -97,9 +98,7 @@ export function RejectReturnDialog({
         </Field>
         {fieldError && <ErrorMessage>{fieldError}</ErrorMessage>}
         {submitError && (
-          <p className="mt-4 danger-box rounded-lg px-3 py-2 text-sm">
-            {submitError}
-          </p>
+          <InlineError className="mt-4" message={submitError} />
         )}
       </AlertBody>
       <AlertActions>

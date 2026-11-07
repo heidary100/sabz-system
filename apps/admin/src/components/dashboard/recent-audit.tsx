@@ -9,10 +9,11 @@ import {
   TableHeader,
   TableRow,
 } from '../catalyst/table'
-import { Badge } from '../catalyst/badge'
+import { StatusBadge } from '../ui/status-badge'
 import { auditActionLabel, auditEntityLabel } from '../../lib/audit-labels'
 import { formatDateTime } from '../../lib/format'
 import { TableCard } from '../ui/table-card'
+import { EmptyState } from '../ui/empty-state'
 
 function actorName(
   actor: DashboardRecentAudit['actor'],
@@ -33,9 +34,7 @@ export function RecentAudit({ entries }: { entries: DashboardRecentAudit[] }) {
         </Button>
       </div>
       {entries.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-border bg-background px-4 py-10 text-center text-sm/6 text-muted">
-          هنوز فعالیتی ثبت نشده است.
-        </p>
+        <EmptyState size="compact" title="هنوز فعالیتی ثبت نشده است." />
       ) : (
         <Table striped>
           <TableHead>
@@ -54,7 +53,7 @@ export function RecentAudit({ entries }: { entries: DashboardRecentAudit[] }) {
                 </TableCell>
                 <TableCell className="text-muted">{actorName(entry.actor)}</TableCell>
                 <TableCell>
-                  <Badge>{auditActionLabel(entry.action)}</Badge>
+                  <StatusBadge tone="neutral">{auditActionLabel(entry.action)}</StatusBadge>
                 </TableCell>
                 <TableCell className="text-muted">
                   {auditEntityLabel(entry.entity)}

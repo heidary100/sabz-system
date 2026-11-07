@@ -10,7 +10,7 @@ import {
   INVENTORY_MOVEMENT_TYPE_LABELS,
   INVENTORY_MOVEMENT_TYPE_ORDER,
 } from '../lib/inventory-labels'
-import { Badge } from '../components/catalyst/badge'
+import { StatusBadge } from '../components/ui/status-badge'
 import { Button } from '../components/catalyst/button'
 import { Field, Label } from '../components/catalyst/fieldset'
 import { RouteHelpSection } from '../components/ui/page-help'
@@ -27,6 +27,7 @@ import {
 } from '../components/catalyst/table'
 import { EmptyState } from '../components/ui/empty-state'
 import { Loading } from '../components/ui/loading'
+import { ErrorState } from '../components/ui/error-state'
 import { TablePagination } from '../components/ui/table-pagination'
 import { TableCard } from '../components/ui/table-card'
 import { InventoryMovementTypeBadge } from '../components/inventory/inventory-movement-type-badge'
@@ -196,7 +197,7 @@ export function InventoryMovementsPage() {
 
       {variantId !== '' && (
         <div className="surface-card flex items-center gap-2 rounded-lg px-3 py-2">
-          <Badge>فیلتر نوع</Badge>
+          <StatusBadge tone="neutral">فیلتر نوع</StatusBadge>
           <span dir="ltr" className="font-mono text-xs text-muted">
             {variantId}
           </span>
@@ -209,12 +210,7 @@ export function InventoryMovementsPage() {
       {loading && !result ? (
         <Loading compact label="در حال بارگذاری…" />
       ) : error ? (
-        <div className="surface-card flex flex-col items-center gap-4 rounded-xl px-6 py-16 text-center">
-          <p className="text-sm/6 text-muted">{translateApiError(error)}</p>
-          <Button color="primary" onClick={() => void refetch()}>
-            تلاش مجدد
-          </Button>
-        </div>
+        <ErrorState message={translateApiError(error)} onRetry={() => void refetch()} />
       ) : !result || result.items.length === 0 ? (
         <EmptyState
           title="حرکتی یافت نشد"
