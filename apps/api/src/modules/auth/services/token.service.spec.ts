@@ -103,6 +103,20 @@ describe('TokenService', () => {
       );
     });
 
+    it('gives every refresh token a unique jti so rotation is single-use', async () => {
+      await service.createSession('user-1');
+      await service.createSession('user-1');
+
+      const refreshPayloads = jwtService.sign.mock.calls
+        .map(([payload]) => payload as { type: string; jti?: string })
+        .filter((payload) => payload.type === 'refresh');
+
+      expect(refreshPayloads).toHaveLength(2);
+      expect(refreshPayloads[0]?.jti).toEqual(expect.any(String));
+      expect(refreshPayloads[1]?.jti).toEqual(expect.any(String));
+      expect(refreshPayloads[0]?.jti).not.toBe(refreshPayloads[1]?.jti);
+    });
+
     it('audit logs SESSION_CREATED inside the session transaction', async () => {
       jwtService.sign.mockImplementation(
         (payload: { type: string }) => `raw.${payload.type}`,

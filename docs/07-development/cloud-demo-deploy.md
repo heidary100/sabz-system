@@ -17,9 +17,12 @@
 | Admin (`@sabz/admin`) | Vercel Hobby (second project) | Static Vite SPA; `vercel.json` SPA rewrites; `VITE_API_BASE_URL` inlined at **build time**. (Cloudflare Pages was the original pick — the client could not complete its login — so both frontends ride the same Vercel account.) |
 
 Cost: $0 (Neon free, GitHub Free Codespaces quota, Vercel Hobby free;
-both frontends share one Vercel account). Distinct
-hostnames per frontend = the #290 refresh-cookie mitigation
-(deploy-runbook §1).
+both frontends share one Vercel account). **The two frontend hostnames do not
+isolate the refresh cookie** because both build-time API base URLs point at one
+tunnel origin. The demo therefore reproduces #290 (shared cookie scope). Use
+separate browser profiles, or add a same-origin `/api` rewrite/proxy to each
+frontend, before relying on simultaneous sessions. See
+`ss-290-cookie-isolation-verification.md`.
 
 **Deliberate demo deviations from the production runbook:**
 
@@ -157,6 +160,14 @@ retention after stop).
 
 ## 5. Vercel storefront
 
+> **#290 caveat (current demo shape):** `NEXT_PUBLIC_API_BASE_URL` and
+> `VITE_API_BASE_URL` both point at the same `*.trycloudflare.com` origin, so
+> the two frontends share one host-only refresh cookie. This demo cannot pass
+> the SS-290 isolation procedure as deployed. To fix it, route `/api/v1/*`
+> through each frontend's own host (a same-origin rewrite/proxy) or use
+> distinct API hostnames; both API hosts must stay same-site with their
+> frontends for `SameSite=Lax`.
+
 1. Dashboard → Import the repo; **Root Directory = `apps/storefront`**
    (Vercel runs the pnpm workspace install at the repo root).
 2. Project settings → Node.js Version 22; build command (workspace deps are
@@ -215,8 +226,12 @@ curl -f -o /dev/null -w '%{http_code}\n' \
 - Admin: login `+989170000001` / OTP `123456`, edit a product (media upload
   works but is lost on restart), «پله‌های همکاری» tier tab, notifications
   page.
-- Storefront + admin signed in **in the same browser** must coexist
-  (distinct hostnames, #290).
+- Storefront + admin signed in **in the same browser** must coexist. Because
+  this demo currently uses one API origin, this check **fails by design**; use
+  separate browser profiles or add the same-origin `/api` rewrites described
+  above. Do not cite distinct frontend hostnames as proof of #290 isolation;
+  run `ss-290-cookie-isolation-verification.md` and inspect the cookie-issuing
+  host and `Set-Cookie` attributes.
 
 ## 8. Redeploy / teardown
 
@@ -251,6 +266,9 @@ curl -f -o /dev/null -w '%{http_code}\n' \
   in Neon.
 - Refresh sessions reset on API restart (in-container Redis holds nothing
   persistent; re-login if odd auth states appear).
+- **#290:** both frontends use one API origin, so the refresh cookie collides.
+  Use separate browser profiles until a same-origin `/api` rewrite/proxy (or
+  distinct API hostnames) is added.
 - Vercel Hobby is non-commercial per its ToS — acceptable for a short demo.
 - The dev DB contains intentional SS-245 QA test data (order ۱۰۰٬۰۰۷, a
   return request, a review, a blog draft, 4 notifications). The

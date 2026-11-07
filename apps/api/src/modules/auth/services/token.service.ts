@@ -19,6 +19,8 @@ export interface JwtPayload {
   sub: string;
   sessionId: string;
   type: 'access' | 'refresh';
+  /** Unique refresh-token id so rotation is single-use even within one second. */
+  jti?: string;
 }
 
 export interface TokenPair {
@@ -286,7 +288,15 @@ export class TokenService {
 
   private signRefreshToken(userId: string, sessionId: string): string {
     return this.jwtService.sign(
-      { sub: userId, sessionId, type: REFRESH_TOKEN_TYPE },
+      {
+        sub: userId,
+        sessionId,
+        type: REFRESH_TOKEN_TYPE,
+        // Without a per-token id, two rotations in the same second produce an
+        // identical JWT (same sub/sessionId/type/iat/exp) and the optimistic
+        // single-use update matches twice. The jti makes every token unique.
+        jti: randomUUID(),
+      },
       {
         secret: this.refreshSecret,
         expiresIn: this.refreshLifetime as JwtSignOptions['expiresIn'],
