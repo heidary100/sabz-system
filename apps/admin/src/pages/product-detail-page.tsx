@@ -8,6 +8,7 @@ import { Package, Pencil, Trash2 } from 'lucide-react'
 import { archiveProduct, deleteProduct, publishProduct } from '../services/products'
 import { deleteVariant } from '../services/variants'
 import { Button } from '../components/catalyst/button'
+import { RouteHelpSection } from '../components/ui/page-help'
 import { Heading, Subheading } from '../components/catalyst/heading'
 import { EmptyState } from '../components/ui/empty-state'
 import { Loading } from '../components/ui/loading'
@@ -124,6 +125,7 @@ export function ProductDetailPage() {
           </Link>
           <div className="flex items-center gap-3">
             <Heading level={1}>{product.name}</Heading>
+            <RouteHelpSection className="ms-auto" />
             <ProductStatusBadge status={product.status} />
           </div>
         </div>

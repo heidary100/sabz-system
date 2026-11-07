@@ -8,6 +8,7 @@ import { ReturnStatusBadge } from '../components/returns/return-status-badge'
 import { RejectReturnDialog } from '../components/returns/reject-return-dialog'
 import { Undo2 } from 'lucide-react'
 import { Button } from '../components/catalyst/button'
+import { RouteHelpSection } from '../components/ui/page-help'
 import { Heading, Subheading } from '../components/catalyst/heading'
 import {
   Table,
@@ -95,6 +96,7 @@ export function ReturnDetailPage() {
             <Heading level={1} dir="ltr">
               #{detail.orderNumber}
             </Heading>
+            <RouteHelpSection className="ms-auto" />
             <ReturnStatusBadge status={detail.status} />
           </div>
         </div>

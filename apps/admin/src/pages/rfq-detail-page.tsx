@@ -13,6 +13,7 @@ import { RfqStatusBadge } from '../components/rfq/rfq-status-badge'
 import { FileText } from 'lucide-react'
 import { Button } from '../components/catalyst/button'
 import { ErrorMessage, Field, Label } from '../components/catalyst/fieldset'
+import { RouteHelpSection } from '../components/ui/page-help'
 import { Heading, Subheading } from '../components/catalyst/heading'
 import { Input } from '../components/catalyst/input'
 import { DeleteConfirmDialog } from '../components/ui/delete-confirm-dialog'
@@ -187,6 +188,7 @@ export function RfqDetailPage() {
           </Link>
           <div className="flex items-center gap-3">
             <Heading level={1}>{rfq.productName}</Heading>
+            <RouteHelpSection className="ms-auto" />
             <RfqStatusBadge status={rfq.status} />
           </div>
         </div>

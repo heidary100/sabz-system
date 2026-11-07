@@ -5,6 +5,7 @@ import type { InventoryItemSummary } from '@sabz/types'
 import { useVariantInventory } from '../hooks/use-variant-inventory'
 import { translateApiError } from '../lib/error-messages'
 import { Button } from '../components/catalyst/button'
+import { RouteHelpSection } from '../components/ui/page-help'
 import { Heading } from '../components/catalyst/heading'
 import {
   Table,
@@ -80,6 +81,7 @@ export function VariantInventoryPage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <Heading level={1}>موجودی واریانت</Heading>
+            <RouteHelpSection className="ms-auto" />
             {variantRef && (
               <Text className="text-sm text-muted">
                 <span dir="ltr" className="font-medium text-foreground">

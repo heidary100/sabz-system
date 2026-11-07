@@ -21,6 +21,7 @@ import { ShipmentStatusBadge } from '../components/orders/shipment-badge'
 import { ShoppingCart } from 'lucide-react'
 import { Button } from '../components/catalyst/button'
 import { ErrorMessage, Field, Label } from '../components/catalyst/fieldset'
+import { RouteHelpSection } from '../components/ui/page-help'
 import { Heading, Subheading } from '../components/catalyst/heading'
 import { Input } from '../components/catalyst/input'
 import { Select } from '../components/catalyst/select'
@@ -279,6 +280,7 @@ export function OrderDetailPage() {
             <Heading level={1} dir="ltr">
               #{order.orderNumber}
             </Heading>
+            <RouteHelpSection className="ms-auto" />
             <OrderStatusBadge status={order.status} />
             <PaymentStatusBadge status={order.paymentStatus} />
           </div>
