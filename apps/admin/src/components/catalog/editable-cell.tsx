@@ -49,7 +49,7 @@ const FAILED_STATUSES = new Set([
 ])
 
 /** Cell-state classes shared by the resting and editing presentations. */
-function pendingClasses(status: string): string {
+export function pendingClasses(status: string): string {
   if (PENDING_STATUSES.has(status)) {
     return 'bg-primary-subtle ring-1 ring-inset ring-primary/60'
   }

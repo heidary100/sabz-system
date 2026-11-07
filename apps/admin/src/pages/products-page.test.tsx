@@ -63,6 +63,8 @@ function row(overrides: Partial<CatalogGridRow> = {}): CatalogGridRow {
     barcode: 'BC-1',
     variantName: 'واریانت یک',
     brandName: 'انکر',
+    brandId: 'brand-1',
+    categoryId: 'cat-1',
     categoryName: 'هندزفری',
     thumbnailUrl: null,
     priceStatus: 'PRICED',
@@ -71,6 +73,7 @@ function row(overrides: Partial<CatalogGridRow> = {}): CatalogGridRow {
     stock: 5,
     stockEditable: true,
     expectedUpdatedAt: TOKEN_A,
+    productUpdatedAt: '2026-11-03T09:00:00.000Z',
     ...overrides,
   }
 }
@@ -217,6 +220,67 @@ describe('ProductsPage — the editable catalog grid (SS-257 rework)', () => {
     expect(cellText('شناسه کالا (SKU) — SKU-1B')).toBe('SKU-1B')
     // Untouched rows are not part of the request.
     expect(payload.rows.some((entry) => entry.variantId === 'v2')).toBe(false)
+  })
+
+  it('carries product-level edits (name/brand/category) with the product token in the batch (SS-270)', async () => {
+    await renderAndLoad()
+
+    // Product name: click the resting cell, edit the mounted input, blur.
+    fireEvent.click(screen.getByLabelText('نام محصول — SKU-1'))
+    fireEvent.change(screen.getByLabelText('نام محصول — SKU-1'), {
+      target: { value: 'نام محصول از شبکه' },
+    })
+    fireEvent.blur(screen.getByLabelText('نام محصول — SKU-1'))
+    // Brand: EntityCell → searchable combobox input by the same label.
+    fireEvent.click(screen.getByLabelText('برند — SKU-1'))
+    fireEvent.change(screen.getByLabelText('برند — SKU-1'), {
+      target: { value: 'پرودو' },
+    })
+    // Keyboard commit: Enter picks the active (filtered) option — the
+    // reliable Headless Combobox path in jsdom.
+    fireEvent.keyDown(screen.getByLabelText('برند — SKU-1'), { key: 'Enter' })
+
+    const newToken = '2026-11-03T11:30:00.000Z'
+    mockBatch.mockResolvedValue({
+      results: [
+        {
+          variantId: 'v1',
+          outcome: 'SUCCESS',
+          updatedAt: newToken,
+          price: '100000',
+          compareAtPrice: null,
+          sku: 'SKU-1',
+          barcode: 'BC-1',
+          variantName: 'واریانت یک',
+          priceStatus: 'PRICED',
+          stock: 5,
+          product: {
+            updatedAt: '2026-11-03T11:30:01.000Z',
+            name: 'نام محصول از شبکه',
+            brandId: 'brand-2',
+            brandName: 'پرودو',
+            categoryId: 'cat-1',
+            categoryName: 'هندزفری',
+          },
+        },
+      ],
+      summary: { succeeded: 1, failed: 0 },
+    } as CatalogGridBatchResponse)
+
+    fireEvent.click(screen.getByRole('button', { name: 'ذخیره تغییرات' }))
+
+    await waitFor(() => expect(mockBatch).toHaveBeenCalledTimes(1))
+    const payload = mockBatch.mock.calls[0]![0]!
+    expect(payload.rows[0]).toMatchObject({
+      variantId: 'v1',
+      productName: 'نام محصول از شبکه',
+      brandId: 'brand-2',
+      expectedProductUpdatedAt: '2026-11-03T09:00:00.000Z',
+    })
+    await waitFor(() =>
+      // The reconciled product name shows on the row and the draft drops.
+      expect(screen.getByLabelText('نام محصول — SKU-1').textContent).toBe('نام محصول از شبکه'),
+    )
   })
 
   it('reports partial failure in Persian and keeps the failed draft editable', async () => {
