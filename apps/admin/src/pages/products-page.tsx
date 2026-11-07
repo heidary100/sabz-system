@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
+import clsx from 'clsx'
 import { Link, useNavigate } from 'react-router-dom'
-import { ArrowDown, ArrowUp, ArrowUpDown, Package, Plus } from 'lucide-react'
+import { ArrowDown, ArrowUp, ArrowUpDown, Package, Plus, SlidersHorizontal } from 'lucide-react'
 import type {
   CatalogGridRow,
   CatalogGridRowResult,
@@ -14,7 +15,6 @@ import { deleteVariant } from '../services/variants'
 import { translateApiError } from '../lib/error-messages'
 import { formatDate } from '../lib/format'
 import { groupMoneyDigits } from '../lib/money-input'
-import { pageNumbers } from '../lib/pagination'
 import type { GridColumnKey } from '../lib/grid-columns'
 import {
   GRID_COLUMN_LABELS,
@@ -43,15 +43,8 @@ import { EmptyState } from '../components/ui/empty-state'
 import { Loading } from '../components/ui/loading'
 import { PageHeader } from '../components/ui/page-header'
 import { TableCard } from '../components/ui/table-card'
+import { TablePagination } from '../components/ui/table-pagination'
 import { MultiSelectCheckbox } from '../components/ui/multi-select-checkbox'
-import {
-  Pagination,
-  PaginationGap,
-  PaginationList,
-  PaginationNext,
-  PaginationPage,
-  PaginationPrevious,
-} from '../components/ui/pagination'
 import { DeleteConfirmDialog } from '../components/ui/delete-confirm-dialog'
 import { EditableCell, PriceStatusCell } from '../components/catalog/editable-cell'
 import { FilterChips } from '../components/catalog/filter-chips'
@@ -79,23 +72,36 @@ function SortableHeader({
   sortDir: 'asc' | 'desc'
   onSort: (field: CatalogGridSortField) => void
 }) {
+  // SS-268 redesign: the sort affordance is quiet until relevant — inactive
+  // columns reveal the two-arrow glyph only on hover; the active column
+  // speaks in the primary ink with a single directional arrow.
   const active = sortBy === field
   return (
     <button
       type="button"
-      className="inline-flex items-center gap-1 transition hover:text-foreground"
+      aria-label={active ? `${label} — مرتب‌سازی ${sortDir === 'asc' ? 'صعودی' : 'نزولی'}` : undefined}
+      className={clsx(
+        'group inline-flex items-center gap-1.5 text-xs font-semibold transition-colors',
+        active ? 'text-primary' : 'text-muted hover:text-foreground',
+      )}
       onClick={() => onSort(field)}
     >
       {label}
-      {active ? (
-        sortDir === 'asc' ? (
-          <ArrowUp className="size-3.5" aria-hidden />
+      <span
+        className={clsx(
+          'transition-opacity',
+          active ? 'text-primary opacity-100' : 'opacity-0 group-hover:opacity-50',
+        )}
+        aria-hidden
+      >
+        {active && sortDir === 'asc' ? (
+          <ArrowUp className="size-3.5" />
+        ) : active ? (
+          <ArrowDown className="size-3.5" />
         ) : (
-          <ArrowDown className="size-3.5" aria-hidden />
-        )
-      ) : (
-        <ArrowUpDown className="size-3.5 opacity-40" aria-hidden />
-      )}
+          <ArrowUpDown className="size-3.5" />
+        )}
+      </span>
     </button>
   )
 }
@@ -137,7 +143,9 @@ export function ProductsPage() {
   const [deleteTarget, setDeleteTarget] = useState<{ variantId: string; sku: string } | null>(
     null,
   )
-  const [pageInput, setPageInput] = useState('')
+  // SS-268: the filter panel collapses below xl (chips row stays visible);
+  // above xl the grid is always expanded via CSS.
+  const [filtersOpen, setFiltersOpen] = useState(false)
 
   // Guarded debounced server-side filters. On decline the local input
   // reverts to the committed URL value so it never lies about the query.
@@ -254,19 +262,6 @@ export function ProductsPage() {
       return
     }
     submitAndReconcile(outcome)
-  }
-
-  const goToPage = (): void => {
-    const target = Number.parseInt(pageInput, 10)
-    if (!Number.isFinite(target)) {
-      return
-    }
-    const clamped = Math.min(Math.max(target, 1), totalPages)
-    setPageInput('')
-    if (clamped === grid.filters.page) {
-      return
-    }
-    changeFilter(() => setPage(clamped))()
   }
 
   const handleDiscard = (): void => {
@@ -525,10 +520,37 @@ export function ProductsPage() {
         }
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {/* SS-268 filter panel: collapsed below xl by default (the chips row
+          below stays visible either way); expanded (or always visible)
+          above xl. 2-column label+field grid with htmlFor/id — every
+          control has a real label association (audit §A.7 fix). */}
+      <div className="flex flex-wrap items-center gap-3">
+        <Button
+          outline
+          onClick={() => setFiltersOpen((open) => !open)}
+          aria-expanded={filtersOpen}
+          aria-controls="products-filter-panel"
+        >
+          <SlidersHorizontal data-slot="icon" />
+          فیلترها
+          {chips.length > 0 ? (
+            <span className="rounded-full bg-primary-subtle px-2 py-0.5 text-xs font-medium text-primary">
+              {chips.length}
+            </span>
+          ) : null}
+        </Button>
+      </div>
+      <div
+        id="products-filter-panel"
+        className={clsx(
+          'grid gap-x-6 gap-y-3 rounded-xl border border-border bg-surface-strong p-4 sm:grid-cols-2',
+          filtersOpen ? 'grid' : 'hidden xl:grid',
+        )}
+      >
         <Field className="sm:col-span-2">
-          <Label>جستجو در همه فیلدها</Label>
+          <Label htmlFor="filter-search">جستجو در همه فیلدها</Label>
           <Input
+            id="filter-search"
             type="search"
             name="search"
             placeholder="نام محصول، برند، دسته‌بندی یا SKU…"
@@ -538,8 +560,9 @@ export function ProductsPage() {
           />
         </Field>
         <Field>
-          <Label>شناسه کالا (SKU)</Label>
+          <Label htmlFor="filter-sku">شناسه کالا (SKU)</Label>
           <Input
+            id="filter-sku"
             type="search"
             name="grid-sku"
             dir="ltr"
@@ -550,9 +573,10 @@ export function ProductsPage() {
           />
         </Field>
         <Field>
-          <Label>محدوده قیمت (ریال)</Label>
+          <Label htmlFor="filter-min">محدوده قیمت (ریال)</Label>
           <div className="flex items-center gap-2">
             <Input
+              id="filter-min"
               dir="ltr"
               name="min-price"
               placeholder="از"
@@ -561,6 +585,8 @@ export function ProductsPage() {
               onChange={(event) => setMinPriceInput(event.target.value.replace(/[^\d]/g, ''))}
             />
             <Input
+              id="filter-max"
+              aria-label="حداکثر قیمت"
               dir="ltr"
               name="max-price"
               placeholder="تا"
@@ -589,8 +615,9 @@ export function ProductsPage() {
           onChange={(values) => changeFilter(() => setStatuses(values as never))()}
         />
         <Field>
-          <Label>وضعیت قیمت</Label>
+          <Label htmlFor="filter-price-status">وضعیت قیمت</Label>
           <Select
+            id="filter-price-status"
             name="price-status"
             value={grid.filters.priceStatus}
             onChange={(event) =>
@@ -603,8 +630,9 @@ export function ProductsPage() {
           </Select>
         </Field>
         <Field>
-          <Label>وضعیت کالا</Label>
+          <Label htmlFor="filter-condition">وضعیت کالا</Label>
           <Select
+            id="filter-condition"
             name="condition"
             value={grid.filters.condition}
             onChange={(event) =>
@@ -620,8 +648,9 @@ export function ProductsPage() {
           </Select>
         </Field>
         <Field>
-          <Label>موجودی</Label>
+          <Label htmlFor="filter-stock-status">موجودی</Label>
           <Select
+            id="filter-stock-status"
             name="stock-status"
             value={grid.filters.stockStatus}
             onChange={(event) =>
@@ -636,7 +665,6 @@ export function ProductsPage() {
       </div>
 
       <FilterChips chips={chips} onClearAll={clearAllFilters} />
-
       <ColumnChips visible={visibleColumns} onToggle={toggleColumn} />
 
       <UnsavedChangesBar
@@ -682,10 +710,22 @@ export function ProductsPage() {
         />
       ) : (
         <TableCard>
+          <TablePagination
+            position="top"
+            page={grid.filters.page}
+            totalPages={totalPages}
+            total={grid.total}
+            limit={grid.filters.limit}
+            onPageChange={(target) => changeFilter(() => setPage(target))()}
+            onLimitChange={(next) => changeFilter(() => setLimit(next))()}
+            totalLabel="واریانت"
+          />
           <HorizontalScroll dragToPan>
-            <Table striped dense scrollContainer={false}>
-              <TableHead>
-                <TableRow>
+            <Table dense scrollContainer={false}>
+          {/* SS-268 table redesign: hairline row borders + row hover instead
+              of zebra bands; the header sits on a raised band. */}
+          <TableHead className="[&_th]:bg-surface-strong">
+            <TableRow>
                   {showColumn('thumbnail') && <TableHeader>تصویر</TableHeader>}
                   <TableHeader>
                     <SortableHeader
@@ -757,7 +797,7 @@ export function ProductsPage() {
                 {grid.rows.map((row) => {
                   const status = drafts.statuses[row.variantId] ?? 'clean'
                   return (
-                    <TableRow key={row.variantId}>
+                    <TableRow key={row.variantId} className="transition-colors hover:bg-primary-subtle/40">
                       {showColumn('thumbnail') && (
                         <TableCell>
                           {row.thumbnailUrl ? (
@@ -771,7 +811,7 @@ export function ProductsPage() {
                               className="size-10 rounded-md object-cover"
                             />
                           ) : (
-                            <div className="flex size-10 items-center justify-center rounded-md bg-zinc-100 text-zinc-400">
+                            <div className="flex size-10 items-center justify-center rounded-lg bg-primary-subtle/50 text-primary/60">
                               <Package className="size-4" aria-hidden />
                             </div>
                           )}
@@ -849,76 +889,19 @@ export function ProductsPage() {
             </Table>
           </HorizontalScroll>
 
-          <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-border pt-4">
-            <Pagination aria-label="صفحه‌بندی محصولات">
-              <PaginationPrevious
-                disabled={grid.filters.page <= 1 || grid.loading}
-                onClick={() => changeFilter(() => setPage(grid.filters.page - 1))()}
-              />
-              <PaginationList>
-                {pageNumbers(grid.filters.page, totalPages).map((item, index) =>
-                  item === 'gap' ? (
-                    <PaginationGap key={`gap-${index}`} />
-                  ) : (
-                    <PaginationPage
-                      key={item}
-                      current={item === grid.filters.page}
-                      disabled={grid.loading}
-                      onClick={() => changeFilter(() => setPage(item))()}
-                    >
-                      {item}
-                    </PaginationPage>
-                  ),
-                )}
-              </PaginationList>
-              <PaginationNext
-                disabled={grid.filters.page >= totalPages || grid.loading}
-                onClick={() => changeFilter(() => setPage(grid.filters.page + 1))()}
-              />
-            </Pagination>
-
-            <div className="ms-auto flex flex-wrap items-center gap-2">
-              <Select
-                aria-label="تعداد در هر صفحه"
-                value={String(grid.filters.limit)}
-                onChange={(event) =>
-                  changeFilter(() => setLimit(Number(event.target.value)))()
-                }
-                className="w-auto"
-              >
-                <option value="20">۲۰ ردیف در صفحه</option>
-                <option value="50">۵۰ ردیف در صفحه</option>
-                <option value="100">۱۰۰ ردیف در صفحه</option>
-              </Select>
-              <div className="flex items-center gap-1">
-                <Input
-                  aria-label="شماره صفحه"
-                  dir="ltr"
-                  inputMode="numeric"
-                  placeholder={`صفحه ${grid.filters.page}`}
-                  className="w-20"
-                  value={pageInput}
-                  onChange={(event) => setPageInput(event.target.value.replace(/[^\d]/g, ''))}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter') {
-                      goToPage()
-                    }
-                  }}
-                />
-                <Button outline onClick={goToPage} disabled={pageInput.trim() === ''}>
-                  برو
-                </Button>
-              </div>
-            </div>
-          </div>
+          <TablePagination
+            position="bottom"
+            className="mt-4"
+            page={grid.filters.page}
+            totalPages={totalPages}
+            total={grid.total}
+            limit={grid.filters.limit}
+            onPageChange={(target) => changeFilter(() => setPage(target))()}
+            onLimitChange={(next) => changeFilter(() => setLimit(next))()}
+            totalLabel="واریانت"
+          />
         </TableCard>
       )}
-
-      <p className="text-xs text-muted">
-        {grid.total > 0
-          ? `مجموع: ${grid.total} واریانت · ${grid.limit} مورد در هر صفحه`
-          : ''}
-      </p>
 
       <DeleteConfirmDialog
         open={deleteTarget !== null}

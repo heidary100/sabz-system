@@ -4,7 +4,6 @@ import { useReturnList } from '../hooks/use-return-list'
 import type { ReturnStatusFilter } from '../hooks/use-return-list'
 import { translateApiError } from '../lib/error-messages'
 import { formatDateTime } from '../lib/format'
-import { pageNumbers } from '../lib/pagination'
 import { RETURN_STATUS_LABELS, RETURN_STATUS_ORDER } from '../lib/return-labels'
 import { ReturnStatusBadge } from '../components/returns/return-status-badge'
 import { RejectReturnDialog } from '../components/returns/reject-return-dialog'
@@ -22,16 +21,9 @@ import {
 } from '../components/catalyst/table'
 import { EmptyState } from '../components/ui/empty-state'
 import { Loading } from '../components/ui/loading'
+import { TablePagination } from '../components/ui/table-pagination'
 import { PageHeader } from '../components/ui/page-header'
 import { TableCard } from '../components/ui/table-card'
-import {
-  Pagination,
-  PaginationGap,
-  PaginationList,
-  PaginationNext,
-  PaginationPage,
-  PaginationPrevious,
-} from '../components/ui/pagination'
 
 export function ReturnsPage() {
   const {
@@ -56,7 +48,7 @@ export function ReturnsPage() {
   const totalPages = result ? Math.max(1, Math.ceil(result.total / limit)) : 1
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
+    <div className="w-full space-y-6">
       <PageHeader title="مرجوعی‌ها" />
 
       <div className="flex w-full max-w-xs items-end gap-4">
@@ -111,7 +103,16 @@ export function ReturnsPage() {
         />
       ) : (
         <TableCard>
-          <Table striped>
+          <TablePagination
+            position="top"
+            page={page}
+            totalPages={totalPages}
+            total={result.total}
+            onPageChange={setPage}
+            disabled={loading}
+            totalLabel="مرجوعی"
+          />
+          <Table dense>
             <TableHead>
               <TableRow>
                 <TableHeader>سفارش</TableHeader>
@@ -192,34 +193,15 @@ export function ReturnsPage() {
             </TableBody>
           </Table>
 
-          <div className="mt-4 border-t border-border pt-4">
-            <Pagination aria-label="صفحه‌بندی مرجوعی‌ها">
-              <PaginationPrevious
-                disabled={page <= 1 || loading}
-                onClick={() => setPage(page - 1)}
-              />
-              <PaginationList>
-                {pageNumbers(page, totalPages).map((item, index) =>
-                  item === 'gap' ? (
-                    <PaginationGap key={`gap-${index}`} />
-                  ) : (
-                    <PaginationPage
-                      key={item}
-                      current={item === page}
-                      disabled={loading}
-                      onClick={() => setPage(item)}
-                    >
-                      {item}
-                    </PaginationPage>
-                  ),
-                )}
-              </PaginationList>
-              <PaginationNext
-                disabled={page >= totalPages || loading}
-                onClick={() => setPage(page + 1)}
-              />
-            </Pagination>
-          </div>
+          <TablePagination
+            position="bottom"
+            page={page}
+            totalPages={totalPages}
+            total={result.total}
+            onPageChange={setPage}
+            disabled={loading}
+            totalLabel="مرجوعی"
+          />
         </TableCard>
       )}
 

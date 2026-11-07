@@ -21,18 +21,18 @@ export function FilterChips({ chips, onClearAll }: FilterChipsProps) {
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2" role="list" aria-label="فیلترهای فعال">
+    <div className="flex flex-wrap items-center gap-1.5" role="list" aria-label="فیلترهای فعال">
       {chips.map((chip) => (
         <span
           key={chip.key}
           role="listitem"
-          className="flex items-center gap-1 rounded-full border border-border bg-surface px-3 py-1 text-xs font-medium text-foreground"
+          className="flex items-center gap-1 rounded-lg border border-border bg-surface-strong py-0.5 pe-1 ps-2.5 text-xs font-medium text-foreground shadow-xs"
         >
           {chip.label}
           <button
             type="button"
             aria-label={`حذف فیلتر ${chip.label}`}
-            className="rounded-full p-0.5 text-muted transition hover:bg-zinc-100 hover:text-foreground"
+            className="rounded-md p-0.5 text-muted transition hover:bg-danger-subtle hover:text-danger"
             onClick={chip.onRemove}
           >
             <X className="size-3.5" aria-hidden />
@@ -41,7 +41,7 @@ export function FilterChips({ chips, onClearAll }: FilterChipsProps) {
       ))}
       <button
         type="button"
-        className="text-xs font-medium text-primary hover:underline"
+        className="ms-1 text-xs font-medium text-primary hover:underline"
         onClick={onClearAll}
       >
         حذف فیلترها

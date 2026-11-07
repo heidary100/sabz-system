@@ -3,7 +3,6 @@ import { Bell } from 'lucide-react'
 import { useNotificationList } from '../hooks/use-notification-list'
 import { translateApiError } from '../lib/error-messages'
 import { formatDateTime } from '../lib/format'
-import { pageNumbers } from '../lib/pagination'
 import { NotificationTypeBadge } from '../components/notifications/notification-type-badge'
 import { Button } from '../components/catalyst/button'
 import { Field, Label } from '../components/catalyst/fieldset'
@@ -19,15 +18,8 @@ import {
 import { EmptyState } from '../components/ui/empty-state'
 import { Loading } from '../components/ui/loading'
 import { PageHeader } from '../components/ui/page-header'
+import { TablePagination } from '../components/ui/table-pagination'
 import { TableCard } from '../components/ui/table-card'
-import {
-  Pagination,
-  PaginationGap,
-  PaginationList,
-  PaginationNext,
-  PaginationPage,
-  PaginationPrevious,
-} from '../components/ui/pagination'
 
 function entityLink(
   entity: string | null,
@@ -70,7 +62,7 @@ export function NotificationsPage() {
   const totalPages = result ? Math.max(1, Math.ceil(result.total / limit)) : 1
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
+    <div className="w-full space-y-6">
       <PageHeader
         title="اعلان‌ها"
         subtitle={
@@ -128,7 +120,15 @@ export function NotificationsPage() {
         />
       ) : (
         <TableCard>
-          <Table striped>
+          <TablePagination
+            position="top"
+            page={page}
+            totalPages={totalPages}
+            total={result?.total ?? 0}
+            onPageChange={setPage}
+            totalLabel="اعلان"
+          />
+          <Table dense>
             <TableHead>
               <TableRow>
                 <TableHeader>نوع</TableHeader>
@@ -189,36 +189,17 @@ export function NotificationsPage() {
               })}
             </TableBody>
           </Table>
+          <TablePagination
+            position="bottom"
+            page={page}
+            totalPages={totalPages}
+            total={result?.total ?? 0}
+            onPageChange={setPage}
+            totalLabel="اعلان"
+          />
         </TableCard>
       )}
 
-      {totalPages > 1 && (
-        <Pagination>
-          <PaginationPrevious
-            disabled={page <= 1}
-            onClick={() => setPage(page - 1)}
-          />
-          <PaginationList>
-            {pageNumbers(page, totalPages).map((pageNumber) =>
-              pageNumber === 'gap' ? (
-                <PaginationGap key={`gap-${page}`} />
-              ) : (
-                <PaginationPage
-                  key={pageNumber}
-                  current={pageNumber === page}
-                  onClick={() => setPage(pageNumber)}
-                >
-                  {pageNumber}
-                </PaginationPage>
-              ),
-            )}
-          </PaginationList>
-          <PaginationNext
-            disabled={page >= totalPages}
-            onClick={() => setPage(page + 1)}
-          />
-        </Pagination>
-      )}
     </div>
   )
 }

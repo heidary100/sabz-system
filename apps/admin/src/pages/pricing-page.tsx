@@ -15,16 +15,9 @@ import {
 import { DeleteConfirmDialog } from '../components/ui/delete-confirm-dialog'
 import { EmptyState } from '../components/ui/empty-state'
 import { Loading } from '../components/ui/loading'
+import { TablePagination } from '../components/ui/table-pagination'
 import { PageHeader } from '../components/ui/page-header'
 import { TableCard } from '../components/ui/table-card'
-import {
-  Pagination,
-  PaginationGap,
-  PaginationList,
-  PaginationNext,
-  PaginationPage,
-  PaginationPrevious,
-} from '../components/ui/pagination'
 import {
   useCategoryRuleList,
   useProductOverrideList,
@@ -33,7 +26,6 @@ import {
 import { usePartnerTierList } from '../hooks/use-partner-tier-list'
 import { translateApiError } from '../lib/error-messages'
 import { formatDateTime, formatRial } from '../lib/format'
-import { pageNumbers } from '../lib/pagination'
 import {
   ACTIVE_LABELS,
   PRICING_ACTIVE_FILTER_LABELS,
@@ -109,11 +101,11 @@ function SectionShell({
   error,
   hasResult,
   isEmpty,
-  totalLine,
+  total,
   page,
   totalPages,
   onPage,
-  paginationLabel,
+  totalLabel,
   emptyTitle,
   emptyDescription,
   emptyAction,
@@ -124,11 +116,11 @@ function SectionShell({
   error: unknown
   hasResult: boolean
   isEmpty: boolean
-  totalLine: string
+  total: number
   page: number
   totalPages: number
   onPage: (next: number) => void
-  paginationLabel: string
+  totalLabel: string
   emptyTitle: string
   emptyDescription: string
   emptyAction?: React.ReactNode
@@ -155,36 +147,26 @@ function SectionShell({
         />
       ) : (
         <TableCard>
-          <Table striped>{children}</Table>
+          <TablePagination
+            position="top"
+            page={page}
+            totalPages={totalPages}
+            total={total}
+            onPageChange={onPage}
+            disabled={loading}
+            totalLabel={totalLabel}
+          />
+          <Table dense>{children}</Table>
 
-          <div className="mt-4 border-t border-border pt-4">
-            <Pagination aria-label={paginationLabel}>
-              <PaginationPrevious
-                disabled={page <= 1 || loading}
-                onClick={() => onPage(page - 1)}
-              />
-              <PaginationList>
-                {pageNumbers(page, totalPages).map((item, index) =>
-                  item === 'gap' ? (
-                    <PaginationGap key={`gap-${index}`} />
-                  ) : (
-                    <PaginationPage
-                      key={item}
-                      current={item === page}
-                      disabled={loading}
-                      onClick={() => onPage(item)}
-                    >
-                      {item}
-                    </PaginationPage>
-                  ),
-                )}
-              </PaginationList>
-              <PaginationNext
-                disabled={page >= totalPages || loading}
-                onClick={() => onPage(page + 1)}
-              />
-            </Pagination>
-          </div>
+          <TablePagination
+            position="bottom"
+            page={page}
+            totalPages={totalPages}
+            total={total}
+            onPageChange={onPage}
+            disabled={loading}
+            totalLabel={totalLabel}
+          />
         </TableCard>
       )}
 
@@ -198,7 +180,6 @@ function SectionShell({
         </div>
       )}
 
-      <p className="text-xs text-muted">{totalLine}</p>
     </>
   )
 }
@@ -325,7 +306,7 @@ export function PricingPage() {
     : 1
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
+    <div className="w-full space-y-6">
       <PageHeader
         title="قیمت‌گذاری"
         actions={
@@ -352,13 +333,11 @@ export function PricingPage() {
             error={rules.error}
             hasResult={rules.result !== null}
             isEmpty={!rules.result || rules.result.items.length === 0}
-            totalLine={
-              rules.result ? `مجموع: ${rules.result.total} قانون · ${rules.limit} مورد در هر صفحه` : ''
-            }
+            total={rules.result?.total ?? 0}
+            totalLabel="قانون"
             page={rules.page}
             totalPages={rulesTotalPages}
             onPage={rules.setPage}
-            paginationLabel="صفحه‌بندی قوانین دسته‌بندی"
             emptyTitle="قانونی یافت نشد"
             emptyDescription="هنوز قانون قیمت‌گذاری برای دسته‌بندی‌ها ثبت نشده است."
             emptyAction={
@@ -433,15 +412,11 @@ export function PricingPage() {
             error={overrides.error}
             hasResult={overrides.result !== null}
             isEmpty={!overrides.result || overrides.result.items.length === 0}
-            totalLine={
-              overrides.result
-                ? `مجموع: ${overrides.result.total} اورراید · ${overrides.limit} مورد در هر صفحه`
-                : ''
-            }
+            total={overrides.result?.total ?? 0}
+            totalLabel="اورراید"
             page={overrides.page}
             totalPages={overridesTotalPages}
             onPage={overrides.setPage}
-            paginationLabel="صفحه‌بندی اوررایدها"
             emptyTitle="اوررایدی یافت نشد"
             emptyDescription="هنوز اورراید قیمت برای محصولی ثبت نشده است."
             emptyAction={
@@ -514,15 +489,11 @@ export function PricingPage() {
             error={promotions.error}
             hasResult={promotions.result !== null}
             isEmpty={!promotions.result || promotions.result.items.length === 0}
-            totalLine={
-              promotions.result
-                ? `مجموع: ${promotions.result.total} پروموشن · ${promotions.limit} مورد در هر صفحه`
-                : ''
-            }
+            total={promotions.result?.total ?? 0}
+            totalLabel="پروموشن"
             page={promotions.page}
             totalPages={promotionsTotalPages}
             onPage={promotions.setPage}
-            paginationLabel="صفحه‌بندی پروموشن‌ها"
             emptyTitle="پروموشنی یافت نشد"
             emptyDescription="هنوز پروموشنی ثبت نشده است."
             emptyAction={
@@ -624,7 +595,7 @@ export function PricingPage() {
             />
           ) : (
             <TableCard>
-              <Table striped>
+              <Table dense>
                 <TableHead>
                   <TableRow>
                     <TableHeader>نام پله</TableHeader>

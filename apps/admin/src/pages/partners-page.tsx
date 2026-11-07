@@ -2,7 +2,6 @@ import { useNavigate } from 'react-router-dom'
 import { usePartnerList } from '../hooks/use-partner-list'
 import { translateApiError } from '../lib/error-messages'
 import { formatDate } from '../lib/format'
-import { pageNumbers } from '../lib/pagination'
 import { PARTNER_STATUS_LABELS, PARTNER_STATUS_ORDER } from '../lib/partner-labels'
 import type { PartnerStatus } from '@sabz/types'
 import { Briefcase } from 'lucide-react'
@@ -19,16 +18,9 @@ import {
 } from '../components/catalyst/table'
 import { EmptyState } from '../components/ui/empty-state'
 import { Loading } from '../components/ui/loading'
+import { TablePagination } from '../components/ui/table-pagination'
 import { PageHeader } from '../components/ui/page-header'
 import { TableCard } from '../components/ui/table-card'
-import {
-  Pagination,
-  PaginationGap,
-  PaginationList,
-  PaginationNext,
-  PaginationPage,
-  PaginationPrevious,
-} from '../components/ui/pagination'
 import { StatusBadge } from '../components/partners/status-badge'
 
 export function PartnersPage() {
@@ -53,7 +45,7 @@ export function PartnersPage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
+    <div className="w-full space-y-6">
       <PageHeader title="درخواست‌های همکاری" />
 
       <div className="flex w-full max-w-xs items-end gap-4">
@@ -97,7 +89,16 @@ export function PartnersPage() {
         />
       ) : (
         <TableCard>
-          <Table striped>
+          <TablePagination
+            position="top"
+            page={page}
+            totalPages={totalPages}
+            total={result.total}
+            onPageChange={setPage}
+            disabled={loading}
+            totalLabel="درخواست"
+          />
+          <Table dense>
             <TableHead>
               <TableRow>
                 <TableHeader>نام کسب‌وکار</TableHeader>
@@ -131,34 +132,15 @@ export function PartnersPage() {
             </TableBody>
           </Table>
 
-          <div className="mt-4 border-t border-border pt-4">
-            <Pagination aria-label="صفحه‌بندی درخواست‌ها">
-              <PaginationPrevious
-                disabled={page <= 1 || loading}
-                onClick={() => setPage(page - 1)}
-              />
-              <PaginationList>
-                {pageNumbers(page, totalPages).map((item, index) =>
-                  item === 'gap' ? (
-                    <PaginationGap key={`gap-${index}`} />
-                  ) : (
-                    <PaginationPage
-                      key={item}
-                      current={item === page}
-                      disabled={loading}
-                      onClick={() => setPage(item)}
-                    >
-                      {item}
-                    </PaginationPage>
-                  ),
-                )}
-              </PaginationList>
-              <PaginationNext
-                disabled={page >= totalPages || loading}
-                onClick={() => setPage(page + 1)}
-              />
-            </Pagination>
-          </div>
+          <TablePagination
+            position="bottom"
+            page={page}
+            totalPages={totalPages}
+            total={result.total}
+            onPageChange={setPage}
+            disabled={loading}
+            totalLabel="درخواست"
+          />
         </TableCard>
       )}
 

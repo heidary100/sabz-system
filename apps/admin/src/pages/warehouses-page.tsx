@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import type { WarehouseStatus, WarehouseSummary } from '@sabz/types'
 import { useWarehouseList } from '../hooks/use-warehouse-list'
 import { translateApiError } from '../lib/error-messages'
-import { pageNumbers } from '../lib/pagination'
 import {
   WAREHOUSE_STATUS_LABELS,
   WAREHOUSE_STATUS_ORDER,
@@ -22,16 +21,9 @@ import {
 } from '../components/catalyst/table'
 import { EmptyState } from '../components/ui/empty-state'
 import { Loading } from '../components/ui/loading'
+import { TablePagination } from '../components/ui/table-pagination'
 import { PageHeader } from '../components/ui/page-header'
 import { TableCard } from '../components/ui/table-card'
-import {
-  Pagination,
-  PaginationGap,
-  PaginationList,
-  PaginationNext,
-  PaginationPage,
-  PaginationPrevious,
-} from '../components/ui/pagination'
 import { Text } from '../components/catalyst/text'
 import { WarehouseForm } from '../components/warehouses/warehouse-form'
 import { WarehouseStatusBadge } from '../components/warehouses/warehouse-status-badge'
@@ -107,7 +99,7 @@ export function WarehousesPage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
+    <div className="w-full space-y-6">
       <PageHeader
         title="انبارها"
         actions={
@@ -179,7 +171,16 @@ export function WarehousesPage() {
         />
       ) : (
         <TableCard>
-          <Table striped>
+          <TablePagination
+            position="top"
+            page={page}
+            totalPages={totalPages}
+            total={result.total}
+            onPageChange={setPage}
+            disabled={loading}
+            totalLabel="انبار"
+          />
+          <Table dense>
             <TableHead>
               <TableRow>
                 <TableHeader>کد</TableHeader>
@@ -220,34 +221,15 @@ export function WarehousesPage() {
             </TableBody>
           </Table>
 
-          <div className="mt-4 border-t border-border pt-4">
-            <Pagination aria-label="صفحه‌بندی انبارها">
-              <PaginationPrevious
-                disabled={page <= 1 || loading}
-                onClick={() => setPage(page - 1)}
-              />
-              <PaginationList>
-                {pageNumbers(page, totalPages).map((item, index) =>
-                  item === 'gap' ? (
-                    <PaginationGap key={`gap-${index}`} />
-                  ) : (
-                    <PaginationPage
-                      key={item}
-                      current={item === page}
-                      disabled={loading}
-                      onClick={() => setPage(item)}
-                    >
-                      {item}
-                    </PaginationPage>
-                  ),
-                )}
-              </PaginationList>
-              <PaginationNext
-                disabled={page >= totalPages || loading}
-                onClick={() => setPage(page + 1)}
-              />
-            </Pagination>
-          </div>
+          <TablePagination
+            position="bottom"
+            page={page}
+            totalPages={totalPages}
+            total={result.total}
+            onPageChange={setPage}
+            disabled={loading}
+            totalLabel="انبار"
+          />
         </TableCard>
       )}
 
