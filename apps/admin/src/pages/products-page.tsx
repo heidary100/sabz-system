@@ -72,23 +72,36 @@ function SortableHeader({
   sortDir: 'asc' | 'desc'
   onSort: (field: CatalogGridSortField) => void
 }) {
+  // SS-268 redesign: the sort affordance is quiet until relevant — inactive
+  // columns reveal the two-arrow glyph only on hover; the active column
+  // speaks in the primary ink with a single directional arrow.
   const active = sortBy === field
   return (
     <button
       type="button"
-      className="inline-flex items-center gap-1 transition hover:text-foreground"
+      aria-label={active ? `${label} — مرتب‌سازی ${sortDir === 'asc' ? 'صعودی' : 'نزولی'}` : undefined}
+      className={clsx(
+        'group inline-flex items-center gap-1.5 text-xs font-semibold transition-colors',
+        active ? 'text-primary' : 'text-muted hover:text-foreground',
+      )}
       onClick={() => onSort(field)}
     >
       {label}
-      {active ? (
-        sortDir === 'asc' ? (
-          <ArrowUp className="size-3.5" aria-hidden />
+      <span
+        className={clsx(
+          'transition-opacity',
+          active ? 'text-primary opacity-100' : 'opacity-0 group-hover:opacity-50',
+        )}
+        aria-hidden
+      >
+        {active && sortDir === 'asc' ? (
+          <ArrowUp className="size-3.5" />
+        ) : active ? (
+          <ArrowDown className="size-3.5" />
         ) : (
-          <ArrowDown className="size-3.5" aria-hidden />
-        )
-      ) : (
-        <ArrowUpDown className="size-3.5 opacity-40" aria-hidden />
-      )}
+          <ArrowUpDown className="size-3.5" />
+        )}
+      </span>
     </button>
   )
 }
@@ -530,7 +543,7 @@ export function ProductsPage() {
       <div
         id="products-filter-panel"
         className={clsx(
-          'grid gap-x-6 gap-y-4 sm:grid-cols-2',
+          'grid gap-x-6 gap-y-3 rounded-xl border border-border bg-surface-strong p-4 sm:grid-cols-2',
           filtersOpen ? 'grid' : 'hidden xl:grid',
         )}
       >
@@ -652,7 +665,6 @@ export function ProductsPage() {
       </div>
 
       <FilterChips chips={chips} onClearAll={clearAllFilters} />
-
       <ColumnChips visible={visibleColumns} onToggle={toggleColumn} />
 
       <UnsavedChangesBar
@@ -709,9 +721,11 @@ export function ProductsPage() {
             totalLabel="واریانت"
           />
           <HorizontalScroll dragToPan>
-            <Table striped dense scrollContainer={false}>
-              <TableHead>
-                <TableRow>
+            <Table dense scrollContainer={false}>
+          {/* SS-268 table redesign: hairline row borders + row hover instead
+              of zebra bands; the header sits on a raised band. */}
+          <TableHead className="[&_th]:bg-surface-strong">
+            <TableRow>
                   {showColumn('thumbnail') && <TableHeader>تصویر</TableHeader>}
                   <TableHeader>
                     <SortableHeader
@@ -783,7 +797,7 @@ export function ProductsPage() {
                 {grid.rows.map((row) => {
                   const status = drafts.statuses[row.variantId] ?? 'clean'
                   return (
-                    <TableRow key={row.variantId}>
+                    <TableRow key={row.variantId} className="transition-colors hover:bg-primary-subtle/40">
                       {showColumn('thumbnail') && (
                         <TableCell>
                           {row.thumbnailUrl ? (
@@ -797,7 +811,7 @@ export function ProductsPage() {
                               className="size-10 rounded-md object-cover"
                             />
                           ) : (
-                            <div className="flex size-10 items-center justify-center rounded-md bg-zinc-100 text-zinc-400">
+                            <div className="flex size-10 items-center justify-center rounded-lg bg-primary-subtle/50 text-primary/60">
                               <Package className="size-4" aria-hidden />
                             </div>
                           )}

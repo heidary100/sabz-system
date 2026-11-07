@@ -33,10 +33,10 @@ export function ColumnChips({ visible, onToggle }: ColumnChipsProps) {
             aria-pressed={active}
             aria-label={`ستون ${GRID_COLUMN_LABELS[key]}`}
             className={clsx(
-              'rounded-full border px-3 py-1 text-xs font-medium transition',
+              'rounded-lg px-2 py-1 text-xs font-medium transition focus-ring',
               active
-                ? 'border-primary/60 bg-primary-subtle text-primary'
-                : 'border-border bg-surface text-muted hover:border-primary/40 hover:text-foreground',
+                ? 'bg-primary-subtle text-primary'
+                : 'border border-dashed border-border text-muted hover:border-primary/40 hover:text-foreground',
             )}
             onClick={() => onToggle(key)}
           >
@@ -44,7 +44,7 @@ export function ColumnChips({ visible, onToggle }: ColumnChipsProps) {
           </button>
         )
       })}
-      <span className="text-xs text-muted">
+      <span className="text-xs text-muted/80">
         ستون‌های اصلی (نام، SKU، موجودی، قیمت‌ها، عملیات) همیشه نمایان‌اند.
       </span>
     </div>

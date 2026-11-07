@@ -15,12 +15,12 @@ export interface RowActionsProps {
 
 export function RowActions({ productId, productName, sku, onDelete }: RowActionsProps) {
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-0.5">
       <Link
         to={`/products/${productId}`}
         aria-label={`مشاهده ${productName}`}
         title={`مشاهده ${productName}`}
-        className="rounded-lg p-2 text-muted transition hover:bg-primary-subtle hover:text-primary"
+        className="rounded-lg p-1.5 text-muted transition hover:bg-primary-subtle hover:text-primary focus-ring"
       >
         <Eye className="size-4" aria-hidden />
       </Link>
@@ -28,7 +28,7 @@ export function RowActions({ productId, productName, sku, onDelete }: RowActions
         to={`/products/${productId}/edit`}
         aria-label={`ویرایش ${productName}`}
         title={`ویرایش ${productName}`}
-        className="rounded-lg p-2 text-muted transition hover:bg-primary-subtle hover:text-primary"
+        className="rounded-lg p-1.5 text-muted transition hover:bg-primary-subtle hover:text-primary focus-ring"
       >
         <Pencil className="size-4" aria-hidden />
       </Link>
@@ -36,7 +36,7 @@ export function RowActions({ productId, productName, sku, onDelete }: RowActions
         type="button"
         aria-label={`حذف واریانت ${sku}`}
         title={`حذف واریانت ${sku}`}
-        className="rounded-lg p-2 text-muted transition hover:bg-red-50 hover:text-red-600"
+        className="rounded-lg p-1.5 text-muted transition hover:bg-danger-subtle hover:text-danger focus-ring"
         onClick={onDelete}
       >
         <Trash2 className="size-4" aria-hidden />
