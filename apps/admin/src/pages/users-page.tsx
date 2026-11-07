@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import { useUserList } from '../hooks/use-user-list'
 import { translateApiError } from '../lib/error-messages'
 import { formatDate } from '../lib/format'
-import { pageNumbers } from '../lib/pagination'
 import {
   ROLE_LABELS,
   ROLE_ORDER,
@@ -26,16 +25,9 @@ import {
 } from '../components/catalyst/table'
 import { EmptyState } from '../components/ui/empty-state'
 import { Loading } from '../components/ui/loading'
+import { TablePagination } from '../components/ui/table-pagination'
 import { PageHeader } from '../components/ui/page-header'
 import { TableCard } from '../components/ui/table-card'
-import {
-  Pagination,
-  PaginationGap,
-  PaginationList,
-  PaginationNext,
-  PaginationPage,
-  PaginationPrevious,
-} from '../components/ui/pagination'
 import { UserStatusBadge } from '../components/users/user-status-badge'
 
 const SEARCH_DEBOUNCE_MS = 300
@@ -158,7 +150,16 @@ export function UsersPage() {
         />
       ) : (
         <TableCard>
-          <Table striped dense>
+          <TablePagination
+            position="top"
+            page={page}
+            totalPages={totalPages}
+            total={result.total}
+            onPageChange={setPage}
+            disabled={loading}
+            totalLabel="کاربر"
+          />
+          <Table dense>
             <TableHead>
               <TableRow>
                 <TableHeader>موبایل</TableHeader>
@@ -204,34 +205,15 @@ export function UsersPage() {
             </TableBody>
           </Table>
 
-          <div className="mt-4 border-t border-border pt-4">
-            <Pagination aria-label="صفحه‌بندی کاربران">
-              <PaginationPrevious
-                disabled={page <= 1 || loading}
-                onClick={() => setPage(page - 1)}
-              />
-              <PaginationList>
-                {pageNumbers(page, totalPages).map((item, index) =>
-                  item === 'gap' ? (
-                    <PaginationGap key={`gap-${index}`} />
-                  ) : (
-                    <PaginationPage
-                      key={item}
-                      current={item === page}
-                      disabled={loading}
-                      onClick={() => setPage(item)}
-                    >
-                      {item}
-                    </PaginationPage>
-                  ),
-                )}
-              </PaginationList>
-              <PaginationNext
-                disabled={page >= totalPages || loading}
-                onClick={() => setPage(page + 1)}
-              />
-            </Pagination>
-          </div>
+          <TablePagination
+            position="bottom"
+            page={page}
+            totalPages={totalPages}
+            total={result.total}
+            onPageChange={setPage}
+            disabled={loading}
+            totalLabel="کاربر"
+          />
         </TableCard>
       )}
 

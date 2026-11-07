@@ -5,7 +5,6 @@ import { useBlogList } from '../hooks/use-blog-list'
 import type { BlogStatusFilter } from '../hooks/use-blog-list'
 import { translateApiError } from '../lib/error-messages'
 import { formatDateTime } from '../lib/format'
-import { pageNumbers } from '../lib/pagination'
 import { BLOG_STATUS_LABELS, BLOG_STATUS_ORDER } from '../lib/blog-labels'
 import { BlogStatusBadge } from '../components/blog/blog-status-badge'
 import { BlogCategoryForm } from '../components/blog/blog-category-form'
@@ -25,15 +24,8 @@ import { DeleteConfirmDialog } from '../components/ui/delete-confirm-dialog'
 import { EmptyState } from '../components/ui/empty-state'
 import { Loading } from '../components/ui/loading'
 import { PageHeader } from '../components/ui/page-header'
+import { TablePagination } from '../components/ui/table-pagination'
 import { TableCard } from '../components/ui/table-card'
-import {
-  Pagination,
-  PaginationGap,
-  PaginationList,
-  PaginationNext,
-  PaginationPage,
-  PaginationPrevious,
-} from '../components/ui/pagination'
 import { deleteCategory, listCategories } from '../services/blog'
 
 export function BlogPage() {
@@ -170,7 +162,16 @@ export function BlogPage() {
         />
       ) : (
         <TableCard>
-          <Table striped dense>
+          <TablePagination
+            position="top"
+            page={page}
+            totalPages={totalPages}
+            total={result.total}
+            onPageChange={setPage}
+            disabled={loading}
+            totalLabel="مطلب"
+          />
+          <Table dense>
             <TableHead>
               <TableRow>
                 <TableHeader>عنوان</TableHeader>
@@ -237,34 +238,15 @@ export function BlogPage() {
             </TableBody>
           </Table>
 
-          <div className="mt-4 border-t border-border pt-4">
-            <Pagination aria-label="صفحه‌بندی مطالب">
-              <PaginationPrevious
-                disabled={page <= 1 || loading}
-                onClick={() => setPage(page - 1)}
-              />
-              <PaginationList>
-                {pageNumbers(page, totalPages).map((item, index) =>
-                  item === 'gap' ? (
-                    <PaginationGap key={`gap-${index}`} />
-                  ) : (
-                    <PaginationPage
-                      key={item}
-                      current={item === page}
-                      disabled={loading}
-                      onClick={() => setPage(item)}
-                    >
-                      {item}
-                    </PaginationPage>
-                  ),
-                )}
-              </PaginationList>
-              <PaginationNext
-                disabled={page >= totalPages || loading}
-                onClick={() => setPage(page + 1)}
-              />
-            </Pagination>
-          </div>
+          <TablePagination
+            position="bottom"
+            page={page}
+            totalPages={totalPages}
+            total={result.total}
+            onPageChange={setPage}
+            disabled={loading}
+            totalLabel="مطلب"
+          />
         </TableCard>
       )}
 
@@ -320,7 +302,7 @@ export function BlogPage() {
           />
         ) : (
           <TableCard>
-            <Table striped dense>
+            <Table dense>
               <TableHead>
                 <TableRow>
                   <TableHeader>نام</TableHeader>

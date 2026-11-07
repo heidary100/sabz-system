@@ -4,7 +4,6 @@ import { ArrowRight, Boxes } from 'lucide-react'
 import type { InventoryItemSummary } from '@sabz/types'
 import { useWarehouseInventory } from '../hooks/use-warehouse-inventory'
 import { translateApiError } from '../lib/error-messages'
-import { pageNumbers } from '../lib/pagination'
 import { Button } from '../components/catalyst/button'
 import { Heading } from '../components/catalyst/heading'
 import {
@@ -17,15 +16,8 @@ import {
 } from '../components/catalyst/table'
 import { EmptyState } from '../components/ui/empty-state'
 import { Loading } from '../components/ui/loading'
+import { TablePagination } from '../components/ui/table-pagination'
 import { TableCard } from '../components/ui/table-card'
-import {
-  Pagination,
-  PaginationGap,
-  PaginationList,
-  PaginationNext,
-  PaginationPage,
-  PaginationPrevious,
-} from '../components/ui/pagination'
 import { Text } from '../components/catalyst/text'
 import { InventoryStockStatusBadge } from '../components/inventory/inventory-stock-status-badge'
 import { ReceiveStockDialog } from '../components/inventory/receive-stock-dialog'
@@ -111,7 +103,16 @@ export function WarehouseInventoryPage() {
         />
       ) : (
         <TableCard>
-          <Table striped dense>
+          <TablePagination
+            position="top"
+            page={page}
+            totalPages={totalPages}
+            total={result.total}
+            onPageChange={setPage}
+            disabled={loading}
+            totalLabel="قلم"
+          />
+          <Table dense>
             <TableHead>
               <TableRow>
                 <TableHeader>SKU</TableHeader>
@@ -167,34 +168,15 @@ export function WarehouseInventoryPage() {
             </TableBody>
           </Table>
 
-          <div className="mt-4 border-t border-border pt-4">
-            <Pagination aria-label="صفحه‌بندی موجودی انبار">
-              <PaginationPrevious
-                disabled={page <= 1 || loading}
-                onClick={() => setPage(page - 1)}
-              />
-              <PaginationList>
-                {pageNumbers(page, totalPages).map((item, index) =>
-                  item === 'gap' ? (
-                    <PaginationGap key={`gap-${index}`} />
-                  ) : (
-                    <PaginationPage
-                      key={item}
-                      current={item === page}
-                      disabled={loading}
-                      onClick={() => setPage(item)}
-                    >
-                      {item}
-                    </PaginationPage>
-                  ),
-                )}
-              </PaginationList>
-              <PaginationNext
-                disabled={page >= totalPages || loading}
-                onClick={() => setPage(page + 1)}
-              />
-            </Pagination>
-          </div>
+          <TablePagination
+            position="bottom"
+            page={page}
+            totalPages={totalPages}
+            total={result.total}
+            onPageChange={setPage}
+            disabled={loading}
+            totalLabel="قلم"
+          />
         </TableCard>
       )}
 

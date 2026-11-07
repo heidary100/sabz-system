@@ -38,6 +38,8 @@ export interface TablePaginationProps {
   position: 'top' | 'bottom'
   /** Noun for the count pill, e.g. «واریانت» / «سفارش». */
   totalLabel?: string
+  /** Disables every interactive control (e.g. while the list is loading). */
+  disabled?: boolean
   className?: string
 }
 
@@ -55,6 +57,7 @@ export function TablePagination({
   onLimitChange,
   position,
   totalLabel = 'مورد',
+  disabled = false,
   className,
 }: TablePaginationProps) {
   const [pageInput, setPageInput] = useState('')
@@ -108,7 +111,7 @@ export function TablePagination({
           <button
             type="button"
             onClick={() => onPageChange(page - 1)}
-            disabled={page <= 1}
+            disabled={page <= 1 || disabled}
             aria-label="صفحه قبلی"
             className={chevronClasses}
           >
@@ -137,6 +140,7 @@ export function TablePagination({
                 key={item}
                 type="button"
                 onClick={() => onPageChange(item)}
+                disabled={disabled}
                 aria-label={`صفحه ${faDigits(item)}`}
                 className="flex size-8 items-center justify-center rounded-lg text-sm font-medium tabular-nums text-foreground transition-colors hover:bg-primary-subtle/60 hover:text-primary focus-ring"
               >
@@ -147,7 +151,7 @@ export function TablePagination({
           <button
             type="button"
             onClick={() => onPageChange(page + 1)}
-            disabled={page >= totalPages}
+            disabled={page >= totalPages || disabled}
             aria-label="صفحه بعد"
             className={chevronClasses}
           >
@@ -183,6 +187,7 @@ export function TablePagination({
             inputMode="numeric"
             placeholder="صفحه"
             className="w-16"
+            disabled={disabled}
             value={pageInput}
             onChange={(event) => setPageInput(event.target.value.replace(/[^\d]/g, ''))}
             onKeyDown={(event) => {

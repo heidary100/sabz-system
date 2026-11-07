@@ -3,7 +3,6 @@ import type { AuditEntry } from '@sabz/types'
 import { useAuditLog } from '../hooks/use-audit-log'
 import { translateApiError } from '../lib/error-messages'
 import { formatDateTime } from '../lib/format'
-import { pageNumbers } from '../lib/pagination'
 import {
   AUDIT_ACTION_ORDER,
   AUDIT_ENTITY_ORDER,
@@ -27,16 +26,9 @@ import {
 import { AuditDetailsDialog } from '../components/audit/audit-details-dialog'
 import { EmptyState } from '../components/ui/empty-state'
 import { Loading } from '../components/ui/loading'
+import { TablePagination } from '../components/ui/table-pagination'
 import { PageHeader } from '../components/ui/page-header'
 import { TableCard } from '../components/ui/table-card'
-import {
-  Pagination,
-  PaginationGap,
-  PaginationList,
-  PaginationNext,
-  PaginationPage,
-  PaginationPrevious,
-} from '../components/ui/pagination'
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -250,7 +242,16 @@ export function AuditPage() {
         />
       ) : (
         <TableCard>
-          <Table striped dense>
+          <TablePagination
+            position="top"
+            page={page}
+            totalPages={totalPages}
+            total={result.total}
+            onPageChange={setPage}
+            disabled={loading}
+            totalLabel="رویداد"
+          />
+          <Table dense>
             <TableHead>
               <TableRow>
                 <TableHeader>تاریخ و ساعت</TableHeader>
@@ -298,34 +299,15 @@ export function AuditPage() {
             </TableBody>
           </Table>
 
-          <div className="mt-4 border-t border-border pt-4">
-            <Pagination aria-label="صفحه‌بندی گزارش فعالیت‌ها">
-              <PaginationPrevious
-                disabled={page <= 1 || loading}
-                onClick={() => setPage(page - 1)}
-              />
-              <PaginationList>
-                {pageNumbers(page, totalPages).map((item, index) =>
-                  item === 'gap' ? (
-                    <PaginationGap key={`gap-${index}`} />
-                  ) : (
-                    <PaginationPage
-                      key={item}
-                      current={item === page}
-                      disabled={loading}
-                      onClick={() => setPage(item)}
-                    >
-                      {item}
-                    </PaginationPage>
-                  ),
-                )}
-              </PaginationList>
-              <PaginationNext
-                disabled={page >= totalPages || loading}
-                onClick={() => setPage(page + 1)}
-              />
-            </Pagination>
-          </div>
+          <TablePagination
+            position="bottom"
+            page={page}
+            totalPages={totalPages}
+            total={result.total}
+            onPageChange={setPage}
+            disabled={loading}
+            totalLabel="رویداد"
+          />
         </TableCard>
       )}
 

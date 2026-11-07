@@ -63,7 +63,7 @@ export function Table({
 }
 
 export function TableHead({ className, ...props }: React.ComponentPropsWithoutRef<'thead'>) {
-  return <thead {...props} className={clsx(className, 'text-zinc-500 dark:text-zinc-400')} />
+  return <thead {...props} className={clsx(className, 'text-zinc-500 dark:text-zinc-400 [&_th]:bg-surface-strong')} />
 }
 
 export function TableBody(props: React.ComponentPropsWithoutRef<'tbody'>) {
@@ -101,10 +101,13 @@ export function TableRow({
     <TableRowContext.Provider
       value={{ href, target, title, onNavigate } as React.ContextType<typeof TableRowContext>}
     >
+      {/* SS-268: hairline rows + soft hover everywhere (zebra stripes are
+          retired app-wide); the hover also advertises row interactivity. */}
       <tr
         {...props}
         className={clsx(
           className,
+          'transition-colors hover:bg-primary-subtle/40',
           href &&
             'has-[[data-row-link][data-focus]]:outline-2 has-[[data-row-link][data-focus]]:-outline-offset-2 has-[[data-row-link][data-focus]]:outline-blue-500 dark:focus-within:bg-white/2.5',
           striped && 'even:bg-zinc-950/2.5 dark:even:bg-white/2.5',
