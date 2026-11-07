@@ -6,6 +6,7 @@ const DEFAULT_LIMIT = 20
 
 export function useWarehouseInventory(warehouseId: string) {
   const [page, setPage] = useState(1)
+  const [limit, setLimitState] = useState(DEFAULT_LIMIT)
   const [result, setResult] = useState<PaginatedResult<InventoryItemSummary> | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<unknown>(null)
@@ -18,7 +19,7 @@ export function useWarehouseInventory(warehouseId: string) {
     try {
       const data = await listWarehouseInventory(warehouseId, {
         page,
-        limit: DEFAULT_LIMIT,
+        limit,
       })
       if (seq === requestSeq.current) {
         setResult(data)
@@ -33,29 +34,40 @@ export function useWarehouseInventory(warehouseId: string) {
         setLoading(false)
       }
     }
-  }, [warehouseId, page])
+  }, [warehouseId, page, limit])
 
   useEffect(() => {
     void refetch()
   }, [refetch])
+
+  const setLimit = useCallback((next: number) => {
+    setLimitState((prev) => {
+      if (prev === next) {
+        return prev
+      }
+      setPage(1)
+      return next
+    })
+  }, [])
 
   useEffect(() => {
     setPage(1)
   }, [warehouseId])
 
   useEffect(() => {
-    if (result && page > Math.max(1, Math.ceil(result.total / result.limit))) {
-      setPage(Math.max(1, Math.ceil(result.total / result.limit)))
+    if (result && page > Math.max(1, Math.ceil(result.total / limit))) {
+      setPage(Math.max(1, Math.ceil(result.total / limit)))
     }
-  }, [result, page])
+  }, [result, page, limit])
 
   return {
     page,
-    limit: DEFAULT_LIMIT,
+    limit,
     result,
     loading,
     error,
     setPage,
+    setLimit,
     refetch,
   }
 }

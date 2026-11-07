@@ -40,6 +40,7 @@ export function BlogPage() {
     actionError,
     setStatus,
     setPage,
+    setLimit,
     refetch,
     publish,
     archive,
@@ -168,6 +169,9 @@ export function BlogPage() {
             totalPages={totalPages}
             total={result.total}
             onPageChange={setPage}
+            limit={limit}
+            limitOptions={[20, 50]}
+            onLimitChange={setLimit}
             disabled={loading}
             totalLabel="مطلب"
           />
@@ -244,6 +248,9 @@ export function BlogPage() {
             totalPages={totalPages}
             total={result.total}
             onPageChange={setPage}
+            limit={limit}
+            limitOptions={[20, 50]}
+            onLimitChange={setLimit}
             disabled={loading}
             totalLabel="مطلب"
           />
@@ -259,10 +266,6 @@ export function BlogPage() {
           <span className="text-sm font-medium text-muted">در حال بارگذاری…</span>
         </div>
       )}
-
-      <p className="text-xs text-muted">
-        {result ? `مجموع: ${result.total} مطلب · ${limit} مورد در هر صفحه` : ''}
-      </p>
 
       <section aria-labelledby="blog-categories-heading" className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">

@@ -29,7 +29,6 @@ import { EmptyState } from '../components/ui/empty-state'
 import { Loading } from '../components/ui/loading'
 import { TablePagination } from '../components/ui/table-pagination'
 import { TableCard } from '../components/ui/table-card'
-import { Text } from '../components/catalyst/text'
 import { ReservationStatusBadge } from '../components/inventory/reservation-status-badge'
 import { ReleaseReservationDialog } from '../components/inventory/release-reservation-dialog'
 import { ConsumeReservationDialog } from '../components/inventory/consume-reservation-dialog'
@@ -76,6 +75,7 @@ export function InventoryReservationsPage() {
     setWarehouseId,
     setVariantId,
     setPage,
+    setLimit,
     clearFilters,
     refetch,
   } = useReservationList(initialVariantId)
@@ -94,7 +94,7 @@ export function InventoryReservationsPage() {
   const hasActiveFilter =
     status !== '' || warehouseId !== '' || variantId !== ''
 
-  const totalPages = result ? Math.max(1, Math.ceil(result.total / result.limit)) : 1
+  const totalPages = result ? Math.max(1, Math.ceil(result.total / limit)) : 1
 
   const applyFilters = (): void => {
     if (invalidVariantId) {
@@ -250,6 +250,9 @@ export function InventoryReservationsPage() {
             totalPages={totalPages}
             total={result.total}
             onPageChange={setPage}
+            limit={limit}
+            limitOptions={[20, 50, 100]}
+            onLimitChange={setLimit}
             disabled={loading}
             totalLabel="رزرو"
           />
@@ -357,6 +360,9 @@ export function InventoryReservationsPage() {
             totalPages={totalPages}
             total={result.total}
             onPageChange={setPage}
+            limit={limit}
+            limitOptions={[20, 50, 100]}
+            onLimitChange={setLimit}
             disabled={loading}
             totalLabel="رزرو"
           />
@@ -372,10 +378,6 @@ export function InventoryReservationsPage() {
           <span className="text-sm font-medium text-muted">در حال بارگذاری…</span>
         </div>
       )}
-
-      <Text className="text-xs text-muted">
-        {result ? `مجموع: ${result.total} رزرو · ${limit} مورد در هر صفحه` : ''}
-      </Text>
 
       <ReleaseReservationDialog
         open={target?.mode === 'release'}

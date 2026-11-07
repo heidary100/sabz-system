@@ -29,7 +29,7 @@ type MutationTarget = { mode: 'receive' | 'adjust' | 'reserve'; item: InventoryI
 
 export function WarehouseInventoryPage() {
   const { warehouseId } = useParams<{ warehouseId: string }>()
-  const { page, limit, result, loading, error, setPage, refetch } =
+  const { page, limit, result, loading, error, setPage, setLimit, refetch } =
     useWarehouseInventory(warehouseId ?? '')
 
   const [target, setTarget] = useState<MutationTarget | null>(null)
@@ -37,7 +37,7 @@ export function WarehouseInventoryPage() {
   const firstRow = result && result.items.length > 0 ? result.items[0] : null
   const warehouseRef = firstRow?.warehouse ?? null
 
-  const totalPages = result ? Math.max(1, Math.ceil(result.total / result.limit)) : 1
+  const totalPages = result ? Math.max(1, Math.ceil(result.total / limit)) : 1
 
   if (loading && !result) {
     return <Loading label="در حال بارگذاری موجودی انبار…" />
@@ -110,6 +110,9 @@ export function WarehouseInventoryPage() {
             totalPages={totalPages}
             total={result.total}
             onPageChange={setPage}
+            limit={limit}
+            limitOptions={[20, 50, 100]}
+            onLimitChange={setLimit}
             disabled={loading}
             totalLabel="قلم"
           />
@@ -175,6 +178,9 @@ export function WarehouseInventoryPage() {
             totalPages={totalPages}
             total={result.total}
             onPageChange={setPage}
+            limit={limit}
+            limitOptions={[20, 50, 100]}
+            onLimitChange={setLimit}
             disabled={loading}
             totalLabel="قلم"
           />
@@ -190,10 +196,6 @@ export function WarehouseInventoryPage() {
           <span className="text-sm font-medium text-muted">در حال بارگذاری…</span>
         </div>
       )}
-
-      <Text className="text-xs text-muted">
-        {result ? `مجموع: ${result.total} مورد · ${limit} مورد در هر صفحه` : ''}
-      </Text>
 
       <ReceiveStockDialog
         open={target?.mode === 'receive'}

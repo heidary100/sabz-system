@@ -14,10 +14,11 @@ export interface InventoryMovementFilters {
   from: string
   to: string
   page: number
+  limit: number
 }
 
 const DEFAULT_LIMIT = 20
-const EMPTY_FILTERS: Omit<InventoryMovementFilters, 'page'> = {
+const EMPTY_FILTERS: Omit<InventoryMovementFilters, 'page' | 'limit'> = {
   type: '',
   warehouseId: '',
   variantId: '',
@@ -30,6 +31,7 @@ export function useInventoryMovements(initialVariantId = '') {
     ...EMPTY_FILTERS,
     variantId: initialVariantId,
     page: 1,
+    limit: DEFAULT_LIMIT,
   })
   const [result, setResult] = useState<PaginatedResult<InventoryMovementSummary> | null>(null)
   const [loading, setLoading] = useState(true)
@@ -64,6 +66,12 @@ export function useInventoryMovements(initialVariantId = '') {
     setFilters((prev) => (prev.page === page ? prev : { ...prev, page }))
   }, [])
 
+  const setLimit = useCallback((limit: number) => {
+    setFilters((prev) =>
+      prev.limit === limit ? prev : { ...prev, limit, page: 1 },
+    )
+  }, [])
+
   const clearFilters = useCallback(() => {
     setFilters((prev) =>
       prev.type === '' &&
@@ -73,7 +81,7 @@ export function useInventoryMovements(initialVariantId = '') {
       prev.to === '' &&
       prev.page === 1
         ? prev
-        : { ...EMPTY_FILTERS, page: 1 },
+        : { ...EMPTY_FILTERS, page: 1, limit: prev.limit },
     )
   }, [])
 
@@ -88,7 +96,7 @@ export function useInventoryMovements(initialVariantId = '') {
       from: filters.from || undefined,
       to: filters.to || undefined,
       page: filters.page,
-      limit: DEFAULT_LIMIT,
+      limit: filters.limit,
     }
     try {
       const data = await listInventoryMovements(query)
@@ -112,8 +120,8 @@ export function useInventoryMovements(initialVariantId = '') {
   }, [refetch])
 
   useEffect(() => {
-    if (result && filters.page > Math.max(1, Math.ceil(result.total / result.limit))) {
-      setPage(Math.max(1, Math.ceil(result.total / result.limit)))
+    if (result && filters.page > Math.max(1, Math.ceil(result.total / filters.limit))) {
+      setPage(Math.max(1, Math.ceil(result.total / filters.limit)))
     }
   }, [result, filters.page, setPage])
 
@@ -124,7 +132,7 @@ export function useInventoryMovements(initialVariantId = '') {
     from: filters.from,
     to: filters.to,
     page: filters.page,
-    limit: DEFAULT_LIMIT,
+    limit: filters.limit,
     result,
     loading,
     error,
@@ -134,6 +142,7 @@ export function useInventoryMovements(initialVariantId = '') {
     setFrom,
     setTo,
     setPage,
+    setLimit,
     clearFilters,
     refetch,
   }

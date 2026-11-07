@@ -38,6 +38,7 @@ export function OrdersPage() {
     error,
     setStatus,
     setPage,
+    setLimit,
     refetch,
   } = useOrderList()
 
@@ -100,6 +101,9 @@ export function OrdersPage() {
             totalPages={totalPages}
             total={result.total}
             onPageChange={setPage}
+            limit={limit}
+            limitOptions={[20, 50]}
+            onLimitChange={setLimit}
             disabled={loading}
             totalLabel="سفارش"
           />
@@ -154,6 +158,9 @@ export function OrdersPage() {
             totalPages={totalPages}
             total={result.total}
             onPageChange={setPage}
+            limit={limit}
+            limitOptions={[20, 50]}
+            onLimitChange={setLimit}
             disabled={loading}
             totalLabel="سفارش"
           />
@@ -169,10 +176,6 @@ export function OrdersPage() {
           <span className="text-sm font-medium text-muted">در حال بارگذاری…</span>
         </div>
       )}
-
-      <p className="text-xs text-muted">
-        {result ? `مجموع: ${result.total} سفارش · ${limit} مورد در هر صفحه` : ''}
-      </p>
     </div>
   )
 }

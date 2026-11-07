@@ -26,7 +26,6 @@ import { Loading } from '../components/ui/loading'
 import { TablePagination } from '../components/ui/table-pagination'
 import { PageHeader } from '../components/ui/page-header'
 import { TableCard } from '../components/ui/table-card'
-import { Text } from '../components/catalyst/text'
 import { InventoryStockStatusBadge } from '../components/inventory/inventory-stock-status-badge'
 import { ReceiveStockDialog } from '../components/inventory/receive-stock-dialog'
 import { AdjustInventoryDialog } from '../components/inventory/adjust-inventory-dialog'
@@ -50,6 +49,7 @@ export function InventoryPage() {
     setWarehouseId,
     setStockStatus,
     setPage,
+    setLimit,
     clearFilters,
     refetch,
   } = useInventoryList()
@@ -64,7 +64,7 @@ export function InventoryPage() {
 
   const [target, setTarget] = useState<MutationTarget | null>(null)
 
-  const totalPages = result ? Math.max(1, Math.ceil(result.total / result.limit)) : 1
+  const totalPages = result ? Math.max(1, Math.ceil(result.total / limit)) : 1
 
   const hasActiveFilter = search.trim() !== '' || warehouseId !== '' || stockStatus !== ''
 
@@ -188,6 +188,9 @@ export function InventoryPage() {
             totalPages={totalPages}
             total={result.total}
             onPageChange={setPage}
+            limit={limit}
+            limitOptions={[20, 50, 100]}
+            onLimitChange={setLimit}
             disabled={loading}
             totalLabel="قلم"
           />
@@ -262,6 +265,9 @@ export function InventoryPage() {
             totalPages={totalPages}
             total={result.total}
             onPageChange={setPage}
+            limit={limit}
+            limitOptions={[20, 50, 100]}
+            onLimitChange={setLimit}
             disabled={loading}
             totalLabel="قلم"
           />
@@ -277,10 +283,6 @@ export function InventoryPage() {
           <span className="text-sm font-medium text-muted">در حال بارگذاری…</span>
         </div>
       )}
-
-      <Text className="text-xs text-muted">
-        {result ? `مجموع: ${result.total} مورد · ${limit} مورد در هر صفحه` : ''}
-      </Text>
 
       <ReceiveStockDialog
         open={target?.mode === 'receive'}

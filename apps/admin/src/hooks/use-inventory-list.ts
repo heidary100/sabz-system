@@ -12,6 +12,7 @@ export interface InventoryListFilters {
   warehouseId: string
   stockStatus: InventoryStockStatus | ''
   page: number
+  limit: number
 }
 
 const DEFAULT_LIMIT = 20
@@ -22,6 +23,7 @@ export function useInventoryList() {
     warehouseId: '',
     stockStatus: '',
     page: 1,
+    limit: DEFAULT_LIMIT,
   })
   const [result, setResult] = useState<PaginatedResult<InventoryItemSummary> | null>(null)
   const [loading, setLoading] = useState(true)
@@ -48,6 +50,12 @@ export function useInventoryList() {
     setFilters((prev) => (prev.page === page ? prev : { ...prev, page }))
   }, [])
 
+  const setLimit = useCallback((limit: number) => {
+    setFilters((prev) =>
+      prev.limit === limit ? prev : { ...prev, limit, page: 1 },
+    )
+  }, [])
+
   const clearFilters = useCallback(() => {
     setFilters((prev) =>
       prev.search === '' &&
@@ -55,7 +63,7 @@ export function useInventoryList() {
       prev.stockStatus === '' &&
       prev.page === 1
         ? prev
-        : { search: '', warehouseId: '', stockStatus: '', page: 1 },
+        : { search: '', warehouseId: '', stockStatus: '', page: 1, limit: prev.limit },
     )
   }, [])
 
@@ -68,7 +76,7 @@ export function useInventoryList() {
       warehouseId: filters.warehouseId || undefined,
       stockStatus: filters.stockStatus || undefined,
       page: filters.page,
-      limit: DEFAULT_LIMIT,
+      limit: filters.limit,
     }
     try {
       const data = await listInventory(query)
@@ -92,8 +100,8 @@ export function useInventoryList() {
   }, [refetch])
 
   useEffect(() => {
-    if (result && filters.page > Math.max(1, Math.ceil(result.total / result.limit))) {
-      setPage(Math.max(1, Math.ceil(result.total / result.limit)))
+    if (result && filters.page > Math.max(1, Math.ceil(result.total / filters.limit))) {
+      setPage(Math.max(1, Math.ceil(result.total / filters.limit)))
     }
   }, [result, filters.page, setPage])
 
@@ -102,7 +110,7 @@ export function useInventoryList() {
     warehouseId: filters.warehouseId,
     stockStatus: filters.stockStatus,
     page: filters.page,
-    limit: DEFAULT_LIMIT,
+    limit: filters.limit,
     result,
     loading,
     error,
@@ -110,6 +118,7 @@ export function useInventoryList() {
     setWarehouseId,
     setStockStatus,
     setPage,
+    setLimit,
     clearFilters,
     refetch,
   }

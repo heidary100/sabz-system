@@ -34,6 +34,7 @@ export function RfqPage() {
     error,
     setStatus,
     setPage,
+    setLimit,
     refetch,
   } = useRfqList()
 
@@ -96,6 +97,9 @@ export function RfqPage() {
             totalPages={totalPages}
             total={result.total}
             onPageChange={setPage}
+            limit={limit}
+            limitOptions={[20, 50]}
+            onLimitChange={setLimit}
             disabled={loading}
             totalLabel="استعلام"
           />
@@ -147,6 +151,9 @@ export function RfqPage() {
             totalPages={totalPages}
             total={result.total}
             onPageChange={setPage}
+            limit={limit}
+            limitOptions={[20, 50]}
+            onLimitChange={setLimit}
             disabled={loading}
             totalLabel="استعلام"
           />
@@ -163,9 +170,6 @@ export function RfqPage() {
         </div>
       )}
 
-      <p className="text-xs text-muted">
-        {result ? `مجموع: ${result.total} استعلام · ${limit} مورد در هر صفحه` : ''}
-      </p>
     </div>
   )
 }

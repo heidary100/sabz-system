@@ -103,8 +103,11 @@ function SectionShell({
   isEmpty,
   total,
   page,
+  limit,
+  limitOptions,
   totalPages,
   onPage,
+  onLimitChange,
   totalLabel,
   emptyTitle,
   emptyDescription,
@@ -118,8 +121,11 @@ function SectionShell({
   isEmpty: boolean
   total: number
   page: number
+  limit: number
+  limitOptions: number[]
   totalPages: number
   onPage: (next: number) => void
+  onLimitChange: (next: number) => void
   totalLabel: string
   emptyTitle: string
   emptyDescription: string
@@ -152,7 +158,10 @@ function SectionShell({
             page={page}
             totalPages={totalPages}
             total={total}
+            limit={limit}
+            limitOptions={limitOptions}
             onPageChange={onPage}
+            onLimitChange={onLimitChange}
             disabled={loading}
             totalLabel={totalLabel}
           />
@@ -163,7 +172,10 @@ function SectionShell({
             page={page}
             totalPages={totalPages}
             total={total}
+            limit={limit}
+            limitOptions={limitOptions}
             onPageChange={onPage}
+            onLimitChange={onLimitChange}
             disabled={loading}
             totalLabel={totalLabel}
           />
@@ -336,8 +348,11 @@ export function PricingPage() {
             total={rules.result?.total ?? 0}
             totalLabel="قانون"
             page={rules.page}
+            limit={rules.limit}
+            limitOptions={[20, 50, 100]}
             totalPages={rulesTotalPages}
             onPage={rules.setPage}
+            onLimitChange={rules.setLimit}
             emptyTitle="قانونی یافت نشد"
             emptyDescription="هنوز قانون قیمت‌گذاری برای دسته‌بندی‌ها ثبت نشده است."
             emptyAction={
@@ -415,8 +430,11 @@ export function PricingPage() {
             total={overrides.result?.total ?? 0}
             totalLabel="اورراید"
             page={overrides.page}
+            limit={overrides.limit}
+            limitOptions={[20, 50, 100]}
             totalPages={overridesTotalPages}
             onPage={overrides.setPage}
+            onLimitChange={overrides.setLimit}
             emptyTitle="اوررایدی یافت نشد"
             emptyDescription="هنوز اورراید قیمت برای محصولی ثبت نشده است."
             emptyAction={
@@ -492,8 +510,11 @@ export function PricingPage() {
             total={promotions.result?.total ?? 0}
             totalLabel="پروموشن"
             page={promotions.page}
+            limit={promotions.limit}
+            limitOptions={[20, 50, 100]}
             totalPages={promotionsTotalPages}
             onPage={promotions.setPage}
+            onLimitChange={promotions.setLimit}
             emptyTitle="پروموشنی یافت نشد"
             emptyDescription="هنوز پروموشنی ثبت نشده است."
             emptyAction={

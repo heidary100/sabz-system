@@ -24,7 +24,6 @@ import { Loading } from '../components/ui/loading'
 import { TablePagination } from '../components/ui/table-pagination'
 import { PageHeader } from '../components/ui/page-header'
 import { TableCard } from '../components/ui/table-card'
-import { Text } from '../components/catalyst/text'
 import { WarehouseForm } from '../components/warehouses/warehouse-form'
 import { WarehouseStatusBadge } from '../components/warehouses/warehouse-status-badge'
 import { WarehouseStatusDialog } from '../components/warehouses/warehouse-status-dialog'
@@ -43,6 +42,7 @@ export function WarehousesPage() {
     setSearch,
     setStatus,
     setPage,
+    setLimit,
     refetch,
   } = useWarehouseList()
 
@@ -58,7 +58,7 @@ export function WarehousesPage() {
   const [statusTarget, setStatusTarget] = useState<WarehouseSummary | null>(null)
   const [statusMode, setStatusMode] = useState<'activate' | 'deactivate'>('activate')
 
-  const totalPages = result ? Math.max(1, Math.ceil(result.total / result.limit)) : 1
+  const totalPages = result ? Math.max(1, Math.ceil(result.total / limit)) : 1
 
   const hasActiveFilter = status !== '' || search.trim() !== ''
 
@@ -177,6 +177,9 @@ export function WarehousesPage() {
             totalPages={totalPages}
             total={result.total}
             onPageChange={setPage}
+            limit={limit}
+            limitOptions={[20, 50, 100]}
+            onLimitChange={setLimit}
             disabled={loading}
             totalLabel="انبار"
           />
@@ -227,6 +230,9 @@ export function WarehousesPage() {
             totalPages={totalPages}
             total={result.total}
             onPageChange={setPage}
+            limit={limit}
+            limitOptions={[20, 50, 100]}
+            onLimitChange={setLimit}
             disabled={loading}
             totalLabel="انبار"
           />
@@ -242,10 +248,6 @@ export function WarehousesPage() {
           <span className="text-sm font-medium text-muted">در حال بارگذاری…</span>
         </div>
       )}
-
-      <Text className="text-xs text-muted">
-        {result ? `مجموع: ${result.total} انبار · ${limit} مورد در هر صفحه` : ''}
-      </Text>
 
       <WarehouseForm
         open={formOpen}
