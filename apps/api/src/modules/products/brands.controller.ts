@@ -69,7 +69,10 @@ export class BrandsController {
   @ApiResponse({ status: 400, description: 'Invalid body.' })
   @ApiResponse({ status: 401, description: 'Unauthorized.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
-  @ApiResponse({ status: 409, description: 'Duplicate slug.' })
+  @ApiResponse({
+    status: 409,
+    description: 'Duplicate slug or normalized brand name/alias.',
+  })
   async create(
     @Body() dto: CreateBrandDto,
     @CurrentUser() user: AuthUser,
@@ -86,7 +89,10 @@ export class BrandsController {
   @ApiResponse({ status: 401, description: 'Unauthorized.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 404, description: 'Brand not found.' })
-  @ApiResponse({ status: 409, description: 'Duplicate slug.' })
+  @ApiResponse({
+    status: 409,
+    description: 'Duplicate slug or normalized brand name/alias.',
+  })
   async update(
     @Param('id', UUID_PARAM) brandId: string,
     @Body() dto: UpdateBrandDto,

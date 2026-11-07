@@ -41,21 +41,65 @@ describe('BrandsService', () => {
   let tx: {
     brand: {
       findUnique: jest.Mock;
+      findMany: jest.Mock;
       create: jest.Mock;
       updateMany: jest.Mock;
     };
+    brandAlias: {
+      findUnique: jest.Mock;
+      findMany: jest.Mock;
+      createMany: jest.Mock;
+      update: jest.Mock;
+      delete: jest.Mock;
+    };
     product: { count: jest.Mock };
+    $executeRaw: jest.Mock;
   };
   const actorId = '11111111-1111-4111-8111-111111111111';
 
   beforeEach(() => {
+    const aliasStore = new Map<
+      string,
+      { normalizedKey: string; brandId: string; rawName: string; kind: string }
+    >();
     tx = {
       brand: {
         findUnique: jest.fn(),
+        findMany: jest.fn().mockResolvedValue([]),
         create: jest.fn(),
         updateMany: jest.fn(),
       },
+      brandAlias: {
+        findUnique: jest.fn(({ where }: { where: { normalizedKey: string } }) =>
+          Promise.resolve(aliasStore.get(where.normalizedKey) ?? null),
+        ),
+        findMany: jest.fn(
+          ({
+            where,
+          }: {
+            where: { normalizedKey: { in: string[] } };
+          }) =>
+            Promise.resolve(
+              [...aliasStore.values()].filter((row) =>
+                where.normalizedKey.in.includes(row.normalizedKey),
+              ),
+            ),
+        ),
+        createMany: jest.fn(
+          ({ data }: { data: Array<{ normalizedKey: string }> }) => {
+            for (const row of data) {
+              if (!aliasStore.has(row.normalizedKey)) {
+                aliasStore.set(row.normalizedKey, row as never);
+              }
+            }
+            return Promise.resolve({ count: data.length });
+          },
+        ),
+        update: jest.fn(),
+        delete: jest.fn(),
+      },
       product: { count: jest.fn() },
+      $executeRaw: jest.fn().mockResolvedValue(0),
     };
     prisma = {
       brand: {
@@ -188,7 +232,7 @@ describe('BrandsService', () => {
     it('persists nameEn on create and defaults it to null when omitted (SS-255)', async () => {
       tx.brand.create
         .mockResolvedValueOnce(makeSummaryRow({ nameEn: 'Dell' }))
-        .mockResolvedValueOnce(makeSummaryRow());
+        .mockResolvedValueOnce(makeSummaryRow({ name: 'دل دوم' }));
 
       const withNameEn = await service.create({ name: 'دل', nameEn: 'Dell' }, actorId);
       expect(tx.brand.create).toHaveBeenNthCalledWith(
@@ -197,7 +241,7 @@ describe('BrandsService', () => {
       );
       expect(withNameEn.nameEn).toBe('Dell');
 
-      const without = await service.create({ name: 'دل' }, actorId);
+      const without = await service.create({ name: 'دل دوم' }, actorId);
       expect(tx.brand.create).toHaveBeenNthCalledWith(
         2,
         expect.objectContaining({ data: expect.objectContaining({ nameEn: null }) }),

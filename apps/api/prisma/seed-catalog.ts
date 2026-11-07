@@ -32,6 +32,7 @@ import { PrismaService } from '../src/common/database/prisma.service';
 import { AuditService } from '../src/modules/audit/audit.service';
 import { MediaService } from '../src/modules/products/media.service';
 import { sanitizeRichText } from '../src/modules/products/description-sanitize';
+import { ensureBrandAliases } from '../src/modules/products/brand-alias';
 import { FfmpegRunner } from '../src/modules/products/media-processing/ffmpeg.runner';
 import { ImageProcessorService } from '../src/modules/products/media-processing/image-processor.service';
 import { MediaProcessingService } from '../src/modules/products/media-processing/media-processing.service';
@@ -278,9 +279,20 @@ export async function seedCatalog(actorId: string): Promise<SeedCatalogStats> {
       });
     }
 
-    // Brands.
+    // Brands. SS-258: never resurrect a merged-away seed slug, and keep the
+    // alias keyspace in sync with the fixture display names.
     for (const brand of brands) {
-      await prisma.brand.upsert({
+      const existing = await prisma.brand.findUnique({
+        where: { slug: brand.slug },
+        select: { mergedIntoBrandId: true },
+      });
+      if (existing?.mergedIntoBrandId) {
+        throw new Error(
+          `Seed brand "${brand.slug}" is merged into brand ${existing.mergedIntoBrandId}; update the seed fixture instead of resurrecting it.`,
+        );
+      }
+
+      const row = await prisma.brand.upsert({
         where: { slug: brand.slug },
         update: {
           name: brand.name,
@@ -297,6 +309,14 @@ export async function seedCatalog(actorId: string): Promise<SeedCatalogStats> {
           isFeatured: brand.isFeatured,
           createdBy: actorId,
         },
+        select: { id: true, name: true, nameEn: true },
+      });
+
+      await ensureBrandAliases(prisma, {
+        brandId: row.id,
+        name: row.name,
+        nameEn: row.nameEn,
+        createdBy: actorId,
       });
     }
 

@@ -22,6 +22,7 @@ function refs(overrides: Partial<WooReferenceData> = {}): WooReferenceData {
   return {
     categories: [],
     brands: [],
+    brandAliasOwners: new Map(),
     productSlugs: new Set(),
     variantSkus: new Set(),
     sourceKeys: new Set(),

@@ -45,7 +45,10 @@ describe('slug field wiring (SS-254)', () => {
 
     it(`${label} maps a late 409 to the field-level conflict message`, () => {
       expect(source.includes('isConflictError')).toBe(true)
-      expect(source.includes('setSlugConflict(translateApiError(')).toBe(true)
+      expect(
+        source.includes('setSlugConflict(translateApiError(') ||
+          source.includes('setSlugConflict(message)'),
+      ).toBe(true)
     })
 
     it(`${label} locks to manual on slug input and regenerates explicitly`, () => {
@@ -62,6 +65,10 @@ describe('slug field wiring (SS-254)', () => {
     expect(BRAND.includes('listBrands({ page: 1, limit: COLLISION_DATASET_LIMIT })')).toBe(
       true,
     )
+  })
+
+  it('the brand form does not mislabel a normalized-name 409 as a slug conflict', () => {
+    expect(BRAND.includes("message.includes('slug')")).toBe(true)
   })
 
   it('the category form checks against the full tree it already holds', () => {

@@ -11,6 +11,7 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "prisma db seed",
     "prisma:bootstrap": "tsx prisma/bootstrap.ts",
+    "brand:merge": "tsx src/modules/products/cli/brand-merge.ts",
     "seed:reference": "tsx prisma/seed-reference.ts",
     "media:backfill-thumbnails": "tsx prisma/backfill-thumbnails.ts",
     "woo:dry-run": "tsx src/modules/import/cli/dry-run.ts",

@@ -1066,28 +1066,50 @@ GET /admin/brands
 
 Retrieve a paginated brand list. Query params: `page` (default 1), `limit`
 (default 20, max 100). Response is a `PaginatedResult<BrandSummary>` with fields
-`id`, `name`, `slug`, `description`, `isFeatured`. Ordering is deterministic:
-`name ASC`, then `id ASC`. Soft-deleted brands are always excluded.
+`id`, `name`, `slug`, `description`, `isFeatured`, `nameEn`. Ordering is
+deterministic: `name ASC`, then `id ASC`. Soft-deleted brands are always
+excluded.
 
 GET /admin/brands/{id}
 
 Retrieve a single `BrandSummary` (`id`, `name`, `slug`, `description`,
-`isFeatured`). Missing, invalid-UUID, or soft-deleted brands return 404. The
-internal `logoKey` is never exposed (brand logo/media belongs to SS-105).
+`isFeatured`, `nameEn`). Missing, invalid-UUID, or soft-deleted brands return
+404. The internal `logoKey` is never exposed (brand logo/media belongs to
+SS-105).
 
 POST /admin/brands
 
 Create a brand. Body uses the `CreateBrandInput` contract: `name` (required,
 max 255), `slug` (optional; generated from `name` when omitted; `[a-z0-9]` and
-hyphens, max 255), `description` (optional, max 1000), `isFeatured` (optional
-boolean, default false). Duplicate slug returns 409. `logoKey` is not accepted
-(logo belongs to SS-105). Audits `BRAND_CREATED`.
+hyphens, max 255), `description` (optional, max 1000), `nameEn` (optional,
+max 255), `isFeatured` (optional boolean, default false). `logoKey` is not
+accepted (logo belongs to SS-105). Audits `BRAND_CREATED`.
+
+SS-258 normalized-name guard: `name` and `nameEn` are compared with the shared
+Persian-aware brand normalizer (NFC, Arabic Yeh/Kaf folding, ZWNJ/whitespace
+collapse, tatweel/diacritic removal, Latin case folding; digits and punctuation
+are deliberately preserved). A duplicate slug **or** a name/alias collision
+returns `409 Conflict` with a Persian message:
+
+```json
+{
+  "statusCode": 409,
+  "message": "برندی با این نام یا نام مشابه قبلاً ثبت شده است.",
+  "error": "Conflict"
+}
+```
+
+The response never includes the conflicting name, SQL, constraint name, or
+stack trace. A merged/soft-deleted brand’s former name remains protected by
+the alias table.
 
 PATCH /admin/brands/{id}
 
-Update brand fields (`name`, `slug`, `description`, `isFeatured`).
-`description: null` clears the description. Duplicate slug returns 409. Audits
-`BRAND_UPDATED` with only the changed fields.
+Update brand fields (`name`, `slug`, `description`, `isFeatured`, `nameEn`).
+`description: null` clears the description; `nameEn: null` clears the English
+name. Updating a brand to its own normalized name is allowed. Updating to
+another brand’s normalized name or alias returns the same Persian 409. Duplicate
+slug returns 409. Audits `BRAND_UPDATED` with only the changed fields.
 
 DELETE /admin/brands/{id}
 
@@ -2008,6 +2030,11 @@ GET /catalog/brands?page=&limit=
 
 Returns a paginated list of brands (`id`, `name`, `slug`). Validation:
 `page ≥ 1`, `1 ≤ limit ≤ 50`; violations return `400`.
+
+SS-258: only canonical active brands appear. A soft-deleted duplicate that was
+merged into a canonical brand keeps its historical slug, and product filtering
+by that old slug resolves to the canonical brand (`?brand=green-lion-2` still
+returns the products now attached to `green-lion`).
 
 ## Product listing
 

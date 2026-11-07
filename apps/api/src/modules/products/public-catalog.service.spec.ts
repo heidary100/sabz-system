@@ -12,6 +12,7 @@ describe('PublicCatalogService listing facets', () => {
   let service: PublicCatalogService;
   let prisma: {
     $queryRaw: jest.Mock;
+    brand: { findUnique: jest.Mock };
     category: { findMany: jest.Mock };
     product: { count: jest.Mock; findMany: jest.Mock };
     productVariant: { findMany: jest.Mock; groupBy: jest.Mock };
@@ -22,6 +23,7 @@ describe('PublicCatalogService listing facets', () => {
   beforeEach(() => {
     prisma = {
       $queryRaw: jest.fn().mockResolvedValue([]),
+      brand: { findUnique: jest.fn().mockResolvedValue(null) },
       category: { findMany: jest.fn().mockResolvedValue([]) },
       product: {
         count: jest.fn().mockResolvedValue(0),

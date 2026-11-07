@@ -154,17 +154,19 @@ describe('Admin brand API (SS-103) (e2e)', () => {
   describe('CRUD flow', () => {
     it('creates, lists, reads detail, updates (including isFeatured) and soft-deletes', async () => {
       const operator = await createUser('OPERATOR');
+      const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const nameEn = `Dell-${stamp}`;
       const created = await createBrandViaApi(operator.accessToken, {
-        name: `Dell ${Date.now()}`,
-        slug: `dell-${Date.now()}`,
+        name: `Dell ${stamp}`,
+        slug: `dell-${stamp}`,
         description: 'تولیدکننده سختافزار',
-        nameEn: 'Dell',
+        nameEn,
         isFeatured: true,
       });
       expect(created.slug).toBeDefined();
       expect(created.description).toBe('تولیدکننده سختافزار');
       expect(created.isFeatured).toBe(true);
-      expect(created.nameEn).toBe('Dell');
+      expect(created.nameEn).toBe(nameEn);
       expect(created).not.toHaveProperty('logoKey');
 
       const list = await request(app.getHttpServer())
@@ -188,12 +190,16 @@ describe('Admin brand API (SS-103) (e2e)', () => {
       const updated = await request(app.getHttpServer())
         .patch(`${BASE}/${created.id}`)
         .set('Authorization', `Bearer ${operator.accessToken}`)
-        .send({ name: 'Dell Technologies', isFeatured: false, description: null })
+        .send({
+          name: `Dell Technologies ${stamp}`,
+          isFeatured: false,
+          description: null,
+        })
         .expect(200);
-      expect(updated.body.name).toBe('Dell Technologies');
+      expect(updated.body.name).toBe(`Dell Technologies ${stamp}`);
       expect(updated.body.isFeatured).toBe(false);
       expect(updated.body.description).toBeNull();
-      expect(updated.body.nameEn).toBe('Dell');
+      expect(updated.body.nameEn).toBe(nameEn);
       // nameEn accepts null to clear (description precedent).
       const cleared = await request(app.getHttpServer())
         .patch(`${BASE}/${created.id}`)
@@ -256,13 +262,39 @@ describe('Admin brand API (SS-103) (e2e)', () => {
 
     it('returns 409 for a duplicate slug', async () => {
       const operator = await createUser('OPERATOR');
-      const slug = `dup-brand-${Date.now()}`;
-      await createBrandViaApi(operator.accessToken, { name: 'A', slug });
+      const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const slug = `dup-brand-${stamp}`;
+      await createBrandViaApi(operator.accessToken, {
+        name: `Slug A ${stamp}`,
+        slug,
+      });
       await request(app.getHttpServer())
         .post(BASE)
         .set('Authorization', `Bearer ${operator.accessToken}`)
-        .send({ name: 'B', slug })
+        .send({ name: `Slug B ${stamp}`, slug })
         .expect(409);
+    });
+
+    it('returns a Persian 409 for a duplicate normalized brand name', async () => {
+      const operator = await createUser('OPERATOR');
+      const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const name = `Alias Brand ${stamp}`;
+      await createBrandViaApi(operator.accessToken, {
+        name,
+        slug: `alias-brand-${stamp}`,
+      });
+
+      const response = await request(app.getHttpServer())
+        .post(BASE)
+        .set('Authorization', `Bearer ${operator.accessToken}`)
+        .send({
+          name: `  ${name.replace(/\s+/g, '   ').toUpperCase()}  `,
+          slug: `alias-brand-dupe-${stamp}`,
+        })
+        .expect(409);
+      expect(response.body.message).toContain('برندی با این نام');
+      expect(JSON.stringify(response.body)).not.toContain('BrandAlias');
+      expect(JSON.stringify(response.body)).not.toContain('normalizedKey');
     });
 
     it('rejects deletion when an active product references the brand with 409', async () => {

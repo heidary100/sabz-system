@@ -431,6 +431,9 @@ export class AdminPricingService {
     const startsAt = new Date(dto.startsAt);
     const endsAt = new Date(dto.endsAt);
     this.assertValidWindow(startsAt, endsAt);
+    if (dto.brandId) {
+      await this.requireLiveBrand(dto.brandId);
+    }
     let row: PromotionRow;
     try {
       row = await this.prisma.promotion.create({
@@ -495,6 +498,9 @@ export class AdminPricingService {
     const startsAt = dto.startsAt !== undefined ? new Date(dto.startsAt) : existing.startsAt;
     const endsAt = dto.endsAt !== undefined ? new Date(dto.endsAt) : existing.endsAt;
     this.assertValidWindow(startsAt, endsAt);
+    if ('brandId' in dto && dto.brandId) {
+      await this.requireLiveBrand(dto.brandId);
+    }
     let row: PromotionRow;
     try {
       row = await this.prisma.promotion.update({
@@ -577,6 +583,16 @@ export class AdminPricingService {
     });
     if (!product) {
       throw new NotFoundException('محصول یافت نشد.');
+    }
+  }
+
+  private async requireLiveBrand(brandId: string): Promise<void> {
+    const brand = await this.prisma.brand.findFirst({
+      where: { id: brandId, deletedAt: null },
+      select: { id: true },
+    });
+    if (!brand) {
+      throw new NotFoundException('برند یافت نشد.');
     }
   }
 
