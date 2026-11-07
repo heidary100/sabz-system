@@ -117,7 +117,7 @@ export function WarehouseInventoryPage() {
             <TableHead>
               <TableRow>
                 <TableHeader>SKU</TableHeader>
-                <TableHeader>نام واریانت</TableHeader>
+                <TableHeader>نام نوع</TableHeader>
                 <TableHeader>موجودی در دست</TableHeader>
                 <TableHeader>رزرو شده</TableHeader>
                 <TableHeader>قابل عرضه</TableHeader>

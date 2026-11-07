@@ -114,7 +114,7 @@ export function InventoryPage() {
           <Input
             type="search"
             name="search"
-            placeholder="جستجو با SKU یا نام واریانت…"
+            placeholder="جستجو با SKU یا نام نوع…"
             maxLength={64}
             value={searchInput}
             onChange={(event) => setSearchInput(event.target.value)}
@@ -169,7 +169,7 @@ export function InventoryPage() {
           description={
             hasActiveFilter
               ? 'با این فیلترها موجودی ثبت نشده است.'
-              : 'هنوز موجودی برای هیچ واریانتی ثبت نشده است.'
+              : 'هنوز موجودی برای هیچ نوعی ثبت نشده است.'
           }
           icon={<Boxes className="size-6" />}
           actions={
@@ -195,7 +195,7 @@ export function InventoryPage() {
             <TableHead>
               <TableRow>
                 <TableHeader>SKU</TableHeader>
-                <TableHeader>نام واریانت</TableHeader>
+                <TableHeader>نام نوع</TableHeader>
                 <TableHeader>انبار</TableHeader>
                 <TableHeader>موجودی در دست</TableHeader>
                 <TableHeader>رزرو شده</TableHeader>

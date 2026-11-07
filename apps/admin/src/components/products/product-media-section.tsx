@@ -116,7 +116,7 @@ export function ProductMediaSection({
                 <TableHeader>MIME</TableHeader>
                 <TableHeader>حجم</TableHeader>
                 <TableHeader>ترتیب</TableHeader>
-                {hasVariantAssociation && <TableHeader>واریانت</TableHeader>}
+                {hasVariantAssociation && <TableHeader>نوع</TableHeader>}
                 <TableHeader>اصلی</TableHeader>
                 <TableHeader>تاریخ ایجاد</TableHeader>
                 <TableHeader>عملیات</TableHeader>

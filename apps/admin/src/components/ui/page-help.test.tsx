@@ -24,7 +24,7 @@ describe('route-help registry (SS-269)', () => {
     expect(resolveRouteHelp('/orders')?.title).toBe('سفارش‌ها')
     expect(resolveRouteHelp('/orders/42')?.title).toBe('جزئیات سفارش')
     expect(resolveRouteHelp('/products/')?.title).toBe('شبکه کاتالوگ')
-    expect(resolveRouteHelp('/inventory/variants/abc-def')?.title).toBe('موجودی واریانت')
+    expect(resolveRouteHelp('/inventory/variants/abc-def')?.title).toBe('موجودی نوع')
     expect(resolveRouteHelp('/nope')).toBeNull()
   })
 })

@@ -1011,7 +1011,7 @@ describe('Admin catalog grid API (SS-257) (e2e)', () => {
               expectedUpdatedAt: variant.updatedAt.toISOString(),
               sku: newSku,
               barcode: 'BC-12345',
-              variantName: 'نام واریانت شبکه',
+              variantName: 'نام نوع شبکه',
               price: '120000.00',
               compareAtPrice: '150000.00',
               stock: 8,
@@ -1022,12 +1022,12 @@ describe('Admin catalog grid API (SS-257) (e2e)', () => {
       expect(res.body.results[0]!.outcome).toBe('SUCCESS');
       expect(res.body.results[0]!.sku).toBe(newSku);
       expect(res.body.results[0]!.barcode).toBe('BC-12345');
-      expect(res.body.results[0]!.variantName).toBe('نام واریانت شبکه');
+      expect(res.body.results[0]!.variantName).toBe('نام نوع شبکه');
 
       const after = await prisma.productVariant.findUnique({ where: { id: variant.id } });
       expect(after!.sku).toBe(newSku);
       expect(after!.barcode).toBe('BC-12345');
-      expect(after!.name).toBe('نام واریانت شبکه');
+      expect(after!.name).toBe('نام نوع شبکه');
       expect(after!.price.toString()).toBe('120000');
 
       const audit = await prisma.auditLog.findFirstOrThrow({
@@ -1037,7 +1037,7 @@ describe('Admin catalog grid API (SS-257) (e2e)', () => {
       const afterDelta = audit.after as Record<string, unknown>;
       expect(beforeDelta['sku']).toBe(variant.sku);
       expect(afterDelta['sku']).toBe(newSku);
-      expect(afterDelta['name']).toBe('نام واریانت شبکه');
+      expect(afterDelta['name']).toBe('نام نوع شبکه');
     });
 
     it('rejects a duplicate SKU as a row VALIDATION_ERROR without writing the row', async () => {

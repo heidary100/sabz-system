@@ -61,7 +61,7 @@ function row(overrides: Partial<CatalogGridRow> = {}): CatalogGridRow {
     createdAt: '2026-11-01T08:00:00.000Z',
     sku: 'SKU-1',
     barcode: 'BC-1',
-    variantName: 'واریانت یک',
+    variantName: 'نوع یک',
     brandName: 'انکر',
     brandId: 'brand-1',
     categoryId: 'cat-1',
@@ -197,7 +197,7 @@ describe('ProductsPage — the editable catalog grid (SS-257 rework)', () => {
           compareAtPrice: null,
           sku: 'SKU-1B',
           barcode: 'BC-1',
-          variantName: 'واریانت یک',
+          variantName: 'نوع یک',
           priceStatus: 'PRICED',
           updatedAt: newToken,
           stock: 5,
@@ -251,7 +251,7 @@ describe('ProductsPage — the editable catalog grid (SS-257 rework)', () => {
           compareAtPrice: null,
           sku: 'SKU-1',
           barcode: 'BC-1',
-          variantName: 'واریانت یک',
+          variantName: 'نوع یک',
           priceStatus: 'PRICED',
           stock: 5,
           product: {
@@ -287,7 +287,7 @@ describe('ProductsPage — the editable catalog grid (SS-257 rework)', () => {
     await renderAndLoad()
     editCell('قیمت فروش — SKU-1', '150000')
     editCell(
-      'قیمت فروش ویژه — SKU-2',
+      'قیمت قبل از تخفیف — SKU-2',
       '100000',
     )
 
@@ -297,8 +297,8 @@ describe('ProductsPage — the editable catalog grid (SS-257 rework)', () => {
         {
           variantId: 'v2',
           outcome: 'VALIDATION_ERROR',
-          message: 'قیمت فروش ویژه باید بیشتر از قیمت فروش باشد.',
-          fieldErrors: { compareAtPrice: 'قیمت فروش ویژه باید بیشتر از قیمت فروش باشد.' },
+          message: 'قیمت قبل از تخفیف باید بیشتر از قیمت فروش باشد.',
+          fieldErrors: { compareAtPrice: 'قیمت قبل از تخفیف باید بیشتر از قیمت فروش باشد.' },
         },
       ],
       summary: { succeeded: 1, failed: 1 },
@@ -308,8 +308,8 @@ describe('ProductsPage — the editable catalog grid (SS-257 rework)', () => {
 
     await waitFor(() => expect(screen.getByText('1 ردیف ذخیره نشد')).toBeTruthy())
     // Row-level, field-level Persian error on the exact cell.
-    expect(screen.getByText('قیمت فروش ویژه باید بیشتر از قیمت فروش باشد.')).toBeTruthy()
-    expect(cellText('قیمت فروش ویژه — SKU-2')).toBe('100,000')
+    expect(screen.getByText('قیمت قبل از تخفیف باید بیشتر از قیمت فروش باشد.')).toBeTruthy()
+    expect(cellText('قیمت قبل از تخفیف — SKU-2')).toBe('100,000')
     expect(cellText('قیمت فروش — SKU-1')).toBe('150,000')
     expect(screen.getByText('1 ردیف تغییر ذخیرهنشده دارد')).toBeTruthy()
   })
@@ -453,11 +453,11 @@ describe('ProductsPage — the editable catalog grid (SS-257 rework)', () => {
     // Row actions: detail / edit links + delete → confirm dialog → API.
     expect(screen.getByLabelText('مشاهده محصول شبکه')).toBeTruthy()
     expect(screen.getByLabelText('ویرایش محصول شبکه')).toBeTruthy()
-    fireEvent.click(screen.getByLabelText('حذف واریانت SKU-1'))
+    fireEvent.click(screen.getByLabelText('حذف نوع SKU-1'))
     await waitFor(() =>
-      expect(screen.getAllByText('حذف واریانت').length).toBeGreaterThan(0),
+      expect(screen.getAllByText('حذف نوع').length).toBeGreaterThan(0),
     )
-    fireEvent.click(screen.getByRole('button', { name: 'حذف واریانت' }))
+    fireEvent.click(screen.getByRole('button', { name: 'حذف نوع' }))
     await waitFor(() => expect(mockDelete).toHaveBeenCalledWith('v1'))
     // The grid refetches after the delete.
     await waitFor(() => expect(mockList.mock.calls.length).toBeGreaterThanOrEqual(2))

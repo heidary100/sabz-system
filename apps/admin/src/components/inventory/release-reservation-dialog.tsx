@@ -52,7 +52,7 @@ export function ReleaseReservationDialog({
       <AlertTitle>آزادسازی رزرو</AlertTitle>
       <AlertDescription>
         {reservation
-          ? `واریانت ${reservation.variant.sku}${reservation.variant.name ? ` (${reservation.variant.name})` : ''} در انبار «${reservation.warehouse.name}» — ${reservation.quantity} واحد`
+          ? `نوع ${reservation.variant.sku}${reservation.variant.name ? ` (${reservation.variant.name})` : ''} در انبار «${reservation.warehouse.name}» — ${reservation.quantity} واحد`
           : 'مشخصات رزرو در دسترس نیست.'}
       </AlertDescription>
       <AlertBody>

@@ -303,7 +303,7 @@ export function ProductEditor({
               {isEdit ? 'ویرایش محصول' : 'ایجاد محصول'}
             </Heading>
             <Text className="mt-0.5 text-xs text-muted">
-              مدیریت اطلاعات محصول، جایگاه کاتالوگ، محتوا، واریانتها و رسانه ها
+              مدیریت اطلاعات محصول، جایگاه کاتالوگ، محتوا، انواع و رسانه ها
             </Text>
           </div>
           <div className="flex items-center gap-2">
@@ -457,7 +457,7 @@ export function ProductEditor({
                 description={
                   isEdit
                     ? `وضعیت فعلی: ${PRODUCT_STATUS_LABELS[product.status]}. تغییر وضعیت از طریق اقدامات انتشار/آرشیو انجام میشود.`
-                    : 'محصول جدید همیشه به صورت پیشنویس ایجاد میشود و برای انتشار باید حداقل یک واریانت داشته باشد.'
+                    : 'محصول جدید همیشه به صورت پیشنویس ایجاد میشود و برای انتشار باید حداقل یک نوع داشته باشد.'
                 }
               >
                 {isEdit ? (
@@ -572,13 +572,13 @@ export function ProductEditor({
 
       <DeleteConfirmDialog
         open={variantDialog?.mode === 'delete'}
-        title="حذف واریانت"
+        title="حذف نوع"
         description={
           variantDialog?.mode === 'delete'
-            ? `واریانت «${variantDialog.variant.sku}» از چیدمان فعال محصول حذف میشود.`
+            ? `نوع «${variantDialog.variant.sku}» از چیدمان فعال محصول حذف میشود.`
             : ''
         }
-        confirmLabel="حذف واریانت"
+        confirmLabel="حذف نوع"
         onClose={() => setVariantDialog(null)}
         onConfirm={handleVariantDelete}
       />

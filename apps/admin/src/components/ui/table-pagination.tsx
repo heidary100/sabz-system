@@ -36,7 +36,7 @@ export interface TablePaginationProps {
   onLimitChange?: (limit: number) => void
   /** Whether the bar sits above or below the table (a11y + edge styling). */
   position: 'top' | 'bottom'
-  /** Noun for the count pill, e.g. «واریانت» / «سفارش». */
+  /** Noun for the count pill, e.g. «نوع» / «سفارش». */
   totalLabel?: string
   /** Disables every interactive control (e.g. while the list is loading). */
   disabled?: boolean

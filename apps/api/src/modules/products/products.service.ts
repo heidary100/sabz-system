@@ -408,7 +408,7 @@ export class ProductsService {
       });
       if (variantCount === 0) {
         throw new ConflictException(
-          'پیش از انتشار باید حداقل یک واریانت برای محصول ثبت شود.',
+          'پیش از انتشار باید حداقل یک نوع برای محصول ثبت شود.',
         );
       }
 

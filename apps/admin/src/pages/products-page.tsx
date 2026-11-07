@@ -741,7 +741,7 @@ export function ProductsPage() {
           title="محصولی یافت نشد"
           description={
             chips.length > 0
-              ? 'با این فیلترها واریانتی ثبت نشده است.'
+              ? 'با این فیلترها نوعی ثبت نشده است.'
               : 'هنوز محصولی ثبت نشده است.'
           }
           actions={
@@ -766,7 +766,7 @@ export function ProductsPage() {
             limit={grid.filters.limit}
             onPageChange={(target) => changeFilter(() => setPage(target))()}
             onLimitChange={(next) => changeFilter(() => setLimit(next))()}
-            totalLabel="واریانت"
+            totalLabel="نوع"
           />
           <HorizontalScroll dragToPan>
             <Table dense scrollContainer={false}>
@@ -1014,20 +1014,20 @@ export function ProductsPage() {
             limit={grid.filters.limit}
             onPageChange={(target) => changeFilter(() => setPage(target))()}
             onLimitChange={(next) => changeFilter(() => setLimit(next))()}
-            totalLabel="واریانت"
+            totalLabel="نوع"
           />
         </TableCard>
       )}
 
       <DeleteConfirmDialog
         open={deleteTarget !== null}
-        title="حذف واریانت"
+        title="حذف نوع"
         description={
           deleteTarget
-            ? `واریانت «${deleteTarget.sku}» حذف میشود. این عملیات قابل بازگشت نیست.`
+            ? `نوع «${deleteTarget.sku}» حذف میشود. این عملیات قابل بازگشت نیست.`
             : ''
         }
-        confirmLabel="حذف واریانت"
+        confirmLabel="حذف نوع"
         onClose={() => setDeleteTarget(null)}
         onConfirm={handleDelete}
       />

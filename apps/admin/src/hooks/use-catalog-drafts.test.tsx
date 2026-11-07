@@ -30,7 +30,7 @@ const serverRow = {
   expectedUpdatedAt: BASE_TOKEN,
   sku: 'SKU-1',
   barcode: 'BC-1' as string | null,
-  variantName: 'واریانت یک' as string | null,
+  variantName: 'نوع یک' as string | null,
   price: '100000',
   compareAtPrice: null as string | null,
   stock: 5,
@@ -109,7 +109,7 @@ describe('useCatalogDrafts', () => {
     // Reverting every touched cell back to the server values clears the draft.
     cells.sku('SKU-1')
     cells.barcode('BC-1')
-    cells.variantName('واریانت یک')
+    cells.variantName('نوع یک')
     cells.priceStatus('PRICED')
     expect(hook.result.current.drafts['v1']).toBeUndefined()
     expect(hook.result.current.hasDirty).toBe(false)
@@ -212,8 +212,8 @@ describe('useCatalogDrafts', () => {
       {
         variantId: 'v2',
         outcome: 'VALIDATION_ERROR' as const,
-        message: 'قیمت فروش ویژه باید بیشتر از قیمت فروش باشد.',
-        fieldErrors: { compareAtPrice: 'قیمت فروش ویژه باید بیشتر از قیمت فروش باشد.' },
+        message: 'قیمت قبل از تخفیف باید بیشتر از قیمت فروش باشد.',
+        fieldErrors: { compareAtPrice: 'قیمت قبل از تخفیف باید بیشتر از قیمت فروش باشد.' },
       },
     ]
     mockBatch.mockResolvedValue({ results, summary: { succeeded: 1, failed: 1 } } as CatalogGridBatchResponse)

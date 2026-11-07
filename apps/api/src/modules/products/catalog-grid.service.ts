@@ -37,7 +37,7 @@ const DEFAULT_LOCK_TIMEOUT_MS = 3000;
 const GRID_ADJUST_REASON = 'ویرایش از شبکه کاتالوگ';
 
 /** Message reused from the variants service for a duplicate SKU row outcome. */
-export const DUPLICATE_SKU_MESSAGE = 'یک واریانت با این sku قبلاً وجود دارد.';
+export const DUPLICATE_SKU_MESSAGE = 'یک نوع با این sku قبلاً وجود دارد.';
 
 const GRID_ROW_SELECT = {
   id: true,
@@ -422,7 +422,7 @@ export class CatalogGridService {
     const variantIds = dto.rows.map((row) => row.variantId);
     if (new Set(variantIds).size !== variantIds.length) {
       throw new BadRequestException(
-        'هر واریانت فقط یکبار در هر درخواست مجاز است.',
+        'هر نوع فقط یکبار در هر درخواست مجاز است.',
       );
     }
 
@@ -518,7 +518,7 @@ export class CatalogGridService {
             result: {
               variantId: row.variantId,
               outcome: 'NOT_FOUND',
-              message: 'واریانت یافت نشد.',
+              message: 'نوع یافت نشد.',
             },
             productSlug: null,
           };
@@ -731,7 +731,7 @@ export class CatalogGridService {
                 result: {
                   variantId: row.variantId,
                   outcome: 'NOT_FOUND',
-                  message: 'واریانت یافت نشد.',
+                  message: 'نوع یافت نشد.',
                 },
                 productSlug: null,
               };
@@ -754,7 +754,7 @@ export class CatalogGridService {
             select: { id: true, warehouseId: true, quantityOnHand: true },
           });
           if (items.length === 0) {
-            const message = 'این واریانت ردیف موجودی قابل ویرایش ندارد.';
+            const message = 'این نوع ردیف موجودی قابل ویرایش ندارد.';
             return {
               result: {
                 variantId: row.variantId,
@@ -767,7 +767,7 @@ export class CatalogGridService {
           }
           if (items.length > 1) {
             const message =
-              'این واریانت در چند انبار موجودی دارد؛ ویرایش موجودی آن از صفحه انبار واریانت انجام میشود.';
+              'این نوع در چند انبار موجودی دارد؛ ویرایش موجودی آن از صفحه انبار نوع انجام میشود.';
             return {
               result: {
                 variantId: row.variantId,
@@ -888,7 +888,7 @@ export class CatalogGridService {
             result: {
               variantId: row.variantId,
               outcome: 'NOT_FOUND',
-              message: 'واریانت یافت نشد.',
+              message: 'نوع یافت نشد.',
             },
             productSlug: null,
           };
@@ -986,7 +986,7 @@ export class CatalogGridService {
       return {
         variantId,
         outcome: 'NOT_FOUND',
-        message: 'واریانت یافت نشد.',
+        message: 'نوع یافت نشد.',
       };
     }
     return {

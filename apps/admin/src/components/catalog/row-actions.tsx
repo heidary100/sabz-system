@@ -34,8 +34,8 @@ export function RowActions({ productId, productName, sku, onDelete }: RowActions
       </Link>
       <button
         type="button"
-        aria-label={`حذف واریانت ${sku}`}
-        title={`حذف واریانت ${sku}`}
+        aria-label={`حذف نوع ${sku}`}
+        title={`حذف نوع ${sku}`}
         className="rounded-lg p-1.5 text-muted transition hover:bg-danger-subtle hover:text-danger focus-ring"
         onClick={onDelete}
       >

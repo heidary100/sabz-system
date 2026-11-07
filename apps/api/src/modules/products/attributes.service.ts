@@ -263,7 +263,7 @@ export class AttributesService {
       },
     });
     if (!variant || variant.deletedAt !== null || variant.product.deletedAt !== null) {
-      throw new NotFoundException('واریانت یافت نشد.');
+      throw new NotFoundException('نوع یافت نشد.');
     }
     if (variant.product.status === ProductStatus.ARCHIVED) {
       throw new ConflictException(

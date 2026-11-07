@@ -180,11 +180,11 @@ export function InventoryReservationsPage() {
           </Select>
         </Field>
         <Field>
-          <Label>شناسه واریانت</Label>
+          <Label>شناسه نوع</Label>
           <Input
             name="variantId"
             dir="ltr"
-            placeholder="UUID واریانت"
+            placeholder="UUID نوع"
             value={variantIdInput}
             onChange={(event) => setVariantIdInput(event.target.value)}
           />
@@ -192,7 +192,7 @@ export function InventoryReservationsPage() {
       </div>
 
       {invalidVariantId && (
-        <p className="text-sm text-red-700 dark:text-red-400">شناسه واریانت باید یک UUID معتبر باشد.</p>
+        <p className="text-sm text-red-700 dark:text-red-400">شناسه نوع باید یک UUID معتبر باشد.</p>
       )}
 
       <div className="flex flex-wrap items-center gap-3">
@@ -206,11 +206,11 @@ export function InventoryReservationsPage() {
 
       {variantId !== '' && (
         <div className="surface-card flex items-center gap-2 rounded-lg px-3 py-2">
-          <Badge>فیلتر واریانت</Badge>
+          <Badge>فیلتر نوع</Badge>
           <span dir="ltr" className="font-mono text-xs text-muted">
             {variantId}
           </span>
-          <Button plain onClick={removeVariantFilter} aria-label="حذف فیلتر واریانت">
+          <Button plain onClick={removeVariantFilter} aria-label="حذف فیلتر نوع">
             حذف
           </Button>
         </div>
@@ -257,7 +257,7 @@ export function InventoryReservationsPage() {
             <TableHead>
               <TableRow>
                 <TableHeader>SKU</TableHeader>
-                <TableHeader>نام واریانت</TableHeader>
+                <TableHeader>نام نوع</TableHeader>
                 <TableHeader>انبار</TableHeader>
                 <TableHeader>تعداد</TableHeader>
                 <TableHeader>وضعیت</TableHeader>

@@ -342,7 +342,7 @@ variants are product-scoped.
 Surface:
 
 - The SS-106 read-only variant section is evolved into an actionable
-  management surface: «افزودن واریانت» button plus per-row «ویرایش» /
+  management surface: «افزودن نوع» button plus per-row «ویرایش» /
   «موجودی» / «حذف» actions that open Catalyst dialogs.
 - `VariantForm` (single reusable dialog) handles create and edit:
   SKU (required, `ltr`, max 64), barcode (optional, nullable-clear), variant
@@ -572,7 +572,7 @@ layout prefix match shows «موجودی» for every child route):
   stock across its active warehouses (array response, no aggregate totals —
   the UI never recomputes totals). Header identity comes from the rows'
   `variant` ref or route context; an empty result shows a generic heading +
-  empty state, no additional per-variant calls. «تاریخچه این واریانت» deep-links
+  empty state, no additional per-variant calls. «تاریخچه این نوع» deep-links
   to `/inventory/movements?variantId=…`.
 - `/inventory/warehouses/:warehouseId` (`WarehouseInventoryPage`): paginated
   stock of one active warehouse. The header comes from the rows' `warehouse`
@@ -691,7 +691,7 @@ Route (no new sidebar item; the «موجودی» prefix match covers the title):
   reservation list with status / warehouse / variant-UUID filters, explicit
   apply + reset, `?variantId=` deep-link support with a removable filter chip,
   pagination, and loading / empty / filtered-empty / error+retry states. Entry
-  links: «رزروها» on the inventory overview header, «رزروهای این واریانت» on
+  links: «رزروها» on the inventory overview header, «رزروهای این نوع» on
   `/inventory/variants/:variantId` (deep link to
   `/inventory/reservations?variantId=…`).
 

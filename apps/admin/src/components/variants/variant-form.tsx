@@ -145,11 +145,11 @@ export function VariantForm({
       return
     }
     if (!compareAtValid) {
-      setError('قیمت فروش ویژه باید عدد اعشاری معتبر با حداکثر ۲ رقم اعشار باشد.')
+      setError('قیمت قبل از تخفیف باید عدد اعشاری معتبر با حداکثر ۲ رقم اعشار باشد.')
       return
     }
     if (values.priceStatus === 'CALL_FOR_PRICE' && values.compareAtPrice.trim() !== '') {
-      setError('واریانت «تماس بگیرید» نباید قیمت فروش ویژه داشته باشد.')
+      setError('نوع «تماس بگیرید» نباید قیمت قبل از تخفیف داشته باشد.')
       return
     }
     setSubmitting(true)
@@ -187,11 +187,11 @@ export function VariantForm({
 
   return (
     <Alert open={open} onClose={onClose} size="3xl">
-      <AlertTitle>{isEdit ? 'ویرایش واریانت' : 'افزودن واریانت'}</AlertTitle>
+      <AlertTitle>{isEdit ? 'ویرایش نوع' : 'افزودن نوع'}</AlertTitle>
       <AlertDescription>
         {isEdit
-          ? 'SKU، بارکد، نام و قیمت واریانت را ویرایش کنید. موجودی از مسیر «موجودی انبارها» تنظیم میشود.'
-          : 'واریانت جدید را برای این محصول ثبت کنید. موجودی اولیه پس از ایجاد، از مسیر «موجودی انبارها» دریافت میشود.'}
+          ? 'SKU، بارکد، نام و قیمت نوع را ویرایش کنید. موجودی از مسیر «موجودی انبارها» تنظیم میشود.'
+          : 'نوع جدید را برای این محصول ثبت کنید. موجودی اولیه پس از ایجاد، از مسیر «موجودی انبارها» دریافت میشود.'}
       </AlertDescription>
       <AlertBody>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -214,7 +214,7 @@ export function VariantForm({
               onChange={(event) => set('sku', event.target.value)}
               disabled={submitting}
             />
-            <Text className="text-xs text-muted">کد یکتا؛ نباید با SKU واریانت دیگری تکراری باشد.</Text>
+            <Text className="text-xs text-muted">کد یکتا؛ نباید با SKU نوع دیگری تکراری باشد.</Text>
           </Field>
 
           <Field>
@@ -232,7 +232,7 @@ export function VariantForm({
           </Field>
 
           <Field>
-            <Label>نام واریانت / ویژگیها</Label>
+            <Label>نام نوع / ویژگیها</Label>
             <Input
               name="name"
               value={values.name}
@@ -261,17 +261,17 @@ export function VariantForm({
           </Field>
 
           <Field>
-            <Label>قیمت فروش ویژه (ریال)</Label>
+            <Label>قیمت قبل از تخفیف (ریال)</Label>
             <Input
               name="compareAtPrice"
               dir="ltr"
               inputMode="decimal"
               value={groupMoneyDigits(values.compareAtPrice)}
-              placeholder="اختیاری؛ باید از قیمت بیشتر باشد"
+              placeholder="اختیاری؛ باید بیشتر از قیمت فروش باشد"
               onChange={(event) => setMoney('compareAtPrice', event)}
               disabled={submitting}
             />
-            <Text className="text-xs text-muted">قیمت قبل از تخفیف؛ در صورت خالی بودن هنگام ویرایش، پاک میشود.</Text>
+            <Text className="text-xs text-muted">قیمت پیش از تخفیف؛ در صورت خالی بودن هنگام ویرایش، پاک میشود.</Text>
           </Field>
 
           <Field>
@@ -307,7 +307,7 @@ export function VariantForm({
           انصراف
         </Button>
         <Button color="primary" onClick={() => void handleSubmit()} disabled={!canSubmit}>
-          {submitting ? 'در حال ذخیره…' : isEdit ? 'ذخیره تغییرات' : 'افزودن واریانت'}
+          {submitting ? 'در حال ذخیره…' : isEdit ? 'ذخیره تغییرات' : 'افزودن نوع'}
         </Button>
       </AlertActions>
     </Alert>

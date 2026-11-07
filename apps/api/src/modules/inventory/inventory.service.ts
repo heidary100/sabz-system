@@ -414,7 +414,7 @@ export class InventoryService {
       select: { id: true },
     });
     if (!variant) {
-      throw new NotFoundException('واریانت یافت نشد.');
+      throw new NotFoundException('نوع یافت نشد.');
     }
 
     const rows = await this.prisma.inventoryItem.findMany({
@@ -680,7 +680,7 @@ export class InventoryService {
         `;
 
         if (rows.length !== 1) {
-          throw new NotFoundException('موجودی این واریانت در انبار یافت نشد.');
+          throw new NotFoundException('موجودی این نوع در انبار یافت نشد.');
         }
         const item = rows[0]!;
 
@@ -890,7 +890,7 @@ export class InventoryService {
       select: { id: true, deletedAt: true, productId: true },
     });
     if (!variant || variant.deletedAt !== null) {
-      throw new NotFoundException('واریانت یافت نشد.');
+      throw new NotFoundException('نوع یافت نشد.');
     }
 
     const product = await tx.product.findUnique({
@@ -1037,7 +1037,7 @@ export class InventoryService {
 
     if (!item) {
       if (!params.createIfMissing) {
-        throw new NotFoundException('موجودی این واریانت در انبار یافت نشد.');
+        throw new NotFoundException('موجودی این نوع در انبار یافت نشد.');
       }
       const created = await tx.inventoryItem.create({
         data: {

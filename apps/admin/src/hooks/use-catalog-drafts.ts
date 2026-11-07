@@ -124,11 +124,11 @@ const FAILED: readonly CatalogRowStatus[] = [
 
 export const LOCAL_FIELD_ERRORS: Record<string, string> = {
   price: 'قالب قیمت معتبر نیست؛ حداکثر ۲ رقم اعشار.',
-  compareAtPrice: 'قالب قیمت فروش ویژه معتبر نیست؛ حداکثر ۲ رقم اعشار.',
+  compareAtPrice: 'قالب قیمت قبل از تخفیف معتبر نیست؛ حداکثر ۲ رقم اعشار.',
   stock: 'موجودی باید عدد صحیح نامنفی باشد.',
   sku: `شناسه کالا الزامی است و حداکثر ${SKU_MAX} کاراکتر است.`,
   barcode: `بارکد حداکثر ${BARCODE_MAX} کاراکتر است.`,
-  variantName: `نام واریانت حداکثر ${VARIANT_NAME_MAX} کاراکتر است.`,
+  variantName: `نام نوع حداکثر ${VARIANT_NAME_MAX} کاراکتر است.`,
   productName: `نام محصول الزامی است و حداکثر ${PRODUCT_NAME_MAX} کاراکتر است.`,
   categoryId: 'دسته‌بندی الزامی است.',
 }
