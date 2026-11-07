@@ -9,6 +9,9 @@ import { API_BASE_URL, ApiError } from '@/lib/api';
 
 const ACCESS_TOKEN_KEY = 'sabz.accessToken';
 
+/** Single-flight refresh shared by concurrent 401s in this tab. */
+let refreshPromise: Promise<string | null> | null = null;
+
 export interface AuthSession {
   userId: string;
   mobile: string;
@@ -171,6 +174,38 @@ function withAuthHeader(token: string | null, init?: RequestInit): RequestInit {
 }
 
 /**
+ * Refreshes the access token once for all concurrent 401s in this tab.
+ * Resolves to the new token, or null when the refresh failed.
+ */
+async function refreshAccessToken(): Promise<string | null> {
+  if (!refreshPromise) {
+    refreshPromise = fetch(`${API_BASE_URL}/auth/refresh`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+    })
+      .then(async (refresh) => {
+        if (!refresh.ok) {
+          return null;
+        }
+        const body = (await refresh.json().catch(() => undefined)) as
+          | { accessToken?: unknown }
+          | undefined;
+        if (typeof body?.accessToken !== 'string' || body.accessToken === '') {
+          return null;
+        }
+        setStoredToken(body.accessToken);
+        return body.accessToken;
+      })
+      .catch(() => null)
+      .finally(() => {
+        refreshPromise = null;
+      });
+  }
+  return refreshPromise;
+}
+
+/**
  * Authenticated fetch: attaches the Bearer token and always sends cookies.
  * On a single 401 it refreshes (cookie fallback) once, stores the new
  * token, and retries; when the refresh fails the stored token is cleared
@@ -184,26 +219,14 @@ export async function authFetch(path: string, init?: RequestInit): Promise<Respo
   if (response.status !== 401) {
     return response;
   }
-  const refresh = await fetch(`${API_BASE_URL}/auth/refresh`, {
-    method: 'POST',
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
-  });
-  if (!refresh.ok) {
+  const accessToken = await refreshAccessToken();
+  if (accessToken === null) {
     clearStoredToken();
     throw response;
   }
-  const body = (await refresh.json().catch(() => undefined)) as {
-    accessToken?: unknown;
-  } | undefined;
-  if (typeof body?.accessToken !== 'string' || body.accessToken === '') {
-    clearStoredToken();
-    throw response;
-  }
-  setStoredToken(body.accessToken);
   const retry = await fetch(
     `${API_BASE_URL}${path}`,
-    withAuthHeader(body.accessToken, init),
+    withAuthHeader(accessToken, init),
   );
   if (retry.status === 401) {
     clearStoredToken();
@@ -267,10 +290,13 @@ export async function updateProfile(data: UpdateProfileInput): Promise<ProfilePa
 /** Server-side logout; the stored token is always cleared. */
 export async function logout(): Promise<void> {
   try {
-    await fetch(`${API_BASE_URL}/auth/logout`, {
-      method: 'POST',
-      credentials: 'include',
-    });
+    // The API logout endpoint is Bearer-guarded: without the access token it
+    // returns 401 and neither revokes the session nor clears the HttpOnly
+    // refresh cookie. The local token is cleared even when the call fails.
+    await fetch(
+      `${API_BASE_URL}/auth/logout`,
+      withAuthHeader(getStoredToken(), { method: 'POST' }),
+    );
   } finally {
     clearStoredToken();
   }

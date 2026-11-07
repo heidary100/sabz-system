@@ -14,7 +14,14 @@
 | Redis persistence | **Ephemeral (no AOF/RDB)** | Redis holds OTP codes, OTP attempt/rate counters, and throttle buckets only — all recreatable. Persistence would add ops surface with no RPO gain; `redis_data` loss = users re-request OTPs |
 | WAL/PITR | **Deferred, with an explicit trigger**: adopt only if the client requires RPO < 24h | Current posture (daily 03:00 UTC `pg_dump`, RPO ≤ 24h, RTO ≤ 2h per `backup.md`) is accepted for launch. WAL archiving needs `archive_command` + base-backup + restore tooling — a dedicated ticket when triggered |
 | Process flags | `NODE_ENV=production` on the API | Hard gates: Swagger UI off, seed script refuses to run, and the deterministic dev OTP `123456` is dead (hard-coded `NODE_ENV === 'development'` gate in `OtpService`) |
-| Frontend hostnames | Admin and storefront **must be reachable as distinct hostnames** (e.g. `admin.example.ir` vs `example.ir`) | The API refresh cookie is host-scoped to the API origin; two frontends sharing it in one browser overwrite each other's session (#290). Distinct hostnames are the launch mitigation |
+| Refresh-cookie isolation | Admin and storefront **must not share a cookie-issuing API origin.** Supported: **(C)** same-origin reverse proxies — `https://shop.<domain>/api/v1` and `https://admin.<domain>/api/v1`; or **(B)** distinct API hostnames — `https://api-shop.<domain>/api/v1` and `https://api-admin.<domain>/api/v1`. Distinct **frontend** hostnames alone are **not** sufficient. Never set a shared parent `Domain` on the refresh cookie. | The API refresh cookie is host-only on the origin that sends `Set-Cookie`; two frontends using one API origin overwrite each other's session (#290). Verify with `ss-290-cookie-isolation-verification.md` |
+
+Cookie scope is determined by the host that sends `Set-Cookie` and by the
+`Domain` attribute — not by the frontend hostname that initiated the request.
+The supported topologies are Scenario C (same-origin proxies, preferred) and
+Scenario B (separate API hostnames). A shared API origin (Scenario A) is
+unsupported and must block deployment. Do not change cookie flags, names, or
+`SameSite` as a substitute for topology isolation.
 
 ## 2. Production environment checklist
 
@@ -30,8 +37,8 @@ interpolation; `apps/*/.env` are read by host-native processes only.
 | `POSTGRES_PASSWORD` (+ derived `DATABASE_URL`) | root / compose | Long random, URL-safe (`openssl rand -hex 24`); keep `apps/api/.env` in sync if used |
 | `REVALIDATE_TOKEN` | root (shared by api + storefront) | Long random; single source — compose passes it to both sides |
 | `CORS_ORIGINS` | api / root | The two public frontend origins, no localhost entries |
-| `VITE_API_BASE_URL` | admin / root | `https://<public-api-origin>/api/v1` (Vite inlines at **build time** — rebuild the admin image after changing) |
-| `NEXT_PUBLIC_API_BASE_URL` | storefront | `https://<public-api-origin>/api/v1` (inlined at **build time**) |
+| `VITE_API_BASE_URL` | admin / root | Scenario C: `/api/v1` (served by the admin host's same-origin proxy). Scenario B: `https://api-admin.<domain>/api/v1`. Must **not** be the storefront's cookie-issuing origin. Vite inlines at **build time** — rebuild the admin image after changing |
+| `NEXT_PUBLIC_API_BASE_URL` | storefront | Scenario C: `/api/v1` (served by the storefront host's same-origin proxy). Scenario B: `https://api-shop.<domain>/api/v1`. Must **not** be the admin's cookie-issuing origin. Inlined at **build time** |
 | `NEXT_PUBLIC_SITE_URL` | storefront | Public storefront origin (OG/canonical `metadataBase`) |
 | `TOROB_JWT_AUDIENCE` | api / root | The public API origin **as Torob sees it** |
 | `TOROB_FEED_STOREFRONT_BASE_URL` / `TOROB_FEED_API_BASE_URL` | api / root | Public storefront / API origins (absolute `page_url`s in the feed) |
@@ -98,6 +105,25 @@ Notes:
   bad migration = restore the pre-deploy dump (§5).
 - The storefront build inlines `NEXT_PUBLIC_*` — a value change without a
   rebuild ships stale config silently.
+
+### 3.1 Refresh-cookie isolation gate (SS-290)
+
+Before the deployment is accepted, run the one-browser-profile procedure in
+`ss-290-cookie-isolation-verification.md` against the real URLs:
+
+1. Customer and admin log in in the **same browser profile** (one cookie jar,
+   two tabs).
+2. Each application refreshes and returns its **own** identity (`/auth/me`).
+3. Opening one application does not rotate or clear the other's cookie.
+4. Logging out of one application does not clear/revoke the other's cookie.
+5. Concurrent refreshes both succeed with their own identity.
+6. `Set-Cookie` shows the expected per-application host, `Path=/api/v1/auth`,
+   `HttpOnly`, `SameSite=Lax`, `Secure`, and **no `Domain`**.
+
+Attach the evidence from that document to the deployment record. If the two
+sessions collide, **do not deploy/close #290**: capture the cookie-issuing
+hosts and `Set-Cookie` attributes, and fix the topology (Scenario C or B). A
+temporary workaround is separate browser profiles, not a production solution.
 
 ## 4. Monitoring
 

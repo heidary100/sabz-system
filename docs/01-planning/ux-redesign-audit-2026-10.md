@@ -305,8 +305,9 @@ Labels follow the existing scheme (type:feature/fix, area:*, priority:*).
 
 Extend instead of create: **#51** (OTP real delivery — add provider
 constraints/research notes), **#290** (cookie collision — deploy-gate
-checklist), **#295** (gateway — unchanged, blocked). No new issues duplicate
-these.
+checklist: verify the **cookie-issuing host**, not only distinct frontend
+hostnames; see `docs/07-development/ss-290-cookie-isolation-verification.md`),
+**#295** (gateway — unchanged, blocked). No new issues duplicate these.
 
 ---
 

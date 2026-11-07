@@ -272,5 +272,28 @@ The current flow is OTP-first and password-based functionality has no defined ti
 - Each refresh request rotates the refresh token; the previously issued refresh token becomes invalid.
 - Refresh tokens are stored only as SHA-256 hashes in the `UserSession` table. Raw refresh tokens are never persisted.
 - Logout revokes the session, disabling its refresh token.
-- Web clients store the access token in memory and use the `sabz_refresh_token` HttpOnly cookie (`SameSite=Lax`, `Secure` in production, scoped to `/api/v1/auth`) for refresh and logout. The refresh token is additionally returned in response bodies for non-browser clients (e.g. mobile applications).
+- Web clients store the access token in memory or per-client storage and use the `sabz_refresh_token` HttpOnly cookie (`SameSite=Lax`, `Secure` in production, scoped to `/api/v1/auth`) for refresh and logout. The refresh token is additionally returned in response bodies for non-browser clients (e.g. mobile applications).
 - The API must be called with credentials (`credentials: include`); the allowed browser origins are configured via the `CORS_ORIGINS` environment variable.
+- Each refresh token carries a unique `jti` claim so rotation is single-use even if two refreshes happen within the same second.
+
+### Refresh-cookie scope and deployment
+
+The refresh cookie is **host-only**: the API does not set a `Domain`
+attribute. Its scope is the origin that sends `Set-Cookie` — not the frontend
+hostname that initiated the request. Two applications that call the same API
+origin share the cookie, even when their frontend hostnames differ.
+
+To isolate storefront and admin sessions, deploy one of:
+
+- **Same-origin reverse proxies (preferred):** each frontend calls its own
+  `/api/v1` and the proxy forwards to the API. The cookie is host-only on the
+  frontend host.
+- **Distinct API hostnames:** each frontend has its own cookie-issuing API
+  host. Keep both API hosts same-site with their frontends when
+  `SameSite=Lax` is used.
+
+Do not set a shared parent `Domain`, and do not use cookie flags, cookie names,
+or `Path` changes as a substitute for topology isolation. A shared API origin
+is unsupported for two frontends in one browser profile. See
+`docs/07-development/ss-290-cookie-isolation-verification.md` for the deploy
+gate and the one-browser proof procedure.
