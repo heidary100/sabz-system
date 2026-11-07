@@ -29,7 +29,6 @@ import { EmptyState } from '../components/ui/empty-state'
 import { Loading } from '../components/ui/loading'
 import { TablePagination } from '../components/ui/table-pagination'
 import { TableCard } from '../components/ui/table-card'
-import { Text } from '../components/catalyst/text'
 import { InventoryMovementTypeBadge } from '../components/inventory/inventory-movement-type-badge'
 
 function toIsoStartOfDay(date: string): string | undefined {
@@ -67,6 +66,7 @@ export function InventoryMovementsPage() {
     setFrom,
     setTo,
     setPage,
+    setLimit,
     clearFilters,
     refetch,
   } = useInventoryMovements(initialVariantId)
@@ -101,7 +101,7 @@ export function InventoryMovementsPage() {
     clearVariantParam()
   }
 
-  const totalPages = result ? Math.max(1, Math.ceil(result.total / result.limit)) : 1
+  const totalPages = result ? Math.max(1, Math.ceil(result.total / limit)) : 1
 
   const clearVariantParam = (): void => {
     setSearchParams(
@@ -240,6 +240,9 @@ export function InventoryMovementsPage() {
             totalPages={totalPages}
             total={result.total}
             onPageChange={setPage}
+            limit={limit}
+            limitOptions={[20, 50, 100]}
+            onLimitChange={setLimit}
             disabled={loading}
             totalLabel="گردش"
           />
@@ -306,6 +309,9 @@ export function InventoryMovementsPage() {
             totalPages={totalPages}
             total={result.total}
             onPageChange={setPage}
+            limit={limit}
+            limitOptions={[20, 50, 100]}
+            onLimitChange={setLimit}
             disabled={loading}
             totalLabel="گردش"
           />
@@ -322,9 +328,6 @@ export function InventoryMovementsPage() {
         </div>
       )}
 
-      <Text className="text-xs text-muted">
-        {result ? `مجموع: ${result.total} حرکت · ${limit} مورد در هر صفحه` : ''}
-      </Text>
     </div>
   )
 }

@@ -34,10 +34,11 @@ export function PartnersPage() {
     error,
     setStatus,
     setPage,
+    setLimit,
     refetch,
   } = usePartnerList()
 
-  const totalPages = result ? Math.max(1, Math.ceil(result.total / result.limit)) : 1
+  const totalPages = result ? Math.max(1, Math.ceil(result.total / limit)) : 1
 
   const openPartner = (partnerId: string) => (event: React.MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault()
@@ -95,6 +96,9 @@ export function PartnersPage() {
             totalPages={totalPages}
             total={result.total}
             onPageChange={setPage}
+            limit={limit}
+            limitOptions={[20, 50, 100]}
+            onLimitChange={setLimit}
             disabled={loading}
             totalLabel="درخواست"
           />
@@ -138,6 +142,9 @@ export function PartnersPage() {
             totalPages={totalPages}
             total={result.total}
             onPageChange={setPage}
+            limit={limit}
+            limitOptions={[20, 50, 100]}
+            onLimitChange={setLimit}
             disabled={loading}
             totalLabel="درخواست"
           />
@@ -154,9 +161,6 @@ export function PartnersPage() {
         </div>
       )}
 
-      <p className="text-xs text-muted">
-        {result ? `مجموع: ${result.total} درخواست · ${limit} مورد در هر صفحه` : ''}
-      </p>
     </div>
   )
 }

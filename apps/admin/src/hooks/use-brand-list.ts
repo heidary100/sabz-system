@@ -6,6 +6,7 @@ const DEFAULT_LIMIT = 20
 
 export function useBrandList() {
   const [page, setPage] = useState(1)
+  const [limit, setLimitState] = useState(DEFAULT_LIMIT)
   const [result, setResult] = useState<PaginatedResult<BrandSummary> | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<unknown>(null)
@@ -16,7 +17,7 @@ export function useBrandList() {
     setLoading(true)
     setError(null)
     try {
-      const data = await listBrands({ page, limit: DEFAULT_LIMIT })
+      const data = await listBrands({ page, limit })
       if (seq === requestSeq.current) {
         setResult(data)
       }
@@ -30,17 +31,27 @@ export function useBrandList() {
         setLoading(false)
       }
     }
-  }, [page])
+  }, [page, limit])
 
   useEffect(() => {
     void refetch()
   }, [refetch])
 
-  useEffect(() => {
-    if (result && page > Math.max(1, Math.ceil(result.total / result.limit))) {
-      setPage(Math.max(1, Math.ceil(result.total / result.limit)))
-    }
-  }, [result, page])
+  const setLimit = useCallback((next: number) => {
+    setLimitState((prev) => {
+      if (prev === next) {
+        return prev
+      }
+      setPage(1)
+      return next
+    })
+  }, [])
 
-  return { page, limit: DEFAULT_LIMIT, result, loading, error, setPage, refetch }
+  useEffect(() => {
+    if (result && page > Math.max(1, Math.ceil(result.total / limit))) {
+      setPage(Math.max(1, Math.ceil(result.total / limit)))
+    }
+  }, [result, page, limit])
+
+  return { page, limit, result, loading, error, setPage, setLimit, refetch }
 }

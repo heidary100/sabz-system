@@ -55,6 +55,7 @@ export function NotificationsPage() {
     actionError,
     setUnreadOnly,
     setPage,
+    setLimit,
     refetch,
     markRead,
   } = useNotificationList()
@@ -126,6 +127,9 @@ export function NotificationsPage() {
             totalPages={totalPages}
             total={result?.total ?? 0}
             onPageChange={setPage}
+            limit={limit}
+            limitOptions={[20, 50]}
+            onLimitChange={setLimit}
             totalLabel="اعلان"
           />
           <Table dense>
@@ -195,6 +199,9 @@ export function NotificationsPage() {
             totalPages={totalPages}
             total={result?.total ?? 0}
             onPageChange={setPage}
+            limit={limit}
+            limitOptions={[20, 50]}
+            onLimitChange={setLimit}
             totalLabel="اعلان"
           />
         </TableCard>

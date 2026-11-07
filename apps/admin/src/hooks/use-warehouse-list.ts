@@ -11,6 +11,7 @@ export interface WarehouseListFilters {
   search: string
   status: WarehouseStatus | ''
   page: number
+  limit: number
 }
 
 const DEFAULT_LIMIT = 20
@@ -20,6 +21,7 @@ export function useWarehouseList() {
     search: '',
     status: '',
     page: 1,
+    limit: DEFAULT_LIMIT,
   })
   const [result, setResult] = useState<PaginatedResult<WarehouseSummary> | null>(null)
   const [loading, setLoading] = useState(true)
@@ -38,6 +40,12 @@ export function useWarehouseList() {
     setFilters((prev) => (prev.page === page ? prev : { ...prev, page }))
   }, [])
 
+  const setLimit = useCallback((limit: number) => {
+    setFilters((prev) =>
+      prev.limit === limit ? prev : { ...prev, limit, page: 1 },
+    )
+  }, [])
+
   const refetch = useCallback(async () => {
     const seq = ++requestSeq.current
     setLoading(true)
@@ -46,7 +54,7 @@ export function useWarehouseList() {
       search: filters.search.trim() || undefined,
       status: filters.status || undefined,
       page: filters.page,
-      limit: DEFAULT_LIMIT,
+      limit: filters.limit,
     }
     try {
       const data = await listWarehouses(query)
@@ -70,8 +78,8 @@ export function useWarehouseList() {
   }, [refetch])
 
   useEffect(() => {
-    if (result && filters.page > Math.max(1, Math.ceil(result.total / result.limit))) {
-      setPage(Math.max(1, Math.ceil(result.total / result.limit)))
+    if (result && filters.page > Math.max(1, Math.ceil(result.total / filters.limit))) {
+      setPage(Math.max(1, Math.ceil(result.total / filters.limit)))
     }
   }, [result, filters.page, setPage])
 
@@ -79,13 +87,14 @@ export function useWarehouseList() {
     search: filters.search,
     status: filters.status,
     page: filters.page,
-    limit: DEFAULT_LIMIT,
+    limit: filters.limit,
     result,
     loading,
     error,
     setSearch,
     setStatus,
     setPage,
+    setLimit,
     refetch,
   }
 }

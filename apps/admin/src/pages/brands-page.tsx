@@ -4,7 +4,6 @@ import { useBrandList } from '../hooks/use-brand-list'
 import { translateApiError } from '../lib/error-messages'
 import { Pencil, Plus, Tag, Trash2 } from 'lucide-react'
 import { Button } from '../components/catalyst/button'
-import { Text } from '../components/catalyst/text'
 import {
   Table,
   TableBody,
@@ -23,13 +22,14 @@ import { BrandForm } from '../components/brands/brand-form'
 import { deleteBrand } from '../services/brands'
 
 export function BrandsPage() {
-  const { page, limit, result, loading, error, setPage, refetch } = useBrandList()
+  const { page, limit, result, loading, error, setPage, setLimit, refetch } =
+    useBrandList()
 
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<BrandSummary | null>(null)
   const [deleting, setDeleting] = useState<BrandSummary | null>(null)
 
-  const totalPages = result ? Math.max(1, Math.ceil(result.total / result.limit)) : 1
+  const totalPages = result ? Math.max(1, Math.ceil(result.total / limit)) : 1
 
   const openCreate = (): void => {
     setEditing(null)
@@ -95,6 +95,9 @@ export function BrandsPage() {
             totalPages={totalPages}
             total={result.total}
             onPageChange={setPage}
+            limit={limit}
+            limitOptions={[20, 50, 100]}
+            onLimitChange={setLimit}
             disabled={loading}
             totalLabel="برند"
           />
@@ -140,6 +143,9 @@ export function BrandsPage() {
             totalPages={totalPages}
             total={result.total}
             onPageChange={setPage}
+            limit={limit}
+            limitOptions={[20, 50, 100]}
+            onLimitChange={setLimit}
             disabled={loading}
             totalLabel="برند"
           />
@@ -155,10 +161,6 @@ export function BrandsPage() {
           <span className="text-sm font-medium text-muted">در حال بارگذاری…</span>
         </div>
       )}
-
-      <Text className="text-xs text-muted">
-        {result ? `مجموع: ${result.total} برند · ${limit} مورد در هر صفحه` : ''}
-      </Text>
 
       <BrandForm
         open={formOpen}

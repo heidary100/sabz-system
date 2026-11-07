@@ -25,6 +25,7 @@ function usePricingResource<T extends PricingListShape>(
 ) {
   const [active, setActiveState] = useState<PricingActiveFilter>('')
   const [page, setPageState] = useState(1)
+  const [limit, setLimitState] = useState(DEFAULT_LIMIT)
   const [result, setResult] = useState<T | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<unknown>(null)
@@ -44,6 +45,16 @@ function usePricingResource<T extends PricingListShape>(
     setPageState((prev) => (prev === next ? prev : next))
   }, [])
 
+  const setLimit = useCallback((next: number) => {
+    setLimitState((prev) => {
+      if (prev === next) {
+        return prev
+      }
+      setPageState(1)
+      return next
+    })
+  }, [])
+
   const refetch = useCallback(async () => {
     const seq = ++requestSeq.current
     setLoading(true)
@@ -52,7 +63,7 @@ function usePricingResource<T extends PricingListShape>(
       const data = await lister({
         isActive: active === '' ? undefined : active === 'active',
         page,
-        limit: DEFAULT_LIMIT,
+        limit,
       })
       if (seq === requestSeq.current) {
         setResult(data)
@@ -67,13 +78,13 @@ function usePricingResource<T extends PricingListShape>(
         setLoading(false)
       }
     }
-  }, [active, page, lister])
+  }, [active, page, limit, lister])
 
   useEffect(() => {
     void refetch()
   }, [refetch])
 
-  const totalPages = result ? Math.max(1, Math.ceil(result.total / DEFAULT_LIMIT)) : 1
+  const totalPages = result ? Math.max(1, Math.ceil(result.total / limit)) : 1
   useEffect(() => {
     if (page > totalPages) {
       setPageState(totalPages)
@@ -83,12 +94,13 @@ function usePricingResource<T extends PricingListShape>(
   return {
     active,
     page,
-    limit: DEFAULT_LIMIT,
+    limit,
     result,
     loading,
     error,
     setActive,
     setPage,
+    setLimit,
     refetch,
   }
 }

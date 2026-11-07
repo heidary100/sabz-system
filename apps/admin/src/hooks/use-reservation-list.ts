@@ -12,10 +12,11 @@ export interface ReservationListFilters {
   warehouseId: string
   variantId: string
   page: number
+  limit: number
 }
 
 const DEFAULT_LIMIT = 20
-const EMPTY_FILTERS: Omit<ReservationListFilters, 'page'> = {
+const EMPTY_FILTERS: Omit<ReservationListFilters, 'page' | 'limit'> = {
   status: '',
   warehouseId: '',
   variantId: '',
@@ -26,6 +27,7 @@ export function useReservationList(initialVariantId = '') {
     ...EMPTY_FILTERS,
     variantId: initialVariantId,
     page: 1,
+    limit: DEFAULT_LIMIT,
   })
   const [result, setResult] = useState<PaginatedResult<ReservationSummary> | null>(null)
   const [loading, setLoading] = useState(true)
@@ -52,6 +54,12 @@ export function useReservationList(initialVariantId = '') {
     setFilters((prev) => (prev.page === page ? prev : { ...prev, page }))
   }, [])
 
+  const setLimit = useCallback((limit: number) => {
+    setFilters((prev) =>
+      prev.limit === limit ? prev : { ...prev, limit, page: 1 },
+    )
+  }, [])
+
   const clearFilters = useCallback(() => {
     setFilters((prev) =>
       prev.status === '' &&
@@ -59,7 +67,7 @@ export function useReservationList(initialVariantId = '') {
       prev.variantId === '' &&
       prev.page === 1
         ? prev
-        : { ...EMPTY_FILTERS, page: 1 },
+        : { ...EMPTY_FILTERS, page: 1, limit: prev.limit },
     )
   }, [])
 
@@ -72,7 +80,7 @@ export function useReservationList(initialVariantId = '') {
       warehouseId: filters.warehouseId || undefined,
       variantId: filters.variantId.trim() || undefined,
       page: filters.page,
-      limit: DEFAULT_LIMIT,
+      limit: filters.limit,
     }
     try {
       const data = await listReservations(query)
@@ -96,8 +104,8 @@ export function useReservationList(initialVariantId = '') {
   }, [refetch])
 
   useEffect(() => {
-    if (result && filters.page > Math.max(1, Math.ceil(result.total / result.limit))) {
-      setPage(Math.max(1, Math.ceil(result.total / result.limit)))
+    if (result && filters.page > Math.max(1, Math.ceil(result.total / filters.limit))) {
+      setPage(Math.max(1, Math.ceil(result.total / filters.limit)))
     }
   }, [result, filters.page, setPage])
 
@@ -106,7 +114,7 @@ export function useReservationList(initialVariantId = '') {
     warehouseId: filters.warehouseId,
     variantId: filters.variantId,
     page: filters.page,
-    limit: DEFAULT_LIMIT,
+    limit: filters.limit,
     result,
     loading,
     error,
@@ -114,6 +122,7 @@ export function useReservationList(initialVariantId = '') {
     setWarehouseId,
     setVariantId,
     setPage,
+    setLimit,
     clearFilters,
     refetch,
   }

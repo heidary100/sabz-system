@@ -71,6 +71,7 @@ export function AuditPage() {
     setFrom,
     setTo,
     setPage,
+    setLimit,
     clearFilters,
     refetch,
   } = useAuditLog()
@@ -118,7 +119,7 @@ export function AuditPage() {
     clearFilters()
   }
 
-  const totalPages = result ? Math.max(1, Math.ceil(result.total / result.limit)) : 1
+  const totalPages = result ? Math.max(1, Math.ceil(result.total / limit)) : 1
 
   return (
     <div className="w-full space-y-6">
@@ -248,6 +249,9 @@ export function AuditPage() {
             totalPages={totalPages}
             total={result.total}
             onPageChange={setPage}
+            limit={limit}
+            limitOptions={[20, 50, 100]}
+            onLimitChange={setLimit}
             disabled={loading}
             totalLabel="رویداد"
           />
@@ -305,6 +309,9 @@ export function AuditPage() {
             totalPages={totalPages}
             total={result.total}
             onPageChange={setPage}
+            limit={limit}
+            limitOptions={[20, 50, 100]}
+            onLimitChange={setLimit}
             disabled={loading}
             totalLabel="رویداد"
           />
@@ -320,10 +327,6 @@ export function AuditPage() {
           <span className="text-sm font-medium text-muted">در حال بارگذاری…</span>
         </div>
       )}
-
-      <p className="text-xs text-muted">
-        {result ? `مجموع: ${result.total} رویداد · ${limit} مورد در هر صفحه` : ''}
-      </p>
 
       <AuditDetailsDialog
         entry={detailsEntry}

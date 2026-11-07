@@ -12,6 +12,7 @@ const DEFAULT_LIMIT = 20
 export function useNotificationList() {
   const [unreadOnly, setUnreadOnlyState] = useState(true)
   const [page, setPageState] = useState(1)
+  const [limit, setLimitState] = useState(DEFAULT_LIMIT)
   const [result, setResult] = useState<NotificationListResponse | null>(null)
   const [unread, setUnread] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -34,6 +35,16 @@ export function useNotificationList() {
     setPageState((prev) => (prev === next ? prev : next))
   }, [])
 
+  const setLimit = useCallback((next: number) => {
+    setLimitState((prev) => {
+      if (prev === next) {
+        return prev
+      }
+      setPageState(1)
+      return next
+    })
+  }, [])
+
   const refetch = useCallback(async () => {
     const seq = ++requestSeq.current
     setLoading(true)
@@ -43,7 +54,7 @@ export function useNotificationList() {
         listNotifications({
           unreadOnly: unreadOnly || undefined,
           page,
-          limit: DEFAULT_LIMIT,
+          limit,
         }),
         unreadNotificationCount(),
       ])
@@ -61,14 +72,14 @@ export function useNotificationList() {
         setLoading(false)
       }
     }
-  }, [unreadOnly, page])
+  }, [unreadOnly, page, limit])
 
   useEffect(() => {
     void refetch()
   }, [refetch])
 
   const totalPages = result
-    ? Math.max(1, Math.ceil(result.total / DEFAULT_LIMIT))
+    ? Math.max(1, Math.ceil(result.total / limit))
     : 1
   useEffect(() => {
     if (page > totalPages) {
@@ -92,7 +103,7 @@ export function useNotificationList() {
   return {
     unreadOnly,
     page,
-    limit: DEFAULT_LIMIT,
+    limit,
     result,
     unread,
     loading,
@@ -101,6 +112,7 @@ export function useNotificationList() {
     actionError,
     setUnreadOnly,
     setPage,
+    setLimit,
     refetch,
     markRead,
   }

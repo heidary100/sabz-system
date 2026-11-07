@@ -16,6 +16,7 @@ const DEFAULT_LIMIT = 20
 export function useReturnList() {
   const [status, setStatusState] = useState<ReturnStatusFilter>('PENDING')
   const [page, setPageState] = useState(1)
+  const [limit, setLimitState] = useState(DEFAULT_LIMIT)
   const [result, setResult] = useState<AdminReturnListResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<unknown>(null)
@@ -37,6 +38,16 @@ export function useReturnList() {
     setPageState((prev) => (prev === next ? prev : next))
   }, [])
 
+  const setLimit = useCallback((next: number) => {
+    setLimitState((prev) => {
+      if (prev === next) {
+        return prev
+      }
+      setPageState(1)
+      return next
+    })
+  }, [])
+
   const refetch = useCallback(async () => {
     const seq = ++requestSeq.current
     setLoading(true)
@@ -45,7 +56,7 @@ export function useReturnList() {
       const data = await listReturns({
         status: status || undefined,
         page,
-        limit: DEFAULT_LIMIT,
+        limit,
       })
       if (seq === requestSeq.current) {
         setResult(data)
@@ -60,13 +71,13 @@ export function useReturnList() {
         setLoading(false)
       }
     }
-  }, [status, page])
+  }, [status, page, limit])
 
   useEffect(() => {
     void refetch()
   }, [refetch])
 
-  const totalPages = result ? Math.max(1, Math.ceil(result.total / DEFAULT_LIMIT)) : 1
+  const totalPages = result ? Math.max(1, Math.ceil(result.total / limit)) : 1
   useEffect(() => {
     if (page > totalPages) {
       setPageState(totalPages)
@@ -116,7 +127,7 @@ export function useReturnList() {
   return {
     status,
     page,
-    limit: DEFAULT_LIMIT,
+    limit,
     result,
     loading,
     error,
@@ -124,6 +135,7 @@ export function useReturnList() {
     actionError,
     setStatus,
     setPage,
+    setLimit,
     refetch,
     approve,
     receive,

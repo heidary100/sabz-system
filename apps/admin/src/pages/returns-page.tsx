@@ -37,6 +37,7 @@ export function ReturnsPage() {
     actionError,
     setStatus,
     setPage,
+    setLimit,
     refetch,
     approve,
     receive,
@@ -109,6 +110,9 @@ export function ReturnsPage() {
             totalPages={totalPages}
             total={result.total}
             onPageChange={setPage}
+            limit={limit}
+            limitOptions={[20, 50]}
+            onLimitChange={setLimit}
             disabled={loading}
             totalLabel="مرجوعی"
           />
@@ -199,6 +203,9 @@ export function ReturnsPage() {
             totalPages={totalPages}
             total={result.total}
             onPageChange={setPage}
+            limit={limit}
+            limitOptions={[20, 50]}
+            onLimitChange={setLimit}
             disabled={loading}
             totalLabel="مرجوعی"
           />
@@ -214,10 +221,6 @@ export function ReturnsPage() {
           <span className="text-sm font-medium text-muted">در حال بارگذاری…</span>
         </div>
       )}
-
-      <p className="text-xs text-muted">
-        {result ? `مجموع: ${result.total} درخواست · ${limit} مورد در هر صفحه` : ''}
-      </p>
 
       <RejectReturnDialog
         open={rejectTargetId !== null}
