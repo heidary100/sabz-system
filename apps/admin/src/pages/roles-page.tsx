@@ -2,11 +2,11 @@ import { useRoles } from '../hooks/use-roles'
 import { translateApiError } from '../lib/error-messages'
 import { ROLE_LABELS } from '../lib/user-labels'
 import { ShieldCheck } from 'lucide-react'
-import { Button } from '../components/catalyst/button'
 import { Subheading } from '../components/catalyst/heading'
 import { Text } from '../components/catalyst/text'
 import { EmptyState } from '../components/ui/empty-state'
 import { Loading } from '../components/ui/loading'
+import { ErrorState } from '../components/ui/error-state'
 import { PageHeader } from '../components/ui/page-header'
 
 export function RolesPage() {
@@ -19,12 +19,7 @@ export function RolesPage() {
   if (error) {
     return (
       <div className="mx-auto max-w-6xl space-y-6">
-        <div className="surface-card flex flex-col items-center gap-4 rounded-xl px-6 py-16 text-center">
-          <p className="text-sm/6 text-muted">{translateApiError(error)}</p>
-          <Button color="primary" onClick={() => void refetch()}>
-            تلاش مجدد
-          </Button>
-        </div>
+        <ErrorState message={translateApiError(error)} onRetry={() => void refetch()} />
       </div>
     )
   }

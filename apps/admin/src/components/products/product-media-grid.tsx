@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import type { ProductMediaSummary, VariantSummary } from '@sabz/types'
 import { Download, Eye, FileVideo, Plus, Trash2 } from 'lucide-react'
-import { Badge } from '../catalyst/badge'
+import { StatusBadge } from '../ui/status-badge'
+import { InlineError } from '../ui/inline-error'
 import { Button } from '../catalyst/button'
 import { Text } from '../catalyst/text'
 import { formatFileSize } from '../../lib/format'
@@ -93,16 +94,16 @@ function MediaCard({
         )}
         <div className="absolute inset-x-0 top-0 flex flex-wrap items-start justify-between gap-1 p-2">
           {item.isPrimary ? (
-            <Badge color="amber">تصویر اصلی</Badge>
+            <StatusBadge tone="warning">تصویر اصلی</StatusBadge>
           ) : (
             <span />
           )}
         </div>
         {variant && (
           <div className="absolute bottom-2 start-2">
-            <Badge color="zinc" className="max-w-[10rem] truncate" dir="ltr">
+            <StatusBadge tone="neutral" className="max-w-[10rem] truncate" dir="ltr">
               {variant.name ? `${variant.sku} — ${variant.name}` : variant.sku}
-            </Badge>
+            </StatusBadge>
           </div>
         )}
       </div>
@@ -200,7 +201,7 @@ export function ProductMediaGrid({
       </div>
 
       {actionError && (
-        <p className="mt-4 danger-box rounded-lg px-3 py-2 text-sm">{actionError}</p>
+        <InlineError className="mt-4" message={actionError} />
       )}
 
       {media.length === 0 ? (

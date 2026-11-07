@@ -4,7 +4,8 @@ import { Plus, Trash2 } from 'lucide-react'
 import { Subheading } from '../catalyst/heading'
 import { Text } from '../catalyst/text'
 import { Button } from '../catalyst/button'
-import { Badge } from '../catalyst/badge'
+import { StatusBadge } from '../ui/status-badge'
+import { InlineError } from '../ui/inline-error'
 import {
   Table,
   TableBody,
@@ -28,9 +29,9 @@ type MediaDialogState =
 
 function MediaTypeBadge({ mediaType }: { mediaType: ProductMediaSummary['mediaType'] }) {
   return (
-    <Badge color={mediaType === 'IMAGE' ? 'green' : 'sky'}>
+    <StatusBadge tone={mediaType === 'IMAGE' ? 'success' : 'info'}>
       {PRODUCT_MEDIA_TYPE_LABELS[mediaType]}
-    </Badge>
+    </StatusBadge>
   )
 }
 
@@ -99,9 +100,7 @@ export function ProductMediaSection({
       </div>
 
       {actionError && (
-        <p className="mt-4 danger-box rounded-lg px-3 py-2 text-sm">
-          {actionError}
-        </p>
+        <InlineError className="mt-4" message={actionError} />
       )}
 
       {media.length === 0 ? (
@@ -149,7 +148,7 @@ export function ProductMediaSection({
                     )}
                     <TableCell>
                       {item.isPrimary ? (
-                        <Badge color="amber">تصویر اصلی</Badge>
+                        <StatusBadge tone="warning">تصویر اصلی</StatusBadge>
                       ) : (
                         <span className="text-muted">—</span>
                       )}

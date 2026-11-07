@@ -5,6 +5,7 @@ import { Package } from 'lucide-react'
 import { Button } from '../components/catalyst/button'
 import { EmptyState } from '../components/ui/empty-state'
 import { Loading } from '../components/ui/loading'
+import { ErrorState } from '../components/ui/error-state'
 import { ProductEditor } from '../components/products/product-editor'
 
 /**
@@ -25,15 +26,11 @@ export function ProductEditorPage() {
     if (error && !product) {
       return (
         <div className="mx-auto max-w-6xl space-y-6">
-          <div className="surface-card flex flex-col items-center gap-4 rounded-xl px-6 py-16 text-center">
-            <p className="text-sm/6 text-muted">{translateApiError(error)}</p>
-            <Button color="primary" onClick={() => void refetch()}>
-              تلاش مجدد
-            </Button>
+          <ErrorState message={translateApiError(error)} onRetry={() => void refetch()}>
             <Link to="/products" className="text-sm font-medium text-primary hover:underline">
               بازگشت به فهرست محصولات
             </Link>
-          </div>
+          </ErrorState>
         </div>
       )
     }
@@ -56,14 +53,13 @@ export function ProductEditorPage() {
     if (product.status === 'ARCHIVED') {
       return (
         <div className="mx-auto max-w-6xl space-y-6">
-          <div className="surface-card flex flex-col items-center gap-4 rounded-xl px-6 py-16 text-center">
-            <p className="text-sm/6 text-muted">
-              محصول آرشیوشده قابل ویرایش نیست؛ ابتدا وضعیت آن را بازگردانید.
-            </p>
+          <ErrorState
+            message="محصول آرشیوشده قابل ویرایش نیست؛ ابتدا وضعیت آن را بازگردانید."
+          >
             <Link to={`/products/${product.id}`}>
               <Button outline>بازگشت به جزئیات محصول</Button>
             </Link>
-          </div>
+          </ErrorState>
         </div>
       )
     }

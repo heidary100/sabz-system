@@ -10,7 +10,7 @@ import { Briefcase, Download, Eye } from 'lucide-react'
 import { ApproveDialog } from '../components/partners/approve-dialog'
 import { DocumentPreviewDialog } from '../components/partners/document-preview-dialog'
 import { RejectDialog } from '../components/partners/reject-dialog'
-import { StatusBadge } from '../components/partners/status-badge'
+import { PartnerStatusBadge } from '../components/partners/status-badge'
 import { TierChangeDialog } from '../components/partners/tier-change-dialog'
 import { Button } from '../components/catalyst/button'
 import { RouteHelpSection } from '../components/ui/page-help'
@@ -28,6 +28,7 @@ import { Text } from '../components/catalyst/text'
 import { EmptyState } from '../components/ui/empty-state'
 import { InfoItem } from '../components/ui/info-item'
 import { Loading } from '../components/ui/loading'
+import { ErrorState } from '../components/ui/error-state'
 import type { PartnerDocumentSummary } from '@sabz/types'
 
 type DialogName = 'approve' | 'reject' | 'tier'
@@ -47,15 +48,11 @@ export function PartnerDetailPage() {
   if (error && !partner) {
     return (
       <div className="mx-auto max-w-6xl space-y-6">
-        <div className="surface-card flex flex-col items-center gap-4 rounded-xl px-6 py-16 text-center">
-          <p className="text-sm/6 text-muted">{translateApiError(error)}</p>
-          <Button color="primary" onClick={() => void refetch()}>
-            تلاش مجدد
-          </Button>
+        <ErrorState message={translateApiError(error)} onRetry={() => void refetch()}>
           <Link to="/partners" className="text-sm font-medium text-primary hover:underline">
             بازگشت به فهرست درخواستها
           </Link>
-        </div>
+        </ErrorState>
       </div>
     )
   }
@@ -106,7 +103,7 @@ export function PartnerDetailPage() {
           <div className="flex items-center gap-3">
             <Heading level={1}>{partner.businessName}</Heading>
             <RouteHelpSection className="ms-auto" />
-            <StatusBadge status={partner.approvalStatus} />
+            <PartnerStatusBadge status={partner.approvalStatus} />
           </div>
         </div>
 
@@ -158,7 +155,7 @@ export function PartnerDetailPage() {
           <Subheading>زندگی درخواست</Subheading>
           <dl className="mt-4 grid grid-cols-1 gap-5 sm:grid-cols-2">
             <div className="sm:col-span-2">
-              <StatusBadge status={partner.approvalStatus} />
+              <PartnerStatusBadge status={partner.approvalStatus} />
             </div>
             <InfoItem label="تاریخ ثبت" value={formatDateTime(partner.submittedAt)} />
             <InfoItem label="تاریخ تأیید" value={formatDateTime(partner.approvedAt)} />

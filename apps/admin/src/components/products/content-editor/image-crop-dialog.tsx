@@ -10,6 +10,7 @@ import {
 } from '../../catalyst/alert'
 import { Button } from '../../catalyst/button'
 import { Text } from '../../catalyst/text'
+import { InlineError } from '../../ui/inline-error'
 import { cropImageBlob } from './content-editor-image-utils'
 
 type AspectPreset = 'free' | '1:1' | '4:3' | '16:9'
@@ -107,7 +108,7 @@ export function ImageCropDialog({
           />
         </div>
         {error && (
-          <p className="mt-3 danger-box rounded-lg px-3 py-2 text-sm">{error}</p>
+          <InlineError className="mt-3" message={error} />
         )}
         <Text className="mt-3 text-xs text-muted">
           در صورت بروز مشکل با تصاویر پیوندی خارجی، ابتدا تصویر را جایگزین کنید.

@@ -10,7 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from '../catalyst/table'
-import { StatusBadge } from '../partners/status-badge'
+import { PartnerStatusBadge } from '../partners/status-badge'
 import { TableCard } from '../ui/table-card'
 import { formatDate } from '../../lib/format'
 
@@ -56,7 +56,7 @@ export function RecentPartners({ partners }: { partners: AdminPartnerListItem[] 
                   {partner.businessName}
                 </TableCell>
                 <TableCell>
-                  <StatusBadge status={partner.approvalStatus} />
+                  <PartnerStatusBadge status={partner.approvalStatus} />
                 </TableCell>
                 <TableCell className="text-muted">
                   {[partner.province, partner.city].filter(Boolean).join('، ') || '—'}

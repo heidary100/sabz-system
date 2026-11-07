@@ -30,7 +30,7 @@ import {
   Plus,
   Trash2,
 } from 'lucide-react'
-import { Badge } from '../catalyst/badge'
+import { StatusBadge } from '../ui/status-badge'
 import {
   INDENTATION_WIDTH,
   buildTreeFromItems,
@@ -316,9 +316,9 @@ export function CategoryTree({
             <span className="truncate text-sm/6 font-medium text-foreground">
               {draggingNode.name}
             </span>
-            <Badge color={draggingNode.isVisible ? 'green' : 'zinc'}>
+            <StatusBadge tone={draggingNode.isVisible ? 'success' : 'neutral'}>
               {draggingNode.isVisible ? 'نمایش' : 'مخفی'}
-            </Badge>
+            </StatusBadge>
           </div>
         )}
       </DragOverlay>
@@ -475,12 +475,12 @@ const TreeNodeRow = memo(function TreeNodeRow({
         )}
       </span>
 
-      <Badge
+      <StatusBadge
         className="shrink-0"
-        color={node.isVisible ? 'green' : 'zinc'}
+        tone={node.isVisible ? 'success' : 'neutral'}
       >
         {node.isVisible ? 'نمایش' : 'مخفی'}
-      </Badge>
+      </StatusBadge>
 
       <CategoryRowMenu
         category={node}

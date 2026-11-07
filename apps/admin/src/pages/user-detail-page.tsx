@@ -18,10 +18,11 @@ import { Button } from '../components/catalyst/button'
 import { RouteHelpSection } from '../components/ui/page-help'
 import { Heading, Subheading } from '../components/catalyst/heading'
 import { Text } from '../components/catalyst/text'
-import { Badge } from '../components/catalyst/badge'
+import { StatusBadge } from '../components/ui/status-badge'
 import { EmptyState } from '../components/ui/empty-state'
 import { InfoItem } from '../components/ui/info-item'
 import { Loading } from '../components/ui/loading'
+import { ErrorState } from '../components/ui/error-state'
 
 type DialogName = 'suspend' | 'unsuspend' | 'unlock' | 'roles'
 
@@ -50,15 +51,11 @@ export function UserDetailPage() {
   if (error && !user) {
     return (
       <div className="mx-auto max-w-6xl space-y-6">
-        <div className="surface-card flex flex-col items-center gap-4 rounded-xl px-6 py-16 text-center">
-          <p className="text-sm/6 text-muted">{translateApiError(error)}</p>
-          <Button color="primary" onClick={() => void refetch()}>
-            تلاش مجدد
-          </Button>
+        <ErrorState message={translateApiError(error)} onRetry={() => void refetch()}>
           <Link to="/users" className="text-sm font-medium text-primary hover:underline">
             بازگشت به فهرست کاربران
           </Link>
-        </div>
+        </ErrorState>
       </div>
     )
   }
@@ -166,9 +163,9 @@ export function UserDetailPage() {
                   className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2"
                 >
                   <div>
-                    <Badge color={role.name === 'ADMIN' ? 'green' : 'zinc'}>
+                    <StatusBadge tone={role.name === 'ADMIN' ? 'success' : 'neutral'}>
                       {ROLE_LABELS[role.name]}
-                    </Badge>
+                    </StatusBadge>
                     <Text className="mt-1 text-xs text-muted">
                       تخصیص: {formatDateTime(role.assignedAt)}
                     </Text>

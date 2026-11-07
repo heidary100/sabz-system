@@ -186,6 +186,7 @@
      mode), `primary-strong` is the button fill (mid green in both themes),
      `primary-subtle`/`primary-border` tint selected and hovered states. */
   --color-primary: var(--sabz-primary);
+  --color-on-primary: var(--sabz-on-primary);
   --color-primary-hover: var(--sabz-primary-hover);
   --color-primary-active: var(--sabz-primary-active);
   --color-primary-strong: var(--sabz-primary-strong);
@@ -235,6 +236,7 @@
 
   /* Brand primary — vibrant forest green for actions, links, focus. */
   --sabz-primary: #35703f;
+  --sabz-on-primary: #ffffff;
   --sabz-primary-hover: #2e6136;
   --sabz-primary-active: #285431;
   --sabz-primary-strong: #35703f;
@@ -290,10 +292,11 @@
   /* Brand primary — fresh mint for text/icons/links; the button fill drops
      to a saturated mid green so white text keeps its contrast. */
   --sabz-primary: #8ecb96;
+  --sabz-on-primary: #ffffff;
   --sabz-primary-hover: #9fd5a6;
   --sabz-primary-active: #7cbe85;
-  --sabz-primary-strong: #45925a;
-  --sabz-primary-strong-hover: #50a066;
+  --sabz-primary-strong: #3d7d48;
+  --sabz-primary-strong-hover: #3a7a44;
   --sabz-primary-dark: #1f3a26;
   --sabz-primary-subtle: rgb(69 146 90 / 0.14);
   --sabz-primary-border: rgb(69 146 90 / 0.32);

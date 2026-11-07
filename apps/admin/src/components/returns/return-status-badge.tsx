@@ -1,20 +1,12 @@
 import type { ReturnStatus } from '@sabz/types'
-import { Badge } from '../catalyst/badge'
 import { RETURN_STATUS_LABELS } from '../../lib/return-labels'
-
-const RETURN_STATUS_COLORS: Record<ReturnStatus, 'amber' | 'lime' | 'orange' | 'green' | 'red' | 'zinc'> = {
-  PENDING: 'amber',
-  APPROVED: 'lime',
-  RECEIVED: 'orange',
-  COMPLETED: 'green',
-  REJECTED: 'red',
-  CANCELLED: 'zinc',
-}
+import { RETURN_STATUS_TONES } from '../../lib/status-tones'
+import { StatusBadge } from '../ui/status-badge'
 
 export function ReturnStatusBadge({ status }: { status: ReturnStatus }) {
   return (
-    <Badge color={RETURN_STATUS_COLORS[status]}>
+    <StatusBadge tone={RETURN_STATUS_TONES[status]}>
       {RETURN_STATUS_LABELS[status]}
-    </Badge>
+    </StatusBadge>
   )
 }

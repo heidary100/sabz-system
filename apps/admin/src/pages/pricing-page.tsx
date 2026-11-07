@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Pencil, Percent, Plus, Trash2 } from 'lucide-react'
-import { Badge } from '../components/catalyst/badge'
+import { StatusBadge } from '../components/ui/status-badge'
 import { Button } from '../components/catalyst/button'
 import { Field, Label } from '../components/catalyst/fieldset'
 import { Select } from '../components/catalyst/select'
@@ -15,6 +15,7 @@ import {
 import { DeleteConfirmDialog } from '../components/ui/delete-confirm-dialog'
 import { EmptyState } from '../components/ui/empty-state'
 import { Loading } from '../components/ui/loading'
+import { ErrorState } from '../components/ui/error-state'
 import { TablePagination } from '../components/ui/table-pagination'
 import { PageHeader } from '../components/ui/page-header'
 import { TableCard } from '../components/ui/table-card'
@@ -60,28 +61,46 @@ const CREATE_LABELS: Record<PricingTab, string> = {
 function TabButton({
   active,
   onClick,
+  id,
+  controls,
   children,
 }: {
   active: boolean
   onClick: () => void
+  id: string
+  controls: string
   children: React.ReactNode
 }) {
   return active ? (
-    <Button color="primary" onClick={onClick}>
+    <Button
+      color="primary"
+      role="tab"
+      id={id}
+      aria-selected="true"
+      aria-controls={controls}
+      onClick={onClick}
+    >
       {children}
     </Button>
   ) : (
-    <Button outline onClick={onClick}>
+    <Button
+      outline
+      role="tab"
+      id={id}
+      aria-selected="false"
+      aria-controls={controls}
+      onClick={onClick}
+    >
       {children}
     </Button>
   )
 }
 
-function StatusBadge({ isActive }: { isActive: boolean }) {
+function ActiveStatusBadge({ isActive }: { isActive: boolean }) {
   return (
-    <Badge color={isActive ? 'green' : 'zinc'}>
+    <StatusBadge tone={isActive ? 'success' : 'neutral'}>
       {isActive ? ACTIVE_LABELS.active : ACTIVE_LABELS.inactive}
-    </Badge>
+    </StatusBadge>
   )
 }
 
@@ -138,12 +157,7 @@ function SectionShell({
       {loading && !hasResult ? (
         <Loading compact label="در حال بارگذاری…" />
       ) : error ? (
-        <div className="surface-card flex flex-col items-center gap-4 rounded-xl px-6 py-16 text-center">
-          <p className="text-sm/6 text-muted">{translateApiError(error)}</p>
-          <Button color="primary" onClick={() => void refetch()}>
-            تلاش مجدد
-          </Button>
-        </div>
+        <ErrorState message={translateApiError(error)} onRetry={() => void refetch()} />
       ) : isEmpty ? (
         <EmptyState
           icon={<Percent className="size-6" aria-hidden="true" />}
@@ -331,14 +345,25 @@ export function PricingPage() {
 
       <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="بخش‌های قیمت‌گذاری">
         {PRICING_TABS.map((key) => (
-          <TabButton key={key} active={tab === key} onClick={() => setTab(key)}>
+          <TabButton
+            key={key}
+            active={tab === key}
+            id={`pricing-tab-${key}`}
+            controls={`pricing-panel-${key}`}
+            onClick={() => setTab(key)}
+          >
             {PRICING_TAB_LABELS[key]}
           </TabButton>
         ))}
       </div>
 
       {tab === 'rules' && (
-        <div className="space-y-6" role="tabpanel" aria-label={PRICING_TAB_LABELS.rules}>
+        <div
+          className="space-y-6"
+          role="tabpanel"
+          id="pricing-panel-rules"
+          aria-labelledby="pricing-tab-rules"
+        >
           <ActiveFilterField value={rules.active} onChange={rules.setActive} />
           <SectionShell
             loading={rules.loading}
@@ -380,7 +405,7 @@ export function PricingPage() {
                     {rule.categoryName}
                   </TableCell>
                   <TableCell>
-                    <Badge color="zinc">{PROMOTION_TYPE_LABELS[rule.type]}</Badge>
+                    <StatusBadge tone="neutral">{PROMOTION_TYPE_LABELS[rule.type]}</StatusBadge>
                   </TableCell>
                   <TableCell className="text-muted" dir="ltr">
                     {rule.type === 'PERCENT' ? formatPercentValue(rule.value) : formatRial(rule.value)}
@@ -392,7 +417,7 @@ export function PricingPage() {
                     {rule.priority}
                   </TableCell>
                   <TableCell>
-                    <StatusBadge isActive={rule.isActive} />
+                    <ActiveStatusBadge isActive={rule.isActive} />
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
@@ -420,7 +445,12 @@ export function PricingPage() {
       )}
 
       {tab === 'overrides' && (
-        <div className="space-y-6" role="tabpanel" aria-label={PRICING_TAB_LABELS.overrides}>
+        <div
+          className="space-y-6"
+          role="tabpanel"
+          id="pricing-panel-overrides"
+          aria-labelledby="pricing-tab-overrides"
+        >
           <ActiveFilterField value={overrides.active} onChange={overrides.setActive} />
           <SectionShell
             loading={overrides.loading}
@@ -461,7 +491,7 @@ export function PricingPage() {
                     {override.productName}
                   </TableCell>
                   <TableCell>
-                    <Badge color="zinc">{PROMOTION_TYPE_LABELS[override.type]}</Badge>
+                    <StatusBadge tone="neutral">{PROMOTION_TYPE_LABELS[override.type]}</StatusBadge>
                   </TableCell>
                   <TableCell className="text-muted" dir="ltr">
                     {override.type === 'PERCENT'
@@ -472,7 +502,7 @@ export function PricingPage() {
                     <WindowCell startsAt={override.startsAt} endsAt={override.endsAt} />
                   </TableCell>
                   <TableCell>
-                    <StatusBadge isActive={override.isActive} />
+                    <ActiveStatusBadge isActive={override.isActive} />
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
@@ -500,7 +530,12 @@ export function PricingPage() {
       )}
 
       {tab === 'promotions' && (
-        <div className="space-y-6" role="tabpanel" aria-label={PRICING_TAB_LABELS.promotions}>
+        <div
+          className="space-y-6"
+          role="tabpanel"
+          id="pricing-panel-promotions"
+          aria-labelledby="pricing-tab-promotions"
+        >
           <ActiveFilterField value={promotions.active} onChange={promotions.setActive} />
           <SectionShell
             loading={promotions.loading}
@@ -548,10 +583,10 @@ export function PricingPage() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge color="zinc">{promotionScopeLabel(promotion)}</Badge>
+                    <StatusBadge tone="neutral">{promotionScopeLabel(promotion)}</StatusBadge>
                   </TableCell>
                   <TableCell>
-                    <Badge color="zinc">{PROMOTION_TYPE_LABELS[promotion.type]}</Badge>
+                    <StatusBadge tone="neutral">{PROMOTION_TYPE_LABELS[promotion.type]}</StatusBadge>
                   </TableCell>
                   <TableCell className="text-muted" dir="ltr">
                     {promotion.type === 'PERCENT'
@@ -565,7 +600,7 @@ export function PricingPage() {
                     <WindowCell startsAt={promotion.startsAt} endsAt={promotion.endsAt} />
                   </TableCell>
                   <TableCell>
-                    <StatusBadge isActive={promotion.isActive} />
+                    <ActiveStatusBadge isActive={promotion.isActive} />
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
@@ -593,16 +628,16 @@ export function PricingPage() {
       )}
 
       {tab === 'tiers' && (
-        <div className="space-y-6" role="tabpanel" aria-label={PRICING_TAB_LABELS.tiers}>
+        <div
+          className="space-y-6"
+          role="tabpanel"
+          id="pricing-panel-tiers"
+          aria-labelledby="pricing-tab-tiers"
+        >
           {tiers.loading && tiers.tiers === null ? (
             <Loading compact label="در حال بارگذاری…" />
           ) : tiers.error ? (
-            <div className="surface-card flex flex-col items-center gap-4 rounded-xl px-6 py-16 text-center">
-              <p className="text-sm/6 text-muted">{translateApiError(tiers.error)}</p>
-              <Button color="primary" onClick={() => void tiers.refetch()}>
-                تلاش مجدد
-              </Button>
-            </div>
+            <ErrorState message={translateApiError(tiers.error)} onRetry={() => void tiers.refetch()} />
           ) : !tiers.tiers || tiers.tiers.length === 0 ? (
             <EmptyState
               icon={<Percent className="size-6" aria-hidden="true" />}

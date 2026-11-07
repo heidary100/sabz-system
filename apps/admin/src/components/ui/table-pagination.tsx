@@ -131,7 +131,7 @@ export function TablePagination({
                 key={item}
                 aria-current="page"
                 title={`صفحه ${faDigits(item)}`}
-                className="flex size-8 items-center justify-center rounded-lg bg-primary-strong text-sm font-semibold tabular-nums text-white"
+                className="flex size-8 items-center justify-center rounded-lg bg-primary-strong text-sm font-semibold tabular-nums text-on-primary"
               >
                 {faDigits(item)}
               </span>

@@ -1,5 +1,5 @@
 /**
- * SS-267 contrast gate — verifies the Sabz admin semantic tokens against
+ * SS-267/SS-271 contrast gate — verifies the Sabz admin semantic tokens against
  * WCAG 2.2 contrast targets (4.5:1 body text, 3:1 UI components).
  *
  * Reads --sabz-* values straight from src/index.css (single source of
@@ -92,6 +92,7 @@ const PAIRS = [
   ['light', 'danger text on subtle', 'danger', 'danger-subtle', RATIOS.TEXT],
   ['light', 'info text on subtle', 'info', 'info-subtle', RATIOS.TEXT],
   ['light', 'primary button on card (UI)', 'primary-strong', 'surface', RATIOS.UI],
+  ['light', 'primary button label', 'on-primary', 'primary-strong', RATIOS.TEXT],
   ['light', 'danger button on card (UI)', 'danger', 'surface', RATIOS.UI],
   ['light', 'strong border on card (UI)', 'border-strong', 'surface', RATIOS.UI],
   ['light', 'focus ring on input (UI)', 'focus-ring', 'surface-strong', RATIOS.UI],
@@ -105,13 +106,24 @@ const PAIRS = [
   ['dark', 'danger text on subtle', 'danger', 'danger-subtle', RATIOS.TEXT],
   ['dark', 'info text on subtle', 'info', 'info-subtle', RATIOS.TEXT],
   ['dark', 'primary button on card (UI)', 'primary-strong', 'surface', RATIOS.UI],
+  ['dark', 'primary button label', 'on-primary', 'primary-strong', RATIOS.TEXT],
   ['dark', 'danger button on card (UI)', 'danger', 'surface', RATIOS.UI],
   ['dark', 'strong border on card (UI)', 'border-strong', 'surface', RATIOS.UI],
   ['dark', 'focus ring on input (UI)', 'focus-ring', 'surface-strong', RATIOS.UI],
 ]
 
+// SS-271: badge tones. Foreground must reach body-text contrast on the subtle
+// fill. Badges do not rely on a border to convey state, so the border tokens
+// are not treated as required UI boundaries here.
+for (const theme of ['light', 'dark']) {
+  PAIRS.push([theme, 'neutral badge text', 'muted', 'surface-strong', RATIOS.TEXT])
+  for (const tone of ['info', 'success', 'warning', 'danger']) {
+    PAIRS.push([theme, `${tone} badge text`, tone, `${tone}-subtle`, RATIOS.TEXT])
+  }
+}
+
 let failures = 0
-console.log(`SS-267 contrast gate — ${PAIRS.length} pairs\n`)
+console.log(`SS-267/SS-271 contrast gate — ${PAIRS.length} pairs\n`)
 for (const [theme, label, fgVar, bgVar, threshold] of PAIRS) {
   const vars = theme === 'light' ? light : dark
   const fgRef = vars[`--sabz-${fgVar}`]

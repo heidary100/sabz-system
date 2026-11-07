@@ -63,7 +63,7 @@ const styles = {
       '[--btn-icon:var(--color-zinc-400)] data-active:[--btn-icon:var(--color-zinc-300)] data-hover:[--btn-icon:var(--color-zinc-300)]',
     ],
     primary: [
-      'text-white [--btn-hover-overlay:var(--color-white)]/10 [--btn-bg:var(--color-primary-strong)] [--btn-border:var(--color-primary-dark)]/90',
+      'text-on-primary [--btn-hover-overlay:var(--color-white)]/10 [--btn-bg:var(--color-primary-strong)] [--btn-border:var(--color-primary-dark)]/90',
       '[--btn-icon:rgb(255 255 255 / 0.92)] data-active:[--btn-icon:rgb(255 255 255)] data-hover:[--btn-icon:rgb(255 255 255)]',
     ],
     // Semantic alias for destructive actions (the red ramp is remapped to

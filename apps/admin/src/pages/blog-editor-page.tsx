@@ -14,6 +14,8 @@ import { Textarea } from '../components/catalyst/textarea'
 import { ContentEditor } from '../components/products/content-editor/content-editor'
 import { EmptyState } from '../components/ui/empty-state'
 import { Loading } from '../components/ui/loading'
+import { ErrorState } from '../components/ui/error-state'
+import { InlineError } from '../components/ui/inline-error'
 import { PageHeader } from '../components/ui/page-header'
 import {
   createPost,
@@ -174,15 +176,11 @@ export function BlogEditorPage() {
     if (fetchError && !post) {
       return (
         <div className="mx-auto max-w-6xl space-y-6">
-          <div className="surface-card flex flex-col items-center gap-4 rounded-xl px-6 py-16 text-center">
-            <p className="text-sm/6 text-muted">{translateApiError(fetchError)}</p>
-            <Button color="primary" onClick={() => void refetchPost()}>
-              تلاش مجدد
-            </Button>
+          <ErrorState message={translateApiError(fetchError)} onRetry={() => void refetchPost()}>
             <Link to="/blog" className="text-sm font-medium text-primary hover:underline">
               بازگشت به وبلاگ
             </Link>
-          </div>
+          </ErrorState>
         </div>
       )
     }
@@ -224,9 +222,7 @@ export function BlogEditorPage() {
       />
 
       {error && (
-        <p className="danger-box rounded-lg px-3 py-2 text-sm" role="alert">
-          {error}
-        </p>
+        <InlineError message={error} />
       )}
 
       <div className="surface-card space-y-5 rounded-xl p-5">

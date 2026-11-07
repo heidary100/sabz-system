@@ -1,7 +1,7 @@
 import type { InventoryMovementType } from '@sabz/types'
-import { Badge } from '../catalyst/badge'
 import { movementTypeLabel } from '../../lib/inventory-labels'
+import { StatusBadge } from '../ui/status-badge'
 
 export function InventoryMovementTypeBadge({ type }: { type: InventoryMovementType }) {
-  return <Badge>{movementTypeLabel(type)}</Badge>
+  return <StatusBadge tone="neutral">{movementTypeLabel(type)}</StatusBadge>
 }

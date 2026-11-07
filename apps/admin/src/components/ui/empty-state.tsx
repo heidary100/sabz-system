@@ -5,14 +5,22 @@ export function EmptyState({
   description,
   icon,
   actions,
+  size = 'default',
+  className,
 }: {
   title: string
   description?: string
   icon?: ReactNode
   actions?: ReactNode
+  size?: 'default' | 'compact'
+  className?: string
 }) {
   return (
-    <div className="surface-card flex flex-col items-center justify-center gap-4 rounded-xl px-6 py-16 text-center">
+    <div
+      className={`surface-card flex flex-col items-center justify-center gap-4 rounded-xl px-6 text-center ${
+        size === 'compact' ? 'py-8' : 'py-16'
+      } ${className ?? ''}`}
+    >
       {icon && (
         <div className="flex size-12 items-center justify-center rounded-lg bg-primary/10 text-primary">
           {icon}

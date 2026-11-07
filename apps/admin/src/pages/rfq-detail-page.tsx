@@ -20,6 +20,8 @@ import { DeleteConfirmDialog } from '../components/ui/delete-confirm-dialog'
 import { EmptyState } from '../components/ui/empty-state'
 import { InfoItem } from '../components/ui/info-item'
 import { Loading } from '../components/ui/loading'
+import { ErrorState } from '../components/ui/error-state'
+import { InlineError } from '../components/ui/inline-error'
 
 const UNIT_PRICE_PATTERN = /^\d+(\.\d{1,2})?$/
 
@@ -123,7 +125,7 @@ function QuoteForm({
       </div>
       {fieldError && <ErrorMessage>{fieldError}</ErrorMessage>}
       {submitError && (
-        <p className="danger-box rounded-lg px-3 py-2 text-sm">{submitError}</p>
+        <InlineError message={submitError} />
       )}
       <div>
         <Button type="submit" color="primary" disabled={mutating}>
@@ -146,15 +148,11 @@ export function RfqDetailPage() {
   if (error && !rfq) {
     return (
       <div className="mx-auto max-w-6xl space-y-6">
-        <div className="surface-card flex flex-col items-center gap-4 rounded-xl px-6 py-16 text-center">
-          <p className="text-sm/6 text-muted">{translateApiError(error)}</p>
-          <Button color="primary" onClick={() => void refetch()}>
-            تلاش مجدد
-          </Button>
+        <ErrorState message={translateApiError(error)} onRetry={() => void refetch()}>
           <Link to="/rfq" className="text-sm font-medium text-primary hover:underline">
             بازگشت به فهرست استعلام‌ها
           </Link>
-        </div>
+        </ErrorState>
       </div>
     )
   }

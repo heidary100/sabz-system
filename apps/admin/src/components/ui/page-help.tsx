@@ -28,12 +28,12 @@ export function PageHelp({
     <Headless.Dialog open={open} onClose={onClose} className="fixed inset-0 z-50 lg:z-40">
       <Headless.DialogBackdrop
         transition
-        className="fixed inset-0 bg-zinc-950/40 backdrop-blur-sm transition duration-300 data-closed:opacity-0 data-enter:ease-out data-leave:ease-in"
+        className="fixed inset-0 bg-zinc-950/40 backdrop-blur-sm transition duration-300 data-closed:opacity-0 data-enter:ease-out data-leave:ease-in motion-reduce:transition-none"
       />
       <div className="fixed inset-0 flex justify-start">
         <Headless.DialogPanel
           transition
-          className="glass-strong flex h-full w-[26rem] max-w-[92vw] flex-col gap-5 overflow-y-auto p-6 transition duration-300 ease-out data-closed:translate-x-full data-enter:ease-out data-leave:ease-in"
+          className="glass-strong flex h-full w-[26rem] max-w-[92vw] flex-col gap-5 overflow-y-auto p-6 transition duration-300 ease-out data-closed:translate-x-full data-enter:ease-out data-leave:ease-in motion-reduce:transition-none"
         >
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-2 text-primary">
