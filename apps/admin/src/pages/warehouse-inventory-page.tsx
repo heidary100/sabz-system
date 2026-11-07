@@ -5,6 +5,7 @@ import type { InventoryItemSummary } from '@sabz/types'
 import { useWarehouseInventory } from '../hooks/use-warehouse-inventory'
 import { translateApiError } from '../lib/error-messages'
 import { Button } from '../components/catalyst/button'
+import { RouteHelpSection } from '../components/ui/page-help'
 import { Heading } from '../components/catalyst/heading'
 import {
   Table,
@@ -81,9 +82,9 @@ export function WarehouseInventoryPage() {
           <ArrowRight className="size-4" data-slot="icon" />
           بازگشت به موجودی
         </Link>
-        <Heading level={1}>
+        <div className="flex items-center gap-2"><Heading level={1}>
           {warehouseRef ? `موجودی انبار «${warehouseRef.name}»` : 'موجودی انبار'}
-        </Heading>
+        </Heading><RouteHelpSection /></div>
         {warehouseRef && (
           <Text className="text-sm text-muted">
             کد انبار: <span dir="ltr" className="font-medium text-foreground">{warehouseRef.code}</span>

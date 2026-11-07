@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CategoryManager } from './category-manager'
 import type { CategoryDetail, CategoryTreeNode } from '@sabz/types'
@@ -61,7 +62,7 @@ describe('CategoryManager (SS-255 revision)', () => {
   })
 
   it('page variant renders the standalone page framing (header + toolbar + tree)', async () => {
-    render(<CategoryManager variant="page" />)
+    render(<MemoryRouter><CategoryManager variant="page" /></MemoryRouter>)
     expect(await screen.findByRole('heading', { name: 'دسته بندیها' })).toBeTruthy()
     expect(screen.getByRole('tree', { name: 'درخت دسته بندیها' })).toBeTruthy()
     expect(screen.getByRole('textbox', { name: 'جستجوی دسته بندی' })).toBeTruthy()

@@ -13,6 +13,7 @@ import { RejectDialog } from '../components/partners/reject-dialog'
 import { StatusBadge } from '../components/partners/status-badge'
 import { TierChangeDialog } from '../components/partners/tier-change-dialog'
 import { Button } from '../components/catalyst/button'
+import { RouteHelpSection } from '../components/ui/page-help'
 import { Heading } from '../components/catalyst/heading'
 import { Subheading } from '../components/catalyst/heading'
 import {
@@ -104,6 +105,7 @@ export function PartnerDetailPage() {
           </Link>
           <div className="flex items-center gap-3">
             <Heading level={1}>{partner.businessName}</Heading>
+            <RouteHelpSection className="ms-auto" />
             <StatusBadge status={partner.approvalStatus} />
           </div>
         </div>

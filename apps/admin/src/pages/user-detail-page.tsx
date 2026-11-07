@@ -15,6 +15,7 @@ import { UnlockDialog } from '../components/users/unlock-dialog'
 import { UnsuspendDialog } from '../components/users/unsuspend-dialog'
 import { UserStatusBadge } from '../components/users/user-status-badge'
 import { Button } from '../components/catalyst/button'
+import { RouteHelpSection } from '../components/ui/page-help'
 import { Heading, Subheading } from '../components/catalyst/heading'
 import { Text } from '../components/catalyst/text'
 import { Badge } from '../components/catalyst/badge'
@@ -103,6 +104,7 @@ export function UserDetailPage() {
           </Link>
           <div className="flex items-center gap-3">
             <Heading level={1}>{roleName(user)}</Heading>
+            <RouteHelpSection className="ms-auto" />
             <UserStatusBadge status={user.status} />
           </div>
         </div>

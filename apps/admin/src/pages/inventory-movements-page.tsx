@@ -13,6 +13,7 @@ import {
 import { Badge } from '../components/catalyst/badge'
 import { Button } from '../components/catalyst/button'
 import { Field, Label } from '../components/catalyst/fieldset'
+import { RouteHelpSection } from '../components/ui/page-help'
 import { Heading } from '../components/catalyst/heading'
 import { Input } from '../components/catalyst/input'
 import { Select } from '../components/catalyst/select'
@@ -124,7 +125,7 @@ export function InventoryMovementsPage() {
         <Link to="/inventory" className="text-sm font-medium text-primary hover:underline">
           بازگشت به موجودی
         </Link>
-        <Heading level={1}>تاریخچه موجودی</Heading>
+        <div className="flex items-center gap-2"><Heading level={1}>تاریخچه موجودی</Heading><RouteHelpSection /></div>
       </div>
 
       <div className="grid w-full max-w-5xl gap-4 sm:grid-cols-2 lg:grid-cols-4">
