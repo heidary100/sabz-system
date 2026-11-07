@@ -98,11 +98,13 @@ export function BrandForm({
       }
       onSuccess()
     } catch (submitError) {
-      setError(translateApiError(submitError))
-      // A collision that escaped the hint lands here, field-level, without
-      // losing any input or the manual lock.
-      if (isConflictError(submitError)) {
-        setSlugConflict(translateApiError(submitError))
+      const message = translateApiError(submitError)
+      setError(message)
+      // Attach the message to the slug field only when it is actually the
+      // slug conflict. SS-258 name conflicts are a different 409 and must not
+      // be mislabeled as an unavailable slug.
+      if (isConflictError(submitError) && message.includes('slug')) {
+        setSlugConflict(message)
       }
     } finally {
       setSubmitting(false)

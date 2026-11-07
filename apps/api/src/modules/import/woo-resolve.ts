@@ -1,4 +1,5 @@
 import { ensureUniqueSlug } from '../products/slug';
+import { normalizeBrandName } from '../products/brand-normalize';
 import { parseCustomAttributeLine } from '../products/attribute-parse';
 import { cell, splitCell, type WooRecord } from './woo-parse';
 import { WOO_SOURCE_SYSTEM, type WooReferenceData } from './woo-reference';
@@ -442,11 +443,36 @@ export async function resolveRow(
     }
   }
   const brandName = ownBrand;
+  const brandKey =
+    brandName === null ? null : normalizeBrandName(brandName);
+  const aliasOwner =
+    brandKey === null ? undefined : refs.brandAliasOwners.get(brandKey);
+  const aliasResolvedBrand =
+    aliasOwner === undefined
+      ? undefined
+      : aliasOwner.deletedAt === null
+        ? aliasOwner.brand
+        : aliasOwner.mergedIntoBrandId !== null
+          ? refs.brands.find(
+              (brand) => brand.id === aliasOwner.mergedIntoBrandId,
+            )
+          : undefined;
+  const exactBrand =
+    brandName === null
+      ? undefined
+      : refs.brands.find((brand) => brand.name === brandName);
   const brandToCreate =
-    brandName !== null &&
-    !refs.brands.some((brand) => brand.name === brandName);
+    brandName !== null && aliasOwner === undefined && exactBrand === undefined;
   if (brandName === null && sourceType !== 'variation') {
     reasons.push('unbranded: no brand column/attribute → nullable (Q2).');
+  } else if (aliasResolvedBrand !== undefined) {
+    reasons.push(
+      `brand-alias-resolved: ${brandName} → ${aliasResolvedBrand.name}.`,
+    );
+  } else if (aliasOwner !== undefined) {
+    reasons.push(
+      `brand-alias-owner-deleted: ${brandName} resolves to deleted ${aliasOwner.brand.slug} with no active canonical brand.`,
+    );
   } else if (brandToCreate) {
     reasons.push(`brand-to-create: ${brandName}.`);
   }

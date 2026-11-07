@@ -24,9 +24,17 @@ export interface ReferenceBrand {
   slug: string;
 }
 
+export interface ReferenceBrandAliasOwner {
+  brand: ReferenceBrand;
+  deletedAt: Date | null;
+  mergedIntoBrandId: string | null;
+}
+
 export interface WooReferenceData {
   categories: ReferenceCategory[];
   brands: ReferenceBrand[];
+  /** normalizedKey -> alias owner (includes soft-deleted/merged brands). */
+  brandAliasOwners: Map<string, ReferenceBrandAliasOwner>;
   /** Existing product slugs (collision preview). */
   productSlugs: Set<string>;
   /** Existing variant SKUs (collision preview). */
@@ -42,8 +50,15 @@ export class WooReferenceLoader {
   constructor(private readonly prisma: PrismaService) {}
 
   async load(): Promise<WooReferenceData> {
-    const [categories, brands, products, variants, sourcedProducts, sourcedVariants] =
-      await Promise.all([
+    const [
+      categories,
+      brands,
+      brandAliases,
+      products,
+      variants,
+      sourcedProducts,
+      sourcedVariants,
+    ] = await Promise.all([
         this.prisma.category.findMany({
           where: { deletedAt: null },
           select: { id: true, name: true, slug: true, parentId: true },
@@ -51,6 +66,20 @@ export class WooReferenceLoader {
         this.prisma.brand.findMany({
           where: { deletedAt: null },
           select: { id: true, name: true, slug: true },
+        }),
+        this.prisma.brandAlias.findMany({
+          select: {
+            normalizedKey: true,
+            brand: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                deletedAt: true,
+                mergedIntoBrandId: true,
+              },
+            },
+          },
         }),
         this.prisma.product.findMany({
           where: { deletedAt: null },
@@ -91,9 +120,23 @@ export class WooReferenceLoader {
         variantSkuToSourceKey.set(row.sku, `${WOO_SOURCE_SYSTEM}:${row.sourceId}`);
       }
     }
+    const brandAliasOwners = new Map<string, ReferenceBrandAliasOwner>();
+    for (const alias of brandAliases) {
+      brandAliasOwners.set(alias.normalizedKey, {
+        brand: {
+          id: alias.brand.id,
+          name: alias.brand.name,
+          slug: alias.brand.slug,
+        },
+        deletedAt: alias.brand.deletedAt,
+        mergedIntoBrandId: alias.brand.mergedIntoBrandId,
+      });
+    }
+
     return {
       categories,
       brands,
+      brandAliasOwners,
       productSlugs: new Set(products.map((row) => row.slug)),
       variantSkus: new Set(variants.map((row) => row.sku)),
       sourceKeys,

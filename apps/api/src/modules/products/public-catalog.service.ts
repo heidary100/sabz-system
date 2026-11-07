@@ -194,11 +194,49 @@ export class PublicCatalogService {
     return { items, total, page, limit };
   }
 
+  /**
+   * SS-258: a soft-deleted duplicate's historical slug resolves to its
+   * canonical brand. Active slugs pass through; unknown/unlinked deleted
+   * slugs stay unresolved and therefore match no products.
+   */
+  private async resolveMergedBrandSlug(slug: string): Promise<string | null> {
+    const brand = await this.prisma.brand.findUnique({
+      where: { slug },
+      select: {
+        slug: true,
+        deletedAt: true,
+        mergedIntoBrandId: true,
+      },
+    });
+    if (!brand) {
+      return null;
+    }
+    if (brand.deletedAt === null) {
+      return brand.slug;
+    }
+    if (brand.mergedIntoBrandId === null) {
+      return null;
+    }
+    const canonical = await this.prisma.brand.findUnique({
+      where: { id: brand.mergedIntoBrandId },
+      select: { slug: true, deletedAt: true },
+    });
+    return canonical !== null && canonical.deletedAt === null
+      ? canonical.slug
+      : null;
+  }
+
   async listProducts(
     query: ListCatalogProductsQueryDto,
   ): Promise<PaginatedResult<CatalogProductCardDto>> {
     const page = query.page ?? DEFAULT_PAGE;
     const limit = query.limit ?? DEFAULT_LIMIT;
+    const resolvedBrand = query.brand
+      ? await this.resolveMergedBrandSlug(query.brand)
+      : null;
+    if (resolvedBrand !== null && resolvedBrand !== query.brand) {
+      query = { ...query, brand: resolvedBrand };
+    }
 
     // SS-216: a meaningful q routes to the PostgreSQL search query; the
     // q-less Prisma path below stays byte-for-byte the pre-SS-216 behavior.

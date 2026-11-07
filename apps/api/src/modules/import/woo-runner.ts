@@ -14,6 +14,12 @@ import {
 import { PrismaService } from '../../common/database/prisma.service';
 import { generateSlug, ensureUniqueSlug, slugify } from '../products/slug';
 import { normalizeTagName } from '../products/tags-normalize';
+import { normalizeBrandName } from '../products/brand-normalize';
+import {
+  ensureBrandAliases,
+  findBrandNameOwner,
+  lockBrandAliasKeys,
+} from '../products/brand-alias';
 import { recomputeProductMinPrice } from '../products/min-price';
 import { StorefrontCacheService } from '../../common/storefront-cache/storefront-cache.service';
 import {
@@ -85,6 +91,7 @@ export interface WriteReport {
   variants: { created: number; updated: number; failed: number };
   shellsPublished: number;
   brandsCreated: number;
+  brandsResolvedByAlias: number;
   categoriesCreated: number;
   tagsCreated: number;
   attributesCreated: number;
@@ -102,7 +109,7 @@ const WRITE_DECISIONS = [
   'Q3 decided: non-published rows import as DRAFT (admin-visible, storefront-hidden).',
   'Q4 decided: rows without any category and uncategorized-bucket rows are SKIPPED, never imported as a storefront category.',
   'Q5 decided: single primary category accepted for M2 (secondary join is P1).',
-  'DEFERRED: brand alias reconciliation (O-2) and category merge review (O-3) precede the first full production write; the writer matches names exactly, first-seen wins.',
+  'SS-258: brand resolution is alias-aware (normalized-name guard + merged-brand canonicalization); category merge review (O-3) remains deferred.',
   'DEFERRED: media binaries belong to SS-208; SS-207 stores reference placeholders only with --with-media-refs.',
 ];
 
@@ -115,6 +122,7 @@ interface RunState {
   variantIdBySourceKey: Map<string, string>;
   claimedSkus: Set<string>;
   brandsCreated: Set<string>;
+  brandsResolvedByAlias: Set<string>;
   categoriesCreated: Set<string>;
   tagsCreated: Set<string>;
   attributesCreated: Set<string>;
@@ -286,6 +294,7 @@ export class WooRunner {
       variants: { created: state.counts.variantsCreated, updated: state.counts.variantsUpdated, failed },
       shellsPublished: state.counts.shellsPublished,
       brandsCreated: state.brandsCreated.size,
+      brandsResolvedByAlias: state.brandsResolvedByAlias.size,
       categoriesCreated: state.categoriesCreated.size,
       tagsCreated: state.tagsCreated.size,
       attributesCreated: state.attributesCreated.size,
@@ -346,6 +355,7 @@ export class WooRunner {
       variantIdBySourceKey,
       claimedSkus: new Set<string>(),
       brandsCreated: new Set<string>(),
+      brandsResolvedByAlias: new Set<string>(),
       categoriesCreated: new Set<string>(),
       tagsCreated: new Set<string>(),
       attributesCreated: new Set<string>(),
@@ -573,6 +583,65 @@ export class WooRunner {
     if (name === null) {
       return null;
     }
+    const normalizedKey = normalizeBrandName(name);
+    if (normalizedKey === null) {
+      throw new Error(`brand-invalid: "${name}" has no usable normalized name.`);
+    }
+
+    // Serialize brand identity writes for this key across imports, admin
+    // creates and the merge script. Correctness still comes from the unique
+    // alias index; the lock removes the create-then-conflict window.
+    await lockBrandAliasKeys(tx, [normalizedKey]);
+
+    const alias = await tx.brandAlias.findUnique({
+      where: { normalizedKey },
+      select: {
+        brand: {
+          select: {
+            id: true,
+            slug: true,
+            deletedAt: true,
+            mergedIntoBrandId: true,
+          },
+        },
+      },
+    });
+    if (alias) {
+      const resolved = await this.resolveActiveBrand(tx, alias.brand);
+      if (resolved !== null) {
+        state.brandsResolvedByAlias.add(name);
+        return resolved;
+      }
+      throw new Error(
+        `brand-alias-owner-deleted: "${name}" resolves to deleted brand "${alias.brand.slug}" with no active canonical brand.`,
+      );
+    }
+
+    // Fallback for brands created outside the service before the alias
+    // backfill: compare against existing name/nameEn with the same normalizer.
+    const ownerId = await findBrandNameOwner(tx, normalizedKey);
+    if (ownerId !== null) {
+      const owner = await tx.brand.findUnique({
+        where: { id: ownerId },
+        select: {
+          id: true,
+          slug: true,
+          deletedAt: true,
+          mergedIntoBrandId: true,
+        },
+      });
+      if (owner) {
+        const resolved = await this.resolveActiveBrand(tx, owner);
+        if (resolved !== null) {
+          state.brandsResolvedByAlias.add(name);
+          return resolved;
+        }
+        throw new Error(
+          `brand-alias-owner-deleted: "${name}" resolves to deleted brand "${owner.slug}" with no active canonical brand.`,
+        );
+      }
+    }
+
     const existing = await tx.brand.findFirst({
       where: { name, deletedAt: null },
       select: { id: true },
@@ -580,13 +649,45 @@ export class WooRunner {
     if (existing) {
       return existing.id;
     }
+
     const slug = await this.uniqueSlug(tx, 'brand', name);
     const created = await tx.brand.create({
       data: { name, slug, createdBy: 'woo-import' },
-      select: { id: true },
+      select: { id: true, name: true, nameEn: true },
+    });
+    await ensureBrandAliases(tx, {
+      brandId: created.id,
+      name: created.name,
+      nameEn: created.nameEn,
+      createdBy: 'woo-import',
     });
     state.brandsCreated.add(name);
     return created.id;
+  }
+
+  /** Resolve an alias/fallback owner to an active canonical brand ID. */
+  private async resolveActiveBrand(
+    tx: Tx,
+    brand: {
+      id: string;
+      slug: string;
+      deletedAt: Date | null;
+      mergedIntoBrandId: string | null;
+    },
+  ): Promise<string | null> {
+    if (brand.deletedAt === null) {
+      return brand.id;
+    }
+    if (brand.mergedIntoBrandId === null) {
+      return null;
+    }
+    const canonical = await tx.brand.findUnique({
+      where: { id: brand.mergedIntoBrandId },
+      select: { id: true, deletedAt: true },
+    });
+    return canonical !== null && canonical.deletedAt === null
+      ? canonical.id
+      : null;
   }
 
   private async uniqueProductSlug(tx: Tx, name: string): Promise<string> {
@@ -983,7 +1084,7 @@ export function renderWriteSummary(report: WriteReport): string {
     `products: created ${report.products.created} / updated ${report.products.updated} / skipped ${report.products.skipped} / failed ${report.products.failed}`,
     `variants: created ${report.variants.created} / updated ${report.variants.updated} / failed ${report.variants.failed}`,
     `shells published ${report.shellsPublished} / resumed ${report.resumed}`,
-    `created refs: brands ${report.brandsCreated}, category segments ${report.categoriesCreated}, tags ${report.tagsCreated}, attributes ${report.attributesCreated}`,
+    `created refs: brands ${report.brandsCreated}, brand aliases resolved ${report.brandsResolvedByAlias}, category segments ${report.categoriesCreated}, tags ${report.tagsCreated}, attributes ${report.attributesCreated}`,
     `ledger movements ${report.movements} / media refs ${report.mediaRefs}`,
     ...report.failures.map((failure) => `FAILED line ${failure.line} (${failure.sourceId}): ${failure.error}`),
     'policy rulings:',

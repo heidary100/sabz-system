@@ -445,6 +445,32 @@ model Category {
   @@index([isVisible, deletedAt])
 }
 
+/// Brand identity aliases (SS-258). One row per recognised name key across
+/// Persian and English display names. `normalizedKey` is the race-safe
+/// uniqueness authority for brand creation/rename; the alias stays owned by
+/// the canonical brand even after a duplicate Brand row is soft-deleted.
+enum BrandAliasKind {
+  NAME
+  NAME_EN
+  LEGACY
+}
+
+model BrandAlias {
+  id            String          @id @default(uuid())
+  brandId       String
+  brand         Brand           @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  /// Original display spelling this key was derived from.
+  rawName       String
+  /// `normalizeBrandName(rawName)`; globally unique across all brands.
+  normalizedKey String          @unique
+  kind          BrandAliasKind  @default(NAME)
+
+  createdAt DateTime @default(now())
+  createdBy String?
+
+  @@index([brandId])
+}
+
 model Brand {
   id          String  @id @default(uuid())
   name        String
@@ -457,12 +483,24 @@ model Brand {
   isFeatured  Boolean @default(false)
 
   products Product[]
+  promotions Promotion[]
+
+  aliases BrandAlias[]
+
+  /// SS-258: set on a soft-deleted duplicate to point at the canonical brand.
+  /// Keeps merged historical records discoverable and lets public catalog
+  /// routes resolve their old slugs.
+  mergedIntoBrandId String?
+  mergedInto        Brand?  @relation("BrandMerge", fields: [mergedIntoBrandId], references: [id], onDelete: SetNull)
+  mergedDuplicates  Brand[] @relation("BrandMerge")
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
   createdBy String?
   updatedBy String?
+
+  @@index([mergedIntoBrandId])
 }
 
 model Product {
@@ -1121,6 +1159,7 @@ model Promotion {
   productId  String?
   categoryId String?
   brandId    String?
+  brand      Brand?  @relation(fields: [brandId], references: [id], onDelete: SetNull)
 
   /// Minimum line quantity for the promotion to apply.
   minQuantity Int @default(1)

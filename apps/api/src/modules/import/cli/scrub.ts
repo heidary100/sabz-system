@@ -5,11 +5,12 @@
  * One idempotent pass over the imported catalog:
  *   1. Newline scrub — literal `\n` sequences (a Woo-export artifact) inside
  *      shortDescription/description collapse to single spaces.
- *   2. Brand alias merge — EN/FA duplicate brand entities (SS-207 imported
- *      both spellings as separate brands) re-point to the higher-volume
- *      entity; the duplicate is soft-deleted.
- *   3. Category merge — the stray «ابزار» root (O-3) re-parents under
+ *   2. Category merge — the stray «ابزار» root (O-3) re-parents under
  *      «کالای دیجیتال» and is soft-deleted.
+ *
+ * Brand alias merging moved to the SS-258 `brand:merge` CLI. The old
+ * volume-based mapping here conflicted with the seed-canonical direction and
+ * would have undone SS-258 if re-run; it was removed deliberately.
  *
  * Every step is idempotent: a second run reports zero work. Runs against
  * DATABASE_URL; `--apply` writes, the default is a dry-run report.
@@ -20,17 +21,6 @@
 import { PrismaService } from '../../../common/database/prisma.service';
 
 const NEWLINE_ARTIFACT = / *\\n */g;
-
-/** Verified alias pairs (SS-228): [keep-slug, drop-slug] — keep = higher product volume. */
-const BRAND_MERGES: ReadonlyArray<readonly [string, string]> = [
-  ['vryty', 'verity'], // وریتی 144 / Verity 3
-  ['ay-dyta', 'adata'], // ای دیتا 54 / adata 2
-  ['green-lion-2', 'green-lion'], // Green Lion 53 / گرین لاین 7
-  ['avrykv', 'orico'], // اوریکو 12 / orico 10
-  ['porodo-2', 'porodo'], // Porodo 38 / پرودو 2
-  ['powerology-2', 'powerology'], // Powerology 16 / پاورولوژی 3
-  ['biva-2', 'biva'], // Biva 4 / بیوا 1
-];
 
 const TRUNK_SLUG = 'digital-goods';
 const STRAY_ROOT_SLUG = 'abzar';
@@ -89,53 +79,6 @@ async function scrubNewlines(
   };
 }
 
-async function mergeBrands(
-  prisma: PrismaService,
-  apply: boolean,
-): Promise<StepReport> {
-  let moved = 0;
-  let deleted = 0;
-  const detailParts: string[] = [];
-  for (const [keepSlug, dropSlug] of BRAND_MERGES) {
-    const [keep, drop] = await Promise.all([
-      prisma.brand.findFirst({ where: { slug: keepSlug, deletedAt: null } }),
-      prisma.brand.findFirst({ where: { slug: dropSlug, deletedAt: null } }),
-    ]);
-    if (!keep) {
-      detailParts.push(`${keepSlug}: missing keep entity`);
-      continue;
-    }
-    if (!drop) {
-      detailParts.push(`${dropSlug}: already merged`);
-      continue;
-    }
-    const count = await prisma.product.count({
-      where: { brandId: drop.id, deletedAt: null },
-    });
-    moved += count;
-    detailParts.push(`${dropSlug}→${keepSlug}: ${count} products`);
-    if (apply) {
-      await prisma.$transaction([
-        prisma.product.updateMany({
-          where: { brandId: drop.id },
-          data: { brandId: keep.id },
-        }),
-        prisma.brand.update({
-          where: { id: drop.id },
-          data: { deletedAt: new Date() },
-        }),
-      ]);
-    } else {
-      deleted += 1;
-    }
-  }
-  return {
-    step: 'brand-merge',
-    detail: detailParts.join(' · '),
-    affected: apply ? moved : deleted,
-  };
-}
-
 async function mergeStrayRoot(
   prisma: PrismaService,
   apply: boolean,
@@ -184,7 +127,6 @@ async function main(): Promise<void> {
   try {
     const reports = [
       await scrubNewlines(prisma, apply),
-      await mergeBrands(prisma, apply),
       await mergeStrayRoot(prisma, apply),
     ];
     console.log(`catalog-scrub ${apply ? 'APPLY' : 'DRY-RUN'}`);

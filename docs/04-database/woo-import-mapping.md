@@ -127,7 +127,7 @@ order used); `display_warning_text: off` (warnings disabled); empty
 | Q4 | No-category (10) + bucket (6) rows → SKIP + review list | **Decided (SS-207)** |
 | Q5 | Single primary category for M2 | **Decided (SS-207)** |
 | O-1 | Rial/Toman rule for CSV prices | **Decided (SS-207): Rial verbatim, no conversion** |
-| O-2 | Brand alias reconciliation (adata/ای دیتا, orico/اوریکو…; 33 candidates) | OPEN |
+| O-2 | Brand alias reconciliation (adata/ای دیتا, orico/اوریکو…; 33 candidates) | **SS-258 implemented** — curated `BrandAlias` keyspace, normalized-name guard, importer alias resolution; automatic fuzzy/transliteration discovery remains out of scope |
 | O-3 | Category merge review (ابزار/ابزار آلات/ابزارآلات, لپ‌تاپ variants…) | OPEN |
 
 ## 5. SS-207 writer handoff

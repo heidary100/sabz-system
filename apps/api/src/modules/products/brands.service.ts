@@ -1,9 +1,10 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { BrandAliasKind, Prisma } from '@prisma/client';
 import type { BrandSummary, PaginatedResult } from '@sabz/types';
 import { PrismaService } from '../../common/database/prisma.service';
 import { AuditService } from '../audit/audit.service';
@@ -14,6 +15,13 @@ import {
 } from '../../common/storefront-cache/catalog-tags';
 import { generateSlug } from './slug';
 import {
+  BrandAliasConflictError,
+  addBrandAlias,
+  ensureBrandAliases,
+  findBrandNameOwner,
+} from './brand-alias';
+import { brandNameKeys } from './brand-normalize';
+import {
   CreateBrandDto,
   ListBrandsQueryDto,
   UpdateBrandDto,
@@ -21,6 +29,10 @@ import {
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 20;
+
+const BRAND_NAME_CONFLICT_MESSAGE =
+  'برندی با این نام یا نام مشابه قبلاً ثبت شده است.';
+const BRAND_SLUG_CONFLICT_MESSAGE = 'یک برند با این slug قبلاً وجود دارد.';
 
 const summarySelect = {
   id: true,
@@ -86,20 +98,40 @@ export class BrandsService {
     actorId: string,
     ipAddress?: string,
   ): Promise<BrandSummary> {
-    const slug = dto.slug ?? generateSlug(dto.name, 'brand');
+    const name = dto.name.trim();
+    const nameEn = dto.nameEn ?? null;
+    const { nameKey, keys } = brandNameKeys(name, nameEn);
+    if (name.length === 0 || nameKey === null) {
+      throw new BadRequestException('نام برند معتبر نیست.');
+    }
+    const slug = dto.slug ?? generateSlug(name, 'brand');
 
     try {
       const created = await this.prisma.$transaction(async (tx) => {
+        for (const key of keys) {
+          const owner = await findBrandNameOwner(tx, key);
+          if (owner !== null) {
+            throw new ConflictException(BRAND_NAME_CONFLICT_MESSAGE);
+          }
+        }
+
         const row = await tx.brand.create({
           data: {
-            name: dto.name,
+            name,
             slug,
             description: dto.description ?? null,
             isFeatured: dto.isFeatured ?? false,
-            nameEn: dto.nameEn ?? null,
+            nameEn,
             createdBy: actorId,
           } satisfies Prisma.BrandUncheckedCreateInput,
           select: summarySelect,
+        });
+
+        await ensureBrandAliases(tx, {
+          brandId: row.id,
+          name: row.name,
+          nameEn: row.nameEn,
+          createdBy: actorId,
         });
 
         await this.auditService.log(
@@ -127,8 +159,14 @@ export class BrandsService {
       void this.storefrontCache.invalidate([CATALOG_BRANDS_TAG]);
       return this.toSummary(created);
     } catch (error) {
+      if (
+        error instanceof BrandAliasConflictError ||
+        this.isBrandAliasUniqueViolation(error)
+      ) {
+        throw new ConflictException(BRAND_NAME_CONFLICT_MESSAGE);
+      }
       if (this.isUniqueViolation(error)) {
-        throw new ConflictException('یک برند با این slug قبلاً وجود دارد.');
+        throw new ConflictException(BRAND_SLUG_CONFLICT_MESSAGE);
       }
       throw error;
     }
@@ -140,6 +178,9 @@ export class BrandsService {
     actorId: string,
     ipAddress?: string,
   ): Promise<BrandSummary> {
+    if (dto.name !== undefined && dto.name.trim().length === 0) {
+      throw new BadRequestException('نام برند معتبر نیست.');
+    }
     const data = this.buildUpdateData(dto);
 
     try {
@@ -175,6 +216,24 @@ export class BrandsService {
           return current;
         }
 
+        const nextName = data.name ?? target.name;
+        const nextNameEn =
+          'nameEn' in data ? (data.nameEn ?? null) : target.nameEn;
+        const identityChanged =
+          nextName !== target.name || nextNameEn !== target.nameEn;
+        const { nameKey, keys } = brandNameKeys(nextName, nextNameEn);
+        if (identityChanged && nameKey === null) {
+          throw new BadRequestException('نام برند معتبر نیست.');
+        }
+        if (identityChanged) {
+          for (const key of keys) {
+            const owner = await findBrandNameOwner(tx, key, brandId);
+            if (owner !== null) {
+              throw new ConflictException(BRAND_NAME_CONFLICT_MESSAGE);
+            }
+          }
+        }
+
         const updatedRows = await tx.brand.updateMany({
           where: { id: brandId, deletedAt: null },
           data: {
@@ -184,6 +243,29 @@ export class BrandsService {
         });
         if (updatedRows.count === 0) {
           throw new NotFoundException('برند یافت نشد.');
+        }
+
+        if (identityChanged) {
+          await ensureBrandAliases(tx, {
+            brandId,
+            name: nextName,
+            nameEn: nextNameEn,
+            createdBy: actorId,
+          });
+          await addBrandAlias(tx, {
+            brandId,
+            rawName: target.name,
+            kind: BrandAliasKind.LEGACY,
+            createdBy: actorId,
+          });
+          if (target.nameEn !== null) {
+            await addBrandAlias(tx, {
+              brandId,
+              rawName: target.nameEn,
+              kind: BrandAliasKind.LEGACY,
+              createdBy: actorId,
+            });
+          }
         }
 
         await this.auditService.log(
@@ -208,11 +290,20 @@ export class BrandsService {
       if (!updated) {
         throw new NotFoundException('برند یافت نشد.');
       }
-      void this.storefrontCache.invalidate([CATALOG_BRANDS_TAG]);
+      void this.storefrontCache.invalidate([
+        CATALOG_BRANDS_TAG,
+        CATALOG_PRODUCTS_TAG,
+      ]);
       return this.toSummary(updated);
     } catch (error) {
+      if (
+        error instanceof BrandAliasConflictError ||
+        this.isBrandAliasUniqueViolation(error)
+      ) {
+        throw new ConflictException(BRAND_NAME_CONFLICT_MESSAGE);
+      }
       if (this.isUniqueViolation(error)) {
-        throw new ConflictException('یک برند با این slug قبلاً وجود دارد.');
+        throw new ConflictException(BRAND_SLUG_CONFLICT_MESSAGE);
       }
       throw error;
     }
@@ -284,7 +375,7 @@ export class BrandsService {
 
   private buildUpdateData(dto: UpdateBrandDto): BrandUpdateData {
     const data: BrandUpdateData = {};
-    if (dto.name !== undefined) data.name = dto.name;
+    if (dto.name !== undefined) data.name = dto.name.trim();
     if (dto.slug !== undefined) data.slug = dto.slug;
     if (dto.description !== undefined) data.description = dto.description;
     if (dto.isFeatured !== undefined) data.isFeatured = dto.isFeatured;
@@ -329,8 +420,29 @@ export class BrandsService {
     return (
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === 'P2002' &&
-      error.meta?.modelName === 'Brand'
+      (error.meta?.modelName === 'Brand' ||
+        this.p2002TargetIncludes(error, 'slug'))
     );
+  }
+
+  private isBrandAliasUniqueViolation(error: unknown): boolean {
+    return (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002' &&
+      (error.meta?.modelName === 'BrandAlias' ||
+        this.p2002TargetIncludes(error, 'normalizedKey'))
+    );
+  }
+
+  private p2002TargetIncludes(
+    error: Prisma.PrismaClientKnownRequestError,
+    column: string,
+  ): boolean {
+    const target = error.meta?.target;
+    if (Array.isArray(target)) {
+      return target.includes(column);
+    }
+    return typeof target === 'string' && target.includes(column);
   }
 }
 

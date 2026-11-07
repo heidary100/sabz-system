@@ -15,6 +15,7 @@ function refs(overrides: Partial<WooReferenceData> = {}): WooReferenceData {
   return {
     categories: [],
     brands: [],
+    brandAliasOwners: new Map(),
     productSlugs: new Set(),
     variantSkus: new Set(),
     sourceKeys: new Set(),
@@ -216,6 +217,31 @@ describe('resolveRow (SS-206)', () => {
 
     const bare = await resolveRow(record(BASE), tree, buildFileIndex([]), createClaimants(tree));
     expect(bare.brandName).toBeNull();
+  });
+
+  it('resolves a curated cross-language brand alias instead of creating a duplicate', async () => {
+    const tree = refs({
+      brands: [{ id: 'b1', name: 'گرین لاین', slug: 'green-lion' }],
+      brandAliasOwners: new Map([
+        [
+          'green lion',
+          {
+            brand: { id: 'b1', name: 'گرین لاین', slug: 'green-lion' },
+            deletedAt: null,
+            mergedIntoBrandId: null,
+          },
+        ],
+      ]),
+    });
+    const row = await resolveRow(
+      record({ ...BASE, 'برندها': 'GREEN LION' }),
+      tree,
+      buildFileIndex([]),
+      createClaimants(tree),
+    );
+    expect(row.brandName).toBe('GREEN LION');
+    expect(row.brandToCreate).toBe(false);
+    expect(row.reasons.join(' ')).toContain('brand-alias-resolved');
   });
 
   it('previews suffixed slugs on collision', async () => {
