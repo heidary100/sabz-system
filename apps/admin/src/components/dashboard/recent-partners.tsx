@@ -12,6 +12,7 @@ import {
 } from '../catalyst/table'
 import { PartnerStatusBadge } from '../partners/status-badge'
 import { TableCard } from '../ui/table-card'
+import { EmptyState } from '../ui/empty-state'
 import { formatDate } from '../../lib/format'
 
 export function RecentPartners({ partners }: { partners: AdminPartnerListItem[] }) {
@@ -31,9 +32,7 @@ export function RecentPartners({ partners }: { partners: AdminPartnerListItem[] 
         </Button>
       </div>
       {partners.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-border bg-background px-4 py-10 text-center text-sm/6 text-muted">
-          درخواست جدیدی ثبت نشده است.
-        </p>
+        <EmptyState size="compact" title="درخواست جدیدی ثبت نشده است." />
       ) : (
         <Table striped>
           <TableHead>
