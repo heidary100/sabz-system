@@ -47,7 +47,7 @@ function parseTarget(databaseUrl: string): { host: string; database: string; sch
 function snapshotFromReport(report: BrandMergeReport): Record<string, unknown> {
   return {
     mappings: report.mappings.map((mapping) => ({
-      identity: mapping.identity,
+      brandLabel: mapping.brandLabel,
       canonicalId: mapping.canonical.id,
       canonicalSlug: mapping.canonical.slug,
       duplicateId: mapping.duplicate.id,
@@ -82,7 +82,7 @@ function renderSummary(report: BrandMergeReport): string {
   ];
   for (const mapping of report.mappings) {
     lines.push(
-      `  ${mapping.identity} [${mapping.status}]: ${mapping.duplicate.slug} -> ${mapping.canonical.slug} · products ${mapping.operations.productsReassigned} · promotions ${mapping.operations.promotionsReassigned}`,
+      `  ${mapping.brandLabel} [${mapping.status}]: ${mapping.duplicate.slug} -> ${mapping.canonical.slug} · products ${mapping.operations.productsReassigned} · promotions ${mapping.operations.promotionsReassigned}`,
     );
     for (const conflict of mapping.conflicts) {
       lines.push(`    CONFLICT: ${conflict}`);

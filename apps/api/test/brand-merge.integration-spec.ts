@@ -182,7 +182,7 @@ describe('SS-258 brand merge (integration)', () => {
       ]),
     );
     const green = report.mappings.find(
-      (mapping) => mapping.identity === 'Green Lion',
+      (mapping) => mapping.brandLabel === 'Green Lion',
     )!;
     expect(green.operations.productsReassigned).toBe(2);
     expect(green.operations.promotionsReassigned).toBe(1);

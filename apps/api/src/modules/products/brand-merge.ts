@@ -24,7 +24,7 @@ import { brandNameKeys } from './brand-normalize';
 export type BrandMergeMode = 'merge' | 'link-already-deleted';
 
 export interface BrandMergeMapping {
-  identity: string;
+  brandLabel: string;
   canonicalSlug: string;
   duplicateSlug: string;
   expectedCanonicalName: string;
@@ -41,7 +41,7 @@ export interface BrandMergeMapping {
  */
 export const SS258_ACTIVE_MERGES: readonly BrandMergeMapping[] = [
   {
-    identity: 'Green Lion',
+    brandLabel: 'Green Lion',
     canonicalSlug: 'green-lion',
     duplicateSlug: 'green-lion-2',
     expectedCanonicalName: 'گرین لاین',
@@ -51,7 +51,7 @@ export const SS258_ACTIVE_MERGES: readonly BrandMergeMapping[] = [
     mode: 'merge',
   },
   {
-    identity: 'Porodo',
+    brandLabel: 'Porodo',
     canonicalSlug: 'porodo',
     duplicateSlug: 'porodo-2',
     expectedCanonicalName: 'پرودو',
@@ -61,7 +61,7 @@ export const SS258_ACTIVE_MERGES: readonly BrandMergeMapping[] = [
     mode: 'merge',
   },
   {
-    identity: 'Powerology',
+    brandLabel: 'Powerology',
     canonicalSlug: 'powerology',
     duplicateSlug: 'powerology-2',
     expectedCanonicalName: 'پاورولوژی',
@@ -74,7 +74,7 @@ export const SS258_ACTIVE_MERGES: readonly BrandMergeMapping[] = [
 
 /** Optional fourth pair; pass `includeBiva` only after explicit sign-off. */
 export const SS258_BIVA_MERGE: BrandMergeMapping = {
-  identity: 'Biva',
+  brandLabel: 'Biva',
   canonicalSlug: 'biva',
   duplicateSlug: 'biva-2',
   expectedCanonicalName: 'بیوا',
@@ -91,7 +91,7 @@ export const SS258_BIVA_MERGE: BrandMergeMapping = {
  */
 export const SS258_LINK_ONLY_MERGES: readonly BrandMergeMapping[] = [
   {
-    identity: 'Adata',
+    brandLabel: 'Adata',
     canonicalSlug: 'ay-dyta',
     duplicateSlug: 'adata',
     expectedCanonicalName: 'ای دیتا',
@@ -101,7 +101,7 @@ export const SS258_LINK_ONLY_MERGES: readonly BrandMergeMapping[] = [
     mode: 'link-already-deleted',
   },
   {
-    identity: 'Orico',
+    brandLabel: 'Orico',
     canonicalSlug: 'avrykv',
     duplicateSlug: 'orico',
     expectedCanonicalName: 'اوریکو',
@@ -111,7 +111,7 @@ export const SS258_LINK_ONLY_MERGES: readonly BrandMergeMapping[] = [
     mode: 'link-already-deleted',
   },
   {
-    identity: 'Verity',
+    brandLabel: 'Verity',
     canonicalSlug: 'vryty',
     duplicateSlug: 'verity',
     expectedCanonicalName: 'وریتی',
@@ -161,7 +161,7 @@ export interface PromotionSnapshot {
 }
 
 export interface BrandMergeMappingReport {
-  identity: string;
+  brandLabel: string;
   mode: BrandMergeMode;
   status: 'ready' | 'already-merged' | 'link' | 'blocked';
   canonical: BrandSnapshot;
@@ -430,7 +430,7 @@ async function preflightMapping(
   ].filter((key, index, all) => all.indexOf(key) === index);
 
   return {
-    identity: mapping.identity,
+    brandLabel: mapping.brandLabel,
     mode: mapping.mode,
     status,
     canonical,
@@ -501,7 +501,7 @@ async function preflight(
   for (const report of reports) {
     conflicts.push(
       ...report.conflicts.map(
-        (conflict) => `${report.identity}: ${conflict}`,
+        (conflict) => `${report.brandLabel}: ${conflict}`,
       ),
     );
   }
