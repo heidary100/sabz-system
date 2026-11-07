@@ -621,7 +621,8 @@ export class ProductsService {
     });
   }
 
-  private async assertBrandAndCategory(
+  /** SS-270: also reused by the catalog-grid batch for inline brand/category edits. */
+  async assertBrandAndCategory(
     tx: Prisma.TransactionClient,
     brandId: string | null,
     categoryId: string,

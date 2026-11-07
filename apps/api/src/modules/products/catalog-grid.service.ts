@@ -22,6 +22,7 @@ import {
 import { InventoryService } from '../inventory/inventory.service';
 import { recomputeProductMinPrice } from './min-price';
 import { PUBLIC_MEDIA_URL_PREFIX } from './public-catalog.service';
+import { ProductsService } from './products.service'
 import { VariantsService } from './variants.service';
 import {
   CatalogGridBatchDto,
@@ -55,6 +56,9 @@ const GRID_ROW_SELECT = {
       status: true,
       condition: true,
       createdAt: true,
+      updatedAt: true,
+      brandId: true,
+      categoryId: true,
       brand: { select: { name: true } },
       category: { select: { name: true } },
       media: {
@@ -118,6 +122,7 @@ export class CatalogGridService {
     private readonly storefrontCache: StorefrontCacheService,
     private readonly variantsService: VariantsService,
     private readonly inventoryService: InventoryService,
+    private readonly productsService: ProductsService,
     private readonly configService: ConfigService,
   ) {}
 
@@ -382,6 +387,8 @@ export class CatalogGridService {
       barcode: row.barcode,
       variantName: row.name,
       brandName: row.product.brand?.name ?? null,
+      brandId: row.product.brandId,
+      categoryId: row.product.categoryId,
       categoryName: row.product.category.name,
       thumbnailUrl:
         thumbnail !== undefined
@@ -393,6 +400,7 @@ export class CatalogGridService {
       stock: stockTotals.get(row.id) ?? 0,
       stockEditable: (itemCounts.get(row.id) ?? 0) === 1,
       expectedUpdatedAt: row.updatedAt.toISOString(),
+      productUpdatedAt: row.product.updatedAt.toISOString(),
     };
   }
 
@@ -488,7 +496,16 @@ export class CatalogGridService {
             compareAtPrice: true,
             priceStatus: true,
             updatedAt: true,
-            product: { select: { slug: true, deletedAt: true, status: true } },
+            product: {
+              select: {
+                slug: true,
+                deletedAt: true,
+                status: true,
+                name: true,
+                brandId: true,
+                categoryId: true,
+              },
+            },
           },
         });
         if (
@@ -597,6 +614,106 @@ export class CatalogGridService {
               productSlug: null,
             };
           }
+        }
+
+        // SS-270 product-level fields: written in the SAME per-row
+        // transaction, guarded by the product's own concurrency token.
+        // assertBrandAndCategory runs on effective values (partial updates
+        // cannot bypass it) — the shared rule, not a second implementation.
+        const productFieldsSubmitted =
+          row.productName !== undefined ||
+          row.brandId !== undefined ||
+          row.categoryId !== undefined;
+        if (productFieldsSubmitted) {
+          if (row.expectedProductUpdatedAt === undefined) {
+            return {
+              result: {
+                variantId: row.variantId,
+                outcome: 'VALIDATION_ERROR',
+                message:
+                  'برای ویرایش نام/برند/دسته‌بندی محصول، نسخهٔ محصول (expectedProductUpdatedAt) لازم است.',
+                fieldErrors: { productName: 'نسخهٔ محصول ارسال نشده است.' },
+              },
+              productSlug: null,
+            };
+          }
+          const expectedProduct = new Date(row.expectedProductUpdatedAt);
+          const productData: Record<string, string | null> = {};
+          const productBefore: Record<string, string | null> = {};
+          const productAfter: Record<string, string | null> = {};
+          if (row.productName !== undefined) {
+            productBefore.name = variant.product.name;
+            productAfter.name = row.productName;
+            productData.name = row.productName;
+          }
+          if (row.brandId !== undefined) {
+            productBefore.brandId = variant.product.brandId;
+            productAfter.brandId = row.brandId;
+            productData.brandId = row.brandId;
+          }
+          if (row.categoryId !== undefined) {
+            productBefore.categoryId = variant.product.categoryId;
+            productAfter.categoryId = row.categoryId;
+            productData.categoryId = row.categoryId;
+          }
+          if (row.brandId !== undefined || row.categoryId !== undefined) {
+            try {
+              await this.productsService.assertBrandAndCategory(
+                tx,
+                row.brandId !== undefined ? row.brandId : variant.product.brandId,
+                row.categoryId !== undefined ? row.categoryId : variant.product.categoryId,
+              );
+            } catch (error) {
+              const message =
+                error instanceof BadRequestException
+                  ? error.message
+                  : 'برند یا دسته‌بندی معتبر نیستند.';
+              return {
+                result: {
+                  variantId: row.variantId,
+                  outcome: 'VALIDATION_ERROR',
+                  message,
+                  fieldErrors: {
+                    ...(row.brandId !== undefined ? { brandId: message } : {}),
+                    ...(row.categoryId !== undefined ? { categoryId: message } : {}),
+                  },
+                },
+                productSlug: null,
+              };
+            }
+          }
+          const updatedProduct = await tx.product.updateMany({
+            where: {
+              id: variant.productId,
+              deletedAt: null,
+              status: { not: ProductStatus.ARCHIVED },
+              updatedAt: expectedProduct,
+            },
+            data: { ...productData, updatedBy: actorId },
+          });
+          if (updatedProduct.count === 0) {
+            return {
+              result: {
+                variantId: row.variantId,
+                outcome: 'CONFLICT_CHANGED',
+                message:
+                  'نسخهٔ محصول از زمان بارگذاری تغییر کرده است؛ ردیف را دوباره بارگذاری کنید.',
+              },
+              productSlug: null,
+            };
+          }
+          await this.auditService.log(
+            {
+              userId: actorId,
+              action: 'PRODUCT_UPDATED',
+              entity: 'Product',
+              entityId: variant.productId,
+              before: productBefore,
+              after: productAfter,
+              ipAddress,
+            },
+            tx,
+          );
         }
 
         let appliedStock: number | undefined;
@@ -754,6 +871,16 @@ export class CatalogGridService {
             priceStatus: true,
             updatedAt: true,
             deletedAt: true,
+            product: {
+              select: {
+                name: true,
+                updatedAt: true,
+                brandId: true,
+                brand: { select: { name: true } },
+                categoryId: true,
+                category: { select: { name: true } },
+              },
+            },
           },
         });
         if (!current || current.deletedAt !== null) {
@@ -779,6 +906,14 @@ export class CatalogGridService {
             variantName: current.name,
             priceStatus: current.priceStatus,
             ...(appliedStock !== undefined ? { stock: appliedStock } : {}),
+            product: {
+              updatedAt: current.product.updatedAt.toISOString(),
+              name: current.product.name,
+              brandId: current.product.brandId,
+              brandName: current.product.brand?.name ?? null,
+              categoryId: current.product.categoryId,
+              categoryName: current.product.category.name,
+            },
           },
           productSlug: variant.product.slug,
         };
