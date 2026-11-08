@@ -11,10 +11,10 @@ import { toEnglishDigits } from './digits';
  *
  * IRAN_POST: `?id=` is verified against 2025 archives of the official
  * portal (`#txtbSearch` was pre-filled with the 24-digit identifier). The
- * live portal was unreachable from the build/test network, so a live
- * in-region re-check is still required before release. The link only ever
- * points at the fixed official origin and degrades to plain text when the
- * stored value does not fit a documented format.
+ * live portal was unreachable from the build/test network, so the deep link
+ * stays disabled until an in-region check confirms the current portal still
+ * prefills `#txtbSearch`. While disabled, the dispatcher returns null and
+ * the UI keeps the number as plain text.
  *
  * Both builders are pure: fixed origins, standard URL encoding, no network
  * calls and no carrier credentials.
@@ -28,9 +28,18 @@ export const IRAN_POST_TRACKING_URL = 'https://tracking.post.ir/';
  * and a 15–25 digit tracking code. The live form's own validator
  * (`^([a-zA-Z0-9]{1,23})$` after whitespace removal) rejects values longer
  * than 23 characters, so this gate is the intersection of both documented
- * formats and what the carrier's current form can accept.
+ * formats and what the carrier's current form can accept. 24–25 digit codes
+ * are therefore intentionally left as plain text.
  */
 const TIPAX_SUPPORTED = /^(?:\d{13}|\d{15,23})$/;
+
+/**
+ * Live-verification gate for the Iran Post deep link. The template is
+ * archive-verified, but the live portal could not be reached from the build
+ * network. Enable only after confirming in-region that `?id=` still
+ * pre-fills `#txtbSearch`; until then the order-detail row stays plain text.
+ */
+const IRAN_POST_DEEP_LINK_ENABLED: boolean = false;
 
 /** Iran Post domestic identifiers are 24 digits (portal input maxlength=24). */
 const IRAN_POST_DOMESTIC = /^\d{24}$/;
@@ -56,7 +65,7 @@ export function buildTipaxTrackingUrl(
   return url.toString();
 }
 
-/** Builds the official Iran Post prefill URL, or null when the value is not supported. */
+/** Builds the archive-derived Iran Post prefill URL, or null when unsupported. */
 export function buildIranPostTrackingUrl(
   trackingNumber: string | null | undefined,
 ): string | null {
@@ -87,7 +96,9 @@ export function buildCarrierTrackingUrl(
     case 'TIPAX':
       return buildTipaxTrackingUrl(trackingNumber);
     case 'IRAN_POST':
-      return buildIranPostTrackingUrl(trackingNumber);
+      return IRAN_POST_DEEP_LINK_ENABLED
+        ? buildIranPostTrackingUrl(trackingNumber)
+        : null;
     default:
       return null;
   }

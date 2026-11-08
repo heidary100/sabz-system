@@ -37,19 +37,11 @@ describe('TrackingNumberValue', () => {
     expect(link.textContent).toContain('پنجره جدید');
   });
 
-  it('links a supported Iran Post number with the Persian carrier label', () => {
+  it('keeps a format-valid Iran Post number as plain text while the deep link is gated', () => {
     renderValue('IRAN_POST', IRAN_POST_NUMBER);
 
-    const link = screen.getByRole('link', {
-      name: /پیگیری مرسوله با پست ایران/,
-    });
-    const href = link.getAttribute('href');
-
-    expect(href).toBe(
-      buildCarrierTrackingUrl('IRAN_POST', IRAN_POST_NUMBER),
-    );
-    expect(new URL(href ?? '').origin).toBe('https://tracking.post.ir');
-    expect(link.textContent).toContain('پنجره جدید');
+    expect(screen.queryByRole('link')).toBeNull();
+    expect(screen.getByText(IRAN_POST_NUMBER)).toBeTruthy();
   });
 
   it('keeps an unsupported TIPAX format as plain text', () => {
@@ -59,7 +51,7 @@ describe('TrackingNumberValue', () => {
     expect(screen.getByText('TIPAX-12345')).toBeTruthy();
   });
 
-  it('keeps an unsupported Iran Post format as plain text', () => {
+  it('keeps an Iran Post number outside the supported formats as plain text', () => {
     renderValue('IRAN_POST', '123456789012345');
 
     expect(screen.queryByRole('link')).toBeNull();

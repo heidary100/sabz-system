@@ -36,7 +36,7 @@ describe('buildTipaxTrackingUrl', () => {
     }
   });
 
-  it('rejects undocumented lengths (14, 24 and 25 digits)', () => {
+  it('rejects 14 digits and the 24–25 digit codes the live form cannot accept', () => {
     expect(buildTipaxTrackingUrl('12345678901234')).toBeNull();
     expect(buildTipaxTrackingUrl('123456789012345678901234')).toBeNull();
     expect(buildTipaxTrackingUrl('1234567890123456789012345')).toBeNull();
@@ -127,11 +127,12 @@ describe('buildCarrierTrackingUrl', () => {
     ).toBe(buildTipaxTrackingUrl('123456789012345'));
   });
 
-  it('dispatches IRAN_POST to the Iran Post builder', () => {
+  it('keeps Iran Post as plain text until the live template is verified', () => {
     const value = '123456789012345678901234';
-    expect(buildCarrierTrackingUrl('IRAN_POST', value)).toBe(
-      buildIranPostTrackingUrl(value),
-    );
+    // The builder is tested above as the archive-derived contract; the
+    // dispatcher must stay closed until the in-region verification gate passes.
+    expect(buildCarrierTrackingUrl('IRAN_POST', value)).toBeNull();
+    expect(buildIranPostTrackingUrl(value)).not.toBeNull();
   });
 
   it('keeps local delivery and store pickup as plain text', () => {
