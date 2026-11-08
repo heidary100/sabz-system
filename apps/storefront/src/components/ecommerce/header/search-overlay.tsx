@@ -20,7 +20,13 @@ import { SearchInput } from './search-input';
  * Portalled to body so the header styles cannot become the
  * containing block for the fixed layers.
  */
-export function SearchOverlay({ categories }: { categories: CatalogCategoryNode[] }) {
+export function SearchOverlay({
+  categories,
+  mobile = false,
+}: {
+  categories: CatalogCategoryNode[];
+  mobile?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -77,26 +83,45 @@ export function SearchOverlay({ categories }: { categories: CatalogCategoryNode[
     .filter((category) => category.publishedProductCount > 0);
 
   return (
-    <div className="hidden lg:block">
-      <button
-        ref={triggerRef}
-        type="button"
-        onClick={() => setOpen(true)}
-        aria-haspopup="dialog"
-        className="group flex h-10 w-full items-center gap-2 rounded-pill bg-surface-2 ps-4 pe-2 text-sm text-fg-muted ring-1 ring-inset ring-border transition-colors hover:bg-surface-2/70 hover:ring-accent"
-      >
-        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="size-5 shrink-0 text-accent">
-          <path
-            fillRule="evenodd"
-            d="M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM2 9a7 7 0 1 1 12.452 4.391l3.328 3.329a.75.75 0 1 1-1.06 1.06l-3.329-3.328A7 7 0 0 1 2 9Z"
-            clipRule="evenodd"
-          />
-        </svg>
-        <span className="flex-1 text-start">جستجو در محصولات…</span>
-        <span className="rounded-pill bg-surface px-2 py-1 text-[11px] font-medium text-fg-muted ring-1 ring-inset ring-border group-hover:text-accent">
-          جستجو
-        </span>
-      </button>
+    <div className={mobile ? 'lg:hidden' : 'hidden lg:block'}>
+      {mobile ? (
+        <button
+          ref={triggerRef}
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-haspopup="dialog"
+          aria-label="جستجوی محصولات"
+          className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-control text-fg-secondary transition-colors hover:bg-accent-soft hover:text-accent"
+        >
+          <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="size-6">
+            <path
+              fillRule="evenodd"
+              d="M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM2 9a7 7 0 1 1 12.452 4.391l3.328 3.329a.75.75 0 1 1-1.06 1.06l-3.329-3.328A7 7 0 0 1 2 9Z"
+              clipRule="evenodd"
+            />
+          </svg>
+        </button>
+      ) : (
+        <button
+          ref={triggerRef}
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-haspopup="dialog"
+          className="group flex h-11 w-full items-center gap-2 rounded-pill bg-surface-2 ps-4 pe-2 text-sm text-fg-muted ring-1 ring-inset ring-border transition-colors hover:bg-surface-2/70 hover:ring-accent"
+        >
+          <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="size-5 shrink-0 text-accent">
+            <path
+              fillRule="evenodd"
+              d="M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM2 9a7 7 0 1 1 12.452 4.391l3.328 3.329a.75.75 0 1 1-1.06 1.06l-3.329-3.328A7 7 0 0 1 2 9Z"
+              clipRule="evenodd"
+            />
+          </svg>
+          <span className="flex-1 text-start">جستجو در محصولات…</span>
+          <span className="rounded-pill bg-surface px-2 py-1 text-[11px] font-medium text-fg-muted ring-1 ring-inset ring-border group-hover:text-accent">
+            جستجو
+          </span>
+        </button>
+      )}
 
       {open
         ? createPortal(
@@ -113,12 +138,22 @@ export function SearchOverlay({ categories }: { categories: CatalogCategoryNode[
                 className="drawer-backdrop fixed inset-0 bg-overlay"
                 data-state={open ? 'open' : 'closed'}
               />
-              <div className="animate-zoom-in relative mx-auto mt-24 w-[min(40rem,calc(100vw-2rem))] origin-top rounded-panel border border-border bg-surface p-6 shadow-overlay">
+              <div
+                className={
+                  mobile
+                    ? 'relative h-dvh overflow-y-auto overscroll-contain bg-surface p-4 pt-16 pb-[max(1rem,env(safe-area-inset-bottom))]'
+                    : 'animate-zoom-in relative mx-auto mt-24 w-[min(40rem,calc(100vw-2rem))] origin-top rounded-panel border border-border bg-surface p-6 shadow-overlay'
+                }
+              >
                 <button
                   ref={closeRef}
                   type="button"
                   onClick={() => close()}
-                  className="absolute -top-3 -start-3 inline-flex min-h-9 min-w-9 items-center justify-center rounded-pill bg-stage p-2 text-on-stage stage-surface shadow-lift transition-colors hover:bg-stage-2"
+                  className={
+                    mobile
+                      ? 'absolute end-4 top-4 inline-flex min-h-11 min-w-11 items-center justify-center rounded-pill bg-surface-2 p-2 text-fg-muted ring-1 ring-inset ring-border-control hover:text-fg'
+                      : 'absolute -top-3 -start-3 inline-flex min-h-9 min-w-9 items-center justify-center rounded-pill bg-stage p-2 text-on-stage stage-surface shadow-lift transition-colors hover:bg-stage-2'
+                  }
                 >
                   <span className="sr-only">بستن جستجو</span>
                   <svg viewBox="0 0 24 24" fill="none" strokeWidth={1.5} stroke="currentColor" aria-hidden="true" className="size-4">
@@ -127,7 +162,11 @@ export function SearchOverlay({ categories }: { categories: CatalogCategoryNode[
                 </button>
 
                 <Suspense fallback={<div className="h-12 rounded-pill bg-surface-2" />}>
-                  <SearchInput inputId="search-overlay" onSubmitted={() => close(false)} />
+                  <SearchInput
+                    compact={mobile}
+                    inputId={mobile ? 'search-mobile-overlay' : 'search-overlay'}
+                    onSubmitted={() => close(false)}
+                  />
                 </Suspense>
                 <p className="mt-3 text-xs text-fg-muted">
                   جستجو بر اساس نام کالا، برند یا کد کالا — نتیجه‌ها در همان صفحه فهرست

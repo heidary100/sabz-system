@@ -1,6 +1,7 @@
 import { cache } from 'react';
 import type {
   CatalogBrandDto,
+  CatalogCategoryCoverDto,
   CatalogCategoryNode,
   CatalogListQuery,
   CatalogProductCardDto,
@@ -29,9 +30,13 @@ import {
  * share a single entry deterministically.
  */
 
+/** Maximum slugs accepted by the cover endpoint. */
+const CATEGORY_COVER_MAX = 12;
+
 /** Data Cache revalidate windows (seconds) per resource. */
 const REVALIDATE = {
   tree: 300,
+  covers: 300,
   brands: 3600,
   products: 60,
   detail: 300,
@@ -113,6 +118,64 @@ export const fetchCategoryTree = cache(async (): Promise<CatalogCategoryNode[]> 
     return [];
   }
 });
+
+/** Ready-to-render navigation covers keyed by canonical category slug. */
+export type CategoryCoverMap = Record<string, string | null>;
+
+/**
+ * Maps the API cover payload to `next/image` sources. The API returns
+ * host-agnostic media paths; the optimizer needs the internal media origin.
+ * A null image is preserved so navigation can render its semantic fallback.
+ */
+export function toCategoryCoverMap(
+  rows: CatalogCategoryCoverDto[],
+): CategoryCoverMap {
+  const map: CategoryCoverMap = {};
+  for (const row of rows) {
+    if (typeof row?.slug !== 'string' || row.slug.length === 0) {
+      continue;
+    }
+    map[row.slug] = mediaImageUrl(row.imageUrl);
+  }
+  return map;
+}
+
+/**
+ * Derived category covers for the shell (Task 03). Callers pass a stable
+ * comma-separated key so React/Next request caches can deduplicate the call
+ * across nested layouts. Covers are tagged with both the category tree and
+ * product collection tags: category moves/visibility and product/media
+ * changes both invalidate them through the existing revalidation pipeline.
+ */
+export const fetchCategoryCovers = cache(
+  async (slugsKey: string): Promise<CategoryCoverMap> => {
+    const slugs = [
+      ...new Set(
+        slugsKey
+          .split(',')
+          .map((slug) => slug.trim())
+          .filter(Boolean),
+      ),
+    ].slice(0, CATEGORY_COVER_MAX);
+    if (slugs.length === 0) {
+      return {};
+    }
+    try {
+      const rows = await request<CatalogCategoryCoverDto[]>(
+        `/catalog/categories/covers?slugs=${encodeURIComponent(slugs.join(','))}`,
+        cachedFetchInit({
+          revalidate: REVALIDATE.covers,
+          tags: [CATALOG_TREE_TAG, CATALOG_PRODUCTS_TAG],
+        }),
+      );
+      return toCategoryCoverMap(Array.isArray(rows) ? rows : []);
+    } catch {
+      // Navigation must stay usable when the optional cover capability is
+      // unavailable or a deployment predates it.
+      return {};
+    }
+  },
+);
 
 export const fetchBrands = cache(async (page = 1, limit = 50): Promise<PaginatedResult<CatalogBrandDto>> => {
   return request<PaginatedResult<CatalogBrandDto>>(

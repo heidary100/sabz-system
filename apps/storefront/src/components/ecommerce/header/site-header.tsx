@@ -7,68 +7,84 @@ import { CompareHeaderIcon } from '@/components/ecommerce/compare/compare-header
 import { MiniCart } from '@/components/ecommerce/cart/mini-cart';
 import { DesktopNav } from './desktop-nav';
 import { MobileMenu } from './mobile-menu';
-import { SearchInput } from './search-input';
 import { SearchOverlay } from './search-overlay';
 import { NotificationHeaderIcon } from './notification-header-icon';
 import { WishlistHeaderIcon } from './wishlist-header-icon';
 import { ThemeToggle } from '@/components/ecommerce/theme/theme-toggle';
 
 /**
- * Storefront shell header (SS-124, SS-211, SS-223, SS-232): two-row layout —
- * row 1 holds the drawer toggle, brand lockup, the desktop search trigger
- * (opens the full-screen overlay) and account/wishlist/cart icons; row 2 is
- * the desktop category nav over the unwrapped effective roots. The cart icon
- * carries an honest count badge (server total or guest sum) and opens the
- * mini-cart drawer; search is visible on mobile as its own header row
- * instead of being drawer-buried.
+ * Storefront shell header (Task 03). Two deliberate rows:
+ * 1. brand, prominent search and customer utilities;
+ * 2. category navigation with a two-level mega panel.
+ *
+ * Mobile collapses to menu / brand / search / cart; every other utility
+ * remains in the drawer. The header stays a server component; only the
+ * interactive menu, search and theme controls are client islands.
  */
-export function SiteHeader({ categories }: { categories: CatalogCategoryNode[] }) {
+export function SiteHeader({
+  categories,
+  covers,
+}: {
+  categories: CatalogCategoryNode[];
+  covers: Record<string, string | null>;
+}) {
   return (
     <header className="site-header sticky top-0 z-40 border-b border-border bg-surface">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="flex h-16 items-center gap-2 sm:gap-4">
-          <MobileMenu categories={categories} />
+        <div className="flex h-16 items-center gap-2 sm:gap-3">
+          <MobileMenu categories={categories} covers={covers} />
 
-          <BrandLockup wordmarkClassName="hidden text-lg font-bold tracking-tight text-accent-hover sm:inline" />
+          <BrandLockup />
 
-          <div className="hidden max-w-md flex-1 lg:block">
-            <Suspense fallback={<div className="h-10 flex-1 rounded-pill bg-surface-2" />}>
+          <div className="hidden min-w-0 flex-1 lg:block lg:max-w-xl">
+            <Suspense
+              fallback={<div className="h-11 rounded-pill bg-surface-2" />}
+            >
               <SearchOverlay categories={categories} />
             </Suspense>
           </div>
 
-          <div className="flex flex-1 items-center justify-end gap-1 lg:flex-none">
-            <Link
-              href="/account"
-              className="flex min-h-11 min-w-11 items-center justify-center rounded-card p-2 text-fg-secondary transition-colors duration-200 hover:bg-accent-soft hover:text-accent"
-            >
-              <span className="sr-only">حساب کاربری</span>
-              <svg viewBox="0 0 24 24" fill="none" strokeWidth={1.5} stroke="currentColor" aria-hidden="true" className="size-6">
-                <path
-                  d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </Link>
-            <WishlistHeaderIcon />
-            <NotificationHeaderIcon />
-            <CompareHeaderIcon />
-            <ThemeToggle className="hidden sm:block" />
+          <div className="ms-auto flex items-center gap-0.5 sm:gap-1">
+            <div className="hidden items-center gap-0.5 lg:flex">
+              <Link
+                href="/account"
+                className="flex min-h-11 min-w-11 items-center justify-center rounded-control p-2 text-fg-secondary transition-colors hover:bg-accent-soft hover:text-accent"
+              >
+                <span className="sr-only">حساب کاربری</span>
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  strokeWidth={1.5}
+                  stroke="currentColor"
+                  aria-hidden="true"
+                  className="size-6"
+                >
+                  <path
+                    d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </Link>
+              <WishlistHeaderIcon />
+              <NotificationHeaderIcon />
+              <CompareHeaderIcon />
+              <ThemeToggle />
+            </div>
+
+            <div className="flex items-center lg:hidden">
+              <Suspense fallback={<span className="size-11" />}>
+                <SearchOverlay categories={categories} mobile />
+              </Suspense>
+            </div>
+
             <CartHeaderIcon />
             <MiniCart />
           </div>
         </div>
 
-        {/* Mobile search row: prominent, no drawer detour (SS-211). */}
-        <div className="pb-3 lg:hidden">
-          <Suspense fallback={<div className="h-9 rounded-control bg-surface-2" />}>
-            <SearchInput inputId="search-mobile" />
-          </Suspense>
-        </div>
-
-        <div className="hidden pb-2 lg:block">
-          <DesktopNav categories={categories} />
+        <div className="hidden pb-1.5 lg:block">
+          <DesktopNav categories={categories} covers={covers} />
         </div>
       </div>
     </header>

@@ -2,7 +2,8 @@ import type { Metadata, Viewport } from 'next';
 import '@fontsource-variable/vazirmatn';
 import './globals.css';
 import { brand } from '@/lib/brand';
-import { fetchCategoryTree } from '@/lib/catalog';
+import { fetchCategoryCovers, fetchCategoryTree } from '@/lib/catalog';
+import { navRoots } from '@/lib/nav';
 import { siteUrl } from '@/lib/site-url';
 import { CartProvider } from '@/components/ecommerce/cart/cart-provider';
 import { CompareProvider } from '@/components/ecommerce/compare/compare-provider';
@@ -52,6 +53,11 @@ export default async function RootLayout({
   // The shell never blocks on catalog availability: a down API renders the
   // chrome with empty navigation (the data functions already degrade).
   const categories = await fetchCategoryTree();
+  const coverSlugs = navRoots(categories)
+    .slice(0, 12)
+    .map((category) => category.slug)
+    .join(',');
+  const categoryCovers = await fetchCategoryCovers(coverSlugs);
 
   return (
     <html lang="fa" dir="rtl" suppressHydrationWarning>
@@ -70,10 +76,10 @@ export default async function RootLayout({
         <ThemeProvider>
           <CartProvider>
             <CompareProvider>
-              <SiteHeader categories={categories} />
+              <SiteHeader categories={categories} covers={categoryCovers} />
               {/* scroll-mt keeps skip-link/anchor focus from landing under the
                   sticky header (SS-218). */}
-              <main id="main" className="scroll-mt-24 flex-1">
+              <main id="main" className="scroll-mt-32 flex-1">
                 {children}
               </main>
               <SiteFooter categories={categories} />

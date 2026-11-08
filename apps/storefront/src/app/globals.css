@@ -256,6 +256,7 @@
 
 html {
   background-color: var(--ss-bg);
+  scroll-padding-top: 7rem;
 }
 
 body {

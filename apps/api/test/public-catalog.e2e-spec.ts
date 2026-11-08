@@ -338,6 +338,185 @@ describe('Public catalog API (SS-120/121/122) (e2e)', () => {
     });
   });
 
+  describe('Task 03: derived category covers', () => {
+    const coversUrl = (slugs: string[]) =>
+      `${CATEGORIES_BASE}/covers?slugs=${encodeURIComponent(slugs.join(','))}`;
+
+    it('returns deterministic covers for a parent and its descendants in one bounded query', async () => {
+      const token = await createOperator();
+      const suffix = uniqueSuffix();
+      const parent = await prisma.category.create({
+        data: {
+          name: `کاور والد ${suffix}`,
+          slug: `cover-parent-${suffix}`,
+          isVisible: true,
+        },
+      });
+      categoryIds.push(parent.id);
+      const child = await prisma.category.create({
+        data: {
+          name: `کاور فرزند ${suffix}`,
+          slug: `cover-child-${suffix}`,
+          parentId: parent.id,
+          isVisible: true,
+        },
+      });
+      categoryIds.push(child.id);
+
+      const older = await seedProduct(token, `قدیمی ${suffix}`, {
+        withImage: true,
+      });
+      await prisma.product.update({
+        where: { id: older.productId },
+        data: {
+          categoryId: child.id,
+          createdAt: new Date(Date.now() - 120_000),
+        },
+      });
+      await publishProduct(token, older.productId);
+
+      const newer = await seedProduct(token, `جدید ${suffix}`, {
+        withImage: true,
+      });
+      await prisma.product.update({
+        where: { id: newer.productId },
+        data: { categoryId: child.id, createdAt: new Date() },
+      });
+      await publishProduct(token, newer.productId);
+
+      const rawSpy = jest.spyOn(prisma, '$queryRaw');
+      const res = await request(app.getHttpServer())
+        .get(coversUrl([parent.slug, child.slug]))
+        .expect(200);
+      expect(rawSpy).toHaveBeenCalledTimes(1);
+      rawSpy.mockRestore();
+
+      expect(res.body).toHaveLength(2);
+      expect(res.body[0].slug).toBe(parent.slug);
+      expect(res.body[1].slug).toBe(child.slug);
+      expect(res.body[0].imageUrl).toContain(
+        `/api/v1/catalog/media/${newer.mediaId}`,
+      );
+      expect(res.body[1].imageUrl).toBe(res.body[0].imageUrl);
+      expect(res.body[0].alt).toContain(parent.name);
+      await request(app.getHttpServer()).get(res.body[0].imageUrl).expect(200);
+    });
+
+    it('deduplicates slugs, omits unknown/invisible categories and accepts empty input', async () => {
+      const suffix = uniqueSuffix();
+      const visible = await prisma.category.create({
+        data: {
+          name: `قابل مشاهده ${suffix}`,
+          slug: `cover-visible-${suffix}`,
+          isVisible: true,
+        },
+      });
+      categoryIds.push(visible.id);
+      const hidden = await prisma.category.create({
+        data: {
+          name: `مخفی ${suffix}`,
+          slug: `cover-hidden-${suffix}`,
+          isVisible: false,
+        },
+      });
+      categoryIds.push(hidden.id);
+
+      const res = await request(app.getHttpServer())
+        .get(
+          coversUrl([
+            visible.slug,
+            visible.slug,
+            hidden.slug,
+            `missing-${suffix}`,
+          ]),
+        )
+        .expect(200);
+      expect(res.body).toHaveLength(1);
+      expect(res.body[0]).toEqual({
+        slug: visible.slug,
+        imageUrl: null,
+        alt: `تصویر دسته‌بندی ${visible.name}`,
+      });
+
+      const empty = await request(app.getHttpServer())
+        .get(`${CATEGORIES_BASE}/covers?slugs=`)
+        .expect(200);
+      expect(empty.body).toEqual([]);
+    });
+
+    it('returns null for no eligible image and never leaks drafts or hidden categories', async () => {
+      const token = await createOperator();
+      const suffix = uniqueSuffix();
+      const visible = await prisma.category.create({
+        data: {
+          name: `بدون تصویر ${suffix}`,
+          slug: `cover-null-${suffix}`,
+          isVisible: true,
+        },
+      });
+      categoryIds.push(visible.id);
+      const draft = await prisma.category.create({
+        data: {
+          name: `پیش‌نویس ${suffix}`,
+          slug: `cover-draft-${suffix}`,
+          isVisible: true,
+        },
+      });
+      categoryIds.push(draft.id);
+      const hidden = await prisma.category.create({
+        data: {
+          name: `مخفی محصول ${suffix}`,
+          slug: `cover-hidden-product-${suffix}`,
+          isVisible: false,
+        },
+      });
+      categoryIds.push(hidden.id);
+
+      const imageless = await seedProduct(token, `بدون عکس ${suffix}`);
+      await prisma.product.update({
+        where: { id: imageless.productId },
+        data: { categoryId: visible.id },
+      });
+      await publishProduct(token, imageless.productId);
+
+      const draftProduct = await seedProduct(token, `پیش‌نویس ${suffix}`, {
+        withImage: true,
+      });
+      await prisma.product.update({
+        where: { id: draftProduct.productId },
+        data: { categoryId: draft.id },
+      });
+
+      const hiddenProduct = await seedProduct(token, `مخفی ${suffix}`, {
+        withImage: true,
+      });
+      await prisma.product.update({
+        where: { id: hiddenProduct.productId },
+        data: { categoryId: hidden.id },
+      });
+      await publishProduct(token, hiddenProduct.productId);
+
+      const res = await request(app.getHttpServer())
+        .get(coversUrl([visible.slug, draft.slug, hidden.slug]))
+        .expect(200);
+      expect(res.body.map((row: { slug: string }) => row.slug)).toEqual([
+        visible.slug,
+        draft.slug,
+      ]);
+      expect(res.body[0].imageUrl).toBeNull();
+      expect(res.body[1].imageUrl).toBeNull();
+      expect(JSON.stringify(res.body)).not.toContain(hiddenProduct.mediaId);
+    });
+
+    it('rejects more than twelve unique slugs', async () => {
+      const slugs = Array.from(
+        { length: 13 },
+        (_, index) => `cover-limit-${index}-${uniqueSuffix()}`,
+      );
+      await request(app.getHttpServer()).get(coversUrl(slugs)).expect(400);
+    });
+  });
+
   describe('SS-120: brands list', () => {
     it('returns paginated brands without soft-deleted ones', async () => {
       const suffix = `${uniqueSuffix()}`;
