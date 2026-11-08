@@ -74,6 +74,10 @@ model User {
   status       UserStatus @default(PENDING_OTP)
   lastLoginAt  DateTime?
 
+  /// Personal Iranian National ID (کد ملی), optional; canonical 10 ASCII
+  /// digits. Distinct from Partner.nationalId (business شناسه ملی).
+  nationalId String?
+
   profile  UserProfile?
   roles    UserRole[]
   sessions UserSession[]

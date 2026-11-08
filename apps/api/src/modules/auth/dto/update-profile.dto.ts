@@ -19,4 +19,16 @@ export class UpdateProfileDto {
   @IsString({ message: 'address must be a string' })
   @MaxLength(500, { message: 'address must be at most 500 characters' })
   address?: string;
+
+  @ApiPropertyOptional({
+    example: '6059926746',
+    description:
+      'Personal Iranian National ID (کد ملی). Accepts ASCII, Persian and ' +
+      'Arabic-Indic digits; stored as 10 ASCII digits. Omit to preserve; ' +
+      'empty/null values are rejected.',
+  })
+  @ValidateIf((_object, value) => value !== undefined)
+  @IsString({ message: 'کد ملی باید رشته باشد.' })
+  @MaxLength(64, { message: 'کد ملی معتبر نیست.' })
+  nationalId?: string;
 }

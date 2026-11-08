@@ -29,7 +29,11 @@ export {
   VerifyOtpResult,
 } from './auth/session';
 
-export { ProfileResponse, UpdateProfileInput } from './profile/profile';
+export {
+  PersonalNationalIdSummary,
+  ProfileResponse,
+  UpdateProfileInput,
+} from './profile/profile';
 
 export {
   CreatePartnerApplicationInput,

@@ -118,15 +118,19 @@ For migrations that involve data transformation (not just schema changes):
 
 # Rollback Strategy
 
-```bash
-npx prisma migrate rollback
-```
+> **Current production policy:** Prisma migrations in this repository are
+> **forward-only**. `prisma migrate rollback` is not the supported production
+> path. A schema-bearing rollback restores the pre-deploy dump; see
+> `docs/07-development/deploy-runbook.md` §3/§5. Additive columns can usually
+> be left in place while reverting application code.
 
 For production rollbacks:
 
 1. Do NOT rollback directly on production.
-2. Create a new forward migration that reverses the change.
-3. Test the reversal migration in staging first.
+2. Prefer reverting the application image and leaving additive columns in
+   place.
+3. For a destructive schema rollback, restore the pre-deploy dump.
+4. If a forward corrective migration is needed, test it in staging first.
 
 ---
 

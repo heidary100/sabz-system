@@ -960,3 +960,65 @@ describe('Inventory foundation migration (SS-109)', () => {
     expect(sql).not.toContain('ALTER TABLE "Partner"');
   });
 });
+
+describe('Personal National ID schema and migration (SS-260)', () => {
+  const user = Prisma.dmmf.datamodel.models.find(
+    (model) => model.name === 'User',
+  );
+  const partner = Prisma.dmmf.datamodel.models.find(
+    (model) => model.name === 'Partner',
+  );
+
+  const ss260Migration = () => {
+    const migrationsDir = join(
+      __dirname,
+      '..',
+      '..',
+      '..',
+      'prisma',
+      'migrations',
+    );
+    const folder = readdirSync(migrationsDir).find((name) =>
+      name.includes('ss_260_user_personal_national_id'),
+    );
+    expect(folder).toBeDefined();
+    return readFileSync(join(migrationsDir, folder!, 'migration.sql'), 'utf8');
+  };
+
+  it('adds a nullable personal nationalId to User without a default or uniqueness', () => {
+    const field = user?.fields.find(
+      (candidate) => candidate.name === 'nationalId',
+    );
+
+    expect(field).toBeDefined();
+    expect(field!.type).toBe('String');
+    expect(field!.isRequired).toBe(false);
+    expect(field!.isUnique).toBe(false);
+    expect(field!.default).toBeUndefined();
+  });
+
+  it('keeps the business Partner.nationalId field unchanged and non-unique', () => {
+    const field = partner?.fields.find(
+      (candidate) => candidate.name === 'nationalId',
+    );
+
+    expect(field).toBeDefined();
+    expect(field!.type).toBe('String');
+    expect(field!.isRequired).toBe(false);
+    expect(field!.isUnique).toBe(false);
+  });
+
+  it('creates an additive nullable column with no backfill or index', () => {
+    const sql = ss260Migration();
+
+    expect(sql).toContain(
+      'ALTER TABLE "User" ADD COLUMN "nationalId" TEXT;',
+    );
+    expect(sql).not.toContain('NOT NULL');
+    expect(sql).not.toContain('DEFAULT');
+    expect(sql).not.toContain('UNIQUE');
+    expect(sql).not.toContain('CREATE INDEX');
+    expect(sql).not.toContain('UPDATE "User"');
+    expect(sql).not.toContain('ALTER TABLE "Partner"');
+  });
+});

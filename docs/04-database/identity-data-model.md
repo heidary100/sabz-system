@@ -33,6 +33,14 @@ The User table stores only authentication identity:
 
 Profile data is not stored on User. It belongs to the one-to-one `UserProfile` extension.
 
+**SS-260 exception:** the optional personal Iranian National ID
+(`User.nationalId`, کد ملی) is stored on User, not UserProfile. It is an
+identity-level sensitive attribute with its own masking, access, and audit
+policy; keeping it out of `UserProfile` prevents it from entering generic
+profile serialization. Names, address, and avatar remain on UserProfile. This
+field is distinct from `Partner.nationalId` (the business شناسه ملی). See
+[ADR-007](../03-architecture/architecture-decisions/ADR-007-personal-national-id.md).
+
 ## Rationale
 
 - One identity, many classifications. A user can transition between classifications (customer → partner) and hold multiple roles without changing identity records.

@@ -127,6 +127,7 @@ describe('AuthService', () => {
       email: null,
       passwordHash: null,
       lastLoginAt: null,
+      nationalId: null,
       createdAt: new Date(),
       updatedAt: new Date(),
       deletedAt: null,

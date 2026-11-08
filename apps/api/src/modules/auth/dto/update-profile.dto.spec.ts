@@ -30,6 +30,31 @@ describe('UpdateProfileDto', () => {
     await expect(errorsOf({ address: null })).resolves.toEqual([]);
   });
 
+  it('accepts an optional nationalId string for service-level validation', async () => {
+    await expect(errorsOf({})).resolves.toEqual([]);
+    await expect(errorsOf({ nationalId: '6059926746' })).resolves.toEqual([]);
+    await expect(errorsOf({ nationalId: '۶۰۵۹۹۲۶۷۴۶' })).resolves.toEqual([]);
+    await expect(errorsOf({ nationalId: '' })).resolves.toEqual([]);
+  });
+
+  it('rejects null and non-string nationalId values at the DTO boundary', async () => {
+    await expect(errorsOf({ nationalId: null })).resolves.toEqual([
+      { property: 'nationalId' },
+    ]);
+    await expect(errorsOf({ nationalId: 6059926746 })).resolves.toEqual([
+      { property: 'nationalId' },
+    ]);
+    await expect(errorsOf({ nationalId: ['6059926746'] })).resolves.toEqual([
+      { property: 'nationalId' },
+    ]);
+  });
+
+  it('rejects an overlong nationalId payload before service validation', async () => {
+    await expect(
+      errorsOf({ nationalId: '6'.repeat(65) }),
+    ).resolves.toEqual([{ property: 'nationalId' }]);
+  });
+
   it('rejects non-string values', async () => {
     await expect(errorsOf({ firstName: 123 })).resolves.toEqual([
       { property: 'firstName' },

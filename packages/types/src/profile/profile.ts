@@ -1,7 +1,13 @@
 import type { AppRole } from '../auth/roles';
 import type { UserStatus } from '../auth/user';
 
-export interface ProfileResponse {
+/** Safe personal National ID summary; never contains the full value. */
+export interface PersonalNationalIdSummary {
+  hasNationalId: boolean;
+  maskedNationalId: string | null;
+}
+
+export interface ProfileResponse extends PersonalNationalIdSummary {
   id: string;
   mobile: string;
   email: string | null;
@@ -17,4 +23,5 @@ export interface UpdateProfileInput {
   firstName?: string;
   lastName?: string;
   address?: string;
+  nationalId?: string;
 }

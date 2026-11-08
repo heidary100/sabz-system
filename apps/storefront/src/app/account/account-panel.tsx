@@ -12,6 +12,7 @@ import {
   logout,
   updateProfile,
 } from '@/lib/auth-client';
+import { NationalIdField } from './national-id-field';
 
 const LOAD_FAILED = 'دریافت اطلاعات حساب ناموفق بود؛ لطفاً دوباره تلاش کنید.';
 const SAVE_FAILED = 'ذخیره اطلاعات ناموفق بود؛ لطفاً دوباره تلاش کنید.';
@@ -25,10 +26,15 @@ const inputClassName =
 export function AccountPanel() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+  const [profileLoaded, setProfileLoaded] = useState(false);
   const [mobile, setMobile] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [address, setAddress] = useState('');
+  const [hasNationalId, setHasNationalId] = useState(false);
+  const [maskedNationalId, setMaskedNationalId] = useState<string | null>(
+    null,
+  );
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -48,6 +54,9 @@ export function AccountPanel() {
         setFirstName(profile.firstName ?? '');
         setLastName(profile.lastName ?? '');
         setAddress(profile.address ?? '');
+        setHasNationalId(profile.hasNationalId === true);
+        setMaskedNationalId(profile.maskedNationalId ?? null);
+        setProfileLoaded(true);
         setLoading(false);
       })
       .catch((loadError: unknown) => {
@@ -95,6 +104,9 @@ export function AccountPanel() {
       setFirstName(profile.firstName ?? '');
       setLastName(profile.lastName ?? '');
       setAddress(profile.address ?? '');
+      setHasNationalId(profile.hasNationalId === true);
+      setMaskedNationalId(profile.maskedNationalId ?? null);
+      setProfileLoaded(true);
       setNotice('ذخیره شد');
     } catch (saveError) {
       if (saveError instanceof ApiError && saveError.status === 401) {
@@ -109,6 +121,19 @@ export function AccountPanel() {
     } finally {
       setSaving(false);
     }
+  }
+
+  async function handleSaveNationalId(
+    nationalId: string,
+  ): Promise<{ hasNationalId: boolean; maskedNationalId: string | null }> {
+    const profile = await updateProfile({ nationalId });
+    const next = {
+      hasNationalId: profile.hasNationalId === true,
+      maskedNationalId: profile.maskedNationalId ?? null,
+    };
+    setHasNationalId(next.hasNationalId);
+    setMaskedNationalId(next.maskedNationalId);
+    return next;
   }
 
   async function handleLogout(): Promise<void> {
@@ -210,6 +235,15 @@ export function AccountPanel() {
           </Button>
         </form>
       </section>
+
+      {profileLoaded && (
+        <NationalIdField
+          hasNationalId={hasNationalId}
+          maskedNationalId={maskedNationalId}
+          onSave={handleSaveNationalId}
+          onUnauthorized={() => router.replace('/login')}
+        />
+      )}
 
       {/* Quick links (SS-246): the member surfaces as scannable tiles. */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">

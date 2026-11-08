@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Header,
   HttpStatus,
   Ip,
   Param,
@@ -58,6 +59,22 @@ export class UsersController {
   @ApiResponse({ status: 404, description: 'User not found.' })
   async getDetail(@Param('id', UUID_PARAM) userId: string) {
     return this.usersService.getDetail(userId);
+  }
+
+  @Get(':id/personal-national-id')
+  @Roles(AppRole.ADMIN)
+  @Header('Cache-Control', 'no-store')
+  @ApiOperation({
+    summary:
+      'Return the masked personal National ID state for a user (ADMIN only)',
+  })
+  @ApiParam({ name: 'id', type: 'string', format: 'uuid' })
+  @ApiResponse({ status: 200, description: 'Masked presence returned.' })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  @ApiResponse({ status: 404, description: 'User not found.' })
+  async getPersonalNationalId(@Param('id', UUID_PARAM) userId: string) {
+    return this.usersService.getPersonalNationalIdMasked(userId);
   }
 
   @Patch(':id/suspend')

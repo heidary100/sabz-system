@@ -12,6 +12,9 @@ describe('audit labels (SS-271)', () => {
     expect(auditActionLabel('INVENTORY_CONSUMED')).toBe('مصرف رزرو موجودی')
     expect(auditActionLabel('RETURN_COMPLETED')).toBe('تکمیل مرجوعی')
     expect(auditActionLabel('BLOG_POST_UPDATED')).toBe('به‌روزرسانی مطلب وبلاگ')
+    expect(auditActionLabel('USER_NATIONAL_ID_UPDATED')).toBe(
+      'به‌روزرسانی کد ملی',
+    )
     expect(auditEntityLabel('ProductVariant')).toBe('نوع محصول')
     expect(auditEntityLabel('ReturnRequest')).toBe('درخواست مرجوعی')
   })
