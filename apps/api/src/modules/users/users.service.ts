@@ -9,9 +9,11 @@ import type {
   AdminUserDetail,
   AdminUserSummary,
   PaginatedResult,
+  PersonalNationalIdSummary,
   RoleSummary,
 } from '@sabz/types';
 import { PrismaService } from '../../common/database/prisma.service';
+import { maskPersonalNationalId } from '../../common/validation/personal-national-id';
 import { AuditService } from '../audit/audit.service';
 import { AppRole } from '../auth/enums/app-role.enum';
 import { RolesService } from '../auth/roles/roles.service';
@@ -185,6 +187,32 @@ export class UsersService {
       lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
       createdAt: user.createdAt.toISOString(),
       updatedAt: user.updatedAt.toISOString(),
+    };
+  }
+
+  /**
+   * ADMIN-only masked view of a user's personal National ID (SS-260).
+   *
+   * This is deliberately the narrowest privileged surface: it returns only
+   * presence plus the last four digits. There is no full-value read workflow,
+   * and the value is never added to the general user list/detail contracts.
+   */
+  async getPersonalNationalIdMasked(
+    userId: string,
+  ): Promise<PersonalNationalIdSummary> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { nationalId: true, deletedAt: true },
+    });
+
+    if (!user || user.deletedAt !== null) {
+      throw new NotFoundException('کاربر یافت نشد.');
+    }
+
+    return {
+      hasNationalId:
+        typeof user.nationalId === 'string' && user.nationalId.length > 0,
+      maskedNationalId: maskPersonalNationalId(user.nationalId),
     };
   }
 

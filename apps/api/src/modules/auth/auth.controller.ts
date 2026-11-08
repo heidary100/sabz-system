@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   Headers,
   HttpCode,
   HttpStatus,
@@ -196,6 +197,7 @@ export class AuthController {
   @Get('profile')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
+  @Header('Cache-Control', 'no-store')
   @ApiOperation({ summary: 'Return the authenticated user\'s profile' })
   @ApiResponse({ status: 200, description: 'Profile returned.' })
   @ApiResponse({ status: 401, description: 'Unauthorized.' })
@@ -206,6 +208,7 @@ export class AuthController {
   @Patch('profile')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
+  @Header('Cache-Control', 'no-store')
   @ApiOperation({ summary: 'Update the authenticated user\'s profile' })
   @ApiResponse({ status: 200, description: 'Profile updated.' })
   @ApiResponse({ status: 401, description: 'Unauthorized.' })

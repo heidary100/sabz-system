@@ -372,6 +372,20 @@ Returns the detail for one user.
 - Soft-deleted or nonexistent users return `404`.
 - Responses never include `passwordHash`, refresh tokens, session records,
   session identifiers, audit records, or secrets.
+- The personal National ID (کد ملی) is never included in this detail response
+  or in the user list/search response.
+- Status codes: `200`, `401`, `403`, `404`.
+
+GET /admin/users/{id}/personal-national-id
+
+ADMIN-only masked view of one user's personal National ID state (SS-260).
+
+- Requires `ADMIN`; `OPERATOR` and all customer/partner roles receive `403`.
+- Response: `{ "hasNationalId": boolean, "maskedNationalId": "****1234" | null }`.
+- Never returns the full value. There is no full-value read endpoint for any
+  role, and no admin write endpoint for this field.
+- Missing or soft-deleted users return `404`.
+- Response is sent with `Cache-Control: no-store`.
 - Status codes: `200`, `401`, `403`, `404`.
 
 ---

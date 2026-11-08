@@ -5,6 +5,7 @@ const AUDIT_ACTION_LABELS: Record<string, string> = {
   OTP_VERIFIED: 'تأیید کد',
   OTP_FAILED: 'خطا در تأیید کد',
   PROFILE_UPDATE: 'به‌روزرسانی پروفایل',
+  USER_NATIONAL_ID_UPDATED: 'به‌روزرسانی کد ملی',
   SESSION_CREATED: 'ایجاد نشست',
   SESSION_REFRESHED: 'تمدید نشست',
   SESSION_REVOKED: 'لغو نشست',

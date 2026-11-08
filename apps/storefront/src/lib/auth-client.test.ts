@@ -1,11 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   authFetch,
+  fetchProfile,
   isValidIranianMobile,
   logout,
   parseAuthPayload,
   requestOtp,
   toEnglishDigits,
+  updateProfile,
 } from './auth-client';
 
 afterEach(() => {
@@ -180,5 +182,89 @@ describe('logout', () => {
     await logout();
 
     expect(removeItem).toHaveBeenCalledWith('sabz.accessToken');
+  });
+});
+
+describe('profile privacy (SS-260)', () => {
+  function stubSession(): void {
+    vi.stubGlobal('window', {
+      localStorage: {
+        getItem: vi.fn(() => 'access-token'),
+        setItem: vi.fn(),
+        removeItem: vi.fn(),
+      },
+    });
+  }
+
+  it('fetches the profile with cache: no-store', async () => {
+    stubSession();
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          id: 'user-1',
+          mobile: '+989123456789',
+          firstName: 'Ali',
+          lastName: 'Ahmadi',
+          address: null,
+          hasNationalId: true,
+          maskedNationalId: '****6746',
+        }),
+        { status: 200 },
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await fetchProfile();
+
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(init.cache).toBe('no-store');
+  });
+
+  it('updates the profile with cache: no-store', async () => {
+    stubSession();
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          id: 'user-1',
+          mobile: '+989123456789',
+          firstName: 'Ali',
+          lastName: 'Ahmadi',
+          address: null,
+          hasNationalId: true,
+          maskedNationalId: '****6746',
+        }),
+        { status: 200 },
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await updateProfile({ nationalId: '6059926746' });
+
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(init.cache).toBe('no-store');
+    expect(JSON.parse(init.body as string)).toEqual({
+      nationalId: '6059926746',
+    });
+  });
+
+  it('reads the first validation message when the API returns an array', async () => {
+    stubSession();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            statusCode: 400,
+            message: ['کد ملی باید رشته باشد.'],
+            error: 'Bad Request',
+          }),
+          { status: 400 },
+        ),
+      ),
+    );
+
+    await expect(
+      updateProfile({ nationalId: null as unknown as string }),
+    ).rejects.toThrow('کد ملی باید رشته باشد.');
   });
 });

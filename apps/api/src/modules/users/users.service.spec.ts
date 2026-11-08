@@ -1146,4 +1146,68 @@ describe('UsersService', () => {
       expect(tx.userRole.deleteMany).not.toHaveBeenCalled();
     });
   });
+
+  describe('getPersonalNationalIdMasked', () => {
+    it('returns presence and only the last four digits', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        nationalId: '6059926746',
+        deletedAt: null,
+      });
+
+      const result = await service.getPersonalNationalIdMasked('user-1');
+
+      expect(prisma.user.findUnique).toHaveBeenCalledWith({
+        where: { id: 'user-1' },
+        select: { nationalId: true, deletedAt: true },
+      });
+      expect(result).toEqual({
+        hasNationalId: true,
+        maskedNationalId: '****6746',
+      });
+      expect(JSON.stringify(result)).not.toContain('6059926746');
+    });
+
+    it('returns an unset summary when the user has no national ID', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        nationalId: null,
+        deletedAt: null,
+      });
+
+      await expect(
+        service.getPersonalNationalIdMasked('user-1'),
+      ).resolves.toEqual({
+        hasNationalId: false,
+        maskedNationalId: null,
+      });
+    });
+
+    it('masks malformed stored values completely', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        nationalId: '605992674',
+        deletedAt: null,
+      });
+
+      await expect(
+        service.getPersonalNationalIdMasked('user-1'),
+      ).resolves.toEqual({
+        hasNationalId: true,
+        maskedNationalId: '****',
+      });
+    });
+
+    it('rejects missing and soft-deleted users with 404', async () => {
+      prisma.user.findUnique.mockResolvedValueOnce(null);
+      await expect(
+        service.getPersonalNationalIdMasked('user-missing'),
+      ).rejects.toThrow(NotFoundException);
+
+      prisma.user.findUnique.mockResolvedValueOnce({
+        nationalId: '6059926746',
+        deletedAt: new Date(),
+      });
+      await expect(
+        service.getPersonalNationalIdMasked('user-deleted'),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
 });

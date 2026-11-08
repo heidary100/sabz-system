@@ -218,6 +218,32 @@ describe('PartnersService', () => {
       ).rejects.toThrow(UnprocessableEntityException);
     });
 
+    it('does not apply the personal Code Melli checksum to the business nationalId', async () => {
+      prisma.userProfile.findUnique.mockResolvedValue({
+        id: 'profile-1',
+        firstName: 'علی',
+        lastName: 'احمدی',
+      });
+      prisma.partner.findFirst.mockResolvedValue(null);
+      tx.partner.create.mockResolvedValue(
+        makePartner({ nationalId: '1122334455' }),
+      );
+      prisma.businessDocument.findMany.mockResolvedValue([]);
+      prisma.partnerTier.findUnique.mockResolvedValue(null);
+
+      const result = await service.createApplication('user-1', {
+        businessName: 'اکسیر',
+        nationalId: '1122334455',
+      });
+
+      expect(tx.partner.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ nationalId: '1122334455' }),
+        }),
+      );
+      expect(result.nationalId).toBe('1122334455');
+    });
+
     it('audits with minimal business state excluding sensitive fields', async () => {
       prisma.userProfile.findUnique.mockResolvedValue({
         id: 'profile-1',

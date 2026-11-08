@@ -157,6 +157,9 @@ Fields
 - password_hash
 - status
 - last_login_at
+- national_id — optional personal Iranian National ID (کد ملی), stored as 10
+  ASCII digits. Identity-level sensitive attribute; distinct from
+  `Partner.national_id` (business شناسه ملی). See ADR-007.
 - deleted_at
 - created_by
 - updated_by
@@ -176,6 +179,7 @@ Business Rules
 - Password hash is nullable to allow future authentication methods (OTP, OAuth).
 - A user may hold multiple roles simultaneously (AUTH-005).
 - Authorization is derived exclusively from the user's roles (UserRole → Role); no other user classification is used for authorization (SS-027).
+- `national_id` is nullable, has no default, no uniqueness constraint, and no index. It is never returned in full; profile reads expose only presence and a `****1234` mask. See ADR-007.
 - Soft delete via `deleted_at`; records are retained but hidden.
 
 ---

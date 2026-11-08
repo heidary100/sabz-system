@@ -16,9 +16,18 @@ export class AuthService {
     });
   }
 
-  async findUserById(id: string): Promise<User | null> {
+  /**
+   * Authentication identity lookup only. Deliberately selects the minimum
+   * fields needed by the JWT strategy and /auth/me so a full User object —
+   * including the sensitive personal National ID — never travels through
+   * generic serialization paths (SS-260).
+   */
+  async findUserById(
+    id: string,
+  ): Promise<Pick<User, 'id' | 'mobile' | 'status' | 'deletedAt'> | null> {
     return this.prisma.user.findUnique({
       where: { id, deletedAt: null },
+      select: { id: true, mobile: true, status: true, deletedAt: true },
     });
   }
 

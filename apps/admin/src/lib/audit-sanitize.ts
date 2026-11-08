@@ -1,8 +1,23 @@
 const DENIED_KEY_PATTERN =
   /(password|passwd|secret|token|refresh|otp|verificationcode|verification_code|hash|storagekey|storage_key|path|filepath|file_path)/i
 
+/**
+ * Exact sensitive keys whose names do not match the broad pattern above.
+ * Exact matching matters: the safe boolean `nationalIdChanged` must remain
+ * visible while any raw National ID key is dropped.
+ */
+const DENIED_EXACT_KEYS = new Set([
+  'nationalid',
+  'national_id',
+  'codemelli',
+  'code_melli',
+  'mellicode',
+  'melli_code',
+])
+
 function isDeniedKey(key: string): boolean {
-  return DENIED_KEY_PATTERN.test(key)
+  const normalized = key.replace(/[\s-]/g, '').toLowerCase()
+  return DENIED_EXACT_KEYS.has(normalized) || DENIED_KEY_PATTERN.test(key)
 }
 
 function isPrimitive(value: unknown): value is string | number | boolean {

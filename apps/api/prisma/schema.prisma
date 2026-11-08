@@ -166,6 +166,13 @@ model User {
   status       UserStatus @default(PENDING_OTP)
   lastLoginAt  DateTime?
 
+  /// Personal Iranian National ID (کد ملی), optional. Stored canonically as
+  /// exactly 10 ASCII digits. Distinct from Partner.nationalId (business
+  /// شناسه ملی); never merge the two concepts or reuse business-ID rules.
+  /// Stored on User (not UserProfile) because it is an identity-level
+  /// sensitive attribute with its own access, masking and audit policy.
+  nationalId String?
+
   profile  UserProfile?
   roles    UserRole[]
   sessions UserSession[]
@@ -220,6 +227,10 @@ model Partner {
   profile           UserProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
   businessName      String
   businessLicenseNo String?
+
+  /// Business legal National ID (شناسه ملی), optional. Distinct from
+  /// User.nationalId (personal کد ملی). No personal checksum validation is
+  /// applied here.
   nationalId        String?
   website           String?
 

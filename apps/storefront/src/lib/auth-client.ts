@@ -1,4 +1,7 @@
 import { API_BASE_URL, ApiError } from '@/lib/api';
+import { toEnglishDigits } from '@/lib/digits';
+
+export { toEnglishDigits };
 
 /**
  * Customer auth client (SS-230): thin browser boundary over the merged
@@ -23,34 +26,15 @@ export interface ProfilePayload {
   firstName: string | null;
   lastName: string | null;
   address: string | null;
+  hasNationalId: boolean;
+  maskedNationalId: string | null;
 }
 
 export interface UpdateProfileInput {
   firstName?: string;
   lastName?: string;
   address?: string;
-}
-
-const FA_DIGITS = '۰۱۲۳۴۵۶۷۸۹';
-const AR_DIGITS = '٠١٢٣٤٥٦٧٨٩';
-
-/** Folds Persian (۰-۹) and Arabic (٠-٩) digits to ASCII. */
-export function toEnglishDigits(value: string): string {
-  let out = '';
-  for (const char of value) {
-    const faIndex = FA_DIGITS.indexOf(char);
-    if (faIndex >= 0) {
-      out += String(faIndex);
-      continue;
-    }
-    const arIndex = AR_DIGITS.indexOf(char);
-    if (arIndex >= 0) {
-      out += String(arIndex);
-      continue;
-    }
-    out += char;
-  }
-  return out;
+  nationalId?: string;
 }
 
 /** Iranian mobile: 11 ASCII digits starting with 09 (Persian input folded). */
@@ -90,9 +74,20 @@ interface ApiErrorBody {
 }
 
 function errorMessage(body: ApiErrorBody | undefined, fallback: string): string {
-  return typeof body?.message === 'string' && body.message !== ''
-    ? body.message
-    : fallback;
+  if (typeof body?.message === 'string' && body.message !== '') {
+    return body.message;
+  }
+  // Nest's ValidationPipe returns a string array for DTO constraint errors.
+  if (Array.isArray(body?.message)) {
+    const first = body.message.find(
+      (message): message is string =>
+        typeof message === 'string' && message !== '',
+    );
+    if (first !== undefined) {
+      return first;
+    }
+  }
+  return fallback;
 }
 
 async function throwApiError(response: Response, fallback: string): Promise<never> {
@@ -252,7 +247,7 @@ async function readPayload<T>(response: Response, fallback: string): Promise<T> 
 /** Current customer profile; 401/404 surface as thrown ApiError. */
 export async function fetchProfile(): Promise<ProfilePayload> {
   try {
-    const response = await authFetch('/auth/profile');
+    const response = await authFetch('/auth/profile', { cache: 'no-store' });
     return await readPayload<ProfilePayload>(response, 'دریافت اطلاعات ناموفق بود');
   } catch (error) {
     if (isUnauthorized(error)) {
@@ -271,6 +266,7 @@ export async function updateProfile(data: UpdateProfileInput): Promise<ProfilePa
   try {
     const response = await authFetch('/auth/profile', {
       method: 'PATCH',
+      cache: 'no-store',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
