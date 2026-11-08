@@ -28,13 +28,13 @@ export function CategoryTile({
         <Link
           href={`/categories/${category.slug}`}
           aria-label={`${category.name}، ${formatFaNumber(category.publishedProductCount)} کالا`}
-          className="group flex h-full min-h-11 items-center justify-between gap-3 rounded-xl border border-sand-200 bg-white p-4 transition-all duration-300 ease-[var(--ease-swift)] hover:-translate-y-0.5 hover:border-sabz-300 hover:shadow-card hover:text-sabz-800"
+          className="group flex h-full min-h-11 items-center justify-between gap-3 rounded-card border border-border bg-surface p-4 transition-all duration-300 ease-[var(--ease-swift)] hover:-translate-y-0.5 hover:border-accent hover:shadow-card hover:text-accent-hover"
         >
           <span className="min-w-0">
-            <span className="block truncate text-sm font-bold text-ink-900 transition-colors group-hover:text-sabz-800">
+            <span className="block truncate text-sm font-bold text-fg transition-colors group-hover:text-accent-hover">
               {category.name}
             </span>
-            <span className="mt-0.5 block text-xs text-gray-500">
+            <span className="mt-0.5 block text-xs text-fg-muted">
               {formatFaNumber(category.publishedProductCount)} کالا
             </span>
           </span>
@@ -42,7 +42,7 @@ export function CategoryTile({
             viewBox="0 0 20 20"
             fill="currentColor"
             aria-hidden="true"
-            className="size-4 shrink-0 text-gray-400 transition-all duration-300 ease-[var(--ease-swift)] group-hover:-translate-x-1 group-hover:text-sabz-600"
+            className="size-4 shrink-0 text-fg-muted transition-all duration-300 ease-[var(--ease-swift)] group-hover:-translate-x-1 group-hover:text-accent"
           >
             <path
               fillRule="evenodd"
@@ -59,26 +59,26 @@ export function CategoryTile({
   const remaining = category.children.length - preview.length;
 
   return (
-    <li className="flex h-full flex-col rounded-xl border border-sand-200 bg-white p-5 transition hover:border-sabz-300">
+    <li className="flex h-full flex-col rounded-card border border-border bg-surface p-5 transition hover:border-accent">
       <Link
         href={`/categories/${category.slug}`}
-        className="rounded-sm text-base font-bold text-ink-900 hover:text-sabz-700"
+        className="rounded-control text-base font-bold text-fg hover:text-accent"
       >
         {category.name}
       </Link>
-      <p className="mt-1 text-xs text-gray-500">
+      <p className="mt-1 text-xs text-fg-muted">
         {formatFaNumber(category.publishedProductCount)} کالا
       </p>
       {preview.length > 0 ? (
-        <ul role="list" className="mt-3 space-y-1.5 border-t border-sand-100 pt-3">
+        <ul role="list" className="mt-3 space-y-1.5 border-t border-border pt-3">
           {preview.map((child) => (
             <li key={child.id}>
               <Link
                 href={`/categories/${child.slug}`}
-                className="flex items-center justify-between rounded-sm text-sm text-gray-600 hover:text-sabz-700"
+                className="flex items-center justify-between rounded-control text-sm text-fg-secondary hover:text-accent"
               >
                 <span>{child.name}</span>
-                <span className="text-xs text-gray-500">
+                <span className="text-xs text-fg-muted">
                   {formatFaNumber(child.publishedProductCount)}
                 </span>
               </Link>
@@ -88,7 +88,7 @@ export function CategoryTile({
             <li>
               <Link
                 href={`/categories/${category.slug}`}
-                className="text-xs font-medium text-sabz-700 hover:text-sabz-800"
+                className="text-xs font-medium text-accent hover:text-accent-hover"
               >
                 {formatFaNumber(remaining)} زیرمجموعه دیگر…
               </Link>

@@ -54,7 +54,7 @@ export function TrustStrip({ items }: { items: TrustItem[] }) {
   return (
     <section
       aria-labelledby="trust-heading"
-      className="border-t border-sand-200 bg-white"
+      className="border-t border-border bg-surface"
     >
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         <h2 id="trust-heading" className="sr-only">
@@ -62,22 +62,22 @@ export function TrustStrip({ items }: { items: TrustItem[] }) {
         </h2>
         <ul
           role="list"
-          className="stagger grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4"
+          className=" grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4"
         >
           {items.map((item) => (
             <li
               key={item.title}
-              className="group flex items-start gap-4 rounded-2xl bg-sand-50 p-5 ring-1 ring-inset ring-sand-200 transition-all duration-300 ease-[var(--ease-swift)] hover:-translate-y-1 hover:bg-white hover:shadow-card hover:ring-sabz-200"
+              className="group flex items-start gap-4 rounded-panel bg-surface-2 p-5 ring-1 ring-inset ring-border transition-all duration-300 ease-[var(--ease-swift)] hover:-translate-y-1 hover:bg-surface hover:ring-accent/20"
             >
-              <span className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-gradient-sabz text-white shadow-sm transition-transform duration-300 ease-[var(--ease-spring)] group-hover:scale-110">
+              <span className="flex size-12 shrink-0 items-center justify-center rounded-card bg-accent text-on-accent shadow-card transition-transform duration-300 ease-[var(--ease-spring)] group-hover:scale-110">
                 {TRUST_ICONS[item.icon]}
               </span>
               <span className="min-w-0">
-                <span className="block text-sm font-bold text-ink-900">
+                <span className="block text-sm font-bold text-fg">
                   {item.title}
                 </span>
                 {item.body ? (
-                  <span className="mt-1 block text-[13px] leading-6 text-gray-600">
+                  <span className="mt-1 block text-[13px] leading-6 text-fg-secondary">
                     {item.body}
                   </span>
                 ) : null}

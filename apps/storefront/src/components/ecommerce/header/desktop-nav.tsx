@@ -76,13 +76,13 @@ export function DesktopNav({ categories }: { categories: CatalogCategoryNode[] }
               onFocus={() => openMenu(category.slug)}
             >
               <span
-                className={`relative flex items-center whitespace-nowrap rounded-md px-2 py-2 text-sm font-medium transition-colors hover:bg-sabz-50 hover:text-sabz-800 ${
-                  openSlug === category.slug ? 'bg-sabz-50 text-sabz-800' : 'text-gray-700'
+                className={`relative flex items-center whitespace-nowrap rounded-control px-2 py-2 text-sm font-medium transition-colors hover:bg-accent-soft hover:text-accent-hover ${
+                  openSlug === category.slug ? 'bg-accent-soft text-accent-hover' : 'text-fg-secondary'
                 }`}
               >
                 <Link
                   href={`/categories/${category.slug}`}
-                  className="rounded-sm"
+                  className="rounded-control"
                   onClick={() => closeMenu(false, null)}
                 >
                   {category.name}
@@ -102,7 +102,7 @@ export function DesktopNav({ categories }: { categories: CatalogCategoryNode[] }
                   onClick={() =>
                     openSlug === category.slug ? closeMenu(false, null) : openMenu(category.slug)
                   }
-                  className="-me-1.5 rounded-sm p-1.5 text-gray-500 hover:text-sabz-700"
+                  className="-me-1.5 rounded-control p-1.5 text-fg-muted hover:text-accent"
                 >
                   <svg
                     viewBox="0 0 20 20"
@@ -119,7 +119,7 @@ export function DesktopNav({ categories }: { categories: CatalogCategoryNode[] }
                 </button>
                 <span
                   aria-hidden="true"
-                  className={`absolute inset-x-3 -bottom-0.5 h-0.5 rounded-full bg-sabz-600 transition-opacity ${
+                  className={`absolute inset-x-3 -bottom-0.5 h-0.5 rounded-pill bg-accent transition-opacity ${
                     openSlug === category.slug ? 'opacity-100' : 'opacity-0'
                   }`}
                 />
@@ -129,10 +129,10 @@ export function DesktopNav({ categories }: { categories: CatalogCategoryNode[] }
             <li key={category.id}>
               <Link
                 href={`/categories/${category.slug}`}
-                className="group flex items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-2 text-sm font-medium text-gray-700 hover:bg-sabz-50 hover:text-sabz-800"
+                className="group flex items-center gap-1.5 whitespace-nowrap rounded-control px-2 py-2 text-sm font-medium text-fg-secondary hover:bg-accent-soft hover:text-accent-hover"
               >
                 <span>{category.name}</span>
-                <span className="rounded-full bg-sabz-50 px-1.5 py-0.5 text-[11px] font-semibold text-sabz-600">
+                <span className="rounded-pill bg-accent-soft px-1.5 py-0.5 text-[11px] font-semibold text-accent">
                   {formatFaNumber(category.publishedProductCount)}
                 </span>
               </Link>
@@ -143,9 +143,10 @@ export function DesktopNav({ categories }: { categories: CatalogCategoryNode[] }
           <li>
             <Link
               href="/categories"
-              className="rounded-md px-3 py-2 text-sm font-semibold text-sabz-700 hover:bg-sabz-50 hover:text-sabz-800"
+              aria-label="همه دسته‌بندی‌ها"
+              className="whitespace-nowrap rounded-control px-3 py-2 text-sm font-semibold text-accent hover:bg-accent-soft hover:text-accent-hover"
             >
-              همه دسته‌بندی‌ها
+              همه
             </Link>
           </li>
         ) : null}
@@ -153,20 +154,20 @@ export function DesktopNav({ categories }: { categories: CatalogCategoryNode[] }
 
       {openCategory ? (
         <div id={`megamenu-${openCategory.slug}`} className="absolute inset-x-0 top-full z-50">
-          <div className="animate-zoom-in origin-top overflow-hidden rounded-2xl border border-sand-200 bg-white shadow-xl shadow-sabz-900/10">
-            <div className="h-1 bg-gradient-to-l from-sabz-400 via-sabz-600 to-sabz-800" aria-hidden="true" />
+          <div className="animate-zoom-in origin-top overflow-hidden rounded-panel border border-border bg-surface shadow-overlay ">
+            <div className="h-1 bg-accent" aria-hidden="true" />
             <div className="grid grid-cols-2 gap-x-8 gap-y-6 p-6 xl:grid-cols-3">
               {openCategory.children.map((child) => (
                 <div key={child.id}>
                   <Link
                     href={`/categories/${child.slug}`}
                     onClick={() => closeMenu(false, null)}
-                    className="group flex items-center justify-between rounded-sm border-b border-sand-100 pb-2 text-sm font-bold text-ink-900 transition-colors hover:text-sabz-700"
+                    className="group flex items-center justify-between rounded-control border-b border-border pb-2 text-sm font-bold text-fg transition-colors hover:text-accent"
                   >
                     <span className="transition-transform duration-300 ease-[var(--ease-swift)] group-hover:-translate-x-0.5">
                       {child.name}
                     </span>
-                    <span className="rounded-full bg-sabz-50 px-2 py-0.5 text-[11px] font-semibold text-sabz-600">
+                    <span className="rounded-pill bg-accent-soft px-2 py-0.5 text-[11px] font-semibold text-accent">
                       {formatFaNumber(child.publishedProductCount)}
                     </span>
                   </Link>
@@ -177,10 +178,10 @@ export function DesktopNav({ categories }: { categories: CatalogCategoryNode[] }
                           <Link
                             href={`/categories/${grandchild.slug}`}
                             onClick={() => closeMenu(false, null)}
-                            className="flex items-center justify-between rounded-md px-2 py-1.5 text-[13px] text-gray-600 transition-colors hover:bg-sabz-50 hover:text-sabz-800"
+                            className="flex items-center justify-between rounded-control px-2 py-1.5 text-[13px] text-fg-secondary transition-colors hover:bg-accent-soft hover:text-accent-hover"
                           >
                             <span>{grandchild.name}</span>
-                            <span className="text-xs text-gray-500">
+                            <span className="text-xs text-fg-muted">
                               {formatFaNumber(grandchild.publishedProductCount)}
                             </span>
                           </Link>
@@ -191,18 +192,18 @@ export function DesktopNav({ categories }: { categories: CatalogCategoryNode[] }
                 </div>
               ))}
             </div>
-            <div className="flex items-center justify-between border-t border-sand-100 bg-sand-50 px-6 py-3">
+            <div className="flex items-center justify-between border-t border-border bg-surface-2 px-6 py-3">
               <Link
                 href={`/categories/${openCategory.slug}`}
                 onClick={() => closeMenu(false, null)}
-                className="text-sm font-semibold text-sabz-700 hover:text-sabz-800"
+                className="text-sm font-semibold text-accent hover:text-accent-hover"
               >
                 مشاهده همه {openCategory.name} ←
               </Link>
               <Link
                 href="/categories"
                 onClick={() => closeMenu(false, null)}
-                className="text-sm text-gray-500 hover:text-sabz-700"
+                className="text-sm text-fg-muted hover:text-accent"
               >
                 همه دسته‌بندی‌ها
               </Link>

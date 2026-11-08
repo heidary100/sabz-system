@@ -87,7 +87,7 @@ export function InvoiceView({ id }: { id: string }) {
   if (status === 'missing') {
     return (
       <Card className="p-6 text-center print:hidden">
-        <p className="text-sm leading-6 text-gray-600">فاکتور یافت نشد.</p>
+        <p className="text-sm leading-6 text-fg-secondary">فاکتور یافت نشد.</p>
         <Link href="/orders" className={buttonVariants({ variant: 'primary' }) + ' mt-6'}>
           بازگشت به سفارش‌ها
         </Link>
@@ -97,7 +97,7 @@ export function InvoiceView({ id }: { id: string }) {
 
   if (status === 'error' || invoice === null) {
     return (
-      <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 print:hidden">
+      <p role="alert" className="rounded-control bg-danger-soft px-3 py-2 text-sm text-danger print:hidden">
         {error ?? LOAD_FAILED}
       </p>
     );
@@ -119,15 +119,15 @@ export function InvoiceView({ id }: { id: string }) {
         </Link>
       </div>
 
-      <div className="mt-6 rounded-xl border border-sand-200 bg-white p-6 print:mt-0 print:border-0 print:p-0">
-        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-sand-200 pb-4">
+      <div className="mt-6 rounded-card border border-border bg-surface p-6 print:mt-0 print:border-0 print:p-0">
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border pb-4">
           <div>
-            <h2 className="text-lg font-bold text-ink-900">فاکتور فروش</h2>
-            <p className="mt-1 text-sm text-gray-600">
+            <h2 className="text-lg font-bold text-fg">فاکتور فروش</h2>
+            <p className="mt-1 text-sm text-fg-secondary">
               شماره سفارش {formatFaNumber(invoice.orderNumber)}
             </p>
           </div>
-          <div className="text-left text-sm text-gray-600">
+          <div className="text-left text-sm text-fg-secondary">
             <p>وضعیت: {orderStatusLabel(invoice.status)}</p>
             <p>
               شیوه پرداخت: {paymentMethodLabel(invoice.paymentMethod)} — {paymentStatusLabel(invoice.paymentStatus)}
@@ -140,7 +140,7 @@ export function InvoiceView({ id }: { id: string }) {
 
         <table className="mt-4 w-full text-sm">
           <thead>
-            <tr className="border-b border-sand-200 text-right text-gray-500">
+            <tr className="border-b border-border text-right text-fg-muted">
               <th scope="col" className="py-2 font-semibold">شرح</th>
               <th scope="col" className="py-2 font-semibold">تعداد</th>
               <th scope="col" className="py-2 font-semibold">مبلغ واحد</th>
@@ -149,11 +149,11 @@ export function InvoiceView({ id }: { id: string }) {
           </thead>
           <tbody>
             {invoice.items.map((item, index) => (
-              <tr key={`${item.variantId}-${index}`} className="border-b border-sand-100 last:border-0">
-                <td className="py-2 text-ink-900">
+              <tr key={`${item.variantId}-${index}`} className="border-b border-border last:border-0">
+                <td className="py-2 text-fg">
                   {item.productName}
                   {item.variantName !== null ? ` — ${item.variantName}` : ''}
-                  <span className="block text-xs text-gray-400">{item.sku}</span>
+                  <span className="block text-xs text-fg-muted">{item.sku}</span>
                 </td>
                 <td className="py-2">{formatFaNumber(item.quantity)}</td>
                 <td className="py-2">{formatToman(item.unitPrice)}</td>
@@ -163,22 +163,22 @@ export function InvoiceView({ id }: { id: string }) {
           </tbody>
         </table>
 
-        <dl className="mt-4 space-y-2 border-t border-sand-200 pt-4 text-sm">
+        <dl className="mt-4 space-y-2 border-t border-border pt-4 text-sm">
           <div className="flex items-center justify-between gap-3">
-            <dt className="text-gray-600">جمع اقلام</dt>
-            <dd className="font-semibold text-ink-900">{formatToman(invoice.subtotal)}</dd>
+            <dt className="text-fg-secondary">جمع اقلام</dt>
+            <dd className="font-semibold text-fg">{formatToman(invoice.subtotal)}</dd>
           </div>
           <div className="flex items-center justify-between gap-3">
-            <dt className="text-gray-600">هزینه ارسال</dt>
-            <dd className="font-semibold text-ink-900">{formatToman(invoice.shippingFee)}</dd>
+            <dt className="text-fg-secondary">هزینه ارسال</dt>
+            <dd className="font-semibold text-fg">{formatToman(invoice.shippingFee)}</dd>
           </div>
           <div className="flex items-center justify-between gap-3">
-            <dt className="font-bold text-ink-900">جمع فاکتور</dt>
-            <dd className="text-lg font-bold text-sabz-800">{formatToman(invoice.total)}</dd>
+            <dt className="font-bold text-fg">جمع فاکتور</dt>
+            <dd className="text-lg font-bold text-accent-hover">{formatToman(invoice.total)}</dd>
           </div>
         </dl>
 
-        <p className="mt-4 text-xs leading-5 text-gray-500">
+        <p className="mt-4 text-xs leading-5 text-fg-muted">
           نشانی تحویل: {[snapshot.province, snapshot.city, snapshot.address].filter(Boolean).join('، ')}
           {snapshot.postalCode !== null ? ` — کد پستی ${snapshot.postalCode}` : ''}
         </p>

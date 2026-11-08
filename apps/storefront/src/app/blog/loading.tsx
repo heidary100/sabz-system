@@ -6,11 +6,11 @@ export default function Loading() {
       aria-busy="true"
       aria-label="در حال بارگذاری وبلاگ"
     >
-      <div className="h-8 w-48 rounded-md bg-sand-100" aria-hidden="true" />
+      <div className="h-8 w-48 rounded-control bg-surface-2" aria-hidden="true" />
       <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <div className="h-64 rounded-xl bg-sand-100" aria-hidden="true" />
-        <div className="h-64 rounded-xl bg-sand-100" aria-hidden="true" />
-        <div className="h-64 rounded-xl bg-sand-100" aria-hidden="true" />
+        <div className="h-64 rounded-card bg-surface-2" aria-hidden="true" />
+        <div className="h-64 rounded-card bg-surface-2" aria-hidden="true" />
+        <div className="h-64 rounded-card bg-surface-2" aria-hidden="true" />
       </div>
     </div>
   );

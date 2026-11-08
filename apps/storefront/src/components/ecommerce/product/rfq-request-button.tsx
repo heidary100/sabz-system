@@ -34,9 +34,9 @@ export function RfqRequestButton({
 
   if (!signedIn) {
     return (
-      <div className="rounded-xl border border-sand-200 bg-white p-4 text-sm">
-        <p className="font-semibold text-ink-900">برای قیمت تماس بگیرید</p>
-        <p className="mt-1 leading-6 text-gray-600">
+      <div className="rounded-card border border-border bg-surface p-4 text-sm">
+        <p className="font-semibold text-fg">برای قیمت تماس بگیرید</p>
+        <p className="mt-1 leading-6 text-fg-secondary">
           قیمت این مدل متغیر است. همکاران تأییدشده پس از ورود می‌توانند
           استعلام ثبت کنند.
         </p>
@@ -81,9 +81,9 @@ export function RfqRequestButton({
 
   if (createdId !== null) {
     return (
-      <div className="rounded-xl border border-sabz-200 bg-sabz-50 p-4 text-sm">
-        <p className="font-semibold text-sabz-800">استعلام شما ثبت شد</p>
-        <p className="mt-1 leading-6 text-gray-600">
+      <div className="rounded-card border border-accent/30 bg-accent-soft p-4 text-sm">
+        <p className="font-semibold text-accent-hover">استعلام شما ثبت شد</p>
+        <p className="mt-1 leading-6 text-fg-secondary">
           پس از اعلام قیمت از سوی فروشگاه، از صفحه استعلام‌ها می‌توانید آن
           را بپذیرید و سفارش ثبت کنید.
         </p>
@@ -98,14 +98,14 @@ export function RfqRequestButton({
   }
 
   return (
-    <div className="rounded-xl border border-sand-200 bg-white p-4 text-sm">
-      <p className="font-semibold text-ink-900">برای قیمت تماس بگیرید</p>
-      <p className="mt-1 leading-6 text-gray-600">
+    <div className="rounded-card border border-border bg-surface p-4 text-sm">
+      <p className="font-semibold text-fg">برای قیمت تماس بگیرید</p>
+      <p className="mt-1 leading-6 text-fg-secondary">
         قیمت {productName} متغیر است؛ تعداد را وارد کنید تا استعلام ثبت شود.
       </p>
       <label
         htmlFor="rfq-quantity"
-        className="mt-3 block text-xs font-medium text-gray-600"
+        className="mt-3 block text-xs font-medium text-fg-secondary"
       >
         تعداد
       </label>
@@ -116,7 +116,7 @@ export function RfqRequestButton({
         inputMode="numeric"
         value={quantity}
         onChange={(event) => setQuantity(event.target.value)}
-        className="mt-1 min-h-11 w-28 rounded-md border border-sand-200 bg-white px-3 text-sm text-ink-900"
+        className="mt-1 min-h-11 w-28 rounded-control border border-border bg-surface px-3 text-sm text-fg"
       />
       <Button
         variant="primary"
@@ -128,7 +128,7 @@ export function RfqRequestButton({
         {pending ? 'در حال ثبت…' : 'درخواست استعلام'}
       </Button>
       {error ? (
-        <p role="alert" className="mt-2 leading-6 text-red-700">
+        <p role="alert" className="mt-2 leading-6 text-danger">
           {error}
         </p>
       ) : null}

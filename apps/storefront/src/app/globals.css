@@ -1,49 +1,304 @@
 @import 'tailwindcss';
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* ------------------------------------------------------------------ */
+/* Pine & Paper — token architecture (Task 01)                        */
+/*                                                                    */
+/* 1. Primitive values (brand + functional) live in @theme.            */
+/* 2. Semantic values live in :root / [data-theme='dark'] and are      */
+/*    exposed to Tailwind through @theme inline.                       */
+/* 3. Component tokens are only added when a surface needs a distinct  */
+/*    semantic role (stage, plate, overlay).                           */
+/*                                                                    */
+/* Components must use semantic utilities (bg-surface, text-fg, …).    */
+/* Raw palette utilities are intentionally forbidden by the token test.*/
+/* ------------------------------------------------------------------ */
+
+@theme {
+  /* Existing Sabz primitives — retained as the source of brand values. */
+  --color-sabz-50: #f4f6f2;
+  --color-sabz-100: #e6eae1;
+  --color-sabz-200: #ccd6c6;
+  --color-sabz-300: #a3b18a;
+  --color-sabz-400: #7d9873;
+  --color-sabz-500: #588157;
+  --color-sabz-600: #4a6d4b;
+  --color-sabz-700: #3a5a40;
+  --color-sabz-800: #344e41;
+  --color-sabz-900: #2b3f35;
+
+  --color-sand-50: #f8f7f5;
+  --color-sand-100: #efece7;
+  --color-sand-200: #dad7cd;
+  --color-ink-900: #312e24;
+  --color-ink-950: #191713;
+
+  --font-sans: 'Vazirmatn Variable', 'Vazirmatn', ui-sans-serif, system-ui,
+    'Segoe UI', Tahoma, sans-serif;
+
+  /* Four-value radius system. */
+  --radius-control: 10px;
+  --radius-card: 16px;
+  --radius-panel: 24px;
+  --radius-pill: 9999px;
+
+  /* Typography tokens. Existing pages keep their layout; primitives and
+     new work consume these without a page-wide typographic rewrite. */
+  --text-display-xl: clamp(2.5rem, 4vw, 3.5rem);
+  --text-display-xl--line-height: 1.15;
+  --text-display-xl--font-weight: 900;
+  --text-display-l: 2.5rem;
+  --text-display-l--line-height: 1.25;
+  --text-display-l--font-weight: 800;
+  --text-h1: 2rem;
+  --text-h1--line-height: 1.35;
+  --text-h1--font-weight: 800;
+  --text-h2: 1.5rem;
+  --text-h2--line-height: 1.4;
+  --text-h2--font-weight: 700;
+  --text-h3: 1.125rem;
+  --text-h3--line-height: 1.5;
+  --text-h3--font-weight: 700;
+  --text-body-lg: 1rem;
+  --text-body-lg--line-height: 1.85;
+  --text-body: 0.875rem;
+  --text-body--line-height: 1.75;
+  --text-label: 0.75rem;
+  --text-label--line-height: 1.5;
+  --text-label--font-weight: 600;
+  --text-micro: 0.6875rem;
+  --text-micro--line-height: 1.45;
+  --text-micro--font-weight: 500;
+
+  /* Elevation: border-first. Shadows are reserved for overlays/panels. */
+  --shadow-card: none;
+  --shadow-lift: 0 6px 18px -12px rgb(16 20 14 / 0.28);
+  --shadow-panel: 0 1px 0 rgb(16 20 14 / 0.04),
+    0 16px 40px -24px rgb(16 20 14 / 0.22);
+  --shadow-overlay: 0 24px 64px -16px rgb(16 20 14 / 0.32);
+
+  --ease-swift: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* Semantic tokens exposed as Tailwind utilities. `inline` is required so
+   the generated utilities reference the runtime variables below and switch
+   with [data-theme]. */
+@theme inline {
+  --color-bg: var(--ss-bg);
+  --color-surface: var(--ss-surface);
+  --color-surface-2: var(--ss-surface-2);
+  --color-surface-3: var(--ss-surface-3);
+
+  --color-fg: var(--ss-fg);
+  --color-fg-secondary: var(--ss-fg-secondary);
+  --color-fg-muted: var(--ss-fg-muted);
+
+  --color-border: var(--ss-border);
+  --color-border-strong: var(--ss-border-strong);
+  --color-border-subtle: var(--ss-border-subtle);
+  --color-border-control: var(--ss-border-control);
+
+  --color-accent: var(--ss-accent);
+  --color-accent-hover: var(--ss-accent-hover);
+  --color-accent-soft: var(--ss-accent-soft);
+  --color-on-accent: var(--ss-on-accent);
+  --color-accent-stage: var(--ss-accent-stage);
+
+  --color-focus: var(--ss-focus);
+  --color-focus-stage: var(--ss-focus-stage);
+
+  --color-sale: var(--ss-sale);
+  --color-on-sale: var(--ss-on-sale);
+  --color-sale-soft: var(--ss-sale-soft);
+  --color-success: var(--ss-success);
+  --color-success-soft: var(--ss-success-soft);
+  --color-warning: var(--ss-warning);
+  --color-warning-soft: var(--ss-warning-soft);
+  --color-danger: var(--ss-danger);
+  --color-on-danger: var(--ss-on-danger);
+  --color-danger-soft: var(--ss-danger-soft);
+
+  --color-stage: var(--ss-stage);
+  --color-stage-2: var(--ss-stage-2);
+  --color-on-stage: var(--ss-on-stage);
+  --color-on-stage-secondary: var(--ss-on-stage-secondary);
+  --color-on-stage-muted: var(--ss-on-stage-muted);
+  --color-stage-border: var(--ss-stage-border);
+
+  --color-plate: var(--ss-plate);
+  --color-plate-fg: var(--ss-plate-fg);
+  --color-plate-muted: var(--ss-plate-muted);
+  --color-plate-border: var(--ss-plate-border);
+  --color-plate-accent: var(--ss-plate-accent);
+
+  --color-overlay: var(--ss-overlay);
+}
+
+:root,
+[data-theme='light'] {
+  color-scheme: light;
+
+  --ss-bg: #f8f7f5;
+  --ss-surface: #ffffff;
+  --ss-surface-2: #f1eee8;
+  --ss-surface-3: #e9e4db;
+
+  --ss-fg: #312e24;
+  --ss-fg-secondary: #5f5a4d;
+  --ss-fg-muted: #726b5d;
+
+  --ss-border: #dad7cd;
+  --ss-border-strong: #bdb8ab;
+  --ss-border-subtle: #e8e4dc;
+  --ss-border-control: #8a8374;
+
+  --ss-accent: #3a5a40;
+  --ss-accent-hover: #344e41;
+  --ss-accent-soft: #e6eae1;
+  --ss-on-accent: #ffffff;
+  --ss-accent-stage: #a3b18a;
+
+  --ss-focus: #4a6d4b;
+  --ss-focus-stage: #a3b18a;
+
+  --ss-sale: #b42318;
+  --ss-on-sale: #ffffff;
+  --ss-sale-soft: #fbe9e7;
+  --ss-success: #2f6b3f;
+  --ss-success-soft: #e8f3ea;
+  --ss-warning: #8a5a00;
+  --ss-warning-soft: #f8efdc;
+  --ss-danger: #b42318;
+  --ss-on-danger: #ffffff;
+  --ss-danger-soft: #fbe9e7;
+
+  /* Stage is intentionally dark in both themes: hero, footer, campaign. */
+  --ss-stage: #191713;
+  --ss-stage-2: #23211b;
+  --ss-on-stage: #f7f4ec;
+  --ss-on-stage-secondary: #c9c5b9;
+  --ss-on-stage-muted: #a8a396;
+  --ss-stage-border: rgb(255 255 255 / 0.12);
+
+  /* Product photography stays on a light plate in both themes. */
+  --ss-plate: #f5f2eb;
+  --ss-plate-fg: #312e24;
+  --ss-plate-muted: #726b5d;
+  --ss-plate-border: #e2ded4;
+  --ss-plate-accent: #3a5a40;
+
+  --ss-overlay: rgb(12 14 10 / 0.62);
+  --ss-shimmer: rgb(255 255 255 / 0.55);
+  --ss-selection-bg: #3a5a40;
+  --ss-selection-fg: #ffffff;
+  --ss-scrollbar: #dad7cd;
+  --ss-scrollbar-hover: #a3b18a;
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+
+  --ss-bg: #151814;
+  --ss-surface: #1d211c;
+  --ss-surface-2: #232822;
+  --ss-surface-3: #2b312a;
+
+  --ss-fg: #f3f0e9;
+  --ss-fg-secondary: #c7c2b6;
+  --ss-fg-muted: #9b968a;
+
+  --ss-border: #343a31;
+  --ss-border-strong: #4c5447;
+  --ss-border-subtle: #2a2f28;
+  --ss-border-control: #6b7464;
+
+  --ss-accent: #a3b18a;
+  --ss-accent-hover: #b7c3a1;
+  --ss-accent-soft: #263024;
+  --ss-on-accent: #14170f;
+  --ss-accent-stage: #a3b18a;
+
+  --ss-focus: #a3b18a;
+  --ss-focus-stage: #a3b18a;
+
+  --ss-sale: #b42318;
+  --ss-on-sale: #ffffff;
+  --ss-sale-soft: #3a1c19;
+  --ss-success: #86efac;
+  --ss-success-soft: #1b2e22;
+  --ss-warning: #fbbf24;
+  --ss-warning-soft: #33270f;
+  --ss-danger: #fca5a5;
+  --ss-on-danger: #2a0d0a;
+  --ss-danger-soft: #3a1c19;
+
+  --ss-stage: #191713;
+  --ss-stage-2: #23211b;
+  --ss-on-stage: #f7f4ec;
+  --ss-on-stage-secondary: #c9c5b9;
+  --ss-on-stage-muted: #a8a396;
+  --ss-stage-border: rgb(255 255 255 / 0.12);
+
+  --ss-plate: #f5f2eb;
+  --ss-plate-fg: #312e24;
+  --ss-plate-muted: #6b6558;
+  --ss-plate-border: #e2ded4;
+  --ss-plate-accent: #3a5a40;
+
+  --ss-overlay: rgb(6 8 6 / 0.7);
+  --ss-shimmer: rgb(255 255 255 / 0.07);
+  --ss-selection-bg: #a3b18a;
+  --ss-selection-fg: #14170f;
+  --ss-scrollbar: #343a31;
+  --ss-scrollbar-hover: #4c5447;
+}
+
+html {
+  background-color: var(--ss-bg);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background-color: var(--ss-bg);
+  color: var(--ss-fg);
 }
 
-/* Hover elevation (SS-221): the standard "card lifts to meet the cursor"
-   interaction for product cards, tiles, and rails. Transform + shadow only —
-   cheap to composite, no layout shift. The global reduced-motion rule
-   collapses the transition to instantaneous without hiding anything. */
+/* Hover elevation: cards lift without a heavy shadow. */
 @layer components {
+  /* Dark stage containers inherit a sage focus ring, which has 3:1+
+     non-text contrast against the stage while staying pine on paper. */
+  .stage-surface {
+    --ss-focus: var(--ss-focus-stage);
+  }
+
   .hover-lift {
     transition:
-      transform 300ms var(--ease-swift),
-      box-shadow 300ms var(--ease-swift),
-      border-color 300ms var(--ease-swift);
+      transform 180ms var(--ease-out),
+      box-shadow 180ms var(--ease-out),
+      border-color 180ms var(--ease-out);
   }
   .hover-lift:hover {
-    transform: translateY(-3px);
+    transform: translateY(-2px);
     box-shadow: var(--shadow-lift);
   }
 }
 
-/* Rich-text product description (rendered by components/rich-text.tsx).
-   RTL-first typography for the sanitized HTML persisted by the product API. */
+/* Rich-text product/blog content. */
 @layer components {
   .rich-text {
-    @apply text-base/8 text-neutral-700;
+    @apply text-body text-fg-secondary;
   }
   .rich-text p {
     @apply mb-4 mt-0;
   }
   .rich-text h2 {
-    @apply mb-3 mt-7 text-xl/8 font-bold text-ink-900;
+    @apply mb-3 mt-7 text-h3 text-fg;
   }
   .rich-text h3 {
-    @apply mb-2 mt-6 text-lg/7 font-semibold text-ink-900;
+    @apply mb-2 mt-6 text-h3 text-fg;
   }
   .rich-text h1 {
-    @apply mb-3 mt-7 text-2xl/9 font-bold text-ink-900;
+    @apply mb-3 mt-7 text-h2 text-fg;
   }
   .rich-text h2:first-child,
   .rich-text h3:first-child,
@@ -65,13 +320,13 @@ body {
     @apply mb-1.5;
   }
   .rich-text li::marker {
-    @apply text-sabz-600;
+    @apply text-accent;
   }
   .rich-text blockquote {
-    @apply mb-4 rounded-lg border-s-4 border-sabz-700 bg-sabz-50 px-4 py-2 text-neutral-600;
+    @apply mb-4 rounded-control border-s-4 border-accent bg-accent-soft px-4 py-2 text-fg-secondary;
   }
   .rich-text strong {
-    @apply font-bold text-ink-900;
+    @apply font-bold text-fg;
   }
   .rich-text em {
     @apply italic;
@@ -80,10 +335,10 @@ body {
     @apply underline;
   }
   .rich-text a {
-    @apply font-medium text-sabz-700 underline decoration-sabz-300 underline-offset-4 transition-colors hover:text-sabz-800;
+    @apply font-medium text-accent underline decoration-accent/40 underline-offset-4 transition-colors hover:text-accent-hover;
   }
   .rich-text img {
-    @apply my-3 h-auto max-w-full rounded-xl;
+    @apply my-3 h-auto max-w-full rounded-card;
     display: block;
     margin-inline-start: auto;
     margin-inline-end: auto;
@@ -106,50 +361,45 @@ body {
   }
   .rich-text figure > img,
   .rich-text figure > a > img {
-    @apply h-auto max-w-full rounded-xl;
+    @apply h-auto max-w-full rounded-card;
     display: block;
   }
   .rich-text figcaption {
-    @apply mt-2 text-center text-sm text-neutral-500;
+    @apply mt-2 text-center text-xs text-fg-muted;
   }
   .rich-text hr {
-    @apply my-7 border-t border-sand-200;
+    @apply my-7 border-t border-border;
   }
   .rich-text table {
-    @apply my-5 w-full border-collapse overflow-hidden rounded-xl;
-    border: 1px solid #e5e7eb;
+    @apply my-5 w-full border-collapse overflow-hidden rounded-card;
+    border: 1px solid var(--ss-border);
   }
   .rich-text th,
   .rich-text td {
     @apply border px-3 py-2.5 text-sm/6;
-    border-color: #e5e7eb;
+    border-color: var(--ss-border);
   }
   .rich-text th {
-    @apply bg-sand-100 font-semibold text-ink-900;
+    @apply bg-surface-2 font-semibold text-fg;
   }
 }
 
-/* Visible keyboard focus everywhere (SS-218): one global rule so portalled
-   overlays (mobile drawer mounts on document.body), the footer, and the
-   announcement bar are covered without per-component duplication. sabz-600
-   measures ≥5.3:1 against every light surface; the 2px offset keeps the ring
-   on the surrounding surface, so it also stays visible around sabz-700
-   buttons. */
+/* Visible keyboard focus everywhere. The semantic focus token is pine in
+   light mode and sage in dark mode, so the ring has contrast on both. */
 a:focus-visible,
 button:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible,
 summary:focus-visible,
-[role='button']:focus-visible {
-  outline: 2px solid var(--color-sabz-600);
+[role='button']:focus-visible,
+[role='menuitemradio']:focus-visible,
+[role='tab']:focus-visible {
+  outline: 2px solid var(--ss-focus);
   outline-offset: 2px;
   border-radius: 2px;
 }
 
-/* Respect the reduced-motion request (SS-218): state changes stay
-   instantaneous, decorative motion (card zoom, chevron rotate, skeleton
-   pulse) stops. Scoped to duration only — nothing is hidden. */
 @media (prefers-reduced-motion: reduce) {
   *,
   ::before,
@@ -161,79 +411,17 @@ summary:focus-visible,
   }
 }
 
-/* Sabz brand palette (AGENTS.md): greens for actions/accents, warm neutrals
-   for surfaces. Defined as Tailwind v4 theme colors so utilities like
-   bg-sabz-700 are available everywhere. */
-@theme {
-  /* SS-217: the variable Vazirmatn faces (Arabic + Latin subsets via
-     unicode-range, weights 100-900) are self-hosted through the
-     @fontsource-variable/vazirmatn import in layout.tsx. Wiring --font-sans
-     is what actually applies the family; without it the font files never
-     load because nothing referenced them. */
-  --font-sans: 'Vazirmatn Variable', 'Vazirmatn', ui-sans-serif, system-ui,
-    'Segoe UI', Tahoma, sans-serif;
-
-  --color-sabz-50: #f4f6f2;
-  --color-sabz-100: #e6eae1;
-  --color-sabz-200: #ccd6c6;
-  --color-sabz-300: #a3b18a;
-  --color-sabz-400: #7d9873;
-  --color-sabz-500: #588157;
-  --color-sabz-600: #4a6d4b;
-  --color-sabz-700: #3a5a40;
-  --color-sabz-800: #344e41;
-  --color-sabz-900: #2b3f35;
-  --color-sand-50: #f8f7f5;
-  --color-sand-100: #efece7;
-  --color-sand-200: #dad7cd;
-  --color-ink-900: #312e24;
-  /* SS-221 cinematic surfaces: deep hero/footer/backdrop ink one step darker
-     than ink-900 so dark sections and light content zones read as layers. */
-  --color-ink-950: #191713;
-
-  /* SS-246 radius consolidation: the app previously used six overlapping
-     scales (sm/md/lg/xl/2xl/full) with no system. One canonical ramp —
-     chips stay `full`, inputs/buttons land on md/lg, cards/surfaces on
-     xl/2xl — so every surface shares the same geometry language. */
-  --radius-sm: 0.5rem;
-  --radius-md: 0.75rem;
-  --radius-lg: 0.875rem;
-  --radius-xl: 1.125rem;
-  --radius-2xl: 1.5rem;
-  --radius-3xl: 2rem;
-
-  /* Elevation ladder (SS-221): resting card, hover lift, and portalled
-     overlay. Only three steps so depth stays meaningful. */
-  --shadow-card: 0 1px 2px rgb(25 23 19 / 0.05), 0 4px 14px rgb(25 23 19 / 0.06);
-  --shadow-lift: 0 14px 34px -10px rgb(25 23 19 / 0.2);
-  --shadow-overlay: 0 24px 64px -16px rgb(25 23 19 / 0.28);
-
-  /* Motion signature (SS-221): one fast-decelerating curve for every
-     interactive transition so hover/press/drawer movement feels like one
-     system. Reduced-motion users never see it (global rule collapses
-     durations to ~0). --ease-spring adds a gentle overshoot reserved for
-     celebratory micro-feedback (badge pop, add-to-cart confirmation). */
-  --ease-swift: cubic-bezier(0.22, 1, 0.36, 1);
-  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
 /* ------------------------------------------------------------------ */
-/* Motion system (SS-246): pure-CSS choreography, zero JS.             */
-/* Every entrance is guarded by prefers-reduced-motion, so the global  */
-/* kill-switch stays the single source of truth for stillness.         */
+/* Motion: transform-only entrances. No content depends on opacity to  */
+/* become visible, so a paused animation never hides information.      */
 /* ------------------------------------------------------------------ */
 
 @media (prefers-reduced-motion: no-preference) {
-  /* Keyframes: the shared vocabulary. fade-up is the default entrance for
-     sections and rails; zoom-in for modals/sheets; pop for celebratory
-     micro-feedback; shimmer for loading skeletons. */
-  @keyframes ss-fade-up {
+  @keyframes ss-rise {
     from {
-      opacity: 0;
-      transform: translateY(14px);
+      transform: translateY(10px);
     }
     to {
-      opacity: 1;
       transform: translateY(0);
     }
   }
@@ -245,27 +433,19 @@ summary:focus-visible,
       opacity: 1;
     }
   }
-  @keyframes ss-zoom-in {
+  @keyframes ss-scale-in {
     from {
-      opacity: 0;
-      transform: scale(0.96) translateY(8px);
+      transform: scale(0.97) translateY(6px);
     }
     to {
-      opacity: 1;
       transform: scale(1) translateY(0);
     }
   }
   @keyframes ss-pop {
     0% {
-      opacity: 0;
-      transform: scale(0.4);
-    }
-    60% {
-      opacity: 1;
-      transform: scale(1.12);
+      transform: scale(0.7);
     }
     100% {
-      opacity: 1;
       transform: scale(1);
     }
   }
@@ -302,42 +482,27 @@ summary:focus-visible,
     }
   }
 
-  /* Page transition (SS-246): App Router template remounts on navigation,
-     so a single class gives every route a soft rise — the no-JS page
-     transition. Kept short so back/forward feels instant. */
-  .page-enter {
-    animation: ss-fade-up 380ms var(--ease-swift) both;
-  }
-
-  /* One-shot entrances for above-the-fold content (hero copy, first
-     section) where a scroll-timeline would already be past its range. */
   .animate-fade-up {
-    animation: ss-fade-up 600ms var(--ease-swift) both;
+    animation: ss-rise 320ms var(--ease-out) both;
   }
   .animate-fade-in {
-    animation: ss-fade-in 450ms var(--ease-swift) both;
+    animation: ss-fade-in 240ms var(--ease-out) both;
   }
   .animate-zoom-in {
-    animation: ss-zoom-in 320ms var(--ease-swift) both;
+    animation: ss-scale-in 220ms var(--ease-out) both;
   }
   .animate-pop {
-    animation: ss-pop 380ms var(--ease-spring) both;
+    animation: ss-pop 260ms var(--ease-spring) both;
   }
   .animate-grow-x {
-    animation: ss-grow-x 400ms var(--ease-swift) both;
+    animation: ss-grow-x 400ms var(--ease-out) both;
     transform-origin: right center;
   }
   [dir='ltr'] .animate-grow-x {
     transform-origin: left center;
   }
 
-  /* Drawer choreography: mounted-while-transitioning panels (see
-     useTransitionMount) drive open/close through these classes; data-state
-     on the wrapper picks the enter/exit pair. --drawer-travel is the
-     off-screen X position: start-side panels (mobile menu, right in RTL)
-     come from +100%, end-side panels (mini-cart, left in RTL) from -100% —
-     set by the --end modifier. The app is RTL-only (fa), so the signs are
-     written for dir="rtl". */
+  /* Drawer choreography. */
   .drawer-panel {
     --drawer-travel: 100%;
   }
@@ -361,113 +526,57 @@ summary:focus-visible,
     }
   }
   .drawer-panel[data-state='open'] {
-    animation: ss-drawer-in 360ms var(--ease-swift) both;
+    animation: ss-drawer-in 240ms var(--ease-out) both;
   }
   .drawer-panel[data-state='closed'] {
-    animation: ss-drawer-out 280ms var(--ease-swift) both;
+    animation: ss-drawer-out 180ms var(--ease-out) both;
     pointer-events: none;
   }
   .drawer-backdrop[data-state='open'] {
-    animation: ss-fade-in 300ms ease both;
+    animation: ss-fade-in 200ms ease both;
   }
   .drawer-backdrop[data-state='closed'] {
-    animation: ss-fade-in 280ms ease both reverse;
+    animation: ss-fade-in 180ms ease both reverse;
     pointer-events: none;
   }
-  /* Bottom sheets (mobile filters) rise from below. */
   .sheet-panel[data-state='open'] {
-    animation: ss-slide-up 360ms var(--ease-swift) both;
+    animation: ss-slide-up 260ms var(--ease-out) both;
   }
   .sheet-panel[data-state='closed'] {
-    animation: ss-slide-down 280ms var(--ease-swift) both;
+    animation: ss-slide-down 200ms var(--ease-out) both;
     pointer-events: none;
   }
 
-  /* Hero autoplay progress (SS-246): the active slide's segment fills over
-     the autoplay window; the component drives play-state and duration
-     inline. RTL origin (right) so the fill matches the reading direction;
-     keyed display keeps non-active segments hidden. */
+  /* Hero progress: the only autoplay indicator. */
   .hero-progress {
     transform-origin: right center;
     animation: ss-grow-x linear both;
   }
 
-  /* Hero copy choreography: each child of .hero-copy rises in sequence on
-     the slide that becomes active; non-active slides hold opacity 0 so a
-     scroll back replays the reveal. 'both' fill + the global reduced-motion
-     collapse guarantees the copy is always visible for stillness users. */
+  /* Hero copy rises in; opacity stays 1 so paused animations never hide it. */
   .hero-copy > * {
-    opacity: 0;
+    animation: ss-rise 480ms var(--ease-out) both;
   }
-  [data-active='true'] .hero-copy > * {
-    animation: ss-fade-up 650ms var(--ease-swift) both;
+  .hero-copy > *:nth-child(1) {
+    animation-delay: 40ms;
   }
-  [data-active='true'] .hero-copy > *:nth-child(1) {
-    animation-delay: 60ms;
+  .hero-copy > *:nth-child(2) {
+    animation-delay: 100ms;
   }
-  [data-active='true'] .hero-copy > *:nth-child(2) {
-    animation-delay: 150ms;
+  .hero-copy > *:nth-child(3) {
+    animation-delay: 160ms;
   }
-  [data-active='true'] .hero-copy > *:nth-child(3) {
-    animation-delay: 240ms;
-  }
-  [data-active='true'] .hero-copy > *:nth-child(4) {
-    animation-delay: 330ms;
+  .hero-copy > *:nth-child(4) {
+    animation-delay: 220ms;
   }
 
-  /* Scroll-driven reveals (SS-246): sections and grids rise as they enter
-     the viewport with zero JS via animation-timeline: view(). The
-     @supports guard keeps unsupported browsers fully visible; the
-     no-preference media guard keeps reduced-motion users still. */
-  @supports (animation-timeline: view()) {
-    .reveal {
-      animation: ss-fade-up 1ms var(--ease-swift) both;
-      animation-timeline: view();
-      animation-range: entry 0% entry 45%;
-    }
-    .reveal-zoom {
-      animation: ss-zoom-in 1ms var(--ease-swift) both;
-      animation-timeline: view();
-      animation-range: entry 0% entry 50%;
-    }
-    /* Staggered children: each item's visible range is offset along the
-       shared timeline so grids cascade without JS. */
-    .stagger > * {
-      animation: ss-fade-up 1ms var(--ease-swift) both;
-      animation-timeline: view();
-      animation-range: entry 0% entry 38%;
-    }
-    .stagger > *:nth-child(2) {
-      animation-range: entry 6% entry 44%;
-    }
-    .stagger > *:nth-child(3) {
-      animation-range: entry 12% entry 50%;
-    }
-    .stagger > *:nth-child(4) {
-      animation-range: entry 18% entry 56%;
-    }
-    .stagger > *:nth-child(5) {
-      animation-range: entry 24% entry 62%;
-    }
-    .stagger > *:nth-child(6) {
-      animation-range: entry 30% entry 68%;
-    }
-    .stagger > *:nth-child(n + 7) {
-      animation-range: entry 34% entry 72%;
-    }
-  }
-
-  /* Scroll-driven header elevation (SS-246): the sticky header gains its
-     shadow as the document scrolls — zero JS via animation-timeline:
-     scroll(). Reduced-motion users get the static (no-shadow) header. */
+  /* Scroll-driven header elevation: decorative only. */
   @keyframes ss-header-elevate {
     from {
-      box-shadow: 0 0 0 0 rgb(25 23 19 / 0);
-      border-color: var(--color-sand-200);
+      box-shadow: 0 0 0 0 rgb(16 20 14 / 0);
     }
     to {
-      box-shadow: 0 12px 32px -16px rgb(25 23 19 / 0.18);
-      border-color: transparent;
+      box-shadow: 0 8px 24px -18px rgb(16 20 14 / 0.22);
     }
   }
   .site-header {
@@ -476,13 +585,11 @@ summary:focus-visible,
     animation-range: 0 64px;
   }
 
-  /* Shimmer skeleton (SS-246): replaces animate-pulse with a directional
-     sweep that reads as "loading" rather than "flickering". */
   .skeleton-shimmer {
     background-image: linear-gradient(
       100deg,
       transparent 30%,
-      rgb(255 255 255 / 0.55) 50%,
+      var(--ss-shimmer) 50%,
       transparent 70%
     );
     background-size: 200% 100%;
@@ -491,56 +598,16 @@ summary:focus-visible,
   }
 }
 
-/* ------------------------------------------------------------------ */
-/* Brand decoration (SS-246): the bold-expressive layer. Greens and    */
-/* ink only (AGENTS.md §9), decorative elements are always aria-hidden */
-/* and pointer-events-none at the call site.                           */
-/* ------------------------------------------------------------------ */
-@layer utilities {
-  /* Primary action gradient: sabz-600 → sabz-800, the brand's signature
-     button/glass treatment. */
-  .bg-gradient-sabz {
-    background-image: linear-gradient(135deg, #4a6d4b 0%, #344e41 100%);
-  }
-  /* Ink stage gradient for cinematic dark sections (hero, footer top). */
-  .bg-gradient-ink {
-    background-image: linear-gradient(160deg, #23211b 0%, #191713 55%, #1c2419 100%);
-  }
-  /* Gradient display text — reserved for single hero/stat lines. */
-  .text-gradient-sabz {
-    background-image: linear-gradient(120deg, #7d9873 0%, #a3b18a 100%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-  }
-  /* Frosted glass card used on top of imagery and dark stages. */
-  .glass {
-    background-color: rgb(255 255 255 / 0.72);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-  }
-  .glass-dark {
-    background-color: rgb(25 23 19 / 0.55);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-  }
-}
-
-/* Brand selection: green highlight keeps the personality alive even in
-   text selection. */
 ::selection {
-  background-color: var(--color-sabz-700);
-  color: #ffffff;
+  background-color: var(--ss-selection-bg);
+  color: var(--ss-selection-fg);
 }
 
-/* Calm, brand-tinted scrollbars (WebKit + Firefox). Thin so they never
-   compete with content; sand track disappears against the background.
-   Layered base: utilities like the slider's [scrollbar-width:none] must be
-   able to override it (unlayered CSS would always win the cascade). */
 @layer base {
   * {
     scrollbar-width: thin;
-    scrollbar-color: var(--color-sand-200) transparent;
+    scrollbar-color: var(--ss-scrollbar) transparent;
+    touch-action: manipulation;
   }
   *::-webkit-scrollbar {
     width: 10px;
@@ -550,12 +617,12 @@ summary:focus-visible,
     background: transparent;
   }
   *::-webkit-scrollbar-thumb {
-    background-color: var(--color-sand-200);
+    background-color: var(--ss-scrollbar);
     border-radius: 999px;
     border: 3px solid transparent;
     background-clip: content-box;
   }
   *::-webkit-scrollbar-thumb:hover {
-    background-color: var(--color-sabz-300);
+    background-color: var(--ss-scrollbar-hover);
   }
 }

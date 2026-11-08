@@ -166,9 +166,9 @@ export function CheckoutWizard({ stepParam }: { stepParam: unknown }) {
   if (status === 'login') {
     return (
       <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
-        <h1 className="text-balance text-2xl font-extrabold text-ink-900">تسویه حساب</h1>
+        <h1 className="text-balance text-2xl font-extrabold text-fg">تسویه حساب</h1>
         <Card className="mt-8 p-6 text-center">
-          <p className="text-sm leading-6 text-gray-600">
+          <p className="text-sm leading-6 text-fg-secondary">
             برای ادامه تسویه وارد شوید؛ سبد مهمان پس از ورود به حساب شما منتقل می‌شود.
           </p>
           <Link href="/login?next=/checkout" className={buttonVariants({ variant: 'primary' }) + ' mt-6'}>
@@ -182,8 +182,8 @@ export function CheckoutWizard({ stepParam }: { stepParam: unknown }) {
   if (status === 'error') {
     return (
       <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
-        <h1 className="text-balance text-2xl font-extrabold text-ink-900">تسویه حساب</h1>
-        <p role="alert" className="mt-6 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+        <h1 className="text-balance text-2xl font-extrabold text-fg">تسویه حساب</h1>
+        <p role="alert" className="mt-6 rounded-control bg-danger-soft px-3 py-2 text-sm text-danger">
           {error ?? LOAD_FAILED}
         </p>
       </div>
@@ -202,9 +202,9 @@ export function CheckoutWizard({ stepParam }: { stepParam: unknown }) {
   if (items.length === 0) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
-        <h1 className="text-balance text-2xl font-extrabold text-ink-900">تسویه حساب</h1>
+        <h1 className="text-balance text-2xl font-extrabold text-fg">تسویه حساب</h1>
         <Card className="mt-8 p-6 text-center">
-          <p className="text-sm leading-6 text-gray-600">
+          <p className="text-sm leading-6 text-fg-secondary">
             سبد خرید شما خالی است؛ ابتدا محصولات را به سبد اضافه کنید.
           </p>
           <Link href="/cart" className={buttonVariants({ variant: 'primary' }) + ' mt-6'}>
@@ -253,7 +253,7 @@ export function CheckoutWizard({ stepParam }: { stepParam: unknown }) {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-      <h1 className="text-balance text-2xl font-extrabold text-ink-900">تسویه حساب</h1>
+      <h1 className="text-balance text-2xl font-extrabold text-fg">تسویه حساب</h1>
       <div className="mt-4">
         <CheckoutSteps current={visibleStep} reachable={reachable} />
       </div>
@@ -268,21 +268,21 @@ export function CheckoutWizard({ stepParam }: { stepParam: unknown }) {
               <SectionHeader id="checkout-cart" title="بررسی سبد" subtitle={`${items.length} قلم در سبد شماست`} />
               <ul role="list" className="mt-4 space-y-3 text-sm">
                 {items.map((item) => (
-                  <li key={item.variantId} className="flex items-start justify-between gap-3 border-b border-sand-100 pb-3 last:border-0">
-                    <span className="leading-6 text-gray-600">
+                  <li key={item.variantId} className="flex items-start justify-between gap-3 border-b border-border pb-3 last:border-0">
+                    <span className="leading-6 text-fg-secondary">
                       {item.productName} × {item.quantity}
                       {item.priceChanged ? (
-                        <span className="block text-xs text-amber-700">
+                        <span className="block text-xs text-warning">
                           قیمت نسبت به زمان افزودن تغییر کرده است.
                         </span>
                       ) : null}
                       {!item.inStock ? (
-                        <span className="block text-xs text-red-700">
+                        <span className="block text-xs text-danger">
                           این قلم ناموجود است و در تسویه لحاظ نمی‌شود.
                         </span>
                       ) : null}
                     </span>
-                    <span className="shrink-0 font-semibold text-ink-900">
+                    <span className="shrink-0 font-semibold text-fg">
                       {formatToman(item.lineTotal)}
                     </span>
                   </li>
@@ -408,12 +408,12 @@ export function CheckoutWizard({ stepParam }: { stepParam: unknown }) {
               <SectionHeader id="checkout-review" title="بازبینی و ثبت" subtitle="موجودی و قیمت لحظه ثبت دوباره بررسی می‌شود" />
               <div className="mt-4">
                 {summaryError !== null ? (
-                  <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+                  <p role="alert" className="rounded-control bg-danger-soft px-3 py-2 text-sm text-danger">
                     {summaryError}
                   </p>
                 ) : null}
                 {summary !== null && summary.problems.length > 0 ? (
-                  <div role="alert" className="rounded-md bg-amber-50 px-3 py-2 text-sm leading-6 text-amber-800">
+                  <div role="alert" className="rounded-control bg-warning-soft px-3 py-2 text-sm leading-6 text-warning">
                     <ul role="list" className="space-y-1">
                       {summary.problems.map((problem) => (
                         <li key={`${problem.code}-${problem.variantId}`}>{problem.message}</li>
@@ -425,7 +425,7 @@ export function CheckoutWizard({ stepParam }: { stepParam: unknown }) {
                   </div>
                 ) : null}
                 {placeError !== null ? (
-                  <p role="alert" className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+                  <p role="alert" className="mt-3 rounded-control bg-danger-soft px-3 py-2 text-sm text-danger">
                     {placeError}
                   </p>
                 ) : null}
@@ -443,7 +443,7 @@ export function CheckoutWizard({ stepParam }: { stepParam: unknown }) {
                   </Link>
                 </div>
                 {summary !== null && !summary.valid && summary.problems.length === 0 ? (
-                  <p className="mt-2 text-xs leading-5 text-gray-500">
+                  <p className="mt-2 text-xs leading-5 text-fg-muted">
                     سبد خرید هیچ قلم قابل تسویه‌ای ندارد.
                   </p>
                 ) : null}
@@ -456,7 +456,7 @@ export function CheckoutWizard({ stepParam }: { stepParam: unknown }) {
           {summary !== null && visibleStep === 'review' ? (
             <OrderSummary summary={summary} />
           ) : (
-            <aside aria-label="راهنمای تسویه" className="h-fit rounded-2xl border border-sand-200 bg-white p-5 text-sm leading-6 text-gray-600">
+            <aside aria-label="راهنمای تسویه" className="h-fit rounded-panel border border-border bg-surface p-5 text-sm leading-6 text-fg-secondary">
               <p>
                 در مرحله بازبینی، موجودی و قیمت نهایی از فروشگاه خوانده و
                 خلاصه سفارش نمایش داده می‌شود.

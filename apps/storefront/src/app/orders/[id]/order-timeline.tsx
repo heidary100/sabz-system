@@ -13,10 +13,10 @@ export function OrderTimeline({ status }: { status: OrderStatus }) {
   if (status === 'CANCELLED') {
     return (
       <ol aria-label="وضعیت سفارش" className="space-y-2 text-sm">
-        <li className="flex items-center gap-2.5 font-semibold text-red-700">
+        <li className="flex items-center gap-2.5 font-semibold text-danger">
           <span
             aria-hidden="true"
-            className="flex size-4 items-center justify-center rounded-full bg-red-100 text-[10px] text-red-600"
+            className="flex size-4 items-center justify-center rounded-pill bg-danger-soft text-[10px] text-danger"
           >
             ✕
           </span>
@@ -42,23 +42,23 @@ export function OrderTimeline({ status }: { status: OrderStatus }) {
             {!last ? (
               <span
                 aria-hidden="true"
-                className={`absolute start-[7px] top-4 h-[calc(100%-1rem)] w-0.5 rounded-full ${
-                  done ? 'bg-sabz-400' : 'bg-sand-200'
+                className={`absolute start-[7px] top-4 h-[calc(100%-1rem)] w-0.5 rounded-pill ${
+                  done ? 'bg-accent' : 'bg-surface-3'
                 }`}
               />
             ) : null}
             <span
               aria-hidden="true"
-              className={`relative mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full ring-4 ${
+              className={`relative mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-pill ring-4 ${
                 done
-                  ? 'bg-sabz-500 ring-sabz-100'
+                  ? 'bg-accent ring-accent/20'
                   : active
-                    ? 'bg-sabz-600 ring-sabz-100'
-                    : 'bg-sand-200 ring-white'
+                    ? 'bg-accent ring-accent/20'
+                    : 'bg-surface-3 ring-bg'
               }`}
             >
               {done ? (
-                <svg viewBox="0 0 20 20" fill="currentColor" className="size-2.5 text-white">
+                <svg viewBox="0 0 20 20" fill="currentColor" className="size-2.5 text-on-accent">
                   <path
                     fillRule="evenodd"
                     d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z"
@@ -67,16 +67,16 @@ export function OrderTimeline({ status }: { status: OrderStatus }) {
                 </svg>
               ) : null}
               {active ? (
-                <span className="animate-ping absolute inline-flex size-3 rounded-full bg-sabz-400 opacity-60" />
+                <span className="animate-ping absolute inline-flex size-3 rounded-pill bg-accent opacity-60" />
               ) : null}
             </span>
             <span
               className={
                 active
-                  ? 'font-bold text-sabz-800'
+                  ? 'font-bold text-accent-hover'
                   : done
-                    ? 'text-ink-900'
-                    : 'text-gray-400'
+                    ? 'text-fg'
+                    : 'text-fg-muted'
               }
             >
               {orderStatusLabel(stage)}

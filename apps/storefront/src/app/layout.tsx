@@ -8,6 +8,8 @@ import { CartProvider } from '@/components/ecommerce/cart/cart-provider';
 import { CompareProvider } from '@/components/ecommerce/compare/compare-provider';
 import { SiteHeader } from '@/components/ecommerce/header/site-header';
 import { SiteFooter } from '@/components/ecommerce/footer/site-footer';
+import { ThemeProvider } from '@/components/ecommerce/theme/theme-provider';
+import { THEME_BOOT_SCRIPT } from '@/lib/theme';
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -37,7 +39,11 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: brand.themeColor,
+  colorScheme: 'light dark',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: brand.themeColors.light },
+    { media: '(prefers-color-scheme: dark)', color: brand.themeColors.dark },
+  ],
 };
 
 export default async function RootLayout({
@@ -48,23 +54,32 @@ export default async function RootLayout({
   const categories = await fetchCategoryTree();
 
   return (
-    <html lang="fa" dir="rtl">
-      <body className="flex min-h-dvh flex-col bg-sand-50 font-sans text-ink-900 antialiased">
+    <html lang="fa" dir="rtl" suppressHydrationWarning>
+      <body className="flex min-h-dvh flex-col bg-bg font-sans text-fg antialiased">
+        {/* Applies the persisted/system theme before page content paints. */}
+        <script
+          suppressHydrationWarning
+          dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }}
+        />
         <a
           href="#main"
-          className="sr-only focus:not-sr-only focus:absolute focus:start-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-sabz-700 focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white"
+          className="sr-only focus:not-sr-only focus:absolute focus:start-4 focus:top-4 focus:z-50 focus:rounded-control focus:bg-accent focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-on-accent"
         >
           پرش به محتوای اصلی
         </a>
-        <CartProvider>
-          <CompareProvider>
-          <SiteHeader categories={categories} />
-          {/* scroll-mt keeps skip-link/anchor focus from landing under the
-              sticky header (SS-218). */}
-          <main id="main" className="scroll-mt-24 flex-1">{children}</main>
-          <SiteFooter categories={categories} />
-          </CompareProvider>
-        </CartProvider>
+        <ThemeProvider>
+          <CartProvider>
+            <CompareProvider>
+              <SiteHeader categories={categories} />
+              {/* scroll-mt keeps skip-link/anchor focus from landing under the
+                  sticky header (SS-218). */}
+              <main id="main" className="scroll-mt-24 flex-1">
+                {children}
+              </main>
+              <SiteFooter categories={categories} />
+            </CompareProvider>
+          </CartProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

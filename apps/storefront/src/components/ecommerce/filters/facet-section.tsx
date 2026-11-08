@@ -28,7 +28,7 @@ export function FacetSection({
   return (
     <div>
       {title ? (
-        <p className="text-sm font-semibold text-ink-900">{title}</p>
+        <p className="text-sm font-semibold text-fg">{title}</p>
       ) : null}
       <div aria-live="polite" className="sr-only">
         {expanded ? 'همه موارد نمایش داده شد' : null}

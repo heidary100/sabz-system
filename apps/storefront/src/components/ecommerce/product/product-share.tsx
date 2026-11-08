@@ -58,14 +58,14 @@ export function ProductShare({
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <span className="text-xs font-semibold text-gray-500">اشتراک‌گذاری:</span>
+      <span className="text-xs font-semibold text-fg-muted">اشتراک‌گذاری:</span>
       {links.map((link) => (
         <a
           key={link.label}
           href={link.href}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex min-h-9 items-center rounded-full border border-sand-200 bg-white px-3 text-xs text-gray-600 transition-colors hover:border-sabz-300 hover:text-sabz-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700"
+          className="inline-flex min-h-9 items-center rounded-pill border border-border bg-surface px-3 text-xs text-fg-secondary transition-colors hover:border-accent hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
         >
           {link.label}
           <span className="sr-only"> (باز شدن در پنجره جدید)</span>
@@ -75,7 +75,7 @@ export function ProductShare({
         type="button"
         onClick={() => copy('bale')}
         title="بله پیوند اشتراک‌گذاری مستقیم ندارد؛ پیام برای ارسال در بله کپی می‌شود"
-        className="inline-flex min-h-9 items-center rounded-full border border-sand-200 bg-white px-3 text-xs text-gray-600 transition-colors hover:border-sabz-300 hover:text-sabz-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700"
+        className="inline-flex min-h-9 items-center rounded-pill border border-border bg-surface px-3 text-xs text-fg-secondary transition-colors hover:border-accent hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
       >
         {copied === 'bale' ? 'کپی شد ✓' : 'بله'}
         <span className="sr-only"> (کپی پیام برای اشتراک در بله)</span>
@@ -83,7 +83,7 @@ export function ProductShare({
       <button
         type="button"
         onClick={() => copy('link')}
-        className="inline-flex min-h-9 items-center rounded-full border border-sand-200 bg-white px-3 text-xs text-gray-600 transition-colors hover:border-sabz-300 hover:text-sabz-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700"
+        className="inline-flex min-h-9 items-center rounded-pill border border-border bg-surface px-3 text-xs text-fg-secondary transition-colors hover:border-accent hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
       >
         {copied === 'link' ? 'کپی شد ✓' : 'کپی لینک'}
       </button>

@@ -74,12 +74,12 @@ export default async function BlogArticlePage({ params }: PageProps) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <nav aria-label="مسیر" className="text-xs text-gray-500">
-        <Link href="/" className="hover:text-sabz-700">
+      <nav aria-label="مسیر" className="text-xs text-fg-muted">
+        <Link href="/" className="hover:text-accent">
           خانه
         </Link>
         <span aria-hidden="true"> / </span>
-        <Link href="/blog" className="hover:text-sabz-700">
+        <Link href="/blog" className="hover:text-accent">
           وبلاگ
         </Link>
         <span aria-hidden="true"> / </span>
@@ -90,15 +90,15 @@ export default async function BlogArticlePage({ params }: PageProps) {
         {post.category ? (
           <Link
             href={`/blog?category=${encodeURIComponent(post.category.slug)}`}
-            className="mt-4 inline-block rounded-full bg-sabz-50 px-2.5 py-0.5 text-xs font-medium text-sabz-700 hover:text-sabz-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700"
+            className="mt-4 inline-block rounded-pill bg-accent-soft px-2.5 py-0.5 text-xs font-medium text-accent hover:text-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
           >
             {post.category.name}
           </Link>
         ) : null}
-        <h1 className="mt-2 text-2xl font-bold leading-9 tracking-tight text-ink-900 sm:text-3xl sm:leading-11">
+        <h1 className="mt-2 text-2xl font-bold leading-9 tracking-tight text-fg sm:text-3xl sm:leading-11">
           {post.title}
         </h1>
-        <p className="mt-3 flex items-center gap-2 text-xs text-gray-400">
+        <p className="mt-3 flex items-center gap-2 text-xs text-fg-muted">
           {post.authorName ? <span>{post.authorName}</span> : null}
           {post.authorName && post.publishedAt ? <span aria-hidden="true">·</span> : null}
           {post.publishedAt ? (
@@ -115,7 +115,7 @@ export default async function BlogArticlePage({ params }: PageProps) {
             alt=""
             loading="eager"
             decoding="async"
-            className="mt-6 aspect-[16/9] w-full rounded-xl border border-sand-200 object-cover"
+            className="mt-6 aspect-[16/9] w-full rounded-card border border-border object-cover"
           />
         ) : null}
 
@@ -124,7 +124,7 @@ export default async function BlogArticlePage({ params }: PageProps) {
         </div>
       </article>
 
-      <div className="mt-8 border-t border-sand-200 pt-6">
+      <div className="mt-8 border-t border-border pt-6">
         <ProductShare canonicalUrl={canonicalUrl} />
       </div>
     </div>

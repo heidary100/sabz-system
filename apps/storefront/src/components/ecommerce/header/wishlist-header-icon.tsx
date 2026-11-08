@@ -18,7 +18,7 @@ export function WishlistHeaderIcon() {
   return (
     <Link
       href="/wishlist"
-      className="flex min-h-11 min-w-11 items-center justify-center rounded-md p-2 text-gray-600 hover:bg-sabz-50 hover:text-sabz-700"
+      className="flex min-h-11 min-w-11 items-center justify-center rounded-control p-2 text-fg-secondary hover:bg-accent-soft hover:text-accent"
     >
       <span className="sr-only">علاقه‌مندی‌ها</span>
       <svg viewBox="0 0 24 24" fill="none" strokeWidth={1.5} stroke="currentColor" aria-hidden="true" className="size-6">

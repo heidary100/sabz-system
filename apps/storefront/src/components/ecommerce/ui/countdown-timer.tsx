@@ -57,7 +57,7 @@ export function CountdownTimer({
       {boxes.map((box, index) => (
         <span key={box.label} className="inline-flex items-center gap-1.5">
           <span
-            className={`inline-flex flex-col items-center rounded-md bg-ink-950 px-2 py-1 text-white ${
+            className={`inline-flex flex-col items-center rounded-control bg-stage px-2 py-1 text-on-stage ${
               size === 'sm' ? 'min-w-8' : 'min-w-10'
             }`}
           >
@@ -68,7 +68,7 @@ export function CountdownTimer({
               {box.value}
             </span>
             <span
-              className={`text-white/60 ${
+              className={`text-on-stage-muted ${
                 size === 'sm' ? 'text-[9px]' : 'text-[10px]'
               } leading-3`}
             >
@@ -78,7 +78,7 @@ export function CountdownTimer({
           {index < boxes.length - 1 ? (
             <span
               aria-hidden="true"
-              className="text-ink-950/30"
+              className="text-fg-muted"
             >
               :
             </span>

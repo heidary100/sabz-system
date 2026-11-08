@@ -16,7 +16,7 @@ export function CategoryDescription({
     return null;
   }
   return (
-    <div className="mt-4 max-w-prose rounded-xl border border-sand-200 bg-white p-5">
+    <div className="mt-4 max-w-prose rounded-card border border-border bg-surface p-5">
       <RichText html={html} />
     </div>
   );

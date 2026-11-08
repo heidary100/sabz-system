@@ -20,7 +20,7 @@ export function AddressPicker({
   if (addresses.length === 0) {
     return (
       <div>
-        <p className="text-sm leading-6 text-gray-600">
+        <p className="text-sm leading-6 text-fg-secondary">
           هنوز نشانی ثبت نکرده‌اید؛ برای ادامه تسویه یک نشانی اضافه کنید.
         </p>
         <div className="mt-3">
@@ -35,8 +35,8 @@ export function AddressPicker({
         {addresses.map((row) => (
           <label
             key={row.id}
-            className={`flex cursor-pointer items-start gap-3 rounded-xl border bg-white p-4 ${
-              row.id === selectedId ? 'border-sabz-600' : 'border-sand-200'
+            className={`flex cursor-pointer items-start gap-3 rounded-card border bg-surface p-4 ${
+              row.id === selectedId ? 'border-accent' : 'border-border'
             }`}
           >
             <input
@@ -45,19 +45,19 @@ export function AddressPicker({
               value={row.id}
               checked={row.id === selectedId}
               onChange={() => onSelect(row.id)}
-              className="mt-1 size-4 accent-sabz-800"
+              className="mt-1 size-4 accent-accent"
             />
             <span className="text-sm leading-6">
-              <span className="font-bold text-ink-900">
+              <span className="font-bold text-fg">
                 {row.label ?? 'نشانی'}
                 {row.isDefault ? ' (پیش‌فرض)' : ''}
               </span>
               <br />
-              <span className="text-gray-600">
+              <span className="text-fg-secondary">
                 {row.fullName} — <span dir="ltr">{row.phone}</span>
               </span>
               <br />
-              <span className="text-gray-600">
+              <span className="text-fg-secondary">
                 {[row.province, row.city, row.address].filter(Boolean).join('، ')}
                 {row.postalCode !== null ? ` — کد پستی ${row.postalCode}` : ''}
               </span>

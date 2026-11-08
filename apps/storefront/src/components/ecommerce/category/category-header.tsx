@@ -23,18 +23,18 @@ export function CategoryHeader({
 
   return (
     <div>
-      <p className="text-sm text-gray-500">دسته‌بندی</p>
-      <h1 className="mt-1 text-2xl font-bold tracking-tight text-ink-900">
+      <p className="text-sm text-fg-muted">دسته‌بندی</p>
+      <h1 className="mt-1 text-2xl font-bold tracking-tight text-fg">
         {name}
       </h1>
-      <p className="mt-1 text-sm text-gray-500">
+      <p className="mt-1 text-sm text-fg-muted">
         {formatFaNumber(rollUpCount)} کالا
       </p>
       {showFiltered ? (
         <ResultStatus
           total={filteredTotal!}
           filtering
-          className="mt-1 text-xs text-gray-600"
+          className="mt-1 text-xs text-fg-secondary"
         />
       ) : null}
     </div>

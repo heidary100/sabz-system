@@ -39,9 +39,9 @@ export function ReviewForm({
 
   if (!signedIn) {
     return (
-      <div className="rounded-xl border border-sand-200 bg-white p-4 text-sm">
-        <p className="font-semibold text-ink-900">دیدگاه شما</p>
-        <p className="mt-1 leading-6 text-gray-600">
+      <div className="rounded-card border border-border bg-surface p-4 text-sm">
+        <p className="font-semibold text-fg">دیدگاه شما</p>
+        <p className="mt-1 leading-6 text-fg-secondary">
           برای ثبت امتیاز و دیدگاه ابتدا وارد حساب خود شوید.
         </p>
         <Link
@@ -56,9 +56,9 @@ export function ReviewForm({
 
   if (submitted) {
     return (
-      <div className="rounded-xl border border-sabz-200 bg-sabz-50 p-4 text-sm">
-        <p className="font-semibold text-sabz-800">دیدگاه شما ثبت شد</p>
-        <p className="mt-1 leading-6 text-gray-600">
+      <div className="rounded-card border border-accent/30 bg-accent-soft p-4 text-sm">
+        <p className="font-semibold text-accent-hover">دیدگاه شما ثبت شد</p>
+        <p className="mt-1 leading-6 text-fg-secondary">
           دیدگاه شما پس از بررسی و تأیید نمایش داده می‌شود.
         </p>
       </div>
@@ -95,18 +95,18 @@ export function ReviewForm({
   }
 
   return (
-    <div className="rounded-xl border border-sand-200 bg-white p-4 text-sm sm:p-5">
-      <p className="font-semibold text-ink-900">ثبت دیدگاه</p>
+    <div className="rounded-card border border-border bg-surface p-4 text-sm sm:p-5">
+      <p className="font-semibold text-fg">ثبت دیدگاه</p>
       <fieldset className="mt-3">
-        <legend className="text-xs font-medium text-gray-600">امتیاز شما</legend>
+        <legend className="text-xs font-medium text-fg-secondary">امتیاز شما</legend>
         <div className="mt-2 flex items-center gap-1">
           {['5', '4', '3', '2', '1'].map((value) => (
             <label
               key={value}
-              className={`inline-flex min-h-11 min-w-11 cursor-pointer items-center justify-center rounded-md border px-2 text-sm font-semibold ${
+              className={`inline-flex min-h-11 min-w-11 cursor-pointer items-center justify-center rounded-control border px-2 text-sm font-semibold ${
                 rating === value
-                  ? 'border-sabz-700 bg-sabz-50 text-sabz-800'
-                  : 'border-sand-200 text-gray-600 hover:border-sabz-300'
+                  ? 'border-accent bg-accent-soft text-accent-hover'
+                  : 'border-border text-fg-secondary hover:border-accent'
               }`}
             >
               <input
@@ -125,7 +125,7 @@ export function ReviewForm({
       </fieldset>
       <label
         htmlFor="review-comment"
-        className="mt-4 block text-xs font-medium text-gray-600"
+        className="mt-4 block text-xs font-medium text-fg-secondary"
       >
         دیدگاه (اختیاری)
       </label>
@@ -136,7 +136,7 @@ export function ReviewForm({
         value={comment}
         onChange={(event) => setComment(event.target.value)}
         placeholder="تجربه خود از این محصول را بنویسید…"
-        className="mt-1 w-full rounded-md border border-sand-200 bg-white px-3 py-2 text-sm leading-6 text-ink-900 placeholder:text-gray-400"
+        className="mt-1 w-full rounded-control border border-border-control bg-surface px-3 py-2 text-sm leading-6 text-fg placeholder:text-fg-muted"
       />
       <Button
         variant="primary"
@@ -148,7 +148,7 @@ export function ReviewForm({
         {pending ? 'در حال ثبت…' : 'ثبت دیدگاه'}
       </Button>
       {error ? (
-        <p role="alert" className="mt-2 leading-6 text-red-700">
+        <p role="alert" className="mt-2 leading-6 text-danger">
           {error}
         </p>
       ) : null}

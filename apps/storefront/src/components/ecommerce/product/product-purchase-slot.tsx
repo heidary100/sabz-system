@@ -23,9 +23,9 @@ export function ProductPurchaseSlot({
   }
   if (!variant.inStock) {
     return (
-      <div className="rounded-xl border border-sand-200 bg-white p-4 text-sm">
-        <p className="font-semibold text-ink-900">ناموجود</p>
-        <p className="mt-1 leading-6 text-gray-600">
+      <div className="rounded-card border border-border bg-surface p-4 text-sm">
+        <p className="font-semibold text-fg">ناموجود</p>
+        <p className="mt-1 leading-6 text-fg-secondary">
           این مدل فعلاً در انبار نیست.
         </p>
       </div>

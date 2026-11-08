@@ -18,7 +18,7 @@ export default function Loading() {
       </div>
       <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         {Array.from({ length: 4 }, (_, index) => (
-          <Skeleton key={index} className="h-11 rounded-xl" />
+          <Skeleton key={index} className="h-11 rounded-card" />
         ))}
       </div>
       <div className="mt-8">

@@ -105,17 +105,17 @@ export function MiniCart() {
         aria-hidden="true"
         onClick={() => close(false)}
         data-state={animState}
-        className="drawer-backdrop fixed inset-0 bg-ink-900/40 backdrop-blur-[2px]"
+        className="drawer-backdrop fixed inset-0 bg-overlay"
       />
       <div
         data-state={animState}
-        className="drawer-panel drawer-panel--end fixed inset-y-0 end-0 flex w-[26rem] max-w-[92vw] flex-col overflow-hidden rounded-s-2xl bg-white shadow-overlay"
+        className="drawer-panel drawer-panel--end fixed inset-y-0 end-0 flex w-[26rem] max-w-[92vw] flex-col overflow-hidden rounded-s-panel bg-surface shadow-overlay"
       >
-        <div className="flex items-center justify-between border-b border-sand-100 bg-sand-50 px-4 py-3">
-          <h2 className="text-base font-bold text-ink-900">
+        <div className="flex items-center justify-between border-b border-border bg-surface-2 px-4 py-3">
+          <h2 className="text-base font-bold text-fg">
             سبد خرید
             {ready && count > 0 ? (
-              <span className="ms-2 text-sm font-normal text-gray-500">
+              <span className="ms-2 text-sm font-normal text-fg-muted">
                 ({formatFaNumber(count)} قلم)
               </span>
             ) : null}
@@ -124,7 +124,7 @@ export function MiniCart() {
             ref={closeRef}
             type="button"
             onClick={() => close()}
-            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full bg-white p-2 text-gray-500 ring-1 ring-inset ring-sand-200 hover:text-gray-700"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-pill bg-surface p-2 text-fg-muted ring-1 ring-inset ring-border hover:text-fg-secondary"
           >
             <span className="sr-only">بستن سبد خرید</span>
             <svg viewBox="0 0 24 24" fill="none" strokeWidth={1.5} stroke="currentColor" aria-hidden="true" className="size-5">
@@ -133,9 +133,9 @@ export function MiniCart() {
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-4 py-4">
+        <div className="flex-1 overscroll-contain overflow-y-auto px-4 py-4">
           {lastMerge && (lastMerge.merged > 0 || lastMerge.failed.length > 0) ? (
-            <div className="mb-3 rounded-xl border border-sabz-200 bg-sabz-50 p-3 text-sm leading-6 text-sabz-800">
+            <div className="mb-3 rounded-card border border-accent/30 bg-accent-soft p-3 text-sm leading-6 text-accent-hover">
               <div className="flex items-start justify-between gap-2">
                 <p>
                   {lastMerge.merged > 0 ? (
@@ -149,7 +149,7 @@ export function MiniCart() {
                   type="button"
                   onClick={clearMerge}
                   aria-label="بستن پیام ادغام"
-                  className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full hover:bg-white"
+                  className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-pill hover:bg-surface-2"
                 >
                   <span aria-hidden="true">×</span>
                 </button>
@@ -158,16 +158,16 @@ export function MiniCart() {
           ) : null}
 
           {showLines ? (
-            <ul role="list" className="divide-y divide-sand-100">
+            <ul role="list" className="divide-y divide-border">
               {items.map((item) => {
                 const image = mediaImageUrl(item.primaryImageUrl);
                 return (
                   <li key={item.variantId} className="flex gap-3 py-3">
-                    <div className="relative size-16 shrink-0 overflow-hidden rounded-lg bg-sand-100">
+                    <div className="relative size-16 shrink-0 overflow-hidden rounded-control bg-surface-2">
                       {image ? (
                         <Image src={image} alt="" fill sizes="64px" className="object-cover" />
                       ) : (
-                        <div className="flex h-full items-center justify-center text-sabz-300">
+                        <div className="flex h-full items-center justify-center text-accent">
                           <svg viewBox="0 0 24 24" fill="none" strokeWidth={1.5} stroke="currentColor" aria-hidden="true" className="size-6">
                             <path
                               d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A1.5 1.5 0 0 0 21.75 19.5V4.5A1.5 1.5 0 0 0 20.25 3H3.75A1.5 1.5 0 0 0 2.25 4.5v15A1.5 1.5 0 0 0 3.75 21Z"
@@ -182,12 +182,12 @@ export function MiniCart() {
                       <Link
                         href={`/products/${item.productSlug}`}
                         onClick={() => close(false)}
-                        className="line-clamp-2 text-sm font-semibold leading-6 text-ink-900 hover:text-sabz-700"
+                        className="line-clamp-2 text-sm font-semibold leading-6 text-fg hover:text-accent"
                       >
                         {item.productName}
                       </Link>
                       {item.variantName ? (
-                        <p className="mt-0.5 text-xs text-gray-500">{item.variantName}</p>
+                        <p className="mt-0.5 text-xs text-fg-muted">{item.variantName}</p>
                       ) : null}
                       <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
                         <CartQtyStepper
@@ -196,13 +196,13 @@ export function MiniCart() {
                           itemLabel={item.productName}
                           onChange={(quantity) => setQuantity(item.variantId, quantity)}
                         />
-                        <p className="text-sm font-bold text-sabz-800">
+                        <p className="text-sm font-bold text-accent-hover">
                           {formatToman(item.lineTotal)}
                         </p>
                       </div>
                       <div className="mt-1 flex items-center justify-between gap-2">
                         {item.priceChanged ? (
-                          <p className="text-xs text-amber-700">قیمت تغییر کرده است</p>
+                          <p className="text-xs text-warning">قیمت تغییر کرده است</p>
                         ) : (
                           <span />
                         )}
@@ -210,7 +210,7 @@ export function MiniCart() {
                           type="button"
                           onClick={() => void removeLine(item.variantId)}
                           aria-label={`حذف ${item.productName} از سبد خرید`}
-                          className="flex min-h-11 min-w-11 items-center justify-center rounded-md p-2 text-xs text-gray-500 hover:bg-red-50 hover:text-red-700"
+                          className="flex min-h-11 min-w-11 items-center justify-center rounded-control p-2 text-xs text-fg-muted hover:bg-danger-soft hover:text-danger"
                         >
                           حذف
                         </button>
@@ -223,8 +223,8 @@ export function MiniCart() {
           ) : null}
 
           {showGuest ? (
-            <div className="rounded-xl border border-sand-200 bg-sand-50 p-4 text-sm leading-6 text-gray-600">
-              <p className="font-semibold text-ink-900">
+            <div className="rounded-card border border-border bg-surface-2 p-4 text-sm leading-6 text-fg-secondary">
+              <p className="font-semibold text-fg">
                 {formatFaNumber(count)} قلم در سبد مهمان شماست
               </p>
               <p className="mt-1">
@@ -243,7 +243,7 @@ export function MiniCart() {
 
           {showEmpty ? (
             <div className="flex flex-col items-center px-6 py-14 text-center">
-              <span className="flex size-14 items-center justify-center rounded-full bg-sabz-50 text-sabz-600">
+              <span className="flex size-14 items-center justify-center rounded-pill bg-accent-soft text-accent">
                 <svg viewBox="0 0 24 24" fill="none" strokeWidth={1.5} stroke="currentColor" aria-hidden="true" className="size-7">
                   <path
                     d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 0 0-16.536-1.84M7.5 14.25 5.106 5.272M6 20.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm12.75 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z"
@@ -252,8 +252,8 @@ export function MiniCart() {
                   />
                 </svg>
               </span>
-              <p className="mt-4 text-sm font-semibold text-ink-900">سبد خرید شما خالی است</p>
-              <p className="mt-1 text-sm leading-6 text-gray-600">
+              <p className="mt-4 text-sm font-semibold text-fg">سبد خرید شما خالی است</p>
+              <p className="mt-1 text-sm leading-6 text-fg-secondary">
                 هنوز محصولی به سبد خرید اضافه نکرده‌اید.
               </p>
             </div>
@@ -261,12 +261,12 @@ export function MiniCart() {
         </div>
 
         {showLines ? (
-          <div className="border-t border-sand-100 bg-white px-4 py-4">
+          <div className="border-t border-border bg-surface px-4 py-4">
             <div className="flex items-center justify-between gap-3 text-sm">
-              <span className="text-gray-600">
+              <span className="text-fg-secondary">
                 جمع سبد ({formatFaNumber(totalQuantity)} قلم)
               </span>
-              <span aria-live="polite" className="text-base font-bold text-sabz-800">
+              <span aria-live="polite" className="text-base font-bold text-accent-hover">
                 {formatToman(subtotal)}
               </span>
             </div>

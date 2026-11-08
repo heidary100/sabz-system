@@ -31,7 +31,7 @@ export async function ProductReviews({
         </p>
       ) : null}
       {list.items.length === 0 ? (
-        <p className="mt-4 rounded-xl border border-sand-200 bg-white p-6 text-sm leading-7 text-gray-600">
+        <p className="mt-4 rounded-card border border-border bg-surface p-6 text-sm leading-7 text-fg-secondary">
           هنوز دیدگاهی برای این محصول ثبت نشده است. اولین نظر را شما
           بنویسید.
         </p>
@@ -40,19 +40,19 @@ export async function ProductReviews({
           {list.items.map((review) => (
             <li
               key={review.id}
-              className="rounded-xl border border-sand-200 bg-white p-4 sm:p-5"
+              className="rounded-card border border-border bg-surface p-4 sm:p-5"
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <Rating value={review.rating} />
                 <time
                   dateTime={review.createdAt}
-                  className="text-xs text-gray-500"
+                  className="text-xs text-fg-muted"
                 >
                   {new Date(review.createdAt).toLocaleDateString('fa-IR')}
                 </time>
               </div>
               {review.comment ? (
-                <p dir="auto" className="mt-2 text-sm leading-7 text-gray-700">
+                <p dir="auto" className="mt-2 text-sm leading-7 text-fg-secondary">
                   {review.comment}
                 </p>
               ) : null}

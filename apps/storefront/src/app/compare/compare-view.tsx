@@ -60,8 +60,8 @@ export function CompareView({ urlSlugs, urlEntries, products }: CompareViewProps
         aria-busy="true"
         aria-label="در حال بارگذاری مقایسه"
       >
-        <div className="h-8 w-48 rounded-md bg-sand-100" aria-hidden="true" />
-        <div className="mt-6 h-64 rounded-xl bg-sand-100" aria-hidden="true" />
+        <div className="h-8 w-48 rounded-control bg-surface-2" aria-hidden="true" />
+        <div className="mt-6 h-64 rounded-card bg-surface-2" aria-hidden="true" />
       </div>
     );
   }
@@ -70,12 +70,12 @@ export function CompareView({ urlSlugs, urlEntries, products }: CompareViewProps
     const staleLink = urlSlugs.length > 0;
     return (
       <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
-        <h1 className="text-balance text-2xl font-extrabold text-ink-900">
+        <h1 className="text-balance text-2xl font-extrabold text-fg">
           مقایسه محصولات
         </h1>
-        <div className="mt-8 rounded-2xl border border-sand-200 bg-white">
+        <div className="mt-8 rounded-panel border border-border bg-surface">
           <div className="flex flex-col items-center px-6 py-16 text-center">
-            <span className="flex size-14 items-center justify-center rounded-full bg-sabz-50 text-sabz-600">
+            <span className="flex size-14 items-center justify-center rounded-pill bg-accent-soft text-accent">
               <svg viewBox="0 0 24 24" fill="none" strokeWidth={1.5} stroke="currentColor" aria-hidden="true" className="size-7">
                 <path
                   d="M9 6.75V15m6-6v8.25m.503 3.498 4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 0 0-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0Z"
@@ -84,12 +84,12 @@ export function CompareView({ urlSlugs, urlEntries, products }: CompareViewProps
                 />
               </svg>
             </span>
-            <h2 className="mt-5 text-lg font-semibold text-ink-900">
+            <h2 className="mt-5 text-lg font-semibold text-fg">
               {staleLink
                 ? 'محصولات انتخاب‌شده یافت نشدند'
                 : 'هنوز محصولی برای مقایسه انتخاب نکرده‌اید'}
             </h2>
-            <p className="mt-2 max-w-md text-sm leading-6 text-gray-600">
+            <p className="mt-2 max-w-md text-sm leading-6 text-fg-secondary">
               {staleLink
                 ? 'این پیوند مقایسه به محصولاتی اشاره می‌کند که دیگر منتشر نیستند. فهرست را پاک کنید و دوباره انتخاب کنید.'
                 : 'تا چهار محصول را با دکمه مقایسه روی کارت یا صفحه محصول انتخاب کنید تا اینجا کنار هم ببینید.'}
@@ -122,10 +122,10 @@ export function CompareView({ urlSlugs, urlEntries, products }: CompareViewProps
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-      <h1 className="text-balance text-2xl font-extrabold text-ink-900">
+      <h1 className="text-balance text-2xl font-extrabold text-fg">
         مقایسه محصولات
       </h1>
-      <p className="mt-1 text-sm text-gray-500">
+      <p className="mt-1 text-sm text-fg-muted">
         {products.length.toLocaleString('fa-IR')} محصول
       </p>
       <div className="mt-6">

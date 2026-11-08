@@ -10,11 +10,11 @@ import type { BlogPostCardDto } from '@sabz/types';
  */
 export function BlogCard({ post }: { post: BlogPostCardDto }) {
   return (
-    <article className="hover-lift group flex h-full flex-col overflow-hidden rounded-xl border border-sand-200 bg-white shadow-card transition-colors hover:border-sabz-300">
+    <article className="hover-lift group flex h-full flex-col overflow-hidden rounded-card border border-border bg-surface shadow-card transition-colors hover:border-accent">
       {post.coverImageUrl ? (
         <Link
           href={`/blog/${post.slug}`}
-          className="block focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700"
+          className="block focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
           tabIndex={-1}
           aria-hidden="true"
         >
@@ -32,23 +32,23 @@ export function BlogCard({ post }: { post: BlogPostCardDto }) {
         {post.category ? (
           <Link
             href={`/blog?category=${encodeURIComponent(post.category.slug)}`}
-            className="w-fit rounded-full bg-sabz-50 px-2.5 py-0.5 text-xs font-medium text-sabz-700 hover:text-sabz-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700"
+            className="w-fit rounded-pill bg-accent-soft px-2.5 py-0.5 text-xs font-medium text-accent hover:text-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
           >
             {post.category.name}
           </Link>
         ) : null}
-        <h3 className="text-sm font-bold leading-6 text-ink-900 transition-colors group-hover:text-sabz-700">
+        <h3 className="text-sm font-bold leading-6 text-fg transition-colors group-hover:text-accent">
           <Link
             href={`/blog/${post.slug}`}
-            className="focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700"
+            className="focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
           >
             {post.title}
           </Link>
         </h3>
         {post.excerpt ? (
-          <p className="line-clamp-2 text-xs leading-5 text-gray-500">{post.excerpt}</p>
+          <p className="line-clamp-2 text-xs leading-5 text-fg-muted">{post.excerpt}</p>
         ) : null}
-        <p className="mt-auto flex items-center gap-2 pt-2 text-xs text-gray-400">
+        <p className="mt-auto flex items-center gap-2 pt-2 text-xs text-fg-muted">
           {post.authorName ? <span>{post.authorName}</span> : null}
           {post.authorName && post.publishedAt ? <span aria-hidden="true">·</span> : null}
           {post.publishedAt ? (

@@ -83,7 +83,7 @@ export function ReturnsList() {
 
   if (status === 'error') {
     return (
-      <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+      <p role="alert" className="rounded-control bg-danger-soft px-3 py-2 text-sm text-danger">
         {error ?? LOAD_FAILED}
       </p>
     );
@@ -92,7 +92,7 @@ export function ReturnsList() {
   if (items.length === 0) {
     return (
       <Card className="p-6 text-center">
-        <p className="text-sm leading-6 text-gray-600">
+        <p className="text-sm leading-6 text-fg-secondary">
           هنوز درخواست مرجوعی ثبت نکرده‌اید.
         </p>
         <Link href="/orders" className={buttonVariants({ variant: 'primary' }) + ' mt-6'}>
@@ -103,16 +103,16 @@ export function ReturnsList() {
   }
 
   return (
-    <ul role="list" className="stagger space-y-4">
+    <ul role="list" className=" space-y-4">
       {items.map((item) => (
         <li key={item.id}>
           <Card hover className="p-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <p className="text-sm font-extrabold text-ink-900">
+                <p className="text-sm font-extrabold text-fg">
                   مرجوعی سفارش {formatFaNumber(item.orderNumber)}
                 </p>
-                <p className="mt-1 text-xs text-gray-500">
+                <p className="mt-1 text-xs text-fg-muted">
                   {formatFaDate(item.createdAt)} — {item.items.length} قلم
                 </p>
               </div>
@@ -128,13 +128,13 @@ export function ReturnsList() {
                 {returnStatusLabel(item.status)}
               </Badge>
             </div>
-            <p className="mt-3 line-clamp-2 text-sm leading-6 text-gray-600">
+            <p className="mt-3 line-clamp-2 text-sm leading-6 text-fg-secondary">
               {item.reason}
             </p>
-            <div className="mt-4 flex justify-end border-t border-sand-100 pt-4">
+            <div className="mt-4 flex justify-end border-t border-border pt-4">
               <Link
                 href={`/returns/${item.id}`}
-                className="group inline-flex min-h-10 items-center gap-1.5 rounded-full bg-white px-4 text-sm font-semibold text-sabz-700 ring-1 ring-inset ring-sabz-200 transition-all duration-200 hover:bg-sabz-700 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700"
+                className="group inline-flex min-h-10 items-center gap-1.5 rounded-pill bg-surface px-4 text-sm font-semibold text-accent ring-1 ring-inset ring-accent/20 transition-all duration-200 hover:bg-accent hover:text-on-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
               >
                 جزئیات درخواست
                 <svg

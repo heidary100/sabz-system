@@ -27,7 +27,7 @@ type Status = 'checking' | 'login' | 'loading' | 'ready' | 'error';
 const LOAD_FAILED = 'دریافت درخواست همکاری ناموفق بود؛ لطفاً دوباره تلاش کنید.';
 
 const inputClassName =
-  'min-h-11 w-full rounded-md border border-sand-200 bg-white px-3 text-sm text-ink-900 placeholder:text-gray-400';
+  'min-h-11 w-full rounded-control border border-border-control bg-surface px-3 text-sm text-fg placeholder:text-fg-muted';
 
 const DOCUMENT_TYPES: PartnerDocumentType[] = [
   'BUSINESS_LICENSE',
@@ -254,11 +254,11 @@ export function PartnersPortal() {
   if (status === 'login') {
     return (
       <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
-        <h1 className="text-balance text-2xl font-extrabold text-ink-900">همکاری با ما</h1>
-        <div className="mt-8 rounded-2xl border border-sand-200 bg-white">
+        <h1 className="text-balance text-2xl font-extrabold text-fg">همکاری با ما</h1>
+        <div className="mt-8 rounded-panel border border-border bg-surface">
           <div className="flex flex-col items-center px-6 py-16 text-center">
-            <h2 className="text-lg font-semibold text-ink-900">برای ثبت درخواست همکاری وارد شوید</h2>
-            <p className="mt-2 max-w-md text-sm leading-6 text-gray-600">
+            <h2 className="text-lg font-semibold text-fg">برای ثبت درخواست همکاری وارد شوید</h2>
+            <p className="mt-2 max-w-md text-sm leading-6 text-fg-secondary">
               درخواست همکاری به حساب کاربری شما متصل است. وارد شوید تا فرم
               ثبت‌نام همکاران را ببینید.
             </p>
@@ -274,11 +274,11 @@ export function PartnersPortal() {
   if (status === 'error') {
     return (
       <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
-        <h1 className="text-balance text-2xl font-extrabold text-ink-900">همکاری با ما</h1>
-        <div className="mt-8 rounded-2xl border border-sand-200 bg-white">
+        <h1 className="text-balance text-2xl font-extrabold text-fg">همکاری با ما</h1>
+        <div className="mt-8 rounded-panel border border-border bg-surface">
           <div className="flex flex-col items-center px-6 py-16 text-center">
-            <h2 className="text-lg font-semibold text-ink-900">خطا در بارگذاری صفحه همکاری</h2>
-            <p className="mt-2 max-w-md text-sm leading-6 text-gray-600">{error ?? LOAD_FAILED}</p>
+            <h2 className="text-lg font-semibold text-fg">خطا در بارگذاری صفحه همکاری</h2>
+            <p className="mt-2 max-w-md text-sm leading-6 text-fg-secondary">{error ?? LOAD_FAILED}</p>
             <Button variant="primary" className="mt-8" onClick={load}>
               تلاش مجدد
             </Button>
@@ -293,24 +293,24 @@ export function PartnersPortal() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 px-4 py-10 sm:px-6">
-      <h1 className="text-balance text-2xl font-extrabold text-ink-900">همکاری با ما</h1>
+      <h1 className="text-balance text-2xl font-extrabold text-fg">همکاری با ما</h1>
 
       {error !== null && (
-        <p role="status" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+        <p role="status" className="rounded-control bg-danger-soft px-3 py-2 text-sm text-danger">
           {error}
         </p>
       )}
       {notice !== null && (
-        <p role="status" className="rounded-md bg-sabz-50 px-3 py-2 text-sm text-sabz-700">
+        <p role="status" className="rounded-control bg-accent-soft px-3 py-2 text-sm text-accent">
           {notice}
         </p>
       )}
 
-      <section aria-labelledby="tiers-heading" className="rounded-xl border border-sand-200 bg-white p-6">
-        <h2 id="tiers-heading" className="text-sm font-bold text-ink-900">
+      <section aria-labelledby="tiers-heading" className="rounded-card border border-border bg-surface p-6">
+        <h2 id="tiers-heading" className="text-sm font-bold text-fg">
           فروش عمده با شرایط همکاری
         </h2>
-        <p className="mt-2 text-sm leading-6 text-gray-600">
+        <p className="mt-2 text-sm leading-6 text-fg-secondary">
           حساب همکار برای خرید عمده با شرایط ویژه در نظر گرفته شده است. سطح
           همکاری شما بر اساس حجم خرید تعیین میشود و جزئیات آن پس از تأیید
           درخواست، در همین صفحه نمایش داده میشود.
@@ -321,42 +321,42 @@ export function PartnersPortal() {
             { step: '۲', title: 'بررسی کارشناسان', text: 'درخواست شما بررسی و نتیجه اعلام میشود.' },
             { step: '۳', title: 'فعال‌سازی حساب همکار', text: 'پس از تأیید، سطح همکاری شما مشخص میشود.' },
           ].map((item) => (
-            <li key={item.step} className="rounded-lg bg-sabz-50 p-4">
-              <p className="text-sm font-bold text-sabz-800">
+            <li key={item.step} className="rounded-control bg-accent-soft p-4">
+              <p className="text-sm font-bold text-accent-hover">
                 <span aria-hidden="true">{item.step}. </span>
                 {item.title}
               </p>
-              <p className="mt-1 text-xs leading-5 text-gray-600">{item.text}</p>
+              <p className="mt-1 text-xs leading-5 text-fg-secondary">{item.text}</p>
             </li>
           ))}
         </ol>
       </section>
 
       {app !== null && (
-        <section aria-labelledby="status-heading" className="rounded-xl border border-sand-200 bg-white p-6">
-          <h2 id="status-heading" className="text-sm font-bold text-ink-900">
+        <section aria-labelledby="status-heading" className="rounded-card border border-border bg-surface p-6">
+          <h2 id="status-heading" className="text-sm font-bold text-fg">
             وضعیت درخواست
           </h2>
-          <p className="mt-3 text-base font-semibold text-sabz-800">
+          <p className="mt-3 text-base font-semibold text-accent-hover">
             {PARTNER_STATUS_LABELS[app.approvalStatus]}
           </p>
           {app.approvalStatus === 'PENDING' && (
-            <p className="mt-2 text-sm leading-6 text-gray-600">
+            <p className="mt-2 text-sm leading-6 text-fg-secondary">
               درخواست شما در حال بررسی است و فعلاً قابل ویرایش نیست.
             </p>
           )}
           {app.approvalStatus === 'APPROVED' && app.tier !== null && (
-            <p className="mt-2 text-sm leading-6 text-gray-600">
+            <p className="mt-2 text-sm leading-6 text-fg-secondary">
               سطح همکاری: {app.tier.name}
             </p>
           )}
           {app.approvalStatus === 'REJECTED' && app.rejectionReason && (
-            <p className="mt-2 text-sm leading-6 text-gray-600">
+            <p className="mt-2 text-sm leading-6 text-fg-secondary">
               دلیل رد درخواست: {app.rejectionReason}
             </p>
           )}
           {app.approvalStatus === 'REJECTED' && (
-            <p className="mt-2 text-sm leading-6 text-gray-600">
+            <p className="mt-2 text-sm leading-6 text-fg-secondary">
               میتوانید اطلاعات را ویرایش و درخواست را دوباره ارسال کنید.
             </p>
           )}
@@ -364,14 +364,14 @@ export function PartnersPortal() {
       )}
 
       {editable && (
-        <section aria-labelledby="form-heading" className="rounded-xl border border-sand-200 bg-white p-6">
-          <h2 id="form-heading" className="text-sm font-bold text-ink-900">
+        <section aria-labelledby="form-heading" className="rounded-card border border-border bg-surface p-6">
+          <h2 id="form-heading" className="text-sm font-bold text-fg">
             {app ? 'ویرایش اطلاعات کسب‌وکار' : 'ثبت درخواست همکاری'}
           </h2>
           {app === null && (
-            <p className="mt-2 text-sm leading-6 text-gray-600">
+            <p className="mt-2 text-sm leading-6 text-fg-secondary">
               برای ثبت درخواست، ابتدا پروفایل کاربری (نام و نام خانوادگی) را در{' '}
-              <Link href="/account" className="font-semibold text-sabz-700 hover:text-sabz-800">
+              <Link href="/account" className="font-semibold text-accent hover:text-accent-hover">
                 حساب کاربری
               </Link>{' '}
               تکمیل کنید.
@@ -379,7 +379,7 @@ export function PartnersPortal() {
           )}
           <div className="mt-4 space-y-4">
             <div>
-              <label htmlFor="partner-businessName" className="mb-1 block text-sm font-semibold text-ink-900">
+              <label htmlFor="partner-businessName" className="mb-1 block text-sm font-semibold text-fg">
                 نام کسب‌وکار *
               </label>
               <input
@@ -392,7 +392,7 @@ export function PartnersPortal() {
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <label htmlFor="partner-licenseNo" className="mb-1 block text-sm font-semibold text-ink-900">
+                <label htmlFor="partner-licenseNo" className="mb-1 block text-sm font-semibold text-fg">
                   شماره جواز
                 </label>
                 <input
@@ -404,7 +404,7 @@ export function PartnersPortal() {
                 />
               </div>
               <div>
-                <label htmlFor="partner-nationalId" className="mb-1 block text-sm font-semibold text-ink-900">
+                <label htmlFor="partner-nationalId" className="mb-1 block text-sm font-semibold text-fg">
                   شناسه ملی
                 </label>
                 <input
@@ -417,7 +417,7 @@ export function PartnersPortal() {
               </div>
             </div>
             <div>
-              <label htmlFor="partner-website" className="mb-1 block text-sm font-semibold text-ink-900">
+              <label htmlFor="partner-website" className="mb-1 block text-sm font-semibold text-fg">
                 وب‌سایت
               </label>
               <input
@@ -431,7 +431,7 @@ export function PartnersPortal() {
               />
             </div>
             <div>
-              <label htmlFor="partner-address" className="mb-1 block text-sm font-semibold text-ink-900">
+              <label htmlFor="partner-address" className="mb-1 block text-sm font-semibold text-fg">
                 نشانی کسب‌وکار
               </label>
               <textarea
@@ -445,7 +445,7 @@ export function PartnersPortal() {
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <label htmlFor="partner-city" className="mb-1 block text-sm font-semibold text-ink-900">
+                <label htmlFor="partner-city" className="mb-1 block text-sm font-semibold text-fg">
                   شهر
                 </label>
                 <input
@@ -457,7 +457,7 @@ export function PartnersPortal() {
                 />
               </div>
               <div>
-                <label htmlFor="partner-province" className="mb-1 block text-sm font-semibold text-ink-900">
+                <label htmlFor="partner-province" className="mb-1 block text-sm font-semibold text-fg">
                   استان
                 </label>
                 <input
@@ -484,15 +484,15 @@ export function PartnersPortal() {
       )}
 
       {app !== null && (
-        <section aria-labelledby="docs-heading" className="rounded-xl border border-sand-200 bg-white p-6">
-          <h2 id="docs-heading" className="text-sm font-bold text-ink-900">
+        <section aria-labelledby="docs-heading" className="rounded-card border border-border bg-surface p-6">
+          <h2 id="docs-heading" className="text-sm font-bold text-fg">
             مدارک کسب‌وکار
           </h2>
           {editable && (
             <div className="mt-4 space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <label htmlFor="partner-docType" className="mb-1 block text-sm font-semibold text-ink-900">
+                  <label htmlFor="partner-docType" className="mb-1 block text-sm font-semibold text-fg">
                     نوع سند
                   </label>
                   <select
@@ -509,7 +509,7 @@ export function PartnersPortal() {
                   </select>
                 </div>
                 <div>
-                  <label htmlFor="partner-docFile" className="mb-1 block text-sm font-semibold text-ink-900">
+                  <label htmlFor="partner-docFile" className="mb-1 block text-sm font-semibold text-fg">
                     فایل (حداکثر ۱۰ مگابایت: PDF، PNG، JPG)
                   </label>
                   <input
@@ -517,7 +517,7 @@ export function PartnersPortal() {
                     ref={fileRef}
                     type="file"
                     accept=".pdf,.png,.jpg,.jpeg"
-                    className="min-h-11 w-full text-sm text-ink-900 file:me-3 file:min-h-11 file:rounded-md file:border-0 file:bg-sabz-700 file:px-5 file:text-sm file:font-semibold file:text-white hover:file:bg-sabz-800"
+                    className="min-h-11 w-full text-sm text-fg file:me-3 file:min-h-11 file:rounded-control file:border-0 file:bg-accent file:px-5 file:text-sm file:font-semibold file:text-on-accent hover:file:bg-accent-hover"
                   />
                 </div>
               </div>
@@ -528,16 +528,16 @@ export function PartnersPortal() {
           )}
           <ul className="mt-4 space-y-2">
             {app.documents.length === 0 && (
-              <li className="text-sm text-gray-500">هنوز سندی بارگذاری نشده است.</li>
+              <li className="text-sm text-fg-muted">هنوز سندی بارگذاری نشده است.</li>
             )}
             {app.documents.map((doc) => (
               <li
                 key={doc.id}
-                className="flex items-center justify-between gap-3 rounded-lg border border-sand-200 px-3 py-2"
+                className="flex items-center justify-between gap-3 rounded-control border border-border px-3 py-2"
               >
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-ink-900">{doc.originalName}</p>
-                  <p className="mt-0.5 text-xs text-gray-500">
+                  <p className="truncate text-sm font-semibold text-fg">{doc.originalName}</p>
+                  <p className="mt-0.5 text-xs text-fg-muted">
                     {PARTNER_DOCUMENT_TYPE_LABELS[doc.type]} · {formatBytes(doc.sizeBytes)}
                   </p>
                 </div>
@@ -554,13 +554,13 @@ export function PartnersPortal() {
             ))}
           </ul>
           {editable && (
-            <ul aria-label="موارد لازم برای ارسال" className="mt-4 space-y-1 border-t border-sand-200 pt-4">
+            <ul aria-label="موارد لازم برای ارسال" className="mt-4 space-y-1 border-t border-border pt-4">
               {checklist.map((item) => (
                 <li key={item.field} className="flex items-center gap-2 text-sm">
-                  <span aria-hidden="true" className={item.done ? 'text-sabz-700' : 'text-gray-300'}>
+                  <span aria-hidden="true" className={item.done ? 'text-accent' : 'text-fg-muted'}>
                     {item.done ? '✓' : '○'}
                   </span>
-                  <span className={item.done ? 'text-gray-600' : 'font-semibold text-ink-900'}>
+                  <span className={item.done ? 'text-fg-secondary' : 'font-semibold text-fg'}>
                     {item.label}
                     <span className="sr-only">{item.done ? ' (تکمیل شده)' : ' (باقی‌مانده)'}</span>
                   </span>

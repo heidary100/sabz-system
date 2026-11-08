@@ -6,8 +6,8 @@ export default function Loading() {
       aria-busy="true"
       aria-label="در حال بارگذاری مقایسه"
     >
-      <div className="h-8 w-48 rounded-md bg-sand-100" aria-hidden="true" />
-      <div className="mt-6 h-64 rounded-xl bg-sand-100" aria-hidden="true" />
+      <div className="h-8 w-48 rounded-control bg-surface-2" aria-hidden="true" />
+      <div className="mt-6 h-64 rounded-card bg-surface-2" aria-hidden="true" />
     </div>
   );
 }

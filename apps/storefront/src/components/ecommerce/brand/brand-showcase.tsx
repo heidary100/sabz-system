@@ -38,7 +38,7 @@ export function BrandShowcase({ groups }: { groups: BrandShowcaseGroup[] }) {
   }
 
   return (
-    <section aria-labelledby="brands-heading" className="border-t border-sand-200 bg-white">
+    <section aria-labelledby="brands-heading" className="border-t border-border bg-surface">
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-14 lg:px-8">
         <SectionHeader id="brands-heading" title="گجت‌های روز" subtitle="محبوب‌ترین برندهای فروشگاه" />
 
@@ -58,10 +58,10 @@ export function BrandShowcase({ groups }: { groups: BrandShowcaseGroup[] }) {
               aria-controls={`${baseId}-panel-${index}`}
               tabIndex={index === active ? 0 : -1}
               onClick={() => setActive(index)}
-              className={`min-h-11 rounded-full px-4 text-sm font-semibold transition-colors ${
+              className={`min-h-11 rounded-pill px-4 text-sm font-semibold transition-colors ${
                 index === active
-                  ? 'bg-sabz-700 text-white shadow-sm'
-                  : 'bg-sand-100 text-gray-600 hover:bg-sabz-50 hover:text-sabz-700'
+                  ? 'bg-accent text-on-accent shadow-card'
+                  : 'bg-surface-2 text-fg-secondary hover:bg-accent-soft hover:text-accent'
               }`}
             >
               {group.name}
@@ -80,13 +80,13 @@ export function BrandShowcase({ groups }: { groups: BrandShowcaseGroup[] }) {
           >
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
               {group.products.map((product) => (
-                <ProductCardWithWishlist key={product.id} product={product} />
+                <ProductCardWithWishlist key={product.id} product={product} density="compact" />
               ))}
             </div>
             <div className="mt-6 text-start">
               <Link
                 href={`/products?brand=${encodeURIComponent(group.slug)}`}
-                className="inline-flex min-h-11 items-center rounded-sm text-sm font-medium text-sabz-700 hover:text-sabz-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700"
+                className="inline-flex min-h-11 items-center rounded-control text-sm font-medium text-accent hover:text-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
               >
                 مشاهده همه محصولات {group.name}
               </Link>

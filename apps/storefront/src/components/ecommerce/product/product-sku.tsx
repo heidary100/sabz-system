@@ -37,16 +37,16 @@ export function ProductSku({ sku }: { sku: string }) {
 
   return (
     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-      <dt className="text-gray-600">شناسه کالا</dt>
+      <dt className="text-fg-secondary">شناسه کالا</dt>
       <dd className="flex items-center gap-1.5">
-        <span dir="ltr" className="font-mono text-[13px] text-ink-900">
+        <span dir="ltr" className="font-mono text-[13px] text-fg">
           {sku}
         </span>
         <button
           type="button"
           onClick={copy}
           aria-label="کپی شناسه کالا"
-          className="rounded-md p-1.5 text-gray-500 ring-sabz-600 hover:bg-sand-100 hover:text-sabz-700 focus-visible:ring-2 focus-visible:outline-none"
+          className="rounded-control p-1.5 text-fg-muted ring-focus hover:bg-surface-2 hover:text-accent focus-visible:ring-2 focus-visible:outline-none"
         >
           {copied ? (
             <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="size-4">
@@ -66,7 +66,7 @@ export function ProductSku({ sku }: { sku: string }) {
             </svg>
           )}
         </button>
-        <span aria-live="polite" className="min-w-12 text-xs text-sabz-700">
+        <span aria-live="polite" className="min-w-12 text-xs text-accent">
           {copied ? 'کپی شد' : null}
         </span>
       </dd>

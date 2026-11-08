@@ -80,7 +80,7 @@ export function HeroSlider({ slides }: { slides: HeroSlide[] }) {
   return (
     <section
       aria-label="معرفی فروشگاه"
-      className="bg-gradient-ink"
+      className="stage-surface bg-stage"
       onMouseEnter={pause}
       onMouseLeave={resume}
       onFocusCapture={pause}
@@ -105,42 +105,23 @@ export function HeroSlider({ slides }: { slides: HeroSlide[] }) {
               data-active={active === index}
               className="relative min-w-full snap-start overflow-hidden"
             >
-              {/* Accent glows — purely decorative, aria-hidden. */}
-              <div
-                aria-hidden="true"
-                className="pointer-events-none absolute -top-24 start-1/4 size-96 rounded-full bg-sabz-600/25 blur-3xl"
-              />
-              <div
-                aria-hidden="true"
-                className="pointer-events-none absolute -bottom-32 end-8 size-72 rounded-full bg-sabz-500/15 blur-3xl"
-              />
-              {/* Decorative ring motif (SS-246): ties the typographic stage
-                  to the brand's circular mark without imagery. */}
-              <div
-                aria-hidden="true"
-                className="pointer-events-none absolute -end-24 top-1/2 hidden size-[28rem] -translate-y-1/2 rounded-full border border-white/5 lg:block"
-              />
-              <div
-                aria-hidden="true"
-                className="pointer-events-none absolute -end-10 top-1/2 hidden size-[18rem] -translate-y-1/2 rounded-full border border-sabz-500/10 lg:block"
-              />
               <div className="relative flex min-h-80 flex-col items-start justify-center gap-5 px-6 py-20 sm:min-h-96 sm:px-12 lg:min-h-[28rem] lg:px-20">
                 <div className="hero-copy max-w-3xl">
-                  <p className="inline-flex items-center gap-2 rounded-full bg-white/5 px-3 py-1 text-xs font-semibold text-sabz-300 ring-1 ring-inset ring-white/10">
-                    <span aria-hidden="true" className="size-1.5 rounded-full bg-sabz-400" />
+                  <p className="inline-flex items-center gap-2 rounded-pill bg-on-stage/5 px-3 py-1 text-xs font-semibold text-accent-stage ring-1 ring-inset ring-on-stage/10">
+                    <span aria-hidden="true" className="size-1.5 rounded-pill bg-accent" />
                     سبز سیستم
                   </p>
-                  <h1 className="mt-4 text-balance text-3xl font-black leading-[1.25] text-white sm:text-4xl lg:text-5xl">
+                  <h1 className="mt-4 text-balance text-3xl font-black leading-[1.25] text-on-stage sm:text-4xl lg:text-5xl">
                     {slide.title}
                   </h1>
                   {slide.subtitle ? (
-                    <p className="mt-4 max-w-xl text-sm leading-7 text-gray-300 sm:text-base sm:leading-8">
+                    <p className="mt-4 max-w-xl text-sm leading-7 text-on-stage-secondary sm:text-base sm:leading-8">
                       {slide.subtitle}
                     </p>
                   ) : null}
                   <Link
                     href={slide.href}
-                    className="mt-7 inline-flex min-h-12 items-center justify-center rounded-full bg-gradient-sabz px-7 text-sm font-bold text-white shadow-lift transition-all duration-300 ease-[var(--ease-swift)] hover:scale-[1.03] hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white active:scale-[0.98]"
+                    className="mt-7 inline-flex min-h-12 items-center justify-center rounded-pill bg-on-stage px-7 text-sm font-bold text-stage transition-colors duration-200 hover:bg-on-stage/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus active:scale-[0.98]"
                   >
                     {slide.ctaLabel}
                   </Link>
@@ -158,7 +139,7 @@ export function HeroSlider({ slides }: { slides: HeroSlide[] }) {
             <button
               type="button"
               onClick={() => goTo((active - 1 + slides.length) % slides.length)}
-              className="absolute start-4 top-1/2 hidden min-h-11 min-w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-sm transition-all duration-300 hover:scale-105 hover:bg-white/25 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:inline-flex"
+              className="absolute start-4 top-1/2 hidden min-h-11 min-w-11 -translate-y-1/2 items-center justify-center rounded-pill bg-on-stage/10 text-on-stage transition-all duration-300 hover:scale-105 hover:bg-on-stage/25 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus sm:inline-flex"
             >
               <span className="sr-only">اسلاید قبلی</span>
               <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="size-5">
@@ -168,7 +149,7 @@ export function HeroSlider({ slides }: { slides: HeroSlide[] }) {
             <button
               type="button"
               onClick={() => goTo((active + 1) % slides.length)}
-              className="absolute end-4 top-1/2 hidden min-h-11 min-w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-sm transition-all duration-300 hover:scale-105 hover:bg-white/25 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:inline-flex"
+              className="absolute end-4 top-1/2 hidden min-h-11 min-w-11 -translate-y-1/2 items-center justify-center rounded-pill bg-on-stage/10 text-on-stage transition-all duration-300 hover:scale-105 hover:bg-on-stage/25 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus sm:inline-flex"
             >
               <span className="sr-only">اسلاید بعدی</span>
               <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="size-5">
@@ -188,10 +169,10 @@ export function HeroSlider({ slides }: { slides: HeroSlide[] }) {
                     onClick={() => goTo(index)}
                     aria-label={`رفتن به اسلاید ${index + 1}`}
                     aria-current={active === index}
-                    className={`h-2 rounded-full transition-all duration-300 ease-[var(--ease-swift)] ${
+                    className={`h-2 rounded-pill transition-all duration-300 ease-[var(--ease-swift)] ${
                       active === index
-                        ? 'w-7 bg-sabz-400'
-                        : 'w-2 bg-white/30 hover:bg-white/60'
+                        ? 'w-7 bg-accent'
+                        : 'w-2 bg-on-stage/30 hover:bg-on-stage/60'
                     }`}
                   />
                 ))}
@@ -203,7 +184,7 @@ export function HeroSlider({ slides }: { slides: HeroSlide[] }) {
                 onClick={() => (paused ? resume() : pause())}
                 aria-pressed={paused}
                 aria-label={paused ? 'پخش خودکار اسلایدها' : 'توقف پخش خودکار'}
-                className="inline-flex min-h-8 min-w-8 items-center justify-center rounded-full bg-white/10 text-white/80 backdrop-blur-sm transition-colors hover:bg-white/25 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                className="inline-flex min-h-8 min-w-8 items-center justify-center rounded-pill bg-on-stage/10 text-on-stage-secondary transition-colors hover:bg-on-stage/25 hover:text-on-stage focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
               >
                 {paused ? (
                   <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="size-3.5">
@@ -221,12 +202,12 @@ export function HeroSlider({ slides }: { slides: HeroSlide[] }) {
                 pauses in place via animation-play-state. */}
             <div
               aria-hidden="true"
-              className="absolute bottom-0 start-0 h-0.5 w-full bg-white/5"
+              className="absolute bottom-0 start-0 h-0.5 w-full bg-on-stage/5"
             >
               {slides.map((slide, index) => (
                 <span
                   key={slide.href + slide.title}
-                  className="hero-progress absolute inset-y-0 start-0 bg-gradient-to-l from-sabz-400 to-sabz-600"
+                  className="hero-progress absolute inset-y-0 start-0 bg-accent-stage"
                   style={{
                     width: `${100 / slides.length}%`,
                     insetInlineStart: `${(index * 100) / slides.length}%`,

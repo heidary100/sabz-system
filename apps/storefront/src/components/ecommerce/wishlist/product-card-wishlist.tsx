@@ -1,60 +1,69 @@
+import Link from 'next/link';
 import type { CatalogProductCardDto } from '@sabz/types';
-import { ProductCard } from '@/components/ecommerce/product-card/product-card';
+import {
+  ProductCard,
+  type ProductCardDensity,
+} from '@/components/ecommerce/product-card/product-card';
 import { AddToCartButton } from '@/components/ecommerce/cart/add-to-cart-button';
 import { CompareToggle } from '@/components/ecommerce/compare/compare-toggle';
-import { salePercentFrom } from '@/lib/format';
 import { WishlistHeart } from './wishlist-heart';
 
 /**
- * Product card with commerce overlays (SS-231 heart, SS-232 quick-add,
- * SS-237 compare; hover-reveal SS-246).
+ * Product card with commerce actions (Task 02).
  *
- * All overlays are siblings of the card link — never nested inside it
- * (SS-218: no nested interactive elements). The heart dodges the sale badge
- * (top/end); the compare toggle sits at bottom/start, clear of the
- * quick-add (bottom/end) and the out-of-stock pill (top/start).
- * Quick-add renders only for purchasable cards (in stock, priced) and
- * resolves the default variant server-side — never for call-for-price or
- * out-of-stock rows.
+ * The product anchor owns only image/information/price. Wishlist sits in the
+ * media corner; quote, quick-add, unavailable and compare controls live in a
+ * dedicated footer row outside that anchor. No interactive element is nested
+ * in another, and the price can never be covered by a control.
  *
- * Reveal choreography (SS-246): on pointer devices the action cluster rises
- * in on card hover/focus-within; touch screens (no hover) keep the actions
- * always visible so nothing hides behind an unreachable gesture.
+ * Quick-add renders only for genuinely purchasable cards (in stock, priced).
+ * Call-for-price cards expose an intentional «استعلام قیمت» route instead of
+ * a muted placeholder. Out-of-stock priced cards show their real price and a
+ * non-interactive unavailable state.
  */
-const overlayReveal =
-  'transition-all duration-300 ease-[var(--ease-swift)] lg:translate-y-1.5 lg:opacity-0 lg:group-hover/card:translate-y-0 lg:group-hover/card:opacity-100 lg:focus-within:translate-y-0 lg:focus-within:opacity-100';
-
 export function ProductCardWithWishlist({
   product,
+  density = 'default',
 }: {
   product: CatalogProductCardDto;
+  density?: ProductCardDensity;
 }) {
-  const hasSaleBadge =
-    salePercentFrom(product.priceFrom, product.compareAtPrice) !== null;
   const purchasable = product.inStock && !product.callForPrice;
 
   return (
-    <div className="group/card relative">
-      <ProductCard product={product} />
-      <div className={`absolute end-2 ${hasSaleBadge ? 'top-12' : 'top-2'} ${overlayReveal}`}>
-        <WishlistHeart productId={product.id} />
-      </div>
-      <div className={`absolute bottom-2 start-2 ${overlayReveal}`}>
-        <CompareToggle
-          productId={product.id}
-          slug={product.slug}
-          productName={product.name}
-        />
-      </div>
-      {purchasable ? (
-        <div className={`absolute bottom-2 end-2 ${overlayReveal}`}>
-          <AddToCartButton
-            size="icon"
-            identity={{ productId: product.id }}
+    <ProductCard
+      product={product}
+      density={density}
+      corner={<WishlistHeart productId={product.id} />}
+      footer={
+        <div className="flex items-center gap-2">
+          {product.callForPrice ? (
+            <Link
+              href={`/products/${product.slug}`}
+              className="flex min-h-11 min-w-0 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-control border border-accent/40 bg-accent-soft px-1.5 text-[11px] font-semibold text-accent transition-colors sm:px-2 sm:text-xs hover:border-accent hover:bg-accent hover:text-on-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+            >
+              استعلام قیمت
+            </Link>
+          ) : purchasable ? (
+            <AddToCartButton
+              size="card"
+              identity={{ productId: product.id }}
+              productName={product.name}
+            />
+          ) : (
+            <span className="flex min-h-11 min-w-0 flex-1 items-center justify-center rounded-control border border-border bg-surface-2 px-2 text-xs font-semibold text-fg-muted">
+              ناموجود
+            </span>
+          )}
+
+          <CompareToggle
+            productId={product.id}
+            slug={product.slug}
             productName={product.name}
+            className="shrink-0"
           />
         </div>
-      ) : null}
-    </div>
+      }
+    />
   );
 }

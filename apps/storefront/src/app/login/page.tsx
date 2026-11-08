@@ -108,42 +108,30 @@ export default function LoginPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:py-16">
-      <div className="grid overflow-hidden rounded-3xl border border-sand-200 bg-white shadow-card lg:grid-cols-2">
+      <div className="grid overflow-hidden rounded-panel border border-border bg-surface shadow-card lg:grid-cols-2">
         {/* Brand panel (SS-246): the cinematic stage — verified value props
             only, mirroring the home hero's visual language. */}
-        <div className="relative hidden flex-col justify-between overflow-hidden bg-gradient-ink p-10 lg:flex">
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute -top-24 start-1/4 size-96 rounded-full bg-sabz-600/25 blur-3xl"
-          />
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute -bottom-32 end-8 size-72 rounded-full bg-sabz-500/15 blur-3xl"
-          />
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute -end-24 bottom-0 size-96 rounded-full border border-white/5"
-          />
-          <div className="relative flex items-center gap-2 text-white">
+        <div className="relative hidden flex-col justify-between overflow-hidden bg-stage p-10 lg:flex">
+          <div className="relative flex items-center gap-2 text-on-stage">
             <Image
               src={brand.logoPng[64].src}
               alt=""
               width={40}
               height={40}
-              className="rounded-lg"
+              className="rounded-control"
             />
             <span className="text-lg font-bold">{brand.nameFa}</span>
           </div>
           <div className="relative">
-            <h2 className="text-balance text-2xl font-black leading-relaxed text-white">
+            <h2 className="text-balance text-2xl font-black leading-relaxed text-on-stage">
               فروشگاه کالای دیجیتال
-              <span className="text-gradient-sabz"> سبز سیستم</span>
+              <span className="text-accent-stage"> سبز سیستم</span>
             </h2>
             <ul role="list" className="mt-6 space-y-3.5">
               {['ارسال سریع سفارش‌ها', 'ضمانت بهترین قیمت', 'تضمین اصالت کالا'].map(
                 (item) => (
-                  <li key={item} className="flex items-center gap-2.5 text-sm text-gray-300">
-                    <span className="flex size-5 items-center justify-center rounded-full bg-sabz-700 text-sabz-200">
+                  <li key={item} className="flex items-center gap-2.5 text-sm text-on-stage-secondary">
+                    <span className="flex size-5 items-center justify-center rounded-pill bg-accent-stage text-stage">
                       <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="size-3">
                         <path
                           fillRule="evenodd"
@@ -158,7 +146,7 @@ export default function LoginPage() {
               )}
             </ul>
           </div>
-          <p className="relative text-xs leading-6 text-gray-500">
+          <p className="relative text-xs leading-6 text-on-stage-muted">
             ورود و ثبت‌نام فقط با شماره موبایل و کد پیامکی انجام می‌شود؛
             رمزی برای به‌خاطر سپردن وجود ندارد.
           </p>
@@ -167,8 +155,8 @@ export default function LoginPage() {
         {/* Form side: the step swaps replay the entrance animation (SS-246). */}
         <div className="flex flex-col justify-center p-6 sm:p-10 lg:p-12">
           <div key={step} className="animate-fade-up">
-            <h1 className="text-2xl font-extrabold text-ink-900">ورود به حساب</h1>
-            <p className="mt-2 text-sm leading-6 text-gray-600">
+            <h1 className="text-2xl font-extrabold text-fg">ورود به حساب</h1>
+            <p className="mt-2 text-sm leading-6 text-fg-secondary">
               {step === 'mobile'
                 ? 'شماره موبایل خود را وارد کنید تا کد تأیید پیامک شود.'
                 : `کد ۶ رقمی ارسال‌شده به ${toEnglishDigits(mobile).trim()} را وارد کنید.`}
@@ -177,7 +165,7 @@ export default function LoginPage() {
             {error !== null && (
               <p
                 role="status"
-                className="animate-fade-up mt-4 rounded-lg bg-red-50 px-3 py-2.5 text-sm leading-6 text-red-700 ring-1 ring-inset ring-red-100"
+                className="animate-fade-up mt-4 rounded-control bg-danger-soft px-3 py-2.5 text-sm leading-6 text-danger ring-1 ring-inset ring-danger/20"
               >
                 {error}
               </p>
@@ -197,7 +185,7 @@ export default function LoginPage() {
                     placeholder="09123456789"
                     value={mobile}
                     onChange={(event) => setMobile(event.target.value)}
-                    className="min-h-12 w-full rounded-xl border border-sand-200 bg-sand-50 px-4 text-left text-sm font-medium text-ink-900 shadow-inner transition-shadow placeholder:text-gray-400 focus-visible:border-sabz-400 focus-visible:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-600"
+                    className="min-h-12 w-full rounded-control border border-border-control bg-surface-2 px-4 text-left text-sm font-medium text-fg  transition-shadow placeholder:text-fg-muted focus-visible:border-accent focus-visible:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
                   />
                 </div>
                 <Button type="submit" size="lg" className="w-full" disabled={pending}>
@@ -232,9 +220,9 @@ export default function LoginPage() {
               </form>
             )}
 
-            <p className="mt-6 border-t border-sand-100 pt-4 text-center text-xs leading-5 text-gray-500">
+            <p className="mt-6 border-t border-border pt-4 text-center text-xs leading-5 text-fg-muted">
               ورود شما به معنای پذیرش{' '}
-              <a href="/terms" className="font-medium text-sabz-700 hover:text-sabz-800">
+              <a href="/terms" className="font-medium text-accent hover:text-accent-hover">
                 شرایط و قوانین
               </a>{' '}
               سبز سیستم است.
@@ -349,7 +337,7 @@ function OtpInput({
           onChange={(event) => handleChange(index, event.target.value)}
           onKeyDown={(event) => handleKeyDown(index, event)}
           onFocus={(event) => event.target.select()}
-          className="min-h-12 w-11 rounded-xl border border-sand-200 bg-sand-50 text-center text-lg font-bold text-ink-900 shadow-inner transition-all duration-200 focus-visible:border-sabz-400 focus-visible:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-600 disabled:opacity-60 sm:w-12"
+          className="min-h-12 w-11 rounded-control border border-border-control bg-surface-2 text-center text-lg font-bold text-fg  transition-all duration-200 focus-visible:border-accent focus-visible:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:opacity-60 sm:w-12"
         />
       ))}
     </div>

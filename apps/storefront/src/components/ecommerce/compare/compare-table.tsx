@@ -68,7 +68,7 @@ function PriceCell({ product }: { product: CatalogProductDetailDto }) {
     (variant) => variant.priceStatus === 'PRICED',
   ).length;
   return (
-    <span className="text-sm font-bold text-sabz-800">
+    <span className="text-sm font-bold text-accent-hover">
       {pricedCount > 1 ? formatPriceFrom(best.price) : formatToman(best.price)}
     </span>
   );
@@ -78,7 +78,7 @@ function RowLabel({ children }: { children: React.ReactNode }) {
   return (
     <th
       scope="row"
-      className="sticky start-0 z-10 min-w-28 bg-sand-50 px-3 py-3 text-start text-xs font-semibold text-gray-600 sm:min-w-36 sm:text-sm"
+      className="sticky start-0 z-10 min-w-28 bg-surface-2 px-3 py-3 text-start text-xs font-semibold text-fg-secondary sm:min-w-36 sm:text-sm"
     >
       {children}
     </th>
@@ -87,7 +87,7 @@ function RowLabel({ children }: { children: React.ReactNode }) {
 
 function MissingCell() {
   return (
-    <td className="px-3 py-3 text-center text-sm text-gray-400" aria-label="نامشخص">
+    <td className="px-3 py-3 text-center text-sm text-fg-muted" aria-label="نامشخص">
       —
     </td>
   );
@@ -121,14 +121,14 @@ export function CompareTable({
   }
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-sand-200 bg-white">
+    <div className="overflow-x-auto rounded-card border border-border bg-surface">
       <table
         aria-label="جدول مقایسه محصولات"
         className="w-full min-w-max border-collapse text-sm"
       >
         <thead>
-          <tr className="border-b border-sand-200">
-            <th scope="col" className="sticky start-0 z-10 min-w-28 bg-sand-50 sm:min-w-36">
+          <tr className="border-b border-border">
+            <th scope="col" className="sticky start-0 z-10 min-w-28 bg-surface-2 sm:min-w-36">
               <span className="sr-only">ویژگی</span>
             </th>
             {columns.map(({ product }) => {
@@ -147,7 +147,7 @@ export function CompareTable({
                 >
                   <div className="flex flex-col items-center gap-2">
                     {image ? (
-                      <span className="relative block aspect-square w-28 overflow-hidden rounded-lg bg-sand-100">
+                      <span className="relative block aspect-square w-28 overflow-hidden rounded-control bg-surface-2">
                         <Image
                           src={image}
                           alt=""
@@ -159,7 +159,7 @@ export function CompareTable({
                     ) : null}
                     <Link
                       href={`/products/${product.slug}`}
-                      className="line-clamp-2 min-h-10 text-[13px] font-semibold leading-5 text-ink-900 hover:text-sabz-700"
+                      className="line-clamp-2 min-h-10 text-[13px] font-semibold leading-5 text-fg hover:text-accent"
                     >
                       {product.name}
                     </Link>
@@ -174,7 +174,7 @@ export function CompareTable({
           </tr>
         </thead>
         <tbody>
-          <tr className="border-b border-sand-100">
+          <tr className="border-b border-border">
             <RowLabel>قیمت</RowLabel>
             {columns.map(({ product }) => (
               <td key={product.id} className="px-3 py-3 text-center">
@@ -182,7 +182,7 @@ export function CompareTable({
               </td>
             ))}
           </tr>
-          <tr className="border-b border-sand-100">
+          <tr className="border-b border-border">
             <RowLabel>امتیاز</RowLabel>
             {columns.map(({ product }) =>
               product.ratingCount > 0 && product.ratingAverage !== null ? (
@@ -197,7 +197,7 @@ export function CompareTable({
               ),
             )}
           </tr>
-          <tr className="border-b border-sand-100">
+          <tr className="border-b border-border">
             <RowLabel>وضعیت موجودی</RowLabel>
             {columns.map(({ product }) => (
               <td key={product.id} className="px-3 py-3 text-center">
@@ -209,13 +209,13 @@ export function CompareTable({
               </td>
             ))}
           </tr>
-          <tr className="border-b border-sand-100">
+          <tr className="border-b border-border">
             <RowLabel>برند</RowLabel>
             {columns.map(({ product }) =>
               product.brand ? (
                 <td
                   key={product.id}
-                  className="px-3 py-3 text-center text-ink-900"
+                  className="px-3 py-3 text-center text-fg"
                 >
                   {product.brand.name}
                 </td>
@@ -224,7 +224,7 @@ export function CompareTable({
               ),
             )}
           </tr>
-          <tr className="border-b border-sand-100">
+          <tr className="border-b border-border">
             <RowLabel>وضعیت کالا</RowLabel>
             {columns.map(({ product }) => (
               <td key={product.id} className="px-3 py-3 text-center">
@@ -234,7 +234,7 @@ export function CompareTable({
               </td>
             ))}
           </tr>
-          <tr className="border-b border-sand-100">
+          <tr className="border-b border-border">
             <RowLabel>فروش ویژه</RowLabel>
             {columns.map(({ product }) =>
               product.promotionEndsAt !== null ? (
@@ -247,7 +247,7 @@ export function CompareTable({
             )}
           </tr>
           {specKeys.map((key) => (
-            <tr key={key} className="border-b border-sand-100 last:border-0">
+            <tr key={key} className="border-b border-border last:border-0">
               <RowLabel>{specLabelFa(key)}</RowLabel>
               {columns.map(({ product, specs }) => {
                 const value = specs.rows.get(key);
@@ -257,7 +257,7 @@ export function CompareTable({
                   <td
                     key={product.id}
                     dir="auto"
-                    className="max-w-64 px-3 py-3 text-center text-ink-900"
+                    className="max-w-64 px-3 py-3 text-center text-fg"
                   >
                     {value}
                   </td>

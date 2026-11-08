@@ -82,10 +82,10 @@ export function ProductPurchasePanel({
         onSelect={handleSelect}
       />
 
-      <div className="mt-6 rounded-2xl border border-sand-200 bg-gradient-to-b from-sabz-50/70 to-white p-5 shadow-card">
+      <div className="mt-6 rounded-panel border border-border bg-surface p-5 shadow-card">
         <div className="flex flex-wrap items-end justify-between gap-3">
-          <span className="text-sm font-medium text-gray-500">قیمت</span>
-          <span className="text-2xl font-black text-sabz-800 sm:text-3xl">
+          <span className="text-sm font-medium text-fg-muted">قیمت</span>
+          <span className="text-2xl font-black text-accent-hover sm:text-3xl">
             <ProductPrice variant={selected} />
           </span>
         </div>
@@ -98,32 +98,32 @@ export function ProductPurchasePanel({
         ) : null}
         {promotionEndsAt !== null && selected.priceStatus === 'PRICED' ? (
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span className="text-xs text-gray-600">پایان فروش ویژه:</span>
+            <span className="text-xs text-fg-secondary">پایان فروش ویژه:</span>
             <CountdownTimer endsAt={promotionEndsAt} size="sm" />
           </div>
         ) : null}
         <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
           {selected.inStock ? (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-sabz-50 px-2.5 py-1 font-semibold text-sabz-700 ring-1 ring-inset ring-sabz-200">
-              <span aria-hidden="true" className="size-1.5 rounded-full bg-sabz-500" />
+            <span className="inline-flex items-center gap-1.5 rounded-pill bg-accent-soft px-2.5 py-1 font-semibold text-accent ring-1 ring-inset ring-accent/20">
+              <span aria-hidden="true" className="size-1.5 rounded-pill bg-accent" />
               موجود در انبار
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-2.5 py-1 font-semibold text-red-700 ring-1 ring-inset ring-red-100">
-              <span aria-hidden="true" className="size-1.5 rounded-full bg-red-500" />
+            <span className="inline-flex items-center gap-1.5 rounded-pill bg-danger-soft px-2.5 py-1 font-semibold text-danger ring-1 ring-inset ring-danger/20">
+              <span aria-hidden="true" className="size-1.5 rounded-pill bg-danger" />
               ناموجود
             </span>
           )}
           {selected.priceStatus === 'CALL_FOR_PRICE' ? (
-            <span className="rounded-full bg-sand-100 px-2.5 py-1 font-medium text-gray-600">
+            <span className="rounded-pill bg-surface-2 px-2.5 py-1 font-medium text-fg-secondary">
               استعلام قیمت
             </span>
           ) : null}
         </div>
-        <dl className="mt-4 border-t border-sand-200 pt-3">
+        <dl className="mt-4 border-t border-border pt-3">
           <ProductSku sku={selected.sku} />
         </dl>
-        <p className="mt-3 text-xs leading-5 text-gray-600">
+        <p className="mt-3 text-xs leading-5 text-fg-secondary">
           قیمت‌ها به تومان و برای خرید خرد است. همکاران تأییدشده قیمت سطح
           همکاری خود را پس از ورود، همین‌جا و در سبد خرید مشاهده می‌کنند.
         </p>

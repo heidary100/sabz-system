@@ -83,12 +83,12 @@ const SECTIONS: Array<{ heading: string; paragraphs: string[] }> = [
 export default function TermsPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
-      <p className="text-sm text-gray-500">فروشگاه</p>
-      <h1 className="mt-1 text-balance text-2xl font-extrabold text-ink-900">
+      <p className="text-sm text-fg-muted">فروشگاه</p>
+      <h1 className="mt-1 text-balance text-2xl font-extrabold text-fg">
         شرایط و قوانین استفاده از سرویس‌ها و خدمات سبز سیستم
       </h1>
 
-      <p className="mt-6 rounded-xl border border-sand-200 bg-white p-6 text-base leading-8 text-gray-700">
+      <p className="mt-6 rounded-card border border-border bg-surface p-6 text-base leading-8 text-fg-secondary">
         ورود کاربران به فروشگاه اینترنتی بازرگانی سبز سیستم هنگام استفاده از
         پروفایل شخصی و سایر خدمات ارائه‌شده، به معنای آگاهی و پذیرفتن شرایط و
         قوانین و همچنین نحوه استفاده از سرویس‌ها و خدمات سبز سیستم است. توجه
@@ -101,10 +101,10 @@ export default function TermsPage() {
           <section
             key={section.heading}
             aria-label={section.heading}
-            className="rounded-xl border border-sand-200 bg-white p-6 sm:p-8"
+            className="rounded-card border border-border bg-surface p-6 sm:p-8"
           >
-            <h2 className="text-lg font-bold text-ink-900">{section.heading}</h2>
-            <div className="mt-4 space-y-4 text-[15px] leading-8 text-gray-700">
+            <h2 className="text-lg font-bold text-fg">{section.heading}</h2>
+            <div className="mt-4 space-y-4 text-[15px] leading-8 text-fg-secondary">
               {section.paragraphs.map((paragraph) => (
                 <p key={paragraph.slice(0, 24)}>{paragraph}</p>
               ))}

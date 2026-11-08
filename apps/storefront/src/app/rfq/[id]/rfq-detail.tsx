@@ -153,7 +153,7 @@ export function RfqDetail({ id }: { id: string }) {
 
   if (status === 'error' || rfq === null) {
     return (
-      <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+      <p role="alert" className="rounded-control bg-danger-soft px-3 py-2 text-sm text-danger">
         {error ?? LOAD_FAILED}
       </p>
     );
@@ -166,8 +166,8 @@ export function RfqDetail({ id }: { id: string }) {
       <Card className="p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-base font-bold text-ink-900">{rfq.productName}</p>
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="text-base font-bold text-fg">{rfq.productName}</p>
+            <p className="mt-1 text-xs text-fg-muted">
               {formatFaNumber(rfq.quantity)} عدد — کد {rfq.variantSku}
             </p>
           </div>
@@ -176,22 +176,22 @@ export function RfqDetail({ id }: { id: string }) {
           </Badge>
         </div>
         {quoted ? (
-          <dl className="mt-4 space-y-2 border-t border-sand-200 pt-4 text-sm">
+          <dl className="mt-4 space-y-2 border-t border-border pt-4 text-sm">
             <div className="flex items-center justify-between gap-3">
-              <dt className="text-gray-600">قیمت توافقی هر عدد</dt>
-              <dd className="font-bold text-sabz-800">
+              <dt className="text-fg-secondary">قیمت توافقی هر عدد</dt>
+              <dd className="font-bold text-accent-hover">
                 {formatToman(rialToTomanString(rfq.quotedUnitPrice ?? '0'))}
               </dd>
             </div>
             <div className="flex items-center justify-between gap-3">
-              <dt className="text-gray-600">جمع توافق‌شده</dt>
-              <dd className="font-bold text-sabz-800">
+              <dt className="text-fg-secondary">جمع توافق‌شده</dt>
+              <dd className="font-bold text-accent-hover">
                 {formatToman(rialToTomanString(rfq.quotedLineTotal ?? '0'))}
               </dd>
             </div>
             {rfq.status === 'QUOTED' ? (
               <div className="flex items-center justify-between gap-3">
-                <dt className="text-gray-600">مهلت پذیرش</dt>
+                <dt className="text-fg-secondary">مهلت پذیرش</dt>
                 <dd>
                   <CountdownTimer endsAt={rfq.expiresAt} size="sm" />
                 </dd>
@@ -202,7 +202,7 @@ export function RfqDetail({ id }: { id: string }) {
       </Card>
 
       {rfq.status === 'PENDING' ? (
-        <Card className="p-5 text-sm leading-6 text-gray-600">
+        <Card className="p-5 text-sm leading-6 text-fg-secondary">
           استعلام شما ثبت شد و در انتظار اعلام قیمت از سوی فروشگاه است. پس
           از قیمت‌گذاری، همین‌جا می‌توانید آن را بپذیرید و سفارش ثبت کنید.
         </Card>
@@ -217,7 +217,7 @@ export function RfqDetail({ id }: { id: string }) {
           />
           <div className="mt-4 space-y-6">
             <div>
-              <h3 className="text-sm font-semibold text-ink-900">نشانی تحویل</h3>
+              <h3 className="text-sm font-semibold text-fg">نشانی تحویل</h3>
               <div className="mt-2">
                 <AddressPicker
                   addresses={addresses}
@@ -231,12 +231,12 @@ export function RfqDetail({ id }: { id: string }) {
               </div>
             </div>
             <fieldset>
-              <legend className="text-sm font-semibold text-ink-900">شیوه ارسال</legend>
+              <legend className="text-sm font-semibold text-fg">شیوه ارسال</legend>
               <div className="mt-2 space-y-2">
                 {shippingMethods.map((method) => (
                   <label
                     key={method.code}
-                    className="flex min-h-11 cursor-pointer items-center gap-2 rounded-md border border-sand-200 bg-white px-3 py-2 text-sm"
+                    className="flex min-h-11 cursor-pointer items-center gap-2 rounded-control border border-border bg-surface px-3 py-2 text-sm"
                   >
                     <input
                       type="radio"
@@ -245,10 +245,10 @@ export function RfqDetail({ id }: { id: string }) {
                       checked={shippingMethod === method.code}
                       disabled={!isShippingEnabled(method)}
                       onChange={() => setShippingMethod(method.code)}
-                      className="size-4 accent-sabz-700"
+                      className="size-4 accent-accent"
                     />
-                    <span className="font-medium text-ink-900">{method.titleFa}</span>
-                    <span className="text-xs text-gray-500">
+                    <span className="font-medium text-fg">{method.titleFa}</span>
+                    <span className="text-xs text-fg-muted">
                       {isShippingEnabled(method)
                         ? `هزینه ارسال: ${formatToman(method.fee)}`
                         : 'غیرفعال'}
@@ -258,12 +258,12 @@ export function RfqDetail({ id }: { id: string }) {
               </div>
             </fieldset>
             <fieldset>
-              <legend className="text-sm font-semibold text-ink-900">شیوه پرداخت</legend>
+              <legend className="text-sm font-semibold text-fg">شیوه پرداخت</legend>
               <div className="mt-2 space-y-2">
                 {paymentMethods.map((method) => (
                   <label
                     key={method.code}
-                    className="flex min-h-11 cursor-pointer items-center gap-2 rounded-md border border-sand-200 bg-white px-3 py-2 text-sm"
+                    className="flex min-h-11 cursor-pointer items-center gap-2 rounded-control border border-border bg-surface px-3 py-2 text-sm"
                   >
                     <input
                       type="radio"
@@ -272,10 +272,10 @@ export function RfqDetail({ id }: { id: string }) {
                       checked={paymentMethod === method.code}
                       disabled={!method.enabled}
                       onChange={() => setPaymentMethod(method.code)}
-                      className="size-4 accent-sabz-700"
+                      className="size-4 accent-accent"
                     />
-                    <span className="font-medium text-ink-900">{method.titleFa}</span>
-                    <span className="text-xs text-gray-500">{method.descFa}</span>
+                    <span className="font-medium text-fg">{method.titleFa}</span>
+                    <span className="text-xs text-fg-muted">{method.descFa}</span>
                   </label>
                 ))}
               </div>
@@ -290,7 +290,7 @@ export function RfqDetail({ id }: { id: string }) {
               {accepting ? 'در حال ثبت سفارش…' : 'پذیرش و ثبت سفارش'}
             </Button>
             {acceptError ? (
-              <p role="alert" className="text-sm leading-6 text-red-700">
+              <p role="alert" className="text-sm leading-6 text-danger">
                 {acceptError}
               </p>
             ) : null}
@@ -300,7 +300,7 @@ export function RfqDetail({ id }: { id: string }) {
 
       {rfq.status === 'ACCEPTED' && rfq.orderId !== null ? (
         <Card className="p-5 text-sm">
-          <p className="leading-6 text-gray-600">
+          <p className="leading-6 text-fg-secondary">
             این استعلام پذیرفته شد و سفارش آن ثبت است.
           </p>
           <Link
@@ -313,14 +313,14 @@ export function RfqDetail({ id }: { id: string }) {
       ) : null}
 
       {rfq.status === 'REJECTED' ? (
-        <Card className="p-5 text-sm leading-6 text-gray-600">
+        <Card className="p-5 text-sm leading-6 text-fg-secondary">
           این استعلام از سوی فروشگاه رد شد. برای هماهنگی با پشتیبانی در تماس
           باشید.
         </Card>
       ) : null}
 
       {rfq.status === 'EXPIRED' ? (
-        <Card className="p-5 text-sm leading-6 text-gray-600">
+        <Card className="p-5 text-sm leading-6 text-fg-secondary">
           مهلت پذیرش این استعلام به پایان رسید. در صورت نیاز، استعلام تازه‌ای
           ثبت کنید.
         </Card>

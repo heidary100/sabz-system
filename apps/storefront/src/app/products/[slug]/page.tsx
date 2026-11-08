@@ -139,7 +139,7 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
           {product.previous ? (
             <Link
               href={`/products/${product.previous.slug}`}
-              className="inline-flex min-h-9 max-w-48 items-center truncate rounded-full bg-sand-100 px-3 py-1.5 text-gray-600 transition-colors duration-200 hover:bg-sabz-50 hover:text-sabz-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700"
+              className="inline-flex min-h-9 max-w-48 items-center truncate rounded-pill bg-surface-2 px-3 py-1.5 text-fg-secondary transition-colors duration-200 hover:bg-accent-soft hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
             >
               ← {product.previous.name}
             </Link>
@@ -148,14 +148,14 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
           )}
           <Link
             href={`/categories/${product.category.slug}`}
-            className="inline-flex min-h-9 max-w-48 items-center truncate rounded-full bg-sand-100 px-3 py-1.5 text-gray-600 transition-colors duration-200 hover:bg-sabz-50 hover:text-sabz-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700"
+            className="inline-flex min-h-9 max-w-48 items-center truncate rounded-pill bg-surface-2 px-3 py-1.5 text-fg-secondary transition-colors duration-200 hover:bg-accent-soft hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
           >
             بازگشت به {product.category.name}
           </Link>
           {product.next ? (
             <Link
               href={`/products/${product.next.slug}`}
-              className="inline-flex min-h-9 max-w-48 items-center truncate rounded-full bg-sand-100 px-3 py-1.5 text-gray-600 transition-colors duration-200 hover:bg-sabz-50 hover:text-sabz-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700"
+              className="inline-flex min-h-9 max-w-48 items-center truncate rounded-pill bg-surface-2 px-3 py-1.5 text-fg-secondary transition-colors duration-200 hover:bg-accent-soft hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
             >
               {product.next.name} →
             </Link>
@@ -170,21 +170,21 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
 
         <div className="lg:sticky lg:top-24 lg:self-start">
           {product.brand ? (
-            <p className="text-sm font-medium text-sabz-600">{product.brand.name}</p>
+            <p className="text-sm font-medium text-accent">{product.brand.name}</p>
           ) : null}
-          <h1 className="mt-1 text-balance text-2xl font-extrabold leading-9 text-ink-900 sm:text-3xl sm:leading-[3rem]">
+          <h1 className="mt-1 text-balance text-2xl font-extrabold leading-9 text-fg sm:text-3xl sm:leading-[3rem]">
             {product.name}
           </h1>
           {/* SS-227 dedup: the import often fills subtitle with the same
               string as nameEn — rendering both duplicated the line. Each
               secondary line renders only when it differs from the ones above. */}
           {product.nameEn && product.nameEn !== product.subtitle ? (
-            <p dir="auto" className="mt-1 text-sm text-gray-500">
+            <p dir="auto" className="mt-1 text-sm text-fg-muted">
               {product.nameEn}
             </p>
           ) : null}
           {product.subtitle && product.subtitle !== product.name ? (
-            <p dir="auto" className="mt-1 text-sm leading-6 text-gray-600">
+            <p dir="auto" className="mt-1 text-sm leading-6 text-fg-secondary">
               {product.subtitle}
             </p>
           ) : null}
@@ -193,7 +193,7 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
             {product.brand ? (
               <Link
                 href={`/products?brand=${encodeURIComponent(product.brand.slug)}`}
-                className={`${badgeVariants({ variant: 'condition' })} hover:text-sabz-700`}
+                className={`${badgeVariants({ variant: 'condition' })} hover:text-accent`}
               >
                 برند: {product.brand.name}
               </Link>
@@ -209,7 +209,7 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
           ) : null}
 
           {product.shortDescription ? (
-            <p className="mt-5 text-base leading-7 text-gray-600">
+            <p className="mt-5 text-base leading-7 text-fg-secondary">
               {product.shortDescription}
             </p>
           ) : null}
@@ -234,17 +234,17 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
             <ProductShare canonicalUrl={canonicalUrl} shareText={shareText} />
           </div>
 
-          <div className="mt-4 flex items-center gap-3 rounded-xl border border-sand-200 bg-white px-4 py-3">
+          <div className="mt-4 flex items-center gap-3 rounded-card border border-border bg-surface px-4 py-3">
             <CompareToggle
               productId={product.id}
               slug={product.slug}
               productName={product.name}
             />
             <div className="text-sm">
-              <p className="font-semibold text-ink-900">مقایسه با محصولات دیگر</p>
+              <p className="font-semibold text-fg">مقایسه با محصولات دیگر</p>
               <Link
                 href="/compare"
-                className="text-sabz-700 hover:text-sabz-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700"
+                className="text-accent hover:text-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
               >
                 مشاهده جدول مقایسه
               </Link>
@@ -254,10 +254,10 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
       </div>
 
       {hasSpecs ? (
-        <section aria-labelledby="specs-heading" className="reveal mt-14">
+        <section aria-labelledby="specs-heading" className=" mt-14">
           <h2
             id="specs-heading"
-            className="text-xl font-extrabold text-ink-900"
+            className="text-xl font-extrabold text-fg"
           >
             مشخصات
           </h2>
@@ -268,14 +268,14 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
       ) : null}
 
       {product.description ? (
-        <section aria-labelledby="description-heading" className="reveal mt-14">
+        <section aria-labelledby="description-heading" className=" mt-14">
           <h2
             id="description-heading"
-            className="text-xl font-extrabold text-ink-900"
+            className="text-xl font-extrabold text-fg"
           >
             شرح محصول
           </h2>
-          <div className="mt-4 rounded-2xl border border-sand-200 bg-white p-6 shadow-card sm:p-8">
+          <div className="mt-4 rounded-panel border border-border bg-surface p-6 shadow-card sm:p-8">
             <RichText html={product.description} />
           </div>
         </section>

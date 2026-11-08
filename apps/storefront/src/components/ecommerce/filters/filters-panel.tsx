@@ -38,11 +38,11 @@ function CategoryFacetLink({
   const content = (
     <>
       {label}
-      <span className="ms-1.5 text-xs text-gray-500">{formatFaNumber(count)}</span>
+      <span className="ms-1.5 text-xs text-fg-muted">{formatFaNumber(count)}</span>
     </>
   );
   const className =
-    'inline-flex min-h-11 w-full items-center rounded-md py-1 text-start text-sm text-gray-600 transition-all duration-200 hover:ps-1 hover:text-sabz-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700';
+    'inline-flex min-h-11 w-full items-center rounded-control py-1 text-start text-sm text-fg-secondary transition-all duration-200 hover:ps-1 hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus';
   if (href) {
     return (
       <Link href={href} className={className} onClick={onClick}>
@@ -110,14 +110,14 @@ export function FiltersPanel({
 
   return (
     <aside className={`transition-opacity duration-300 ${pending ? 'opacity-60' : ''}`} aria-busy={pending}>
-      <div className="rounded-xl border border-sand-200 bg-white p-5">
+      <div className="rounded-card border border-border bg-surface p-5">
         {selectedCategory ? (
           <div className="mb-5">
-            <p className="text-sm font-semibold text-ink-900">دسته‌بندی فعال</p>
+            <p className="text-sm font-semibold text-fg">دسته‌بندی فعال</p>
             <button
               type="button"
               onClick={() => apply({ category: '' })}
-              className="mt-2 inline-flex min-h-11 items-center gap-1.5 rounded-full bg-sabz-700 px-3 py-1 text-xs font-medium text-white hover:bg-sabz-800"
+              className="mt-2 inline-flex min-h-11 items-center gap-1.5 rounded-pill bg-accent px-3 py-1 text-xs font-medium text-on-accent hover:bg-accent-hover"
             >
               {selectedCategory.name}
               <span aria-hidden="true">×</span>
@@ -178,16 +178,16 @@ export function FiltersPanel({
           </div>
         )}
 
-        <div className="border-t border-sand-200 pt-4">
-          <p className="text-sm font-semibold text-ink-900">برند</p>
+        <div className="border-t border-border pt-4">
+          <p className="text-sm font-semibold text-fg">برند</p>
           <BrandFacetSearch query={brandQuery} onQueryChange={setBrandQuery} />
           {filteredBrands.length === 0 ? (
-            <p role="status" className="mt-2 text-xs leading-5 text-gray-500">
+            <p role="status" className="mt-2 text-xs leading-5 text-fg-muted">
               برندی با این نام یافت نشد.{' '}
               <button
                 type="button"
                 onClick={() => setBrandQuery('')}
-                className="font-semibold text-sabz-700 hover:text-sabz-800"
+                className="font-semibold text-accent hover:text-accent-hover"
               >
                 پاک کردن جستجو
               </button>
@@ -210,18 +210,18 @@ export function FiltersPanel({
                             apply({ brand: selected ? '' : brand.slug })
                           }
                           aria-pressed={selected}
-                          className={`inline-flex min-h-11 w-full items-center gap-2 rounded-md py-1 text-start text-sm transition-all duration-200 hover:ps-1 ${
+                          className={`inline-flex min-h-11 w-full items-center gap-2 rounded-control py-1 text-start text-sm transition-all duration-200 hover:ps-1 ${
                             selected
-                              ? 'font-semibold text-sabz-800'
-                              : 'text-gray-600 hover:text-sabz-700'
+                              ? 'font-semibold text-accent-hover'
+                              : 'text-fg-secondary hover:text-accent'
                           }`}
                         >
                           <span
                             aria-hidden="true"
-                            className={`flex size-4 items-center justify-center rounded-sm border text-[10px] leading-none ${
+                            className={`flex size-4 items-center justify-center rounded-control border text-[10px] leading-none ${
                               selected
-                                ? 'border-sabz-700 bg-sabz-700 text-white'
-                                : 'border-sand-200 bg-white text-transparent'
+                                ? 'border-accent bg-accent text-on-accent'
+                                : 'border-border-control bg-surface text-transparent'
                             }`}
                           >
                             ✓
@@ -229,7 +229,7 @@ export function FiltersPanel({
                           {brand.name}
                           {/* SS-226: facet count from the API. */}
                           {typeof brand.productCount === 'number' ? (
-                            <span className="text-xs text-gray-500">
+                            <span className="text-xs text-fg-muted">
                               {formatFaNumber(brand.productCount)}
                             </span>
                           ) : null}
@@ -242,24 +242,24 @@ export function FiltersPanel({
             </FacetSection>
           )}
           {completeTotal > brands.length ? (
-            <p className="mt-2 text-xs text-gray-500">
+            <p className="mt-2 text-xs text-fg-muted">
               نمایش {formatFaNumber(brands.length)} از {formatFaNumber(completeTotal)} برند
             </p>
           ) : null}
         </div>
 
-        <fieldset className="mt-4 border-t border-sand-200 pt-4">
-          <legend className="text-sm font-semibold text-ink-900">وضعیت کالا</legend>
+        <fieldset className="mt-4 border-t border-border pt-4">
+          <legend className="text-sm font-semibold text-fg">وضعیت کالا</legend>
           <div className="mt-2 space-y-2">
             {CONDITION_OPTIONS.map(({ value, label }) => (
-              <label key={value} className="flex min-h-11 items-center gap-2 text-sm text-gray-600">
+              <label key={value} className="flex min-h-11 items-center gap-2 text-sm text-fg-secondary">
                 <input
                   type="radio"
                   name="condition"
                   value={value}
                   checked={state.condition === value}
                   onChange={() => apply({ condition: value })}
-                  className="size-4 accent-sabz-700"
+                  className="size-4 accent-accent"
                 />
                 {label}
               </label>
@@ -267,30 +267,30 @@ export function FiltersPanel({
           </div>
         </fieldset>
 
-        <div className="mt-4 border-t border-sand-200 pt-4">
-          <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm text-gray-600">
+        <div className="mt-4 border-t border-border pt-4">
+          <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm text-fg-secondary">
             <input
               type="checkbox"
               checked={state.inStockOnly}
               onChange={(event) => apply({ inStockOnly: event.target.checked })}
-              className="size-4 accent-sabz-700"
+              className="size-4 accent-accent"
             />
             فقط موجود
           </label>
         </div>
 
-        <fieldset className="mt-4 border-t border-sand-200 pt-4">
-          <legend className="text-sm font-semibold text-ink-900">امتیاز کاربران</legend>
+        <fieldset className="mt-4 border-t border-border pt-4">
+          <legend className="text-sm font-semibold text-fg">امتیاز کاربران</legend>
           <div className="mt-2 space-y-2">
             {RATING_BUCKETS.map((bucket) => (
-              <label key={bucket} className="flex min-h-11 cursor-pointer items-center gap-2 text-sm text-gray-600">
+              <label key={bucket} className="flex min-h-11 cursor-pointer items-center gap-2 text-sm text-fg-secondary">
                 <input
                   type="radio"
                   name="rating"
                   value={bucket}
                   checked={state.rating === bucket}
                   onChange={() => apply({ rating: bucket })}
-                  className="size-4 accent-sabz-700"
+                  className="size-4 accent-accent"
                 />
                 <Rating value={Number(bucket)} />
               </label>

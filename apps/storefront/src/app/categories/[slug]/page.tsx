@@ -137,7 +137,7 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
             <EmptyState state={state} basePath={basePath} />
           ) : (
             <>
-              <div className="stagger grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+              <div className=" grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
                 {result.items.map((product) => (
                   <ProductCardWithWishlist key={product.id} product={product} />
                 ))}

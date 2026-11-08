@@ -31,7 +31,7 @@ export function Rating({
       }`}
       className={`inline-flex items-center gap-1 ${className}`}
     >
-      <span className="flex items-center gap-0.5 text-amber-500" aria-hidden="true">
+      <span className="flex items-center gap-0.5 text-warning" aria-hidden="true">
         {Array.from({ length: 5 }, (_, i) => {
           const filled = i < fullStars || (i === fullStars && hasHalf);
           return (
@@ -47,7 +47,7 @@ export function Rating({
         })}
       </span>
       {count !== undefined ? (
-        <span className="text-xs text-gray-500">
+        <span className="text-xs text-fg-muted">
           ({formatFaNumber(count)})
         </span>
       ) : null}

@@ -72,8 +72,8 @@ export function PriceFacet({
   const hasValue = state.priceFrom !== '' || state.priceTo !== '';
 
   return (
-    <div className="mt-4 border-t border-sand-200 pt-4" aria-busy={pending}>
-      <p className="text-sm font-semibold text-ink-900">محدوده قیمت (تومان)</p>
+    <div className="mt-4 border-t border-border pt-4" aria-busy={pending}>
+      <p className="text-sm font-semibold text-fg">محدوده قیمت (تومان)</p>
       <form id={formId} onSubmit={apply} className="mt-2">
         <div className="flex items-center gap-2">
           <div className="min-w-0 flex-1">
@@ -88,10 +88,10 @@ export function PriceFacet({
               value={from}
               onChange={(event) => setFrom(event.target.value)}
               placeholder="از"
-              className="w-full min-w-0 rounded-md border-0 bg-sand-100 py-2 px-3 text-sm text-ink-900 ring-1 ring-inset ring-sand-200 placeholder:text-gray-600 focus-visible:ring-2 focus-visible:ring-sabz-600"
+              className="w-full min-w-0 rounded-control border-0 bg-surface-2 py-2 px-3 text-sm text-fg ring-1 ring-inset ring-border-control placeholder:text-fg-secondary focus-visible:ring-2 focus-visible:ring-focus"
             />
           </div>
-          <span aria-hidden="true" className="shrink-0 text-xs text-gray-400">
+          <span aria-hidden="true" className="shrink-0 text-xs text-fg-muted">
             تا
           </span>
           <div className="min-w-0 flex-1">
@@ -106,19 +106,19 @@ export function PriceFacet({
               value={to}
               onChange={(event) => setTo(event.target.value)}
               placeholder="تا"
-              className="w-full min-w-0 rounded-md border-0 bg-sand-100 py-2 px-3 text-sm text-ink-900 ring-1 ring-inset ring-sand-200 placeholder:text-gray-600 focus-visible:ring-2 focus-visible:ring-sabz-600"
+              className="w-full min-w-0 rounded-control border-0 bg-surface-2 py-2 px-3 text-sm text-fg ring-1 ring-inset ring-border-control placeholder:text-fg-secondary focus-visible:ring-2 focus-visible:ring-focus"
             />
           </div>
         </div>
         {error ? (
-          <p role="alert" className="mt-2 text-xs text-red-700">
+          <p role="alert" className="mt-2 text-xs text-danger">
             {error}
           </p>
         ) : null}
         <div className="mt-2 flex items-center gap-2">
           <button
             type="submit"
-            className="inline-flex min-h-11 items-center rounded-md bg-sabz-700 px-4 py-1 text-xs font-semibold text-white hover:bg-sabz-800"
+            className="inline-flex min-h-11 items-center rounded-control bg-accent px-4 py-1 text-xs font-semibold text-on-accent hover:bg-accent-hover"
           >
             اعمال
           </button>
@@ -126,7 +126,7 @@ export function PriceFacet({
             <button
               type="button"
               onClick={clear}
-              className="inline-flex min-h-11 items-center rounded-md px-2 py-1 text-xs font-semibold text-sabz-700 hover:text-sabz-800"
+              className="inline-flex min-h-11 items-center rounded-control px-2 py-1 text-xs font-semibold text-accent hover:text-accent-hover"
             >
               حذف محدوده قیمت
             </button>
@@ -152,10 +152,10 @@ export function PriceFacet({
                     })
                   }
                   aria-pressed={active}
-                  className={`min-h-9 rounded-full px-3 text-xs font-medium transition-colors ${
+                  className={`min-h-9 rounded-pill px-3 text-xs font-medium transition-colors ${
                     active
-                      ? 'bg-sabz-700 text-white'
-                      : 'bg-sand-100 text-gray-600 hover:bg-sabz-50 hover:text-sabz-700'
+                      ? 'bg-accent text-on-accent'
+                      : 'bg-surface-2 text-fg-secondary hover:bg-accent-soft hover:text-accent'
                   }`}
                 >
                   {preset.label}

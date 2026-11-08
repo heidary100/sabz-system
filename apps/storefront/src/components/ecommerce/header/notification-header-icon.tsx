@@ -43,7 +43,7 @@ export function NotificationHeaderIcon() {
   return (
     <Link
       href="/notifications"
-      className="relative flex min-h-11 min-w-11 items-center justify-center rounded-md p-2 text-gray-600 hover:bg-sabz-50 hover:text-sabz-700"
+      className="relative flex min-h-11 min-w-11 items-center justify-center rounded-control p-2 text-fg-secondary hover:bg-accent-soft hover:text-accent"
     >
       <span className="sr-only">اعلان‌ها</span>
       <svg viewBox="0 0 24 24" fill="none" strokeWidth={1.5} stroke="currentColor" aria-hidden="true" className="size-6">
@@ -56,7 +56,7 @@ export function NotificationHeaderIcon() {
       {unread !== null && unread > 0 && (
         <span
           aria-hidden="true"
-          className="absolute -start-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-[11px] font-bold text-white"
+          className="absolute -start-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-pill bg-sale px-1 text-[11px] font-bold text-on-sale"
         >
           {formatFaNumber(unread > 99 ? 99 : unread)}
         </span>

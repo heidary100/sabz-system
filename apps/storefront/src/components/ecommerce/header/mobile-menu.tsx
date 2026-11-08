@@ -7,6 +7,7 @@ import type { CatalogCategoryNode } from '@sabz/types';
 import { formatFaNumber } from '@/lib/format';
 import { navRoots } from '@/lib/nav';
 import { BrandLockup } from '@/components/ecommerce/brand/brand-lockup';
+import { ThemeToggle } from '@/components/ecommerce/theme/theme-toggle';
 import { useTransitionMount } from '@/components/ecommerce/ui/use-transition-mount';
 
 /**
@@ -77,7 +78,7 @@ export function MobileMenu({ categories }: { categories: CatalogCategoryNode[] }
         type="button"
         onClick={() => setOpen(true)}
         aria-haspopup="dialog"
-        className="relative -m-2 inline-flex min-h-11 min-w-11 items-center justify-center rounded-md p-2 text-gray-700 hover:text-sabz-700"
+        className="relative -m-2 inline-flex min-h-11 min-w-11 items-center justify-center rounded-control p-2 text-fg-secondary hover:text-accent"
       >
         <span className="sr-only">باز کردن منو</span>
         <svg viewBox="0 0 24 24" fill="none" strokeWidth={1.5} stroke="currentColor" aria-hidden="true" className="size-6">
@@ -92,19 +93,19 @@ export function MobileMenu({ categories }: { categories: CatalogCategoryNode[] }
             aria-hidden="true"
             onClick={() => close(false)}
             data-state={animState}
-            className="drawer-backdrop fixed inset-0 bg-ink-900/40 backdrop-blur-[2px]"
+            className="drawer-backdrop fixed inset-0 bg-overlay"
           />
           <div
             data-state={animState}
-            className="drawer-panel fixed inset-y-0 start-0 flex w-80 max-w-[85vw] flex-col overflow-hidden rounded-e-2xl bg-white shadow-overlay"
+            className="drawer-panel fixed inset-y-0 start-0 flex w-80 max-w-[85vw] flex-col overflow-hidden rounded-e-panel bg-surface shadow-overlay"
           >
-            <div className="flex items-center justify-between border-b border-sand-100 bg-sand-50 px-4 py-3">
+            <div className="flex items-center justify-between border-b border-border bg-surface-2 px-4 py-3">
               <BrandLockup />
               <button
                 ref={closeRef}
                 type="button"
                 onClick={() => close()}
-                className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full bg-white p-2 text-gray-500 ring-1 ring-inset ring-sand-200 hover:text-gray-700"
+                className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-pill bg-surface p-2 text-fg-muted ring-1 ring-inset ring-border hover:text-fg-secondary"
               >
                 <span className="sr-only">بستن منو</span>
                 <svg viewBox="0 0 24 24" fill="none" strokeWidth={1.5} stroke="currentColor" aria-hidden="true" className="size-5">
@@ -113,44 +114,46 @@ export function MobileMenu({ categories }: { categories: CatalogCategoryNode[] }
               </button>
             </div>
 
-            <nav aria-label="ناوبری دسته‌بندی‌ها" className="flex-1 overflow-y-auto px-4 py-4">
+            <nav aria-label="ناوبری دسته‌بندی‌ها" className="flex-1 overscroll-contain overflow-y-auto px-4 py-4">
               <Link
                 href="/categories"
                 onClick={() => close(false)}
-                className="flex min-h-12 w-full items-center justify-center rounded-xl bg-sabz-700 text-sm font-bold text-white hover:bg-sabz-800"
+                className="flex min-h-12 w-full items-center justify-center rounded-card bg-accent text-sm font-bold text-on-accent hover:bg-accent-hover"
               >
                 مشاهده همه دسته‌بندی‌ها
               </Link>
 
-              <p className="mt-6 mb-1 px-1 text-xs font-semibold text-gray-500">دسته‌بندی‌ها</p>
+              <p className="mt-6 mb-1 px-1 text-xs font-semibold text-fg-muted">دسته‌بندی‌ها</p>
               {roots.length === 0 ? (
-                <p className="px-1 py-3 text-sm text-gray-500">دسته‌بندی‌ای ثبت نشده است.</p>
+                <p className="px-1 py-3 text-sm text-fg-muted">دسته‌بندی‌ای ثبت نشده است.</p>
               ) : (
-                <ul role="list" className="divide-y divide-sand-100 rounded-2xl border border-sand-100 bg-white">
+                <ul role="list" className="divide-y divide-border rounded-panel border border-border bg-surface">
                   {roots.map((category) => (
                     <MobileCategoryNode key={category.id} node={category} depth={0} onNavigate={() => close(false)} />
                   ))}
                 </ul>
               )}
 
-              <p className="mt-6 mb-1 px-1 text-xs font-semibold text-gray-500">پیوندها</p>
-              <ul role="list" className="divide-y divide-sand-100 rounded-2xl border border-sand-100 bg-white text-gray-700">
+              <p className="mt-6 mb-1 px-1 text-xs font-semibold text-fg-muted">پیوندها</p>
+              <ul role="list" className="divide-y divide-border rounded-card border border-border bg-surface text-fg-secondary">
                 {[
                   { href: '/products', label: 'همه محصولات' },
                   { href: '/cart', label: 'سبد خرید' },
                   { href: '/account', label: 'حساب کاربری' },
                 ].map((link) => (
                   <li key={link.href}>
-                    <Link href={link.href} onClick={() => close(false)} className="flex min-h-12 items-center px-4 text-sm hover:text-sabz-700">
+                    <Link href={link.href} onClick={() => close(false)} className="flex min-h-12 items-center px-4 text-sm hover:text-accent">
                       {link.label}
                     </Link>
                   </li>
                 ))}
               </ul>
+
+              <ThemeToggle variant="inline" className="mt-6 px-1" />
             </nav>
           </div>
           </div>,
-          // Portalled out of the sticky header: its `backdrop-blur` would
+          // Portalled out of the sticky header: its header styles would
           // otherwise become the containing block for these `fixed` nodes and
           // squash the drawer to header height. `open` starts false, so this
           // never diverges from the server render.
@@ -180,11 +183,11 @@ function MobileCategoryNode({
         <Link
           href={`/categories/${node.slug}`}
           onClick={onNavigate}
-          className="flex min-h-12 w-full items-center justify-between gap-2 px-4 text-sm text-gray-700 hover:text-sabz-700"
+          className="flex min-h-12 w-full items-center justify-between gap-2 px-4 text-sm text-fg-secondary hover:text-accent"
           style={{ paddingInlineStart: 16 + depth * 12 }}
         >
           <span>{node.name}</span>
-          <span className="rounded-full bg-sand-100 px-2 py-0.5 text-[11px] font-semibold text-gray-600">
+          <span className="rounded-pill bg-surface-2 px-2 py-0.5 text-[11px] font-semibold text-fg-secondary">
             {formatFaNumber(node.publishedProductCount)}
           </span>
         </Link>
@@ -193,15 +196,15 @@ function MobileCategoryNode({
   }
 
   return (
-    <li className={expanded ? 'bg-sand-50' : undefined}>
+    <li className={expanded ? 'bg-surface-2' : undefined}>
       <div className="flex items-center gap-1 pe-2" style={{ paddingInlineStart: 8 + depth * 12 }}>
         <Link
           href={`/categories/${node.slug}`}
           onClick={onNavigate}
-          className="flex min-h-12 flex-1 items-center justify-between gap-2 px-2 text-sm font-semibold text-ink-900 hover:text-sabz-700"
+          className="flex min-h-12 flex-1 items-center justify-between gap-2 px-2 text-sm font-semibold text-fg hover:text-accent"
         >
           <span>{node.name}</span>
-          <span className="rounded-full bg-sabz-50 px-2 py-0.5 text-[11px] font-semibold text-sabz-600">
+          <span className="rounded-pill bg-accent-soft px-2 py-0.5 text-[11px] font-semibold text-accent">
             {formatFaNumber(node.publishedProductCount)}
           </span>
         </Link>
@@ -211,8 +214,8 @@ function MobileCategoryNode({
           aria-controls={`mobile-sub-${node.slug}`}
           aria-label={`زیرمجموعه‌های ${node.name}`}
           onClick={() => setExpanded((value) => !value)}
-          className={`flex min-h-11 min-w-11 items-center justify-center rounded-full p-2 transition-colors ${
-            expanded ? 'bg-sabz-700 text-white' : 'bg-white text-gray-500 ring-1 ring-inset ring-sand-200 hover:text-sabz-700'
+          className={`flex min-h-11 min-w-11 items-center justify-center rounded-pill p-2 transition-colors ${
+            expanded ? 'bg-accent text-on-accent' : 'bg-surface text-fg-muted ring-1 ring-inset ring-border hover:text-accent'
           }`}
         >
           <svg
@@ -230,7 +233,7 @@ function MobileCategoryNode({
         </button>
       </div>
       {expanded ? (
-        <ul role="list" id={`mobile-sub-${node.slug}`} className="border-t border-sand-100 pb-1">
+        <ul role="list" id={`mobile-sub-${node.slug}`} className="border-t border-border pb-1">
           {node.children.map((child) => (
             <MobileCategoryNode key={child.id} node={child} depth={depth + 1} onNavigate={onNavigate} />
           ))}
