@@ -572,13 +572,17 @@ export function ProductsPage() {
       {/* SS-268 filter panel: collapsed below xl by default (the chips row
           below stays visible either way); expanded (or always visible)
           above xl. 2-column label+field grid with htmlFor/id — every
-          control has a real label association (audit §A.7 fix). */}
+          control has a real label association (audit §A.7 fix).
+          The toggle is mobile/tablet-only: above xl the panel is always
+          visible, so leaving the button there would be a dead control that
+          also lies about `aria-expanded`. */}
       <div className="flex flex-wrap items-center gap-3">
         <Button
           outline
           onClick={() => setFiltersOpen((open) => !open)}
           aria-expanded={filtersOpen}
           aria-controls="products-filter-panel"
+          className="xl:hidden"
         >
           <SlidersHorizontal data-slot="icon" />
           فیلترها
@@ -762,6 +766,7 @@ export function ProductsPage() {
             limit={grid.filters.limit}
             onPageChange={(target) => changeFilter(() => setPage(target))()}
             onLimitChange={(next) => changeFilter(() => setLimit(next))()}
+            disabled={grid.loading}
             totalLabel="نوع"
           />
           <HorizontalScroll dragToPan>
@@ -1010,6 +1015,7 @@ export function ProductsPage() {
             limit={grid.filters.limit}
             onPageChange={(target) => changeFilter(() => setPage(target))()}
             onLimitChange={(next) => changeFilter(() => setLimit(next))()}
+            disabled={grid.loading}
             totalLabel="نوع"
           />
         </TableCard>

@@ -265,7 +265,7 @@ Contains: page-size select (20/50/100), `pageNumbers()` page list, prev/next (RT
 ## G. Admin layout — remove wasted space
 
 1. `main` drops `max-w-7xl` (keeps `px-4 sm:px-6`; vertical tightened `py-4 sm:py-6`).
-2. Page-width system: each page declares `data-page-width="full | wide | narrow"` on its wrapper (`full` = data tables/grid; `wide` = max-w-7xl detail/editors; `narrow` = max-w-3xl forms like roles) — kills constraint #2, one decision per page, no per-page CSS hacks.
+2. Page-width system — **as shipped (SS-268, recorded 2026-11-08)**: the shell `main` no longer caps width; each page owns its width with explicit wrapper utilities — the 17 list pages use `w-full` (the `full` intent), detail pages / editors / dashboard use `mx-auto max-w-6xl` or `max-w-7xl` (the `wide` intent). The originally specified `data-page-width="full | wide | narrow"` attribute was **not adopted**: it was a styling hook, not behaviour, and a per-page wrapper class already makes one width decision per page without per-page CSS or a global cap. `narrow` (max-w-3xl) remains unused — roles/forms sit at `max-w-6xl`. Adopt the attribute only if a shared styling hook is actually needed; do not set every page to `full`.
 3. `table-card.tsx` → `p-3 sm:p-4` (footer slot adjusted).
 4. Data-table cells dense (`py-2.5`) by default; comfortable `py-4` only on detail-line tables.
 5. Products filter panel → collapsible (collapsed below xl by default; chips row always visible; active-filter chips still visible when collapsed) with a fixed 2-column label+field grid and proper `htmlFor`/`id` association (fixes the live-observed scramble).

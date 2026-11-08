@@ -270,6 +270,26 @@ export function useCatalogGrid() {
   }, [refetch])
 
   /**
+   * SS-268: an out-of-range page (stale shared URL, back navigation, or rows
+   * deleted while on the last page) must fall back to the last valid page.
+   * Without this the server returns `items: []` with a positive `total` and
+   * the grid renders the misleading "no products" empty state with no way
+   * back. Every other list hook already clamps the same way.
+   */
+  useEffect(() => {
+    if (!result) {
+      return
+    }
+    // Prefer the limit the server actually processed; fall back to the URL
+    // value only if an older response omitted it.
+    const limit = result.limit > 0 ? result.limit : filters.limit
+    const lastPage = Math.max(1, Math.ceil(result.total / limit))
+    if (filters.page > lastPage) {
+      setFilters({ page: lastPage })
+    }
+  }, [result, filters.page, filters.limit, setFilters])
+
+  /**
    * Reconcile saved rows with the authoritative batch-response values so the
    * grid shows what the server confirmed (including the new concurrency
    * token) without a full refetch.
