@@ -125,6 +125,7 @@ export function NotificationsPage() {
             limit={limit}
             limitOptions={[20, 50]}
             onLimitChange={setLimit}
+            disabled={loading}
             totalLabel="اعلان"
           />
           <Table dense>
@@ -197,6 +198,7 @@ export function NotificationsPage() {
             limit={limit}
             limitOptions={[20, 50]}
             onLimitChange={setLimit}
+            disabled={loading}
             totalLabel="اعلان"
           />
         </TableCard>

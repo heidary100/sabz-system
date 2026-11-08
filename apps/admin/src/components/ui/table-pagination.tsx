@@ -91,7 +91,9 @@ export function TablePagination({
         {total > 0 ? (
           <span
             className="rounded-lg bg-primary-subtle px-2.5 py-1 text-xs font-semibold tabular-nums text-primary"
-            aria-live="polite"
+            /* One live region per page: the bottom bar mirrors the top one, and
+               two polite regions would announce every total change twice. */
+            aria-live={position === 'top' ? 'polite' : undefined}
           >
             {faDigits(total)} {totalLabel}
           </span>
@@ -106,7 +108,7 @@ export function TablePagination({
         <div
           role="group"
           aria-label={`رفتن بین صفحات (${positionLabel})`}
-          className="flex items-center gap-0.5 rounded-xl border border-border bg-surface-strong p-1 shadow-xs"
+          className="flex max-w-full flex-wrap items-center gap-0.5 rounded-xl border border-border bg-surface-strong p-1 shadow-xs"
         >
           <button
             type="button"
@@ -164,36 +166,42 @@ export function TablePagination({
       <div className="flex items-center gap-2">
         {onLimitChange && limit != null ? (
           <>
-            <Select
-              aria-label={`تعداد در هر صفحه (${positionLabel})`}
-              value={String(limit)}
-              onChange={(event) => onLimitChange(Number(event.target.value))}
-              className="w-auto min-w-16"
-            >
-              {limitOptions.map((option) => (
-                <option key={option} value={String(option)}>
-                  {faDigits(option)}
-                </option>
-              ))}
-            </Select>
+            {/* The width lives on the wrapper: Catalyst Input/Select hard-code
+                `w-full` on their own wrapper, so a width class passed to them
+                loses in the generated CSS order. */}
+            <div className="w-20 shrink-0">
+              <Select
+                aria-label={`تعداد در هر صفحه (${positionLabel})`}
+                value={String(limit)}
+                onChange={(event) => onLimitChange(Number(event.target.value))}
+                disabled={disabled}
+              >
+                {limitOptions.map((option) => (
+                  <option key={option} value={String(option)}>
+                    {faDigits(option)}
+                  </option>
+                ))}
+              </Select>
+            </div>
             <span className="text-xs text-muted">در هر صفحه</span>
           </>
         ) : null}
         {onPageChange && totalPages > 1 ? (
-          <Input
-            aria-label={`شماره صفحه (${positionLabel})`}
-            title="رفتن به صفحه — Enter"
-            dir="ltr"
-            inputMode="numeric"
-            placeholder="صفحه"
-            className="w-16"
-            disabled={disabled}
-            value={pageInput}
-            onChange={(event) => setPageInput(event.target.value.replace(/[^\d]/g, ''))}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') goToPage()
-            }}
-          />
+          <div className="w-20 shrink-0">
+            <Input
+              aria-label={`شماره صفحه (${positionLabel})`}
+              title="رفتن به صفحه — Enter"
+              dir="ltr"
+              inputMode="numeric"
+              placeholder="صفحه"
+              disabled={disabled}
+              value={pageInput}
+              onChange={(event) => setPageInput(event.target.value.replace(/[^\d]/g, ''))}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') goToPage()
+              }}
+            />
+          </div>
         ) : null}
       </div>
     </nav>

@@ -462,4 +462,47 @@ describe('ProductsPage — the editable catalog grid (SS-257 rework)', () => {
     // The grid refetches after the delete.
     await waitFor(() => expect(mockList.mock.calls.length).toBeGreaterThanOrEqual(2))
   })
+
+  it('toggles the filter panel below xl and hides the toggle above it (SS-268)', async () => {
+    await renderAndLoad()
+
+    const toggle = screen.getByRole('button', { name: 'فیلترها' })
+    const panel = document.getElementById('products-filter-panel')!
+    expect(toggle.getAttribute('aria-expanded')).toBe('false')
+    expect(panel.className).toContain('hidden')
+
+    fireEvent.click(toggle)
+    expect(toggle.getAttribute('aria-expanded')).toBe('true')
+    expect(panel.className).not.toContain('hidden xl:grid')
+
+    fireEvent.click(toggle)
+    expect(toggle.getAttribute('aria-expanded')).toBe('false')
+    expect(panel.className).toContain('hidden xl:grid')
+
+    // jsdom cannot evaluate media queries; pin the contract: above xl the
+    // panel is always expanded, so the toggle must not render there.
+    expect(toggle.className).toContain('xl:hidden')
+  })
+
+  it('falls back to the last valid page when the URL is past the end (SS-268)', async () => {
+    // The real API returns an empty page with a positive total when asked for
+    // a page beyond the end (stale shared URL, rows deleted on the last page).
+    mockList.mockImplementation(async (query) => {
+      const page = query.page ?? 1
+      const limit = query.limit ?? 50
+      return page > 2
+        ? { items: [], total: 100, page, limit }
+        : { items: rows, total: 100, page, limit }
+    })
+
+    renderPage('/products?page=99')
+
+    await waitFor(() => {
+      const last = mockList.mock.calls[mockList.mock.calls.length - 1]![0]!
+      expect(last.page).toBe(2) // ceil(100 / 50) = 2
+    })
+    // The grid renders the corrected page instead of the "no products" state.
+    await waitFor(() => expect(cellText('قیمت فروش — SKU-1')).toBe('100,000'))
+    expect(screen.queryByText('هنوز محصولی ثبت نشده است.')).toBeNull()
+  })
 })
