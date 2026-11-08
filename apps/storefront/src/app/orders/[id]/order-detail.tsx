@@ -13,6 +13,7 @@ import { hasSession } from '@/lib/auth-client';
 import { cancelOrder, fetchOrderDetail, orderStatusLabel, paymentMethodLabel, paymentStatusLabel, shipmentStatusLabel, shippingMethodLabel } from '@/lib/orders';
 import { formatFaNumber, formatToman } from '@/lib/format';
 import { OrderTimeline } from './order-timeline';
+import { TrackingNumberValue } from './tracking-number';
 
 const LOAD_FAILED = 'دریافت جزئیات سفارش ناموفق بود؛ لطفاً دوباره تلاش کنید.';
 const CANCEL_FAILED = 'لغو سفارش ناموفق بود؛ لطفاً دوباره تلاش کنید.';
@@ -193,11 +194,15 @@ export function OrderDetail({ id }: { id: string }) {
                 {shippingMethodLabel(order.shipment.method)}
               </dd>
             </div>
-            {order.shipment.trackingNumber !== null ? (
+            {order.shipment.trackingNumber !== null &&
+            order.shipment.trackingNumber.trim() !== '' ? (
               <div className="flex items-center justify-between gap-3">
                 <dt className="text-gray-600">کد رهگیری</dt>
-                <dd dir="ltr" className="font-semibold text-ink-900">
-                  {order.shipment.trackingNumber}
+                <dd className="min-w-0">
+                  <TrackingNumberValue
+                    method={order.shipment.method}
+                    trackingNumber={order.shipment.trackingNumber}
+                  />
                 </dd>
               </div>
             ) : null}
