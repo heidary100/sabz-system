@@ -1,7 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import type { CatalogCategoryNode } from '@sabz/types';
+import type {
+  CatalogCategoryNode,
+  CatalogProductCardDto,
+} from '@sabz/types';
 import { homeConfig } from '../config/home';
-import { resolveAnnouncement, resolveFeaturedCategories, shouldShowSection } from './home';
+import {
+  earliestFuturePromotion,
+  isOfferEligible,
+  limitHeroSlides,
+  resolveAnnouncement,
+  resolveFeaturedCategories,
+  resolveHomeOffers,
+  shouldShowSection,
+  splitBlogTeaser,
+} from './home';
 import {
   contactChannels,
   filterValidFooterLinks,
@@ -255,11 +267,23 @@ describe('safe defaults', () => {
     expect(homeConfig.announcement).toBeNull();
     expect(homeConfig.saleBanner).toBeNull();
     expect(homeConfig.appLinks).toEqual([]);
-    // Curated slugs empty = deterministic fallback; rails stay bounded.
-    expect(homeConfig.featuredCategorySlugs).toEqual([]);
-    expect(homeConfig.latestLimit).toBe(8);
-    expect(homeConfig.inStockLimit).toBe(8);
-    expect(homeConfig.maxCategoryTiles).toBeGreaterThan(0);
+    // Task 04 curation: six real majors, bounded rails, hero capped at three.
+    expect(homeConfig.featuredCategorySlugs).toEqual([
+      'mobile-accessories',
+      'computer-accessories',
+      'stock-goods',
+      'smart-gadgets',
+      'game-consoles',
+      'audio-video',
+    ]);
+    expect(homeConfig.latestLimit).toBe(6);
+    expect(homeConfig.inStockLimit).toBe(4);
+    expect(homeConfig.maxCategoryTiles).toBe(6);
+    expect(homeConfig.heroSlides.length).toBeLessThanOrEqual(3);
+    expect(homeConfig.trustItems.length).toBeLessThanOrEqual(4);
+    expect(
+      homeConfig.trustItems.some((item) => item.title.includes('کمترین قیمت')),
+    ).toBe(false);
   });
 
   it('ships the verified company facts (SS-224): contact, socials, seals', () => {
@@ -283,5 +307,220 @@ describe('safe defaults', () => {
       expect(phone.tel).toMatch(/^\+98\d+$/);
     }
     expect(contactChannels.whatsapp.href).toMatch(/^https:\/\/wa\.me\//);
+  });
+});
+
+function product(
+  overrides: Partial<CatalogProductCardDto> = {},
+): CatalogProductCardDto {
+  return {
+    id: 'product-1',
+    name: 'کالای نمونه',
+    slug: 'sample-product',
+    condition: 'NEW',
+    brand: null,
+    category: { name: 'دسته', slug: 'category' },
+    priceFrom: '1000000',
+    compareAtPrice: null,
+    callForPrice: false,
+    promotionEndsAt: null,
+    variantCount: 1,
+    inStock: true,
+    ratingAverage: null,
+    ratingCount: 0,
+    primaryImageUrl: null,
+    primaryThumbnailUrl: null,
+    ...overrides,
+  };
+}
+
+describe('limitHeroSlides', () => {
+  it('caps the campaign stage at three slides', () => {
+    expect(limitHeroSlides([1, 2, 3, 4, 5])).toEqual([1, 2, 3]);
+  });
+
+  it('keeps shorter and empty lists untouched', () => {
+    expect(limitHeroSlides([1, 2])).toEqual([1, 2]);
+    expect(limitHeroSlides([])).toEqual([]);
+  });
+});
+
+describe('isOfferEligible', () => {
+  const now = Date.parse('2026-11-09T12:00:00.000Z');
+
+  it('accepts an in-stock, genuinely discounted product', () => {
+    expect(
+      isOfferEligible(
+        product({ priceFrom: '900000', compareAtPrice: '1000000' }),
+        now,
+      ),
+    ).toBe(true);
+  });
+
+  it('never promotes an out-of-stock product', () => {
+    expect(
+      isOfferEligible(
+        product({
+          inStock: false,
+          priceFrom: '900000',
+          compareAtPrice: '1000000',
+        }),
+        now,
+      ),
+    ).toBe(false);
+  });
+
+  it('never turns a call-for-price row into a discount', () => {
+    expect(
+      isOfferEligible(
+        product({
+          callForPrice: true,
+          priceFrom: '',
+          compareAtPrice: '1000000',
+        }),
+        now,
+      ),
+    ).toBe(false);
+  });
+
+  it('rejects a non-discount compare-at pair', () => {
+    expect(
+      isOfferEligible(
+        product({ priceFrom: '1000000', compareAtPrice: '900000' }),
+        now,
+      ),
+    ).toBe(false);
+  });
+
+  it('accepts only a still-future promotion timestamp', () => {
+    expect(
+      isOfferEligible(
+        product({ promotionEndsAt: '2026-11-10T12:00:00.000Z' }),
+        now,
+      ),
+    ).toBe(true);
+    expect(
+      isOfferEligible(
+        product({ promotionEndsAt: '2026-11-08T12:00:00.000Z' }),
+        now,
+      ),
+    ).toBe(false);
+  });
+
+  it('rejects a product with no discount evidence at all', () => {
+    expect(isOfferEligible(product(), now)).toBe(false);
+  });
+});
+
+describe('earliestFuturePromotion', () => {
+  const now = Date.parse('2026-11-09T12:00:00.000Z');
+
+  it('ignores expired, invalid and missing timestamps', () => {
+    expect(
+      earliestFuturePromotion(
+        [
+          product(),
+          product({ promotionEndsAt: '2026-11-01T00:00:00.000Z' }),
+          product({ promotionEndsAt: 'not-a-date' }),
+        ],
+        now,
+      ),
+    ).toBeNull();
+  });
+
+  it('returns the earliest still-future timestamp', () => {
+    expect(
+      earliestFuturePromotion(
+        [
+          product({ promotionEndsAt: '2026-11-20T00:00:00.000Z' }),
+          product({ promotionEndsAt: '2026-11-10T00:00:00.000Z' }),
+        ],
+        now,
+      ),
+    ).toBe('2026-11-10T00:00:00.000Z');
+  });
+});
+
+describe('resolveHomeOffers', () => {
+  const now = Date.parse('2026-11-09T12:00:00.000Z');
+
+  it('uses eligible offers without a countdown unless a future end exists', () => {
+    const discounted = product({
+      id: 'discounted',
+      priceFrom: '900000',
+      compareAtPrice: '1000000',
+    });
+    const result = resolveHomeOffers(
+      [discounted, product({ id: 'plain' })],
+      [product({ id: 'fallback' })],
+      6,
+      now,
+    );
+    expect(result.mode).toBe('offer');
+    expect(result.products.map((item) => item.id)).toEqual(['discounted']);
+    expect(result.endsAt).toBeNull();
+  });
+
+  it('surfaces a real future promotion end for the countdown', () => {
+    const result = resolveHomeOffers(
+      [
+        product({
+          id: 'promo',
+          promotionEndsAt: '2026-11-11T12:00:00.000Z',
+        }),
+      ],
+      [],
+      6,
+      now,
+    );
+    expect(result.endsAt).toBe('2026-11-11T12:00:00.000Z');
+  });
+
+  it('falls back to in-stock featured products when no offer exists', () => {
+    const result = resolveHomeOffers(
+      [product({ id: 'plain' })],
+      [
+        product({ id: 'ready' }),
+        product({ id: 'sold-out', inStock: false }),
+      ],
+      6,
+      now,
+    );
+    expect(result.mode).toBe('featured');
+    expect(result.products.map((item) => item.id)).toEqual(['ready']);
+    expect(result.endsAt).toBeNull();
+  });
+
+  it('respects the configured limit', () => {
+    const result = resolveHomeOffers(
+      [
+        product({ id: 'a', compareAtPrice: '2000000' }),
+        product({ id: 'b', compareAtPrice: '2000000' }),
+      ],
+      [],
+      1,
+      now,
+    );
+    expect(result.products).toHaveLength(1);
+  });
+});
+
+describe('splitBlogTeaser', () => {
+  it('hides the teaser for an empty blog', () => {
+    expect(splitBlogTeaser([])).toBeNull();
+  });
+
+  it('uses a single story as the feature with no companions', () => {
+    expect(splitBlogTeaser(['a'])).toEqual({
+      feature: 'a',
+      secondary: [],
+    });
+  });
+
+  it('keeps one feature and at most two companions', () => {
+    expect(splitBlogTeaser(['a', 'b', 'c', 'd'])).toEqual({
+      feature: 'a',
+      secondary: ['b', 'c'],
+    });
   });
 });

@@ -18,7 +18,7 @@ export function CategoryCover({
 }: {
   src: string | null;
   name: string;
-  variant?: 'thumb' | 'feature';
+  variant?: 'thumb' | 'feature' | 'panel';
 }) {
   const [failed, setFailed] = useState(false);
 
@@ -29,7 +29,9 @@ export function CategoryCover({
         className={`flex shrink-0 items-center justify-center bg-surface-2 text-fg-muted ${
           variant === 'feature'
             ? 'aspect-[4/3] w-full rounded-card'
-            : 'size-10 rounded-control'
+            : variant === 'panel'
+              ? 'h-full min-h-32 w-full rounded-none'
+              : 'size-10 rounded-control'
         }`}
       >
         <svg
@@ -53,7 +55,9 @@ export function CategoryCover({
       className={`relative block shrink-0 overflow-hidden bg-plate ${
         variant === 'feature'
           ? 'aspect-[4/3] w-full rounded-card'
-          : 'size-10 rounded-control'
+          : variant === 'panel'
+            ? 'h-full min-h-32 w-full rounded-none'
+            : 'size-10 rounded-control'
       }`}
     >
       <Image
@@ -61,9 +65,9 @@ export function CategoryCover({
         alt=""
         data-category={name}
         fill
-        sizes={variant === 'feature' ? '18rem' : '40px'}
+        sizes={variant === 'feature' ? '18rem' : variant === 'panel' ? '(min-width: 1024px) 50vw, 100vw' : '40px'}
         onError={() => setFailed(true)}
-        className={variant === 'feature' ? 'object-contain p-4' : 'object-contain p-1'}
+        className={variant === 'feature' ? 'object-contain p-4' : variant === 'panel' ? 'object-contain p-4' : 'object-contain p-1'}
       />
     </span>
   );

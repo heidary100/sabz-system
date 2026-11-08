@@ -42,6 +42,11 @@ export interface HeroSlide {
   /** Advertised internal route (validated like every advertised link). */
   href: string;
   ctaLabel: string;
+  /**
+   * Real catalog category used to source representative product imagery for
+   * the campaign stage. No editorial hero asset is implied.
+   */
+  categorySlug?: string;
 }
 
 /** Config-driven sale countdown bar; the real sale engine arrives with SS-235. */
@@ -106,22 +111,29 @@ export interface HomeConfig {
 /**
  * SS-224 values: claims verified from the client's live website
  * (sabzsistem.com, 2026-09-25) — trust claims are the site's own «5 دلیل»
- * strip and footer services; hero slides point at real catalog routes.
+ * strip and footer services; hero slides point at real catalog routes and
+ * use representative catalog imagery, never an editorial claim.
  * `saleBanner` and `appLinks` stay disabled until the client supplies a real
  * sale window / verified app URLs (anti-fabrication rule).
  */
 export const homeConfig: HomeConfig = {
-  featuredCategorySlugs: [],
-  maxCategoryTiles: 8,
-  latestLimit: 8,
-  inStockLimit: 8,
+  featuredCategorySlugs: [
+    'mobile-accessories',
+    'computer-accessories',
+    'stock-goods',
+    'smart-gadgets',
+    'game-consoles',
+    'audio-video',
+  ],
+  maxCategoryTiles: 6,
+  latestLimit: 6,
+  inStockLimit: 4,
   announcement: null,
   trustItems: [
     { icon: 'support', title: 'پشتیبانی ۲۴ ساعته', body: 'پاسخگویی هفت روز هفته، ۲۴ ساعت شبانه‌روز' },
     { icon: 'truck', title: 'ارسال سریع سفارش' },
     { icon: 'shield', title: 'تضمین کیفیت', body: 'تضمین اصالت کالا' },
     { icon: 'badge', title: 'پرداخت در محل' },
-    { icon: 'badge', title: 'تضمین کمترین قیمت' },
   ],
   heroSlides: [
     {
@@ -129,18 +141,21 @@ export const homeConfig: HomeConfig = {
       subtitle: 'موبایل، لوازم جانبی، رایانه و گجت‌های هوشمند — از برندهای معتبر بازار',
       href: '/products',
       ctaLabel: 'مشاهده محصولات',
+      categorySlug: 'computer-accessories',
     },
     {
-      title: 'کالای استوک اصل',
-      subtitle: 'لپ‌تاپ، کامپیوتر و کنسول استوک با موجودی واقعی انبار',
+      title: 'کالای استوک',
+      subtitle: 'لپ‌تاپ، کامپیوتر و کنسول استوک — دسته‌بندی کالای استوک',
       href: '/categories/stock-goods',
       ctaLabel: 'مشاهده کالای استوک',
+      categorySlug: 'stock-goods',
     },
     {
       title: 'لوازم جانبی گوشی موبایل',
       subtitle: 'پاوربانک، هدفون، اسپیکر و شارژر از پرودو، پاورولوژی و گرین لاین',
       href: '/categories/mobile-accessories',
       ctaLabel: 'مشاهده دسته‌بندی',
+      categorySlug: 'mobile-accessories',
     },
   ],
   saleBanner: null,

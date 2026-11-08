@@ -1,174 +1,178 @@
 import { connection } from 'next/server';
+import type { CatalogProductCardDto } from '@sabz/types';
 import { homeConfig } from '@/config/home';
-import { fetchCategoryTree, fetchProducts } from '@/lib/catalog';
 import {
+  fetchCategoryCovers,
+  fetchCategoryTree,
+  fetchProducts,
+  mediaImageUrl,
+} from '@/lib/catalog';
+import {
+  limitHeroSlides,
   resolveAnnouncement,
   resolveFeaturedCategories,
-  shouldShowSection,
+  resolveHomeOffers,
 } from '@/lib/home';
-import { CategoryTile } from '@/components/ecommerce/category/category-tile';
-import { CategoryBanners } from '@/components/ecommerce/category/category-banners';
-import { HeroSlider } from '@/components/ecommerce/hero/hero-slider';
+import { findCategoryNode } from '@/lib/nav';
 import { AnnouncementBar } from '@/components/ecommerce/promo/announcement-bar';
 import { SaleBanner } from '@/components/ecommerce/promo/sale-banner';
-import { ProductCardWithWishlist } from '@/components/ecommerce/wishlist/product-card-wishlist';
-import { SectionHeader } from '@/components/ecommerce/ui/section-header';
+import { HeroStage } from '@/components/ecommerce/hero/hero-slider';
+import { TrustStrip } from '@/components/ecommerce/trust/trust-strip';
+import { CategoryDiscovery } from '@/components/ecommerce/home/category-discovery';
+import { OfferStrip } from '@/components/ecommerce/home/offer-strip';
+import { SplitCampaign } from '@/components/ecommerce/home/split-campaign';
+import { CompactProductList } from '@/components/ecommerce/home/compact-product-list';
+import { ProductRail } from '@/components/ecommerce/home/product-rail';
 import { BrandShowcase } from '@/components/ecommerce/brand/brand-showcase';
 import { BlogTeaser } from '@/components/ecommerce/blog/blog-teaser';
-import { AppSection } from '@/components/ecommerce/app/app-section';
-import { TrustStrip } from '@/components/ecommerce/trust/trust-strip';
 
 /**
- * Home page (SS-128, SS-215, rebuilt SS-224): announcement, configured sale
- * countdown bar, cinematic hero slider, collection banners, the verified
- * trust strip, curated categories, brand-showcase tabs, in-stock + latest +
- * alphabetical rails, the blog teaser (hidden until the first post), and
- * the (verified-only) app section. Queries stay
- * bounded (`newest`/`name`, never unbounded price sorts); empty rails and
- * unconfigured sections hide instead of rendering placeholders.
+ * Home page v2 (Task 04): a curated Pine & Paper storefront.
  *
- * `connection()` keeps rendering at request time (build-time prerendering
- * would snapshot stale data or fail when the API is unreachable in CI)
- * without `force-dynamic`, which would disable the Data Cache (SS-217).
+ * Order: announcement (config-only), campaign-stage hero, trust hairline,
+ * six-category discovery, honest offer strip, stock-goods editorial split,
+ * ready-to-ship collection, new-arrivals rail, brand showcase, blog feature.
+ * Every section fetches independently and degrades to hidden (or its own
+ * fallback) when data is unavailable — one failed query never breaks the page.
+ *
+ * `connection()` keeps rendering at request time without `force-dynamic`, so
+ * the Data Cache still deduplicates and revalidates the bounded queries below.
  */
 export default async function HomePage() {
   await connection();
-  // Bounded, independent queries in parallel: the tree, one `newest` page per
-  // rail (latest + in-stock availability truth), one `name` page for the
-  // alphabetical browse rail, and one newest page per configured brand tab.
-  const brandRails = await Promise.all(
-    homeConfig.brandTabs.map(async (tab) => ({
-      ...tab,
-      products: await fetchProducts({ brand: tab.slug, limit: 4, sort: 'newest' }),
-    })),
-  );
-  const [categories, latest, inStock, alphabetical] = await Promise.all([
+
+  const heroConfig = limitHeroSlides(homeConfig.heroSlides);
+
+  const [
+    categories,
+    categoryCovers,
+    newest,
+    readyToShip,
+    offerCandidates,
+    heroSlides,
+    brandRails,
+  ] = await Promise.all([
     fetchCategoryTree(),
-    fetchProducts({ sort: 'newest', limit: homeConfig.latestLimit }),
-    fetchProducts({
+    fetchCategoryCovers(homeConfig.featuredCategorySlugs.join(',')),
+    productItems({ sort: 'newest', limit: homeConfig.latestLimit }),
+    productItems({
       sort: 'newest',
       limit: homeConfig.inStockLimit,
       inStockOnly: true,
     }),
-    fetchProducts({ sort: 'name', limit: homeConfig.alphabeticalLimit }),
+    // Bounded price sweep: offer eligibility is still decided by real
+    // compare-at / future promotion fields, never by position in this page.
+    productItems({ sort: 'price_desc', limit: 40 }),
+    Promise.all(
+      heroConfig.map(async (slide) => {
+        const products = slide.categorySlug
+          ? await productItems({
+              category: slide.categorySlug,
+              sort: 'price_desc',
+              inStockOnly: true,
+              limit: 3,
+            })
+          : [];
+        const images = [
+          ...new Set(
+            products
+              .map((product) =>
+                mediaImageUrl(
+                  product.primaryThumbnailUrl ?? product.primaryImageUrl,
+                ),
+              )
+              .filter((image): image is string => image !== null),
+          ),
+        ];
+        return { ...slide, images };
+      }),
+    ),
+    Promise.all(
+      homeConfig.brandTabs.map(async (tab) => ({
+        ...tab,
+        products: await productItems({
+          brand: tab.slug,
+          sort: 'newest',
+          limit: 4,
+        }),
+      })),
+    ),
   ]);
-  // Curated category selection in config order with a deterministic
-  // tree-order fallback when nothing is curated (SS-215 foundation).
+
   const featuredCategories = resolveFeaturedCategories(
     categories,
     homeConfig.featuredCategorySlugs,
     homeConfig.maxCategoryTiles,
   );
+
+  const offer = resolveHomeOffers(offerCandidates, newest);
+
+  const stockCategory = findCategoryNode(categories, 'stock-goods');
+  const stockLaptops = findCategoryNode(categories, 'lp-tap-astvk');
+  const stockCover = stockCategory
+    ? (categoryCovers[stockCategory.slug] ?? null)
+    : null;
+
   const announcement = resolveAnnouncement(homeConfig.announcement);
-  const showcaseGroups = brandRails.map((rail) => ({
-    name: rail.name,
-    slug: rail.slug,
-    products: rail.products.items,
-  }));
 
   return (
     <div>
-      {announcement ? <AnnouncementBar announcement={announcement} /> : null}
-      {homeConfig.saleBanner ? <SaleBanner banner={homeConfig.saleBanner} /> : null}
-
-      {/* Hero: slider when configured, static typographic hero otherwise. */}
-      {homeConfig.heroSlides.length > 0 ? (
-        <HeroSlider slides={homeConfig.heroSlides} />
+      {announcement ? (
+        <AnnouncementBar announcement={announcement} />
+      ) : null}
+      {homeConfig.saleBanner ? (
+        <SaleBanner banner={homeConfig.saleBanner} />
       ) : null}
 
-      {/* Collection banners (verified catalog routes only). */}
-      <CategoryBanners banners={homeConfig.categoryBanners} />
+      <HeroStage slides={heroSlides} />
 
-      {/* Trust strip: the store's own verified claims. */}
       <TrustStrip items={homeConfig.trustItems} />
 
-      {/* Featured categories */}
-      {shouldShowSection(featuredCategories) ? (
-        <section aria-labelledby="categories-heading" className="mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-14 lg:px-8">
-          <SectionHeader id="categories-heading" title="دسته‌بندی‌ها" actionHref="/categories" />
-          <ul role="list" className=" mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-            {featuredCategories.map((category) => (
-              <CategoryTile key={category.id} category={category} variant="child" />
-            ))}
-          </ul>
-        </section>
-      ) : null}
+      <CategoryDiscovery
+        categories={featuredCategories}
+        covers={categoryCovers}
+      />
 
-      {/* Brand showcase tabs */}
-      <BrandShowcase groups={showcaseGroups} />
+      <OfferStrip
+        products={offer.products}
+        mode={offer.mode}
+        endsAt={offer.endsAt}
+      />
 
-      {/* In-stock products: what the customer can actually get now */}
-      {shouldShowSection(inStock.items) ? (
-        <section aria-labelledby="instock-heading" className=" border-t border-border bg-surface-2/60">
-          <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-14 lg:px-8">
-            <SectionHeader
-              id="instock-heading"
-              title="موجود در انبار"
-              subtitle="محصولاتی که هم‌اکنون موجودی دارند"
-              actionHref="/products?inStockOnly=true"
-            />
-            <div className=" mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-              {inStock.items.map((product) => (
-                <ProductCardWithWishlist key={product.id} product={product} />
-              ))}
-            </div>
-          </div>
-        </section>
-      ) : null}
+      <SplitCampaign
+        category={stockCategory}
+        cover={stockCover}
+        laptopCount={stockLaptops?.publishedProductCount ?? null}
+      />
 
-      {/* Latest products: newest published rows */}
-      {shouldShowSection(latest.items) ? (
-        <section aria-labelledby="latest-heading" className=" mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-14 lg:px-8">
-          <SectionHeader
-            id="latest-heading"
-            title="جدیدترین محصولات"
-            subtitle="تازه‌ترین کالاهای منتشرشده در فروشگاه"
-            actionHref="/products?sort=newest"
-          />
-          <div className=" mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-            {latest.items.map((product) => (
-              <ProductCardWithWishlist key={product.id} product={product} />
-            ))}
-          </div>
-        </section>
-      ) : null}
+      <CompactProductList products={readyToShip} />
 
-      {/* Alphabetical browse rail: the live site's A–Z directory, compact. */}
-      {shouldShowSection(alphabetical.items) ? (
-        <section aria-labelledby="alphabetical-heading" className=" border-t border-border bg-surface">
-          <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-14 lg:px-8">
-            <SectionHeader
-              id="alphabetical-heading"
-              title="مرور الفبایی محصولات"
-              subtitle="مرور همه کالاها بر اساس نام"
-              actionLabel="مرور الفبایی کامل"
-              actionHref="/products?sort=name"
-            />
-            <div className=" mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-              {alphabetical.items.map((product) => (
-                <ProductCardWithWishlist key={product.id} product={product} />
-              ))}
-            </div>
-          </div>
-        </section>
-      ) : null}
+      <ProductRail
+        id="new-arrivals-heading"
+        title="تازه‌ها"
+        subtitle="جدیدترین کالاهای منتشرشده در فروشگاه"
+        actionHref="/products?sort=newest"
+        products={newest}
+      />
 
-      {/* Verified app distribution links only; hidden until supplied. */}
-      <div className="pt-12 sm:pt-14">
-        <AppSection links={homeConfig.appLinks} />
-      </div>
+      <BrandShowcase groups={brandRails} />
 
-      {/* Blog teaser: latest published articles; hidden until the first post (SS-238). */}
       <BlogTeaser />
-
-      {/* Catalog pending notice: only when every rail is empty. */}
-      {!shouldShowSection(inStock.items) && !shouldShowSection(latest.items) ? (
-        <section className="mx-auto max-w-7xl px-4 py-16 text-center sm:px-6 lg:px-8">
-          <p className="text-sm text-fg-muted">
-            کاتالوگ محصولات بهزودی تکمیل میشود.
-          </p>
-        </section>
-      ) : null}
     </div>
   );
+}
+
+/**
+ * One bounded product query that degrades to an empty collection. The
+ * homepage sections treat an API failure exactly like an empty result, so a
+ * down catalog cannot take down unrelated sections.
+ */
+async function productItems(
+  query: Parameters<typeof fetchProducts>[0],
+): Promise<CatalogProductCardDto[]> {
+  try {
+    return (await fetchProducts(query)).items;
+  } catch {
+    return [];
+  }
 }

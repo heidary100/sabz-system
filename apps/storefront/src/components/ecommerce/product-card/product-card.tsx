@@ -166,7 +166,7 @@ export function ProductCard({
               </p>
             )}
             {product.compareAtPrice && salePercent !== null ? (
-              <s className="mt-1 block text-[11px] font-normal text-fg-muted [font-variant-numeric:tabular-nums]">
+              <s className="mt-1 block text-[11px] font-normal leading-5 text-fg-muted decoration-1 [font-variant-numeric:tabular-nums]">
                 <span className="sr-only">قیمت پیشین </span>
                 {formatToman(product.compareAtPrice)}
               </s>
