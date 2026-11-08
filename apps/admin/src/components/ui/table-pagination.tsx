@@ -38,7 +38,11 @@ export interface TablePaginationProps {
   position: 'top' | 'bottom'
   /** Noun for the count pill, e.g. «نوع» / «سفارش». */
   totalLabel?: string
-  /** Disables every interactive control (e.g. while the list is loading). */
+  /**
+   * Disables the pager buttons while the list is loading. The size and
+   * go-to-page controls stay enabled: they trigger a new (sequence-guarded)
+   * request, and disabling a focused control would drop keyboard focus.
+   */
   disabled?: boolean
   className?: string
 }
@@ -174,7 +178,6 @@ export function TablePagination({
                 aria-label={`تعداد در هر صفحه (${positionLabel})`}
                 value={String(limit)}
                 onChange={(event) => onLimitChange(Number(event.target.value))}
-                disabled={disabled}
               >
                 {limitOptions.map((option) => (
                   <option key={option} value={String(option)}>
@@ -194,7 +197,6 @@ export function TablePagination({
               dir="ltr"
               inputMode="numeric"
               placeholder="صفحه"
-              disabled={disabled}
               value={pageInput}
               onChange={(event) => setPageInput(event.target.value.replace(/[^\d]/g, ''))}
               onKeyDown={(event) => {

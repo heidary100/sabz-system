@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AdminOrderListResponse } from '@sabz/types'
@@ -94,6 +94,11 @@ describe('OrdersPage pagination (SS-268)', () => {
   it('asks the server for the selected page size and resets to page one', async () => {
     renderPage()
     await waitFor(() => expect(screen.getAllByText('صفحه ۱ از ۳')).toHaveLength(2))
+
+    // Move off page one first, so the reset is actually exercised.
+    const bottomBar = screen.getByRole('navigation', { name: 'صفحه‌بندی پایین' })
+    fireEvent.click(within(bottomBar).getByRole('button', { name: 'صفحه بعد' }))
+    await waitFor(() => expect(screen.getAllByText('صفحه ۲ از ۳')).toHaveLength(2))
 
     fireEvent.change(screen.getByLabelText('تعداد در هر صفحه (بالا)'), {
       target: { value: '50' },

@@ -214,7 +214,7 @@ describe('TablePagination navigation (SS-268)', () => {
     expect(onPageChange).not.toHaveBeenCalled()
   })
 
-  it('disables every control while a request is in flight', () => {
+  it('disables the pager while a request is in flight, keeping the inputs usable', () => {
     render(
       <TablePagination
         position="top"
@@ -228,13 +228,18 @@ describe('TablePagination navigation (SS-268)', () => {
       />,
     )
 
-    expect(
-      (screen.getByLabelText('تعداد در هر صفحه (بالا)') as HTMLSelectElement).disabled,
-    ).toBe(true)
-    expect((screen.getByLabelText('شماره صفحه (بالا)') as HTMLInputElement).disabled).toBe(true)
     expect((screen.getByRole('button', { name: 'صفحه بعد' }) as HTMLButtonElement).disabled).toBe(
       true,
     )
+    expect((screen.getByRole('button', { name: 'صفحه ۳' }) as HTMLButtonElement).disabled).toBe(
+      true,
+    )
+    // Inputs stay enabled: disabling a focused control drops keyboard focus,
+    // and either input simply starts a new sequence-guarded request.
+    expect(
+      (screen.getByLabelText('تعداد در هر صفحه (بالا)') as HTMLSelectElement).disabled,
+    ).toBe(false)
+    expect((screen.getByLabelText('شماره صفحه (بالا)') as HTMLInputElement).disabled).toBe(false)
   })
 
   it('exposes a single live region when both bars are rendered', () => {

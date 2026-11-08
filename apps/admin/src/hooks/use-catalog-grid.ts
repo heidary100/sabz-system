@@ -280,7 +280,10 @@ export function useCatalogGrid() {
     if (!result) {
       return
     }
-    const lastPage = Math.max(1, Math.ceil(result.total / filters.limit))
+    // Prefer the limit the server actually processed; fall back to the URL
+    // value only if an older response omitted it.
+    const limit = result.limit > 0 ? result.limit : filters.limit
+    const lastPage = Math.max(1, Math.ceil(result.total / limit))
     if (filters.page > lastPage) {
       setFilters({ page: lastPage })
     }
