@@ -309,3 +309,5 @@ export {
   TorobProductsResponse,
   TorobSort,
 } from './torob/torob';
+
+export * from './merchandising';
