@@ -100,6 +100,37 @@ const AUDIT_ACTION_LABELS: Record<string, string> = {
   BLOG_CATEGORY_CREATED: 'ایجاد دسته وبلاگ',
   BLOG_CATEGORY_UPDATED: 'به‌روزرسانی دسته وبلاگ',
   BLOG_CATEGORY_DELETED: 'حذف دسته وبلاگ',
+
+  // Merchandising campaigns
+  MERCH_CAMPAIGN_CREATED: 'ایجاد کمپین',
+  MERCH_CAMPAIGN_UPDATED: 'به‌روزرسانی کمپین',
+  MERCH_CAMPAIGN_SELECTIONS_UPDATED: 'به‌روزرسانی انتخاب‌های کمپین',
+  MERCH_CAMPAIGN_MEDIA_UPDATED: 'به‌روزرسانی رسانه کمپین',
+  MERCH_CAMPAIGN_ENABLED: 'فعال‌سازی کمپین',
+  MERCH_CAMPAIGN_DISABLED: 'غیرفعال‌سازی کمپین',
+  MERCH_CAMPAIGN_ARCHIVED: 'بایگانی کمپین',
+
+  // Merchandising media
+  MERCH_MEDIA_UPLOADED: 'بارگذاری رسانه بازاریابی',
+  MERCH_MEDIA_UPDATED: 'به‌روزرسانی رسانه بازاریابی',
+  MERCH_MEDIA_DELETED: 'حذف رسانه بازاریابی',
+
+  // Homepage draft
+  HOMEPAGE_DRAFT_CREATED: 'ایجاد پیش‌نویس صفحه اصلی',
+  HOMEPAGE_DRAFT_UPDATED: 'به‌روزرسانی پیش‌نویس صفحه اصلی',
+  HOMEPAGE_DRAFT_VALIDATION_FAILED: 'خطای اعتبارسنجی پیش‌نویس صفحه اصلی',
+
+  // Homepage publications
+  HOMEPAGE_PUBLICATION_SCHEDULED: 'زمان‌بندی انتشار صفحه اصلی',
+  HOMEPAGE_PUBLICATION_PUBLISHED: 'انتشار صفحه اصلی',
+  HOMEPAGE_PUBLICATION_FAILED: 'خطا در انتشار صفحه اصلی',
+  HOMEPAGE_PUBLICATION_CANCELLED: 'لغو انتشار زمان‌بندی‌شده صفحه اصلی',
+  HOMEPAGE_SCHEDULE_CANCEL_FAILED: 'خطا در لغو انتشار زمان‌بندی‌شده',
+  HOMEPAGE_ROLLBACK_CREATED: 'بازگردانی نسخه صفحه اصلی',
+  HOMEPAGE_ROLLBACK_FAILED: 'خطا در بازگردانی نسخه صفحه اصلی',
+  HOMEPAGE_SCHEDULED_ACTIVATED: 'فعال‌سازی انتشار زمان‌بندی‌شده صفحه اصلی',
+  HOMEPAGE_SCHEDULED_ACTIVATION_BLOCKED: 'مسدود شدن فعال‌سازی انتشار صفحه اصلی',
+  HOMEPAGE_SCHEDULED_ACTIVATION_FAILED: 'تلاش ناموفق فعال‌سازی انتشار صفحه اصلی',
 }
 
 const AUDIT_ENTITY_LABELS: Record<string, string> = {
@@ -128,6 +159,10 @@ const AUDIT_ENTITY_LABELS: Record<string, string> = {
   Rfq: 'استعلام',
   BlogPost: 'مطلب وبلاگ',
   BlogCategory: 'دسته وبلاگ',
+  MerchCampaign: 'کمپین',
+  MerchMedia: 'رسانه بازاریابی',
+  HomepageDraft: 'پیش‌نویس صفحه اصلی',
+  HomepagePublication: 'نسخه صفحه اصلی',
 }
 
 export const AUDIT_ACTION_ORDER: string[] = Object.keys(AUDIT_ACTION_LABELS)

@@ -33,4 +33,21 @@ describe('sanitizeAuditPayload national ID policy (SS-260)', () => {
 
     expect(result).toBeNull()
   })
+
+  it('supports caller-specific redaction without changing the default policy', () => {
+    const payload = {
+      action: 'FAILED',
+      message: 'internal database detail',
+      stack: 'secret stack',
+      error: 'raw exception',
+      code: 'P1001',
+    }
+
+    expect(sanitizeAuditPayload(payload)).toMatchObject({
+      message: 'internal database detail',
+    })
+    expect(
+      sanitizeAuditPayload(payload, ['message', 'stack', 'error']),
+    ).toEqual({ action: 'FAILED', code: 'P1001' })
+  })
 })

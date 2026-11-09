@@ -20,6 +20,10 @@ function isDeniedKey(key: string): boolean {
   return DENIED_EXACT_KEYS.has(normalized) || DENIED_KEY_PATTERN.test(key)
 }
 
+function normalizedKey(key: string): string {
+  return key.replace(/[\s-]/g, '').toLowerCase()
+}
+
 function isPrimitive(value: unknown): value is string | number | boolean {
   return (
     typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean'
@@ -30,14 +34,16 @@ export type SanitizedAuditPayload = Record<string, string | number | boolean>
 
 export function sanitizeAuditPayload(
   payload: Record<string, unknown> | null | undefined,
+  extraDeniedKeys: readonly string[] = [],
 ): SanitizedAuditPayload | null {
   if (!payload) {
     return null
   }
 
+  const extraDenied = new Set(extraDeniedKeys.map(normalizedKey))
   const result: SanitizedAuditPayload = {}
   for (const [key, value] of Object.entries(payload)) {
-    if (isDeniedKey(key)) {
+    if (isDeniedKey(key) || extraDenied.has(normalizedKey(key))) {
       continue
     }
     if (isPrimitive(value)) {

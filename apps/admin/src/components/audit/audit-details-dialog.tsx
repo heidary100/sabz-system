@@ -40,17 +40,23 @@ export function AuditDetailsDialog({
   entry,
   open,
   onClose,
+  redactKeys = [],
+  timestampFormatter = formatDateTime,
 }: {
   entry: AuditEntry | null
   open: boolean
   onClose: () => void
+  /** Additional sensitive keys to omit from the rendered payload. */
+  redactKeys?: readonly string[]
+  /** Preserve existing default local formatting for other audit screens. */
+  timestampFormatter?: (iso: string | null | undefined) => string
 }) {
   if (!entry) {
     return null
   }
 
-  const before = sanitizeAuditPayload(entry.before)
-  const after = sanitizeAuditPayload(entry.after)
+  const before = sanitizeAuditPayload(entry.before, redactKeys)
+  const after = sanitizeAuditPayload(entry.after, redactKeys)
 
   return (
     <Alert open={open} onClose={onClose} size="3xl">
@@ -63,7 +69,7 @@ export function AuditDetailsDialog({
           <dl className="grid gap-2 text-sm/6 sm:grid-cols-2">
             <div className="grid grid-cols-[6rem_1fr] gap-3">
               <dt className="text-muted">زمان</dt>
-              <dd className="text-foreground">{formatDateTime(entry.createdAt)}</dd>
+              <dd className="text-foreground">{timestampFormatter(entry.createdAt)}</dd>
             </div>
             <div className="grid grid-cols-[6rem_1fr] gap-3">
               <dt className="text-muted">عامل</dt>
@@ -72,7 +78,7 @@ export function AuditDetailsDialog({
                   ? [entry.actor.firstName, entry.actor.lastName]
                       .filter(Boolean)
                       .join(' ') || entry.actor.mobile
-                  : 'سیستم/ناشناس'}
+                  : entry.userId ?? 'سیستم/ناشناس'}
               </dd>
             </div>
             {entry.entityId ? (
