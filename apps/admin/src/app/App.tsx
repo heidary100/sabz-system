@@ -3,6 +3,7 @@ import { ADMIN_ROLES, AuthProvider } from '../auth/auth-provider'
 import { RequireAuth } from '../auth/require-auth'
 import { RequireRole } from '../auth/require-role'
 import { AdminLayout } from '../layouts/admin-layout'
+import { MerchandisingLayout } from '../layouts/merchandising-layout'
 import { AccessDeniedPage } from '../pages/access-denied-page'
 import { AuditPage } from '../pages/audit-page'
 import { BlogEditorPage } from '../pages/blog-editor-page'
@@ -14,6 +15,13 @@ import { InventoryMovementsPage } from '../pages/inventory-movements-page'
 import { InventoryPage } from '../pages/inventory-page'
 import { InventoryReservationsPage } from '../pages/inventory-reservations-page'
 import { LoginPage } from '../pages/login-page'
+import { MerchandisingCampaignsPage } from '../pages/merchandising/merchandising-campaigns-page'
+import { MerchandisingCampaignEditorPage } from '../pages/merchandising/merchandising-campaign-editor-page'
+import { MerchandisingHomepagePage } from '../pages/merchandising/merchandising-homepage-page'
+import { MerchandisingHomepagePublicationDetailRoute } from '../pages/merchandising/merchandising-homepage-publication-detail-page'
+import { MerchandisingMediaPage } from '../pages/merchandising/merchandising-media-page'
+import { MerchandisingOverviewPage } from '../pages/merchandising/merchandising-overview-page'
+import { MerchandisingPublicationsPage } from '../pages/merchandising/merchandising-publications-page'
 import { OrderDetailPage } from '../pages/order-detail-page'
 import { OrdersPage } from '../pages/orders-page'
 import { NotificationsPage } from '../pages/notifications-page'
@@ -66,6 +74,35 @@ export default function App() {
                 </RequireRole>
               }
             />
+            <Route
+              path="merchandising"
+              element={
+                <RequireRole roles={ADMIN_ROLES}>
+                  <MerchandisingLayout />
+                </RequireRole>
+              }
+            >
+              <Route index element={<MerchandisingOverviewPage />} />
+              <Route path="homepage" element={<MerchandisingHomepagePage />} />
+              <Route
+                path="publications"
+                element={<MerchandisingPublicationsPage />}
+              />
+              <Route
+                path="publications/:id"
+                element={<MerchandisingHomepagePublicationDetailRoute />}
+              />
+              <Route path="campaigns" element={<MerchandisingCampaignsPage />} />
+              <Route
+                path="campaigns/new"
+                element={<MerchandisingCampaignEditorPage />}
+              />
+              <Route
+                path="campaigns/:id"
+                element={<MerchandisingCampaignEditorPage />}
+              />
+              <Route path="media" element={<MerchandisingMediaPage />} />
+            </Route>
             <Route
               path="orders"
               element={
