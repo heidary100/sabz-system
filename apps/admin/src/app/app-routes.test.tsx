@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
@@ -66,6 +66,33 @@ vi.mock('../hooks/use-homepage-publication', () => ({
   }),
 }))
 
+vi.mock('../hooks/use-merchandising-overview', () => ({
+  useMerchandisingOverview: () => ({
+    currentPublication: {
+      data: null,
+      loading: false,
+      error: null,
+      reload: vi.fn(),
+    },
+    scheduledPublications: {
+      data: null,
+      loading: false,
+      error: null,
+      reload: vi.fn(),
+    },
+    draft: { data: null, loading: false, error: null, reload: vi.fn() },
+    draftValidation: {
+      data: null,
+      loading: false,
+      error: null,
+      reload: vi.fn(),
+    },
+    campaigns: { data: null, loading: false, error: null, reload: vi.fn() },
+    media: { data: null, loading: false, error: null, reload: vi.fn() },
+    refreshAll: vi.fn(),
+  }),
+}))
+
 import App from './App'
 import { NAV_ITEMS } from '../components/layout/sidebar'
 
@@ -112,8 +139,16 @@ describe('merchandising routes (SS-273)', () => {
     expect(
       screen.getByRole('navigation', { name: 'بخش‌های بازاریابی' }),
     ).toBeTruthy()
-    expect(screen.getByRole('link', { name: 'کمپین‌ها' })).toBeTruthy()
-    expect(screen.getByText('این بخش در حال آماده‌سازی است.')).toBeTruthy()
+    expect(
+      within(
+        screen.getByRole('navigation', { name: 'بخش‌های بازاریابی' }),
+      ).getByRole('link', { name: 'کمپین‌ها' }),
+    ).toBeTruthy()
+    expect(
+      screen.getByRole('heading', { name: 'نمای کلی بازاریابی' }),
+    ).toBeTruthy()
+    expect(screen.getByText('نسخه منتشرشده جاری')).toBeTruthy()
+    expect(screen.getByText('دسترسی سریع')).toBeTruthy()
   })
 
   it('lets ADMIN open a nested merchandising tab with the correct active state', () => {
