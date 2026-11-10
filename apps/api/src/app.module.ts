@@ -14,6 +14,7 @@ import { AddressesModule } from './modules/addresses/addresses.module';
 import { CartModule } from './modules/cart/cart.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
+import { MerchandisingModule } from './modules/merchandising/merchandising.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { PartnersModule } from './modules/partners/partners.module';
@@ -57,6 +58,7 @@ import { WishlistModule } from './modules/wishlist/wishlist.module';
     CartModule,
     DashboardModule,
     InventoryModule,
+    MerchandisingModule,
     NotificationsModule,
     OrdersModule,
     PartnersModule,

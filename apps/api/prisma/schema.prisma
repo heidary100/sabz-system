@@ -153,6 +153,47 @@ enum BlogStatus {
   PUBLISHED
 }
 
+/// Merchandising campaign classification (Task 05.1). Presentation belongs to
+/// the homepage section type; this enum is the business/content classification
+/// used by operators and future campaign validation.
+enum MerchCampaignType {
+  SEASONAL
+  DISCOUNT
+  BRAND
+  CATEGORY
+  NEW_ARRIVAL
+  CLEARANCE
+  EDITORIAL
+}
+
+/// Typed internal CTA destination. Arbitrary URLs are intentionally absent.
+enum MerchCtaKind {
+  NONE
+  ALL_PRODUCTS
+  PRODUCT
+  CATEGORY
+  BRAND
+  NEW_ARRIVALS
+}
+
+/// Campaign media slot. Hero slides can have separate desktop/mobile assets;
+/// content banners use BANNER/EDITORIAL.
+enum MerchMediaSlot {
+  HERO_DESKTOP
+  HERO_MOBILE
+  BANNER
+  EDITORIAL
+}
+
+/// Stored publication state. Homepage drafts live in HomepageDraft; this enum
+/// only describes immutable publication records.
+enum HomepagePublicationStatus {
+  SCHEDULED
+  PUBLISHED
+  SUPERSEDED
+  CANCELLED
+}
+
 enum AttributeType {
   VARIANT_OPTION
   SPEC
@@ -446,6 +487,9 @@ model Category {
 
   priceRules CategoryPriceRule[]
 
+  merchCampaignCtas       MerchCampaign[]         @relation("MerchCampaignCtaCategory")
+  merchCampaignCategories MerchCampaignCategory[]
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
@@ -497,6 +541,9 @@ model Brand {
   promotions Promotion[]
 
   aliases BrandAlias[]
+
+  merchCampaignCtas   MerchCampaign[]      @relation("MerchCampaignCtaBrand")
+  merchCampaignBrands MerchCampaignBrand[]
 
   /// SS-258: set on a soft-deleted duplicate to point at the canonical brand.
   /// Keeps merged historical records discoverable and lets public catalog
@@ -579,6 +626,9 @@ model Product {
   wishlistItems WishlistItem[]
 
   reviews Review[]
+
+  merchCampaignCtas     MerchCampaign[]        @relation("MerchCampaignCtaProduct")
+  merchCampaignProducts MerchCampaignProduct[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -1445,4 +1495,202 @@ model BlogPost {
 
   @@index([status, publishedAt])
   @@index([categoryId, status, publishedAt])
+}
+
+/// Reusable merchandising campaign (Task 05.1). Campaigns are source content
+/// for hero slides, offer strips, category spotlights, collections, and brand
+/// showcases. They are not independently public: only a HomepagePublication
+/// snapshot exposes them on the storefront.
+///
+/// `startsAt`/`endsAt` describe campaign eligibility. `archivedAt` is a stored
+/// archive state; draft/scheduled/live/expired are derived by the admin/public
+/// services from publication references and these timestamps.
+model MerchCampaign {
+  id           String            @id @default(uuid())
+  internalName String
+  type         MerchCampaignType
+
+  titleFa       String
+  eyebrowFa     String?
+  subtitleFa    String?
+  descriptionFa String?
+  ctaLabelFa    String?
+
+  /// Exactly one nullable target may be populated according to `ctaKind`.
+  /// Enforced by an additive SQL CHECK in the migration.
+  ctaKind       MerchCtaKind @default(NONE)
+  ctaProductId  String?
+  ctaProduct    Product?     @relation("MerchCampaignCtaProduct", fields: [ctaProductId], references: [id], onDelete: Restrict)
+  ctaCategoryId String?
+  ctaCategory   Category?    @relation("MerchCampaignCtaCategory", fields: [ctaCategoryId], references: [id], onDelete: Restrict)
+  ctaBrandId    String?
+  ctaBrand      Brand?       @relation("MerchCampaignCtaBrand", fields: [ctaBrandId], references: [id], onDelete: Restrict)
+
+  isEnabled  Boolean   @default(true)
+  startsAt   DateTime?
+  endsAt     DateTime?
+  priority   Int       @default(0)
+  archivedAt DateTime?
+
+  products   MerchCampaignProduct[]
+  categories MerchCampaignCategory[]
+  brands     MerchCampaignBrand[]
+  media      MerchCampaignMedia[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?
+  updatedBy String?
+
+  @@index([type, isEnabled, archivedAt])
+  @@index([startsAt, endsAt])
+  @@index([priority])
+}
+
+/// Ordered campaign product selection. The join row is the ordering authority;
+/// duplicate product associations are rejected by the unique constraint.
+model MerchCampaignProduct {
+  id         String        @id @default(uuid())
+  campaignId String
+  campaign   MerchCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  productId  String
+  product    Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  sortOrder  Int           @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([campaignId, productId])
+  @@index([campaignId, sortOrder])
+  @@index([productId])
+}
+
+/// Ordered campaign category selection.
+model MerchCampaignCategory {
+  id         String        @id @default(uuid())
+  campaignId String
+  campaign   MerchCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  categoryId String
+  category   Category      @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  sortOrder  Int           @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([campaignId, categoryId])
+  @@index([campaignId, sortOrder])
+  @@index([categoryId])
+}
+
+/// Ordered campaign brand selection.
+model MerchCampaignBrand {
+  id         String        @id @default(uuid())
+  campaignId String
+  campaign   MerchCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  brandId    String
+  brand      Brand         @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  sortOrder  Int           @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([campaignId, brandId])
+  @@index([campaignId, sortOrder])
+  @@index([brandId])
+}
+
+/// Merchandising media metadata. Binary storage/processing deliberately stays
+/// in the existing Product media storage + processing infrastructure; this
+/// table only records merchant-facing campaign assets and their public gate.
+model MerchMedia {
+  id           String    @id @default(uuid())
+  originalName String
+  mimeType     String
+  sizeBytes    Int
+  storageKey   String    @unique
+  thumbnailKey String?
+  width        Int?
+  height       Int?
+  altFa        String?
+  publishedAt  DateTime?
+
+  campaignUsages MerchCampaignMedia[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  createdBy String?
+  updatedBy String?
+
+  @@index([deletedAt])
+  @@index([publishedAt, deletedAt])
+}
+
+/// Campaign media assignment with a bounded slot and focal coordinates.
+model MerchCampaignMedia {
+  id         String          @id @default(uuid())
+  campaignId String
+  campaign   MerchCampaign   @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  mediaId    String
+  media      MerchMedia       @relation(fields: [mediaId], references: [id], onDelete: Restrict)
+  slot       MerchMediaSlot
+  focalX     Int             @default(50)
+  focalY     Int             @default(50)
+  altFa      String?
+  sortOrder  Int             @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([campaignId, mediaId, slot])
+  @@index([campaignId, sortOrder])
+  @@index([mediaId])
+}
+
+/// Singleton working homepage configuration. `sections` is a strictly typed
+/// JSON array validated by the Merchandising section registry; `revision` is
+/// the optimistic-concurrency token for admin saves. Published snapshots are
+/// separate immutable rows in HomepagePublication.
+model HomepageDraft {
+  id            String   @id
+  revision      Int      @default(0)
+  schemaVersion Int      @default(1)
+  sections      Json     @default("[]")
+
+  createdBy String?
+  updatedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// Immutable published homepage snapshot. `sections` freezes campaign display
+/// content and references; product/category/brand/price/stock resolution stays
+/// authoritative at public-read time. History is append-only: rollback creates
+/// a new version rather than mutating this row.
+model HomepagePublication {
+  id                  String                    @id @default(uuid())
+  version             Int                       @unique
+  status              HomepagePublicationStatus @default(SCHEDULED)
+  publishAt           DateTime?
+  publishedAt         DateTime?
+  sections            Json
+  schemaVersion       Int                       @default(1)
+  sourceDraftRevision Int
+  /// Source publication for a rollback-created version. Null for normal drafts.
+  rollbackFromPublicationId String?
+  rollbackFrom HomepagePublication? @relation("HomepagePublicationRollback", fields: [rollbackFromPublicationId], references: [id], onDelete: SetNull)
+  rollbackVersions HomepagePublication[] @relation("HomepagePublicationRollback")
+  nextTransitionAt    DateTime?
+  note                String?
+  createdBy           String?
+  publishedBy         String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, publishAt])
+  @@index([status, nextTransitionAt])
+  @@index([publishedAt])
+  @@index([rollbackFromPublicationId])
 }

@@ -15,8 +15,11 @@ import { WATERMARK_CONFIG, WatermarkConfig } from './watermark-config';
  * Facade over the server-side watermark pipeline (CATALOG-007). Dispatches to
  * the sharp image processor or the FFmpeg video processor based on the
  * detected MIME type, always writing the processed asset to a new
- * server-generated temp path. When watermarking is disabled the original temp
- * file is returned untouched.
+ * server-generated temp path. When global watermarking is disabled (local
+ * tests/dev), the original temp file is returned untouched for the default
+ * product-media profile. Callers that explicitly request a clean merchandising
+ * profile (`watermark: false`) still get normal re-encoding/thumbnail
+ * generation without a mark.
  */
 @Injectable()
 export class MediaProcessingService {
@@ -30,8 +33,9 @@ export class MediaProcessingService {
     inputPath: string,
     detectedMime: AllowedMediaMimeType,
     outputDir: string,
+    options: { watermark?: boolean } = {},
   ): Promise<ProcessedAsset> {
-    if (!this.config.enabled) {
+    if (!this.config.enabled && options.watermark !== false) {
       // Watermarking disabled (local tests/dev): the original is stored
       // verbatim and no thumbnail derivative is produced (SS-129 consumers
       // fall back to the original while thumbnailKey is null).
@@ -42,22 +46,43 @@ export class MediaProcessingService {
     const extension = extensionForMediaMime(detectedMime);
     const outputPath = join(outputDir, `${randomUUID()}.${extension}`);
     if (isImageMime(detectedMime)) {
-      const processed = await this.imageProcessor.process(
-        inputPath,
-        detectedMime,
-        outputPath,
-      );
+      const processingOptions =
+        options.watermark === undefined
+          ? undefined
+          : { watermark: options.watermark };
+      const processed =
+        processingOptions === undefined
+          ? await this.imageProcessor.process(
+              inputPath,
+              detectedMime,
+              outputPath,
+            )
+          : await this.imageProcessor.process(
+              inputPath,
+              detectedMime,
+              outputPath,
+              processingOptions,
+            );
       // SS-210 thumbnail policy ("smaller", not unmarked): the thumbnail is
       // rendered from the pre-watermark original (`inputPath`) with its own
       // smaller mark, so listing cards stay subtle. `inherit` fallback
       // resizes the watermarked asset instead. The mark is composited
       // exactly once per derivative (no double watermark). Existing stored
       // assets keep their old marks — no retroactive reprocessing (#182).
-      const thumbnail = await this.imageProcessor.generateThumbnail(
-        inputPath,
-        join(outputDir, `${randomUUID()}.thumb.webp`),
-        processed.outputPath,
-      );
+      const thumbnailPath = join(outputDir, `${randomUUID()}.thumb.webp`);
+      const thumbnail =
+        processingOptions === undefined
+          ? await this.imageProcessor.generateThumbnail(
+              inputPath,
+              thumbnailPath,
+              processed.outputPath,
+            )
+          : await this.imageProcessor.generateThumbnail(
+              inputPath,
+              thumbnailPath,
+              processed.outputPath,
+              processingOptions,
+            );
       return { ...processed, ...thumbnail };
     }
     return this.videoProcessor.process(inputPath, outputPath);

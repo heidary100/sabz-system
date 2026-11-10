@@ -132,6 +132,30 @@ describe('media watermark processing (CATALOG-007)', () => {
       expect(result.sizeBytes).toBeGreaterThan(0);
     });
 
+    it('supports clean merchandising processing without compositing a mark', async () => {
+      const input = join(dir, 'clean-input.png');
+      const output = join(dir, 'clean-output.png');
+      await sharp({
+        create: { width: 320, height: 200, channels: 4, background: { r: 30, g: 120, b: 60, alpha: 0.8 } },
+      })
+        .png()
+        .toFile(input);
+
+      const service = new ImageProcessorService(
+        new WatermarkOverlayService(configFor()),
+        configFor(),
+      );
+      const result = await service.process(input, 'image/png', output, {
+        watermark: false,
+      });
+
+      expect(result.width).toBe(320);
+      expect(result.height).toBe(200);
+      const sourcePixels = await sharp(input).raw().toBuffer();
+      const outputPixels = await sharp(output).raw().toBuffer();
+      expect(outputPixels.equals(sourcePixels)).toBe(true);
+    });
+
     it('maps processing failures to a sanitized 400', async () => {
       const service = new ImageProcessorService(
         new WatermarkOverlayService(configFor()),

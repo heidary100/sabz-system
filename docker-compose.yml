@@ -76,6 +76,10 @@ services:
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:3002,http://127.0.0.1:5173,http://127.0.0.1:3002}
       THROTTLE_TTL_MS: ${THROTTLE_TTL_MS:-60000}
       THROTTLE_LIMIT: ${THROTTLE_LIMIT:-100}
+      # Scheduled homepage publication activation worker (Task 05.6).
+      HOMEPAGE_ACTIVATION_ENABLED: ${HOMEPAGE_ACTIVATION_ENABLED:-true}
+      HOMEPAGE_ACTIVATION_INTERVAL_MS: ${HOMEPAGE_ACTIVATION_INTERVAL_MS:-20000}
+      HOMEPAGE_ACTIVATION_BATCH_SIZE: ${HOMEPAGE_ACTIVATION_BATCH_SIZE:-10}
       TRUST_PROXY: ${TRUST_PROXY:-}
       DEV_ADMIN_MOBILE: ${DEV_ADMIN_MOBILE:-+989170000001}
       # Business document storage. Pinned directory: the api_documents named

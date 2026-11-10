@@ -127,6 +127,32 @@ describe('ImageProcessorService.generateThumbnail (SS-129)', () => {
     expect(thumbPixels.info.width).toBeLessThan(fullPixels.info.width);
   });
 
+  it('supports a clean thumbnail profile for merchandising artwork', async () => {
+    const source = await createJpeg(1200, 800);
+    const thumbnailPath = join(tempDir, 'thumb-clean.webp');
+    const result = await processor.generateThumbnail(
+      source,
+      thumbnailPath,
+      undefined,
+      { watermark: false },
+    );
+
+    const expectedPath = join(tempDir, 'thumb-clean-expected.webp');
+    await sharp(source)
+      .resize({
+        width: THUMBNAIL_MAX_EDGE_PX,
+        height: THUMBNAIL_MAX_EDGE_PX,
+        fit: 'inside',
+        withoutEnlargement: true,
+      })
+      .webp({ quality: 80 })
+      .toFile(expectedPath);
+
+    const expected = await sharp(expectedPath).raw().toBuffer();
+    const actual = await sharp(result.thumbnailPath).raw().toBuffer();
+    expect(actual.equals(expected)).toBe(true);
+  });
+
   it('supports the inherit fallback (plain resize of the watermarked asset)', async () => {
     const inheritConfig = {
       ...resolveWatermarkConfig(),

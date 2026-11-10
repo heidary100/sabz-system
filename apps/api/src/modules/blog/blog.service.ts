@@ -157,6 +157,39 @@ export class BlogService {
   }
 
   /**
+   * Batched public blog cards for an explicit ordered id list (Task 05.5).
+   * Missing/unpublished ids are omitted; output order follows the input.
+   */
+  async getPublishedCardsByIds(ids: string[]): Promise<BlogPostCardDto[]> {
+    if (ids.length === 0) {
+      return [];
+    }
+    const rows = await this.prisma.blogPost.findMany({
+      where: { id: { in: ids }, status: BlogStatus.PUBLISHED },
+      select: POST_CARD_SELECT,
+    });
+    const byId = new Map(rows.map((row) => [row.id, toCardDto(row)]));
+    return ids.flatMap((id) => {
+      const post = byId.get(id);
+      return post ? [post] : [];
+    });
+  }
+
+  /** Latest public blog cards, newest first (Task 05.5 homepage section). */
+  async getLatestPublishedCards(limit: number): Promise<BlogPostCardDto[]> {
+    if (limit <= 0) {
+      return [];
+    }
+    const rows = await this.prisma.blogPost.findMany({
+      where: { status: BlogStatus.PUBLISHED },
+      select: POST_CARD_SELECT,
+      orderBy: PUBLISHED_ORDER,
+      take: limit,
+    });
+    return rows.map(toCardDto);
+  }
+
+  /**
    * Admin queue list (SS-240E). Unscoped across DRAFT/PUBLISHED, newest
    * first; read-only, no audit. Bodies stay out of the rows — the editor
    * fetches the detail route.
