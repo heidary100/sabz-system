@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import type {
   CategoryDiscoverySection,
   HomepageValidationIssue,
@@ -6,6 +6,7 @@ import type {
 import { Plus } from 'lucide-react'
 import { Button } from '../../catalyst/button'
 import { Text } from '../../catalyst/text'
+import { FieldError } from '../../ui/field-error'
 import { InlineError } from '../../ui/inline-error'
 import { StatusBadge } from '../../ui/status-badge'
 import { useMerchCampaignDetails } from '../../../hooks/use-merch-campaign-details'
@@ -32,6 +33,8 @@ export function CategoryDiscoverySectionForm({
   disabled?: boolean
   onSettingsChange: (settings: CategoryDiscoverySection['settings']) => void
 }) {
+  const uid = useId()
+  const campaignErrorId = `category-discovery-${uid}-campaign-error`
   const [pickerOpen, setPickerOpen] = useState(false)
   const campaignId = section.settings.campaignId
   const { details, loading, errors } = useMerchCampaignDetails(
@@ -55,7 +58,12 @@ export function CategoryDiscoverySectionForm({
             ویرایشگر کمپین مدیریت می‌شوند.
           </Text>
         </div>
-        <Button outline disabled={disabled} onClick={() => setPickerOpen(true)}>
+        <Button
+          outline
+          disabled={disabled}
+          aria-describedby={fieldError ? campaignErrorId : undefined}
+          onClick={() => setPickerOpen(true)}
+        >
           <Plus data-slot="icon" />
           {campaignId ? 'تغییر کمپین' : 'انتخاب کمپین'}
         </Button>
@@ -96,7 +104,7 @@ export function CategoryDiscoverySectionForm({
         </div>
       ) : null}
 
-      {fieldError && <Text className="text-sm text-danger">{fieldError}</Text>}
+      <FieldError id={campaignErrorId} message={fieldError} />
 
       <HomepageCampaignPickerDialog
         open={pickerOpen}

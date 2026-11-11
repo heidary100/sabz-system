@@ -1,4 +1,11 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { useRef } from 'react'
+import {
+  Navigate,
+  Route,
+  RouterProvider,
+  createBrowserRouter,
+  createRoutesFromElements,
+} from 'react-router-dom'
 import { ADMIN_ROLES, AuthProvider } from '../auth/auth-provider'
 import { RequireAuth } from '../auth/require-auth'
 import { RequireRole } from '../auth/require-role'
@@ -43,12 +50,10 @@ import { VariantInventoryPage } from '../pages/variant-inventory-page'
 import { WarehouseInventoryPage } from '../pages/warehouse-inventory-page'
 import { WarehousesPage } from '../pages/warehouses-page'
 
-export default function App() {
-  return (
-    <BrowserRouter>
-      <AuthProvider>
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
+function createAppRoutes() {
+  return createRoutesFromElements(
+    <>
+      <Route path="/login" element={<LoginPage />} />
           <Route
             path="/access-denied"
             element={
@@ -344,9 +349,25 @@ export default function App() {
               }
             />
           </Route>
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
-        </Routes>
-      </AuthProvider>
-    </BrowserRouter>
+      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+    </>,
+  )
+}
+
+function createAppRouter() {
+  return createBrowserRouter(createAppRoutes())
+}
+
+export default function App() {
+  const routerRef = useRef<ReturnType<typeof createBrowserRouter> | null>(null)
+
+  if (routerRef.current === null) {
+    routerRef.current = createAppRouter()
+  }
+
+  return (
+    <AuthProvider>
+      <RouterProvider router={routerRef.current} />
+    </AuthProvider>
   )
 }

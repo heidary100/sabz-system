@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   HOMEPAGE_MAX_SECTIONS,
@@ -14,8 +14,9 @@ import { InlineError } from '../../components/ui/inline-error'
 import { Loading } from '../../components/ui/loading'
 import { PageHeader } from '../../components/ui/page-header'
 import { StatusBadge } from '../../components/ui/status-badge'
+import { HomepageSectionAccordion } from '../../components/merchandising/homepage/homepage-section-accordion'
 import { HomepageSectionConfigPanel } from '../../components/merchandising/homepage/homepage-section-config-panel'
-import { HomepageSectionOutline } from '../../components/merchandising/homepage/homepage-section-outline'
+import { HomepageUnsavedChangesDialog } from '../../components/merchandising/homepage/homepage-unsaved-changes-dialog'
 import { HomepageValidationPanel } from '../../components/merchandising/homepage/homepage-validation-panel'
 import { HomepagePublicationSection } from '../../components/merchandising/homepage/homepage-publication-section'
 import { HomepageCampaignPickerDialog } from '../../components/merchandising/homepage/homepage-campaign-picker-dialog'
@@ -23,6 +24,7 @@ import { HomepageCampaignSectionCreateDialog } from '../../components/merchandis
 import { useAuth } from '../../auth/auth-provider'
 import { UNSAVED_DRAFT_MESSAGE, useDirtyNavigationGuard } from '../../hooks/use-dirty-navigation-guard'
 import { useHomepageDraft } from '../../hooks/use-homepage-draft'
+import { useMediaQuery } from '../../hooks/use-media-query'
 import { formatDateTime } from '../../lib/format'
 import {
   appendHomepageSection,
@@ -52,6 +54,7 @@ export function MerchandisingHomepagePage() {
     conflict,
     validating,
     validation,
+    validationRun,
     validationTarget,
     validationOutdated,
     validationError,
@@ -70,15 +73,27 @@ export function MerchandisingHomepagePage() {
   const [pendingCampaignId, setPendingCampaignId] = useState<string | null>(null)
   const [addCampaignPickerOpen, setAddCampaignPickerOpen] = useState(false)
   const [addCreateDialogOpen, setAddCreateDialogOpen] = useState(false)
+  const [pendingConfigFocus, setPendingConfigFocus] = useState(false)
+  const configFocusRef = useRef<HTMLElement | null>(null)
+  const setConfigFocus = (node: HTMLElement | null): void => {
+    configFocusRef.current = node
+  }
+  const isDesktop = useMediaQuery('(min-width: 64rem)')
 
-  useDirtyNavigationGuard(dirty)
+  const navigationGuard = useDirtyNavigationGuard(dirty)
+
+  useEffect(() => {
+    if (!pendingConfigFocus) {
+      return
+    }
+    setPendingConfigFocus(false)
+    configFocusRef.current?.focus()
+  }, [pendingConfigFocus, selectedKey, isDesktop])
 
   const selectedIndex = useMemo(
     () => (selectedKey ? sections.findIndex((section) => section.key === selectedKey) : -1),
     [sections, selectedKey],
   )
-  const selectedSection: HomepageDraftSection | null =
-    selectedIndex >= 0 ? sections[selectedIndex] ?? null : null
   const selectedIssues =
     validation && !validationOutdated && selectedIndex >= 0
       ? [...validation.errors, ...validation.warnings].filter(
@@ -110,6 +125,7 @@ export function MerchandisingHomepagePage() {
     updateSections(result.sections)
     const added = result.sections[result.index]
     setSelectedKey(added?.key ?? null)
+    setPendingConfigFocus(true)
     setLocalMessage(`بخش «${sectionTypeLabel(type)}» اضافه شد.`)
     return null
   }
@@ -138,6 +154,7 @@ export function MerchandisingHomepagePage() {
     updateSections(result.sections)
     const added = result.sections[result.index]
     setSelectedKey(added?.key ?? null)
+    setPendingConfigFocus(true)
     setLocalMessage(`بخش «${sectionTypeLabel(pendingAddType)}» ایجاد شد.`)
     closeAddFlow()
     return null
@@ -192,6 +209,9 @@ export function MerchandisingHomepagePage() {
     // publication itself does not mutate the draft revision, but a reload keeps
     // the editor and readiness card consistent with the server.
     await load()
+    // The publish flow has already committed the draft; the immediately
+    // following navigation must not be mistaken for leaving unsaved edits.
+    navigationGuard.allowNextNavigation()
     navigate(`/merchandising/publications/${publication.id}`, {
       state: {
         justPublished: publication.status === 'PUBLISHED',
@@ -228,22 +248,24 @@ export function MerchandisingHomepagePage() {
         title="صفحه اصلی"
         subtitle="ویرایش ساختار پیش‌نویس صفحه اصلی؛ انتشار عمومی فقط از نسخه‌های انتشار انجام می‌شود."
         actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              outline
-              disabled={!serverDraft || saving || validating}
-              onClick={handleValidate}
-            >
-              {validating ? 'در حال اعتبارسنجی…' : 'اعتبارسنجی'}
-            </Button>
-            <Button
-              color="primary"
-              disabled={!serverDraft || !dirty || saving || !!conflict}
-              onClick={handleSave}
-            >
-              {saving ? 'در حال ذخیره…' : 'ذخیره پیش‌نویس'}
-            </Button>
-          </div>
+          isDesktop ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                outline
+                disabled={!serverDraft || saving || validating}
+                onClick={handleValidate}
+              >
+                {validating ? 'در حال اعتبارسنجی…' : 'اعتبارسنجی'}
+              </Button>
+              <Button
+                color="primary"
+                disabled={!serverDraft || !dirty || saving || !!conflict}
+                onClick={handleSave}
+              >
+                {saving ? 'در حال ذخیره…' : 'ذخیره پیش‌نویس'}
+              </Button>
+            </div>
+          ) : undefined
         }
       />
 
@@ -401,44 +423,41 @@ export function MerchandisingHomepagePage() {
             onReloadDraft={reloadFromServer}
           />
 
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
-            <HomepageSectionOutline
-              sections={sections}
-              selectedKey={selectedKey}
-              validation={validation}
-              disabled={saving || loading}
-              maxSections={HOMEPAGE_MAX_SECTIONS}
-              onSelect={setSelectedKey}
-              onAdd={handleAdd}
-              onMove={handleMove}
-              onRemove={handleRemove}
-              onToggleVisibility={handleToggleVisibility}
-            />
-            <HomepageSectionConfigPanel
-              section={selectedSection}
-              index={selectedIndex}
-              issues={selectedIssues}
-              disabled={saving || loading}
-              onToggleVisibility={() => {
-                if (selectedIndex >= 0) {
-                  handleToggleVisibility(selectedIndex)
-                }
-              }}
-              onChange={(next) => {
-                if (selectedIndex < 0) {
-                  return
-                }
-                updateSections(
-                  sections.map((section, index) =>
-                    index === selectedIndex ? next : section,
-                  ),
-                )
-              }}
-            />
-          </div>
+          <HomepageSectionAccordion
+            sections={sections}
+            selectedKey={selectedKey}
+            validation={validation}
+            disabled={saving || loading}
+            maxSections={HOMEPAGE_MAX_SECTIONS}
+            desktop={isDesktop}
+            focusRef={setConfigFocus}
+            onSelect={setSelectedKey}
+            onDeselect={() => setSelectedKey(null)}
+            onAdd={handleAdd}
+            onMove={handleMove}
+            onRemove={handleRemove}
+            onToggleVisibility={handleToggleVisibility}
+            renderConfig={(section, index) => (
+              <HomepageSectionConfigPanel
+                section={section}
+                index={index}
+                issues={selectedIssues}
+                disabled={saving || loading}
+                onToggleVisibility={() => handleToggleVisibility(index)}
+                onChange={(next) => {
+                  updateSections(
+                    sections.map((current, currentIndex) =>
+                      currentIndex === index ? next : current,
+                    ),
+                  )
+                }}
+              />
+            )}
+          />
 
           <HomepageValidationPanel
             validation={validation}
+            validationRun={validationRun}
             target={validationTarget}
             outdated={validationOutdated}
             validationError={validationError}
@@ -446,28 +465,63 @@ export function MerchandisingHomepagePage() {
             onSelectSection={selectFromValidation}
           />
 
-          {(dirty || saving) && (
-            <div className="sticky bottom-2 z-30 flex flex-wrap items-center gap-3 rounded-xl border border-border bg-background px-4 py-3 shadow-sm">
-              <Text className="text-sm font-medium text-foreground">
-                {saving
-                  ? 'در حال ذخیره پیش‌نویس…'
-                  : 'تغییرات ذخیره‌نشده‌ای وجود دارد.'}
-              </Text>
-              <div className="ms-auto flex flex-wrap items-center gap-2">
-                <Button
-                  outline
-                  disabled={saving}
-                  onClick={reloadFromServer}
+          {(isDesktop ? dirty || saving : true) && (
+            <div
+              data-homepage-action-bar
+              aria-busy={saving || undefined}
+              style={
+                isDesktop
+                  ? undefined
+                  : {
+                      paddingBottom:
+                        'max(0.75rem, env(safe-area-inset-bottom))',
+                    }
+              }
+              className={
+                isDesktop
+                  ? 'sticky bottom-2 z-30 rounded-xl border border-border bg-background px-4 py-3 shadow-sm'
+                  : 'sticky bottom-0 z-30 -mx-1 border-t border-border bg-background/95 px-2 pt-2.5 shadow-[0_-8px_24px_-16px_rgb(0_0_0/0.35)] backdrop-blur'
+              }
+            >
+              <div className="flex w-full flex-wrap items-center gap-x-3 gap-y-2">
+                <Text
+                  role={saving ? 'status' : undefined}
+                  aria-live={saving ? 'polite' : undefined}
+                  className="min-w-0 basis-full text-xs font-medium text-foreground sm:basis-auto sm:flex-1 sm:text-sm"
                 >
-                  بازخوانی از سرور
-                </Button>
-                <Button
-                  color="primary"
-                  disabled={saving || !!conflict}
-                  onClick={handleSave}
-                >
-                  {saving ? 'در حال ذخیره…' : 'ذخیره پیش‌نویس'}
-                </Button>
+                  {saving
+                    ? 'در حال ذخیره پیش‌نویس…'
+                    : dirty
+                      ? 'تغییرات ذخیره‌نشده‌ای وجود دارد.'
+                      : 'همه تغییرات ذخیره شده است.'}
+                </Text>
+                <div className="flex w-full flex-wrap items-center gap-2 sm:ms-auto sm:w-auto">
+                  {isDesktop && (
+                    <Button
+                      outline
+                      disabled={saving}
+                      onClick={reloadFromServer}
+                    >
+                      بازخوانی از سرور
+                    </Button>
+                  )}
+                  <Button
+                    outline
+                    className="min-h-11 flex-1 basis-[9rem] sm:flex-none sm:basis-auto"
+                    disabled={!serverDraft || saving || validating}
+                    onClick={handleValidate}
+                  >
+                    {validating ? 'در حال اعتبارسنجی…' : 'اعتبارسنجی'}
+                  </Button>
+                  <Button
+                    color="primary"
+                    className="min-h-11 flex-1 basis-[9rem] sm:flex-none sm:basis-auto"
+                    disabled={!dirty || saving || !!conflict}
+                    onClick={handleSave}
+                  >
+                    {saving ? 'در حال ذخیره…' : 'ذخیره پیش‌نویس'}
+                  </Button>
+                </div>
               </div>
             </div>
           )}
@@ -492,6 +546,11 @@ export function MerchandisingHomepagePage() {
         campaignId={pendingCampaignId}
         onClose={closeAddFlow}
         onCreate={handleCreateCampaignSection}
+      />
+      <HomepageUnsavedChangesDialog
+        open={navigationGuard.blocked}
+        onStay={navigationGuard.reset}
+        onLeave={navigationGuard.proceed}
       />
     </div>
   )

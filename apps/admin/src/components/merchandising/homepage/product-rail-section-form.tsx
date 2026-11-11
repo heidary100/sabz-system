@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import type {
   BrandSummary,
   CategoryTreeNode,
@@ -9,10 +9,11 @@ import type {
 import { MERCH_PRODUCT_RAIL_MAX_PRODUCTS } from '@sabz/types'
 import { Plus, Trash2 } from 'lucide-react'
 import { Button } from '../../catalyst/button'
-import { Field, Label } from '../../catalyst/fieldset'
+import { Description, Field, Label } from '../../catalyst/fieldset'
 import { Input } from '../../catalyst/input'
 import { Select } from '../../catalyst/select'
 import { Text } from '../../catalyst/text'
+import { FieldError, FieldErrorMessage } from '../../ui/field-error'
 import { InlineError } from '../../ui/inline-error'
 import { useMerchCampaignDetails } from '../../../hooks/use-merch-campaign-details'
 import {
@@ -29,10 +30,6 @@ import { CampaignCategoryPickerDialog } from '../../merchandising/campaigns/camp
 import { CampaignDetailHeader } from './campaign-section-common'
 import { HomepageCampaignPickerDialog } from './homepage-campaign-picker-dialog'
 
-function FieldError({ message }: { message: string | null }) {
-  return message ? <Text className="text-sm text-danger">{message}</Text> : null
-}
-
 export function ProductRailSectionForm({
   section,
   issues,
@@ -46,6 +43,11 @@ export function ProductRailSectionForm({
   disabled?: boolean
   onSettingsChange: (settings: ProductRailSection['settings']) => void
 }) {
+  const uid = useId()
+  const fieldId = (name: string): string => `product-rail-${uid}-${name}`
+  const fieldErrorId = (name: string): string => `${fieldId(name)}-error`
+  const fieldDescriptionId = (name: string): string =>
+    `${fieldId(name)}-description`
   const [campaignPickerOpen, setCampaignPickerOpen] = useState(false)
   const [categoryPickerOpen, setCategoryPickerOpen] = useState(false)
   const [brandPickerOpen, setBrandPickerOpen] = useState(false)
@@ -164,25 +166,27 @@ export function ProductRailSectionForm({
     <div className="space-y-4">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <Field>
-          <Label htmlFor="product-rail-title">عنوان</Label>
+          <Label htmlFor={fieldId('title')}>عنوان</Label>
           <Input
-            id="product-rail-title"
+            id={fieldId('title')}
             value={settings.title}
             maxLength={120}
             disabled={disabled}
+            invalid={Boolean(titleError)}
             onChange={(event) =>
               onSettingsChange({ ...settings, title: event.target.value })
             }
           />
-          <FieldError message={titleError} />
+          <FieldErrorMessage id={fieldErrorId('title')} message={titleError} />
         </Field>
         <Field>
-          <Label htmlFor="product-rail-subtitle">زیرعنوان (اختیاری)</Label>
+          <Label htmlFor={fieldId('subtitle')}>زیرعنوان (اختیاری)</Label>
           <Input
-            id="product-rail-subtitle"
+            id={fieldId('subtitle')}
             value={settings.subtitle ?? ''}
             maxLength={240}
             disabled={disabled}
+            invalid={Boolean(subtitleError)}
             onChange={(event) =>
               onSettingsChange({
                 ...settings,
@@ -191,18 +195,24 @@ export function ProductRailSectionForm({
               })
             }
           />
-          <FieldError message={subtitleError} />
+          <FieldErrorMessage
+            id={fieldErrorId('subtitle')}
+            message={subtitleError}
+          />
         </Field>
       </div>
 
       <Field>
-        <Label htmlFor="product-rail-action-href">مقصد دکمه (اختیاری)</Label>
+        <Label htmlFor={fieldId('action-href')}>
+          مقصد دکمه (اختیاری)
+        </Label>
         <Input
-          id="product-rail-action-href"
+          id={fieldId('action-href')}
           dir="ltr"
           value={settings.actionHref ?? ''}
           placeholder="/products"
           disabled={disabled}
+          invalid={Boolean(hrefError || backendHrefError)}
           onChange={(event) =>
             onSettingsChange({
               ...settings,
@@ -211,21 +221,20 @@ export function ProductRailSectionForm({
             })
           }
         />
-        <Text className="text-xs text-muted">
+        <Description className="text-xs text-muted" id={fieldDescriptionId('action-href')}>
           فقط مسیرهای داخلی محصولات، دسته‌بندی‌ها یا وبلاگ مجازند. آدرس خارجی
           یا HTML پذیرفته نمی‌شود.
-        </Text>
-        {(hrefError || backendHrefError) && (
-          <Text className="text-sm text-danger">
-            {hrefError ?? backendHrefError}
-          </Text>
-        )}
+        </Description>
+        <FieldErrorMessage
+          id={fieldErrorId('action-href')}
+          message={hrefError ?? backendHrefError}
+        />
       </Field>
 
       <Field>
-        <Label htmlFor="product-rail-mode">منبع محصولات</Label>
+        <Label htmlFor={fieldId('mode')}>منبع محصولات</Label>
         <Select
-          id="product-rail-mode"
+          id={fieldId('mode')}
           value={source.kind}
           disabled={disabled}
           onChange={(event) =>
@@ -235,10 +244,10 @@ export function ProductRailSectionForm({
           <option value="campaign">کمپین</option>
           <option value="query">پرس‌وجوی کاتالوگ</option>
         </Select>
-        <Text className="text-xs text-muted">
+        <Description className="text-xs text-muted" id={fieldDescriptionId('mode')}>
           حالت کمپین از محصولات همان کمپین استفاده می‌کند؛ حالت پرس‌وجو از
           فیلترهای کاتالوگ (دسته، برند، مرتب‌سازی و موجودی) استفاده می‌کند.
-        </Text>
+        </Description>
       </Field>
 
       {source.kind === 'campaign' ? (
@@ -250,6 +259,9 @@ export function ProductRailSectionForm({
             <Button
               outline
               disabled={disabled}
+              aria-describedby={
+                campaignError ? fieldErrorId('campaign') : undefined
+              }
               onClick={() => setCampaignPickerOpen(true)}
             >
               <Plus data-slot="icon" />
@@ -271,9 +283,10 @@ export function ProductRailSectionForm({
               <CampaignDetailHeader campaign={campaignDetail} />
             </div>
           ) : null}
-          {campaignError && (
-            <Text className="text-sm text-danger">{campaignError}</Text>
-          )}
+          <FieldError
+            id={fieldErrorId('campaign')}
+            message={campaignError}
+          />
         </div>
       ) : (
         <div className="space-y-4 rounded-xl border border-border bg-background/40 p-3">
@@ -284,6 +297,9 @@ export function ProductRailSectionForm({
                 <Button
                   outline
                   disabled={disabled}
+                  aria-describedby={
+                    categoryError ? fieldErrorId('category') : undefined
+                  }
                   onClick={() => setCategoryPickerOpen(true)}
                 >
                   {queryCategoryId ? 'تغییر دسته‌بندی' : 'انتخاب دسته‌بندی'}
@@ -310,9 +326,10 @@ export function ProductRailSectionForm({
                   ? categoryName ?? 'در حال بارگذاری نام دسته‌بندی…'
                   : 'بدون فیلتر دسته‌بندی'}
               </Text>
-              {categoryError && (
-                <Text className="text-sm text-danger">{categoryError}</Text>
-              )}
+              <FieldError
+                id={fieldErrorId('category')}
+                message={categoryError}
+              />
             </Field>
             <Field>
               <Label>برند (اختیاری)</Label>
@@ -320,6 +337,9 @@ export function ProductRailSectionForm({
                 <Button
                   outline
                   disabled={disabled}
+                  aria-describedby={
+                    brandError ? fieldErrorId('brand') : undefined
+                  }
                   onClick={() => setBrandPickerOpen(true)}
                 >
                   {queryBrandId ? 'تغییر برند' : 'انتخاب برند'}
@@ -349,19 +369,18 @@ export function ProductRailSectionForm({
               <Text className="text-xs text-muted">
                 فهرست برندها صفحه‌بندی می‌شود؛ جستجوی سروری ندارد.
               </Text>
-              {brandError && (
-                <Text className="text-sm text-danger">{brandError}</Text>
-              )}
+              <FieldError id={fieldErrorId('brand')} message={brandError} />
             </Field>
           </div>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <Field>
-              <Label htmlFor="product-rail-sort">مرتب‌سازی</Label>
+              <Label htmlFor={fieldId('sort')}>مرتب‌سازی</Label>
               <Select
-                id="product-rail-sort"
+                id={fieldId('sort')}
                 value={source.sort ?? 'newest'}
                 disabled={disabled}
+                invalid={Boolean(sortError)}
                 onChange={(event) =>
                   onSettingsChange({
                     ...settings,
@@ -378,19 +397,21 @@ export function ProductRailSectionForm({
                   </option>
                 ))}
               </Select>
-              {sortError && (
-                <Text className="text-sm text-danger">{sortError}</Text>
-              )}
+              <FieldErrorMessage
+                id={fieldErrorId('sort')}
+                message={sortError}
+              />
             </Field>
             <Field>
-              <Label htmlFor="product-rail-limit">تعداد محصولات</Label>
+              <Label htmlFor={fieldId('limit')}>تعداد محصولات</Label>
               <Input
-                id="product-rail-limit"
+                id={fieldId('limit')}
                 type="number"
                 min={1}
                 max={MERCH_PRODUCT_RAIL_MAX_PRODUCTS}
                 value={source.limit}
                 disabled={disabled}
+                invalid={Boolean(limitError)}
                 onChange={(event) =>
                   onSettingsChange({
                     ...settings,
@@ -401,10 +422,13 @@ export function ProductRailSectionForm({
                   })
                 }
               />
-              <Text className="text-xs text-muted">
+              <Description className="text-xs text-muted" id={fieldDescriptionId('limit')}>
                 ۱ تا {MERCH_PRODUCT_RAIL_MAX_PRODUCTS.toLocaleString('fa-IR')}
-              </Text>
-              <FieldError message={limitError} />
+              </Description>
+              <FieldErrorMessage
+                id={fieldErrorId('limit')}
+                message={limitError}
+              />
             </Field>
           </div>
 

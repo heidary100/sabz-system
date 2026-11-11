@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useId, useMemo, useState } from 'react'
 import type { MerchMediaSummaryDto } from '@sabz/types'
 import {
   Alert,
@@ -33,6 +33,9 @@ export function MerchMediaUploadDialog({
   onClose: () => void
   onSuccess: (media: MerchMediaSummaryDto) => void
 }) {
+  const uid = useId()
+  const fileTypeErrorId = `merch-media-${uid}-file-type-error`
+  const fileErrorId = `merch-media-${uid}-file-error`
   const [file, setFile] = useState<File | null>(null)
   const [altFa, setAltFa] = useState('')
   const [phase, setPhase] = useState<UploadPhase>('idle')
@@ -59,6 +62,14 @@ export function MerchMediaUploadDialog({
       : null
   const busy = phase === 'uploading' || phase === 'processing'
   const canSubmit = file !== null && !fileError && !altError && !busy
+  const invalidFileType =
+    file !== null &&
+    file.type !== '' &&
+    !MERCH_MEDIA_ALLOWED_MIME_TYPES.has(file.type)
+  const fileDescribedBy =
+    [invalidFileType ? fileTypeErrorId : null, fileError ? fileErrorId : null]
+      .filter(Boolean)
+      .join(' ') || undefined
 
   const handleSubmit = async (): Promise<void> => {
     if (!file) {
@@ -107,6 +118,8 @@ export function MerchMediaUploadDialog({
               name="file"
               type="file"
               accept="image/jpeg,image/png,image/webp"
+              aria-invalid={Boolean(invalidFileType || fileError)}
+              aria-describedby={fileDescribedBy}
               onChange={(event) => {
                 setFile(event.target.files?.[0] ?? null)
                 setError(null)
@@ -126,14 +139,14 @@ export function MerchMediaUploadDialog({
                 فایلی انتخاب نشده است.
               </Text>
             )}
-            {file &&
-              file.type !== '' &&
-              !MERCH_MEDIA_ALLOWED_MIME_TYPES.has(file.type) && (
-                <ErrorMessage>
-                  فقط تصویر JPG، PNG و WEBP مجاز است.
-                </ErrorMessage>
-              )}
-            {fileError && <ErrorMessage>{fileError}</ErrorMessage>}
+            {invalidFileType && (
+              <ErrorMessage id={fileTypeErrorId}>
+                فقط تصویر JPG، PNG و WEBP مجاز است.
+              </ErrorMessage>
+            )}
+            {fileError && (
+              <ErrorMessage id={fileErrorId}>{fileError}</ErrorMessage>
+            )}
           </Field>
 
           <Field>
@@ -157,6 +170,12 @@ export function MerchMediaUploadDialog({
           {phase === 'uploading' && (
             <div className="space-y-1.5">
               <div
+                role="progressbar"
+                aria-label="پیشرفت بارگذاری تصویر"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={uploadPercent}
+                aria-valuetext={`${uploadPercent}٪`}
                 className="h-2 overflow-hidden rounded-full bg-surface-strong"
                 dir="ltr"
               >
@@ -168,6 +187,9 @@ export function MerchMediaUploadDialog({
               <Text className="text-xs text-muted" dir="ltr">
                 در حال بارگذاری… {uploadPercent}٪
               </Text>
+              <span role="status" className="sr-only">
+                بارگذاری تصویر آغاز شد.
+              </span>
             </div>
           )}
 

@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import type { MerchCtaKind } from '@sabz/types'
 import { Button } from '../../catalyst/button'
-import { Field, Label } from '../../catalyst/fieldset'
+import { Description, Field, Label } from '../../catalyst/fieldset'
 import { Select } from '../../catalyst/select'
-import { Text } from '../../catalyst/text'
+import { FieldErrorMessage } from '../../ui/field-error'
 import {
   MERCH_CTA_KIND_LABELS,
   MERCH_CTA_KIND_ORDER,
@@ -37,6 +37,10 @@ export function CampaignCtaBuilder({
   error?: string
   onChange: (next: CtaValue) => void
 }) {
+  const uid = useId()
+  const kindId = `campaign-cta-kind-${uid}`
+  const kindDescriptionId = `${kindId}-description`
+  const errorId = `${kindId}-error`
   const [picker, setPicker] = useState<'product' | 'category' | 'brand' | null>(
     null,
   )
@@ -65,11 +69,12 @@ export function CampaignCtaBuilder({
   return (
     <div className="space-y-3 rounded-xl border border-border bg-surface p-4">
       <Field>
-        <Label htmlFor="campaign-cta-kind">فراخوان (CTA)</Label>
+        <Label htmlFor={kindId}>فراخوان (CTA)</Label>
         <Select
-          id="campaign-cta-kind"
+          id={kindId}
           value={value.ctaKind}
           disabled={disabled}
+          invalid={Boolean(error)}
           onChange={(event) => {
             const ctaKind = event.target.value as MerchCtaKind
             onChange({
@@ -86,6 +91,11 @@ export function CampaignCtaBuilder({
             </option>
           ))}
         </Select>
+        <Description className="text-xs text-muted" id={kindDescriptionId}>
+          مقصد فراخوان باید از محتوای موجود و قابل نمایش انتخاب شود. متن دکمه در
+          تنظیمات بالاتر وارد می‌شود.
+        </Description>
+        <FieldErrorMessage id={errorId} message={error} />
       </Field>
 
       {(value.ctaKind === 'PRODUCT' ||
@@ -118,12 +128,6 @@ export function CampaignCtaBuilder({
           </Button>
         </div>
       )}
-
-      {error && <Text className="text-sm text-danger">{error}</Text>}
-      <Text className="text-xs text-muted">
-        مقصد فراخوان باید از محتوای موجود و قابل نمایش انتخاب شود. متن دکمه در
-        تنظیمات بالاتر وارد می‌شود.
-      </Text>
 
       <CampaignProductPickerDialog
         open={picker === 'product'}

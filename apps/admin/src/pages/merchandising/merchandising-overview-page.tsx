@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import type {
   HomepagePublicationSummaryDto,
@@ -21,6 +21,7 @@ import { MerchCampaignStatusBadge } from '../../components/merchandising/merch-c
 import { MerchMediaStatusBadge } from '../../components/merchandising/merch-media-status-badge'
 import { EmptyState } from '../../components/ui/empty-state'
 import { InlineError } from '../../components/ui/inline-error'
+import { LinkButton } from '../../components/ui/link-button'
 import { Loading } from '../../components/ui/loading'
 import { PageHeader } from '../../components/ui/page-header'
 import { StatusBadge } from '../../components/ui/status-badge'
@@ -101,9 +102,9 @@ function PublicationSummary({
         title={emptyTitle}
         description={emptyDescription}
         actions={
-          <Link to="/merchandising/homepage">
-            <Button outline>ویرایش صفحه اصلی</Button>
-          </Link>
+          <LinkButton to="/merchandising/homepage" outline>
+            ویرایش صفحه اصلی
+          </LinkButton>
         }
       />
     )
@@ -292,6 +293,41 @@ export function MerchandisingOverviewPage() {
     campaigns.loading ||
     media.loading
 
+  const hasAnyData = Boolean(
+    currentPublication.data ||
+      scheduledPublications.data ||
+      draft.data ||
+      draftValidation.data ||
+      campaigns.data ||
+      media.data,
+  )
+  const initialLoading = anyLoading && !hasAnyData
+  const anyError = Boolean(
+    currentPublication.error ||
+      scheduledPublications.error ||
+      draft.error ||
+      draftValidation.error ||
+      campaigns.error ||
+      media.error,
+  )
+  const wasLoadingRef = useRef(anyLoading)
+  const [completionMessage, setCompletionMessage] = useState<string | null>(
+    null,
+  )
+
+  useEffect(() => {
+    if (anyLoading) {
+      setCompletionMessage(null)
+    } else if (wasLoadingRef.current) {
+      setCompletionMessage(
+        anyError
+          ? 'بارگذاری وضعیت بازاریابی با خطا مواجه شد.'
+          : 'وضعیت بازاریابی به‌روزرسانی شد.',
+      )
+    }
+    wasLoadingRef.current = anyLoading
+  }, [anyLoading, anyError])
+
   return (
     <div className="w-full space-y-6">
       <PageHeader
@@ -305,6 +341,18 @@ export function MerchandisingOverviewPage() {
         }
       />
 
+      {initialLoading && (
+        <p role="status" className="sr-only">
+          در حال بارگذاری وضعیت بازاریابی…
+        </p>
+      )}
+      {!anyLoading && completionMessage && (
+        <p role="status" className="sr-only">
+          {completionMessage}
+        </p>
+      )}
+
+      <div className="space-y-6" aria-busy={anyLoading}>
       <div className="grid gap-4 lg:grid-cols-2">
         <TableCard>
           <SectionHeading
@@ -312,7 +360,11 @@ export function MerchandisingOverviewPage() {
             detail="نسخه‌ای که اکنون در فروشگاه نمایش داده می‌شود."
           />
           {currentPublication.loading && !currentPublication.data ? (
-            <Loading compact label="در حال بارگذاری نسخه منتشرشده…" />
+            <Loading
+              compact
+              announce={!initialLoading}
+              label="در حال بارگذاری نسخه منتشرشده…"
+            />
           ) : currentPublication.error ? (
             <SectionError
               error={currentPublication.error}
@@ -342,7 +394,11 @@ export function MerchandisingOverviewPage() {
             }
           />
           {scheduledPublications.loading && !scheduledPublications.data ? (
-            <Loading compact label="در حال بارگذاری انتشارهای زمان‌بندی‌شده…" />
+            <Loading
+              compact
+              announce={!initialLoading}
+              label="در حال بارگذاری انتشارهای زمان‌بندی‌شده…"
+            />
           ) : scheduledPublications.error ? (
             <SectionError
               error={scheduledPublications.error}
@@ -354,9 +410,9 @@ export function MerchandisingOverviewPage() {
               title="انتشار زمان‌بندی‌شده‌ای وجود ندارد"
               description="از ویرایشگر صفحه اصلی می‌توانید نسخه بعدی را زمان‌بندی کنید."
               actions={
-                <Link to="/merchandising/homepage">
-                  <Button outline>زمان‌بندی از ویرایشگر</Button>
-                </Link>
+                <LinkButton to="/merchandising/homepage" outline>
+                  زمان‌بندی از ویرایشگر
+                </LinkButton>
               }
             />
           ) : (
@@ -389,13 +445,17 @@ export function MerchandisingOverviewPage() {
             title="پیش‌نویس صفحه اصلی"
             detail="وضعیت نسخه ذخیره‌شده و اعتبارسنجی فعلی آن."
             action={
-              <Link to="/merchandising/homepage">
-                <Button plain>ویرایش صفحه اصلی</Button>
-              </Link>
+              <LinkButton to="/merchandising/homepage" plain>
+                ویرایش صفحه اصلی
+              </LinkButton>
             }
           />
           {draft.loading && !draft.data ? (
-            <Loading compact label="در حال بارگذاری پیش‌نویس صفحه اصلی…" />
+            <Loading
+              compact
+              announce={!initialLoading}
+              label="در حال بارگذاری پیش‌نویس صفحه اصلی…"
+            />
           ) : draft.error ? (
             <SectionError error={draft.error} onRetry={draft.reload} />
           ) : !draft.data ? (
@@ -404,9 +464,9 @@ export function MerchandisingOverviewPage() {
               title="پیش‌نویس در دسترس نیست"
               description="وضعیت پیش‌نویس صفحه اصلی دریافت نشد."
               actions={
-                <Link to="/merchandising/homepage">
-                  <Button outline>باز کردن ویرایشگر</Button>
-                </Link>
+                <LinkButton to="/merchandising/homepage" outline>
+                  باز کردن ویرایشگر
+                </LinkButton>
               }
             />
           ) : (
@@ -445,9 +505,9 @@ export function MerchandisingOverviewPage() {
                   title="پیش‌نویس صفحه اصلی خالی است"
                   description="هنوز بخشی به پیش‌نویس اضافه نشده است."
                   actions={
-                    <Link to="/merchandising/homepage">
-                      <Button outline>شروع ویرایش</Button>
-                    </Link>
+                    <LinkButton to="/merchandising/homepage" outline>
+                      شروع ویرایش
+                    </LinkButton>
                   }
                 />
               )}
@@ -492,26 +552,26 @@ export function MerchandisingOverviewPage() {
             detail="ورود به بخش‌های اصلی بازاریابی؛ این میان‌برها فقط ناوبری هستند."
           />
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <Link to="/merchandising/homepage">
-              <Button outline className="w-full">
-                صفحه اصلی
-              </Button>
-            </Link>
-            <Link to="/merchandising/publications">
-              <Button outline className="w-full">
-                انتشارها
-              </Button>
-            </Link>
-            <Link to="/merchandising/campaigns">
-              <Button outline className="w-full">
-                کمپین‌ها
-              </Button>
-            </Link>
-            <Link to="/merchandising/media">
-              <Button outline className="w-full">
-                کتابخانه رسانه
-              </Button>
-            </Link>
+            <LinkButton to="/merchandising/homepage" outline className="w-full">
+              صفحه اصلی
+            </LinkButton>
+            <LinkButton
+              to="/merchandising/publications"
+              outline
+              className="w-full"
+            >
+              انتشارها
+            </LinkButton>
+            <LinkButton
+              to="/merchandising/campaigns"
+              outline
+              className="w-full"
+            >
+              کمپین‌ها
+            </LinkButton>
+            <LinkButton to="/merchandising/media" outline className="w-full">
+              کتابخانه رسانه
+            </LinkButton>
           </div>
           {canAdmin && (
             <div className="mt-5 space-y-2 border-t border-border pt-4">
@@ -543,13 +603,17 @@ export function MerchandisingOverviewPage() {
                 : undefined
             }
             action={
-              <Link to="/merchandising/campaigns">
-                <Button plain>مشاهده همه</Button>
-              </Link>
+              <LinkButton to="/merchandising/campaigns" plain>
+                مشاهده همه
+              </LinkButton>
             }
           />
           {campaigns.loading && !campaigns.data ? (
-            <Loading compact label="در حال بارگذاری کمپین‌ها…" />
+            <Loading
+              compact
+              announce={!initialLoading}
+              label="در حال بارگذاری کمپین‌ها…"
+            />
           ) : campaigns.error ? (
             <SectionError error={campaigns.error} onRetry={campaigns.reload} />
           ) : !campaigns.data || campaigns.data.items.length === 0 ? (
@@ -558,9 +622,9 @@ export function MerchandisingOverviewPage() {
               title="هنوز کمپینی ثبت نشده است"
               description="نخستین کمپین بازاریابی را ایجاد کنید."
               actions={
-                <Link to="/merchandising/campaigns/new">
-                  <Button color="primary">ایجاد کمپین</Button>
-                </Link>
+                <LinkButton to="/merchandising/campaigns/new" color="primary">
+                  ایجاد کمپین
+                </LinkButton>
               }
             />
           ) : (
@@ -580,13 +644,17 @@ export function MerchandisingOverviewPage() {
                 : undefined
             }
             action={
-              <Link to="/merchandising/media">
-                <Button plain>مشاهده همه</Button>
-              </Link>
+              <LinkButton to="/merchandising/media" plain>
+                مشاهده همه
+              </LinkButton>
             }
           />
           {media.loading && !media.data ? (
-            <Loading compact label="در حال بارگذاری رسانه‌ها…" />
+            <Loading
+              compact
+              announce={!initialLoading}
+              label="در حال بارگذاری رسانه‌ها…"
+            />
           ) : media.error ? (
             <SectionError error={media.error} onRetry={media.reload} />
           ) : !media.data || media.data.items.length === 0 ? (
@@ -595,9 +663,9 @@ export function MerchandisingOverviewPage() {
               title="کتابخانه رسانه خالی است"
               description="نخستین تصویر کمپین یا صفحه اصلی را در کتابخانه بارگذاری کنید."
               actions={
-                <Link to="/merchandising/media">
-                  <Button outline>باز کردن کتابخانه رسانه</Button>
-                </Link>
+                <LinkButton to="/merchandising/media" outline>
+                  باز کردن کتابخانه رسانه
+                </LinkButton>
               }
             />
           ) : (
@@ -607,6 +675,7 @@ export function MerchandisingOverviewPage() {
             </div>
           )}
         </TableCard>
+      </div>
       </div>
     </div>
   )

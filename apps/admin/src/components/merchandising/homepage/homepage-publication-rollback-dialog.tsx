@@ -230,18 +230,30 @@ export function HomepagePublicationRollbackDialog({
             </Text>
           )}
           {retryBlocked && (
-            <p
-              role="status"
-              className="rounded-lg bg-warning-subtle px-3 py-2 text-sm text-warning"
-            >
+            <p className="rounded-lg bg-warning-subtle px-3 py-2 text-sm text-warning">
               پس از این تعارض، ارسال دوباره بدون بررسی وضعیت تازه مجاز نیست.
               جزئیات بالا و داده‌های به‌روزشده را بررسی کنید؛ برای تلاش آگاهانه
               دوباره، این گفت‌وگو را ببندید و از فهرست یا صفحه جزئیات باز کنید.
             </p>
           )}
+          {(error ||
+            conflictErrors.length > 0 ||
+            conflictWarnings.length > 0 ||
+            retryBlocked) && (
+            <p role="status" aria-live="polite" className="sr-only">
+              {conflictErrors.length > 0 || conflictWarnings.length > 0
+                ? `بازگردانی انجام نشد؛ ${conflictErrors.length.toLocaleString(
+                    'fa-IR',
+                  )} خطا و ${conflictWarnings.length.toLocaleString(
+                    'fa-IR',
+                  )} هشدار تعارض گزارش شد. جزئیات در ادامه آمده است.`
+                : (error ??
+                  'بازگردانی متوقف شد؛ وضعیت تازه انتشار را بررسی کنید.')}
+            </p>
+          )}
           <IssueList issues={conflictErrors} tone="error" />
           <IssueList issues={conflictWarnings} tone="warning" />
-          {error && <InlineError message={error} />}
+          {error && <InlineError role="none" message={error} />}
         </div>
       </AlertBody>
       <AlertActions>

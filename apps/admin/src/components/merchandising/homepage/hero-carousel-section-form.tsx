@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import type {
   HeroCarouselSection,
   HomepageValidationIssue,
@@ -7,6 +7,7 @@ import { MERCH_HERO_MAX_SLIDES } from '@sabz/types'
 import { ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react'
 import { Button } from '../../catalyst/button'
 import { Text } from '../../catalyst/text'
+import { FieldError } from '../../ui/field-error'
 import { InlineError } from '../../ui/inline-error'
 import { StatusBadge } from '../../ui/status-badge'
 import { useMerchCampaignDetails } from '../../../hooks/use-merch-campaign-details'
@@ -31,6 +32,7 @@ export function HeroCarouselSectionForm({
   disabled?: boolean
   onSettingsChange: (settings: HeroCarouselSection['settings']) => void
 }) {
+  const uid = useId()
   const [pickerOpen, setPickerOpen] = useState(false)
   const campaignIds = section.settings.campaignIds
   const { details, loading, errors } = useMerchCampaignDetails(campaignIds)
@@ -150,7 +152,10 @@ export function HeroCarouselSectionForm({
               </div>
 
               {errors[campaignId] && <InlineError message={errors[campaignId]!} />}
-              {itemError && <Text className="text-sm text-danger">{itemError}</Text>}
+              <FieldError
+                id={`hero-${uid}-item-${index}-error`}
+                message={itemError}
+              />
 
               {detail && (
                 <>
@@ -181,9 +186,10 @@ export function HeroCarouselSectionForm({
                           جایگزین استفاده می‌شود.
                         </Text>
                       )}
-                      {mediaError && (
-                        <Text className="text-sm text-danger">{mediaError}</Text>
-                      )}
+                      <FieldError
+                        id={`hero-${uid}-item-${index}-media-error`}
+                        message={mediaError}
+                      />
                     </div>
                     <CampaignMediaSummary campaign={detail} compact />
                   </div>

@@ -383,7 +383,7 @@ describe('merchandising publication history (SS-280)', () => {
   it('directs scheduled and cancelled rows to diagnostics without audit fan-out', () => {
     renderPage()
     expect(
-      screen.getAllByRole('button', { name: 'مشاهده و تشخیص' }).length,
+      screen.getAllByRole('link', { name: 'مشاهده و تشخیص' }).length,
     ).toBe(2)
     expect(mockListAudit).not.toHaveBeenCalled()
   })

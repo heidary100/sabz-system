@@ -19,6 +19,7 @@ import {
 import { Text } from '../../components/catalyst/text'
 import { EmptyState } from '../../components/ui/empty-state'
 import { ErrorState } from '../../components/ui/error-state'
+import { LinkButton } from '../../components/ui/link-button'
 import { Loading } from '../../components/ui/loading'
 import { PageHeader } from '../../components/ui/page-header'
 import { StatusBadge } from '../../components/ui/status-badge'
@@ -282,14 +283,15 @@ export function MerchandisingPublicationsPage() {
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-wrap items-center gap-1">
-                        <Link to={`/merchandising/publications/${publication.id}`}>
-                          <Button plain>
-                            {publication.status === 'SCHEDULED' ||
-                            publication.status === 'CANCELLED'
-                              ? 'مشاهده و تشخیص'
-                              : 'مشاهده'}
-                          </Button>
-                        </Link>
+                        <LinkButton
+                          to={`/merchandising/publications/${publication.id}`}
+                          plain
+                        >
+                          {publication.status === 'SCHEDULED' ||
+                          publication.status === 'CANCELLED'
+                            ? 'مشاهده و تشخیص'
+                            : 'مشاهده'}
+                        </LinkButton>
                         {canCancel && publication.status === 'SCHEDULED' && (
                           <Button
                             plain

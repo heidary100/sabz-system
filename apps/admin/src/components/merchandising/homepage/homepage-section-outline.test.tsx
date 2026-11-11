@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { useState } from 'react'
 import type { ComponentProps } from 'react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { HomepageDraftSection, HomepageDraftValidationResult } from '@sabz/types'
 import { HomepageSectionOutline } from './homepage-section-outline'
 
@@ -136,5 +137,39 @@ describe('HomepageSectionOutline (SS-276)', () => {
       screen.getByRole('button', { name: 'حذف بخش آماده ارسال' }),
     )
     expect(onRemove).toHaveBeenCalledWith(1)
+  })
+
+  it('moves focus to a surviving section after removal', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+
+    function ControlledOutline() {
+      const [items, setItems] = useState(sections)
+      return (
+        <HomepageSectionOutline
+          sections={items}
+          selectedKey={null}
+          validation={null}
+          maxSections={12}
+          onSelect={() => {}}
+          onAdd={() => null}
+          onMove={() => {}}
+          onRemove={(index) =>
+            setItems((current) => current.filter((_, i) => i !== index))
+          }
+          onToggleVisibility={() => {}}
+        />
+      )
+    }
+
+    render(<ControlledOutline />)
+    fireEvent.click(
+      screen.getByRole('button', { name: 'حذف بخش نوار اعتماد' }),
+    )
+
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        screen.getByRole('button', { name: 'انتخاب بخش آماده ارسال' }),
+      ),
+    )
   })
 })

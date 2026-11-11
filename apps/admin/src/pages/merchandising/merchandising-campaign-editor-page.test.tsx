@@ -114,7 +114,10 @@ describe('MerchandisingCampaignEditorPage (SS-275)', () => {
     mockUpdate.mockReset()
   })
 
-  afterEach(cleanup)
+  afterEach(() => {
+    cleanup()
+    document.documentElement.dir = ''
+  })
 
   it('creates a campaign with only the supported settings fields', async () => {
     mockCreate.mockResolvedValue(campaign())
@@ -234,5 +237,106 @@ describe('MerchandisingCampaignEditorPage (SS-275)', () => {
 
     fireEvent.click(screen.getByRole('tab', { name: 'رسانه' }))
     expect(screen.getByText('رسانه‌ای به این کمپین تخصیص نیافته است.')).toBeTruthy()
+  })
+
+  it('implements roving tab focus, Arrow/Home/End keys, and panel association', async () => {
+    detailHook.campaign = campaign()
+    renderEditor('/merchandising/campaigns/campaign-1')
+    await screen.findByLabelText('نام داخلی')
+
+    const settingsTab = screen.getByRole('tab', { name: 'تنظیمات' })
+    const selectionsTab = screen.getByRole('tab', { name: 'انتخاب‌ها' })
+    const auditTab = screen.getByRole('tab', { name: 'گردش فعالیت' })
+
+    expect(settingsTab.getAttribute('aria-selected')).toBe('true')
+    expect(settingsTab.tabIndex).toBe(0)
+    expect(selectionsTab.tabIndex).toBe(-1)
+
+    settingsTab.focus()
+    fireEvent.keyDown(settingsTab, { key: 'ArrowLeft' })
+    expect(auditTab.getAttribute('aria-selected')).toBe('true')
+    expect(auditTab.tabIndex).toBe(0)
+    expect(settingsTab.tabIndex).toBe(-1)
+    expect(document.activeElement).toBe(auditTab)
+
+    fireEvent.keyDown(auditTab, { key: 'Home' })
+    expect(settingsTab.getAttribute('aria-selected')).toBe('true')
+    expect(document.activeElement).toBe(settingsTab)
+
+    fireEvent.keyDown(settingsTab, { key: 'End' })
+    expect(auditTab.getAttribute('aria-selected')).toBe('true')
+    expect(document.activeElement).toBe(auditTab)
+
+    fireEvent.keyDown(auditTab, { key: 'ArrowRight' })
+    expect(settingsTab.getAttribute('aria-selected')).toBe('true')
+    expect(document.activeElement).toBe(settingsTab)
+
+    const activePanel = document.getElementById('campaign-panel-settings')
+    expect(activePanel).toBeTruthy()
+    expect(activePanel?.getAttribute('aria-labelledby')).toBe(
+      'campaign-tab-settings',
+    )
+    expect(activePanel?.hasAttribute('hidden')).toBe(false)
+    expect(
+      document.getElementById('campaign-panel-selections')?.hasAttribute(
+        'hidden',
+      ),
+    ).toBe(true)
+
+    fireEvent.click(screen.getByRole('tab', { name: 'وضعیت و استفاده' }))
+    const usagePanel = document.getElementById('campaign-panel-usage')!
+    expect(usagePanel.tabIndex).toBe(0)
+    expect(
+      document.getElementById('campaign-panel-settings')?.hasAttribute(
+        'tabindex',
+      ),
+    ).toBe(false)
+  })
+
+  it('maps horizontal arrows to the visual RTL tab direction', async () => {
+    document.documentElement.dir = 'rtl'
+    detailHook.campaign = campaign()
+    renderEditor('/merchandising/campaigns/campaign-1')
+    await screen.findByLabelText('نام داخلی')
+
+    const settingsTab = screen.getByRole('tab', { name: 'تنظیمات' })
+    const selectionsTab = screen.getByRole('tab', { name: 'انتخاب‌ها' })
+    settingsTab.focus()
+    fireEvent.keyDown(settingsTab, { key: 'ArrowLeft' })
+    expect(selectionsTab.getAttribute('aria-selected')).toBe('true')
+    expect(document.activeElement).toBe(selectionsTab)
+
+    fireEvent.keyDown(selectionsTab, { key: 'ArrowRight' })
+    expect(settingsTab.getAttribute('aria-selected')).toBe('true')
+    expect(document.activeElement).toBe(settingsTab)
+  })
+
+  it('associates invalid fields with rendered errors and keeps descriptions', async () => {
+    detailHook.campaign = campaign()
+    renderEditor('/merchandising/campaigns/campaign-1')
+
+    const title = await screen.findByLabelText('عنوان فارسی')
+    fireEvent.change(title, { target: { value: '' } })
+    fireEvent.click(screen.getByRole('button', { name: 'ذخیره تغییرات' }))
+
+    expect(title.getAttribute('aria-invalid')).toBe('true')
+    const describedBy = title.getAttribute('aria-describedby')
+    expect(describedBy).toBeTruthy()
+    expect(document.getElementById(describedBy!)?.textContent).toBe(
+      'عنوان فارسی الزامی است.',
+    )
+
+    const internalName = screen.getByLabelText('نام داخلی')
+    expect(internalName.getAttribute('aria-invalid')).toBeNull()
+    const descriptionIds = internalName
+      .getAttribute('aria-describedby')
+      ?.split(' ') ?? []
+    expect(
+      descriptionIds.some((id) =>
+        document.getElementById(id)?.textContent?.includes(
+          'فقط برای شناسایی در پنل مدیریت',
+        ),
+      ),
+    ).toBe(true)
   })
 })

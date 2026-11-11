@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { ReactNode } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import type { KeyboardEvent, ReactNode } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import type {
   BrandSummary,
   CategoryTreeNode,
@@ -11,6 +11,7 @@ import { Button } from '../../components/catalyst/button'
 import { EmptyState } from '../../components/ui/empty-state'
 import { ErrorState } from '../../components/ui/error-state'
 import { InlineError } from '../../components/ui/inline-error'
+import { LinkButton } from '../../components/ui/link-button'
 import { Loading } from '../../components/ui/loading'
 import { PageHeader } from '../../components/ui/page-header'
 import { CampaignArchiveDialog } from '../../components/merchandising/campaigns/campaign-archive-dialog'
@@ -87,34 +88,32 @@ function TabButton({
   id,
   controls,
   onClick,
+  onKeyDown,
   children,
 }: {
   active: boolean
   id: string
   controls: string
   onClick: () => void
+  onKeyDown: (event: KeyboardEvent<HTMLButtonElement>) => void
   children: ReactNode
 }) {
+  const shared = {
+    role: 'tab' as const,
+    id,
+    'aria-selected': active,
+    'aria-controls': controls,
+    tabIndex: active ? 0 : -1,
+    onClick,
+    onKeyDown,
+  }
+
   return active ? (
-    <Button
-      color="primary"
-      role="tab"
-      id={id}
-      aria-selected="true"
-      aria-controls={controls}
-      onClick={onClick}
-    >
+    <Button color="primary" {...shared}>
       {children}
     </Button>
   ) : (
-    <Button
-      outline
-      role="tab"
-      id={id}
-      aria-selected="false"
-      aria-controls={controls}
-      onClick={onClick}
-    >
+    <Button outline {...shared}>
       {children}
     </Button>
   )
@@ -328,6 +327,41 @@ export function MerchandisingCampaignEditorPage() {
     }
   }
 
+  const handleTabKeyDown = (
+    event: KeyboardEvent<HTMLButtonElement>,
+  ): void => {
+    const currentIndex = EDITOR_TABS.findIndex((item) => item.key === tab)
+    if (currentIndex < 0) {
+      return
+    }
+    const rtl = document.documentElement.dir === 'rtl'
+    let nextIndex: number
+    switch (event.key) {
+      case 'ArrowLeft':
+        nextIndex = rtl
+          ? (currentIndex + 1) % EDITOR_TABS.length
+          : (currentIndex - 1 + EDITOR_TABS.length) % EDITOR_TABS.length
+        break
+      case 'ArrowRight':
+        nextIndex = rtl
+          ? (currentIndex - 1 + EDITOR_TABS.length) % EDITOR_TABS.length
+          : (currentIndex + 1) % EDITOR_TABS.length
+        break
+      case 'Home':
+        nextIndex = 0
+        break
+      case 'End':
+        nextIndex = EDITOR_TABS.length - 1
+        break
+      default:
+        return
+    }
+    event.preventDefault()
+    const nextKey = EDITOR_TABS[nextIndex]!.key
+    setTab(nextKey)
+    document.getElementById(`campaign-tab-${nextKey}`)?.focus()
+  }
+
   const title = isNew
     ? 'کمپین جدید'
     : campaign?.internalName ?? 'ویرایش کمپین'
@@ -342,9 +376,9 @@ export function MerchandisingCampaignEditorPage() {
         subtitle={subtitle}
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <Link to="/merchandising/campaigns">
-              <Button plain>بازگشت به فهرست</Button>
-            </Link>
+            <LinkButton to="/merchandising/campaigns" plain>
+              بازگشت به فهرست
+            </LinkButton>
             {!isNew && campaign && !archived && (
               <>
                 <Button
@@ -434,9 +468,9 @@ export function MerchandisingCampaignEditorPage() {
           title="کمپین پیدا نشد"
           description="ممکن است کمپین حذف شده باشد."
           actions={
-            <Link to="/merchandising/campaigns">
-              <Button outline>بازگشت به فهرست</Button>
-            </Link>
+            <LinkButton to="/merchandising/campaigns" outline>
+              بازگشت به فهرست
+            </LinkButton>
           }
         />
       ) : (
@@ -489,64 +523,74 @@ export function MerchandisingCampaignEditorPage() {
                 id={`campaign-tab-${item.key}`}
                 controls={`campaign-panel-${item.key}`}
                 onClick={() => setTab(item.key)}
+                onKeyDown={handleTabKeyDown}
               >
                 {item.label}
               </TabButton>
             ))}
           </div>
 
-          <div
-            role="tabpanel"
-            id={`campaign-panel-${tab}`}
-            aria-labelledby={`campaign-tab-${tab}`}
-            className="space-y-4"
-          >
-            {tab === 'settings' && (
-              <CampaignSettingsPanel
-                form={form}
-                errors={errors}
-                disabled={disabled}
-                knownProducts={knownProducts}
-                knownCategories={knownCategories}
-                knownBrands={knownBrands}
-                onChange={setForm}
-              />
-            )}
-
-            {tab === 'selections' && (
-              <CampaignSelectionsPanel
-                form={form}
-                meta={meta}
-                errors={errors}
-                disabled={disabled}
-                onChange={setForm}
-                onAddProduct={handleAddProduct}
-                onAddCategory={handleAddCategory}
-                onAddBrand={handleAddBrand}
-              />
-            )}
-
-            {tab === 'media' && (
-              <div className="space-y-3">
-                {errors.media && (
-                  <p className="text-sm text-danger">{errors.media}</p>
-                )}
-                <CampaignMediaAssignments
-                  value={form.media}
-                  errors={mediaErrors}
+          {EDITOR_TABS.map((item) => (
+            <div
+              key={item.key}
+              role="tabpanel"
+              id={`campaign-panel-${item.key}`}
+              aria-labelledby={`campaign-tab-${item.key}`}
+              tabIndex={
+                tab === item.key && item.key === 'usage' ? 0 : undefined
+              }
+              hidden={tab !== item.key}
+              className="space-y-4"
+            >
+              {tab === item.key && item.key === 'settings' && (
+                <CampaignSettingsPanel
+                  form={form}
+                  errors={errors}
                   disabled={disabled}
-                  maxMedia={4}
-                  onChange={(media) => setForm((prev) => ({ ...prev, media }))}
+                  knownProducts={knownProducts}
+                  knownCategories={knownCategories}
+                  knownBrands={knownBrands}
+                  onChange={setForm}
                 />
-              </div>
-            )}
+              )}
 
-            {tab === 'usage' && <CampaignUsagePanel campaign={campaign} />}
+              {tab === item.key && item.key === 'selections' && (
+                <CampaignSelectionsPanel
+                  form={form}
+                  meta={meta}
+                  errors={errors}
+                  disabled={disabled}
+                  onChange={setForm}
+                  onAddProduct={handleAddProduct}
+                  onAddCategory={handleAddCategory}
+                  onAddBrand={handleAddBrand}
+                />
+              )}
 
-            {tab === 'audit' && (
-              <CampaignAuditPanel campaignId={campaign.id} enabled />
-            )}
-          </div>
+              {tab === item.key && item.key === 'media' && (
+                <div className="space-y-3">
+                  {errors.media && (
+                    <p className="text-sm text-danger">{errors.media}</p>
+                  )}
+                  <CampaignMediaAssignments
+                    value={form.media}
+                    errors={mediaErrors}
+                    disabled={disabled}
+                    maxMedia={4}
+                    onChange={(media) => setForm((prev) => ({ ...prev, media }))}
+                  />
+                </div>
+              )}
+
+              {tab === item.key && item.key === 'usage' && (
+                <CampaignUsagePanel campaign={campaign} />
+              )}
+
+              {tab === item.key && item.key === 'audit' && (
+                <CampaignAuditPanel campaignId={campaign.id} enabled />
+              )}
+            </div>
+          ))}
         </div>
       )}
 

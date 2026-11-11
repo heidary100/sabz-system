@@ -30,6 +30,7 @@ import {
 import { EmptyState } from '../../components/ui/empty-state'
 import { ErrorState } from '../../components/ui/error-state'
 import { InlineError } from '../../components/ui/inline-error'
+import { LinkButton } from '../../components/ui/link-button'
 import { Loading } from '../../components/ui/loading'
 import { PageHeader } from '../../components/ui/page-header'
 import { TableCard } from '../../components/ui/table-card'
@@ -111,12 +112,10 @@ export function MerchandisingCampaignsPage() {
         title="کمپین‌ها"
         subtitle="محتوای منبع صفحه اصلی؛ ویرایش کمپین نسخه‌های منتشرشده را تغییر نمی‌دهد."
         actions={
-          <Link to="/merchandising/campaigns/new">
-            <Button color="primary">
-              <Plus data-slot="icon" />
-              کمپین جدید
-            </Button>
-          </Link>
+          <LinkButton to="/merchandising/campaigns/new" color="primary">
+            <Plus data-slot="icon" />
+            کمپین جدید
+          </LinkButton>
         }
       />
 
@@ -221,12 +220,10 @@ export function MerchandisingCampaignsPage() {
                 پاک کردن فیلترها
               </Button>
             ) : (
-              <Link to="/merchandising/campaigns/new">
-                <Button color="primary">
-                  <Plus data-slot="icon" />
-                  ایجاد کمپین
-                </Button>
-              </Link>
+              <LinkButton to="/merchandising/campaigns/new" color="primary">
+                <Plus data-slot="icon" />
+                ایجاد کمپین
+              </LinkButton>
             )
           }
         />
@@ -287,9 +284,12 @@ export function MerchandisingCampaignsPage() {
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-wrap items-center gap-1">
-                        <Link to={`/merchandising/campaigns/${campaign.id}`}>
-                          <Button plain>ویرایش</Button>
-                        </Link>
+                        <LinkButton
+                          to={`/merchandising/campaigns/${campaign.id}`}
+                          plain
+                        >
+                          ویرایش
+                        </LinkButton>
                         {!campaign.isArchived && (
                           <Button
                             outline

@@ -1,8 +1,10 @@
-import { Field, Label } from '../../catalyst/fieldset'
+import { useId } from 'react'
+import { Description, Field, Label } from '../../catalyst/fieldset'
 import { Input } from '../../catalyst/input'
 import { Select } from '../../catalyst/select'
 import { Text } from '../../catalyst/text'
 import { Textarea } from '../../catalyst/textarea'
+import { FieldErrorMessage } from '../../ui/field-error'
 import {
   CAMPAIGN_PRIORITY_MAX,
   CAMPAIGN_TEXT_LIMITS,
@@ -15,10 +17,6 @@ import {
 } from '../../../lib/merchandising-labels'
 import type { OrderedEntityItem } from './campaign-ordered-entity-list'
 import { CampaignCtaBuilder } from './campaign-cta-builder'
-
-function FieldError({ message }: { message?: string }) {
-  return message ? <Text className="text-sm text-danger">{message}</Text> : null
-}
 
 export function CampaignSettingsPanel({
   form,
@@ -37,6 +35,12 @@ export function CampaignSettingsPanel({
   knownBrands: OrderedEntityItem[]
   onChange: (next: CampaignFormState) => void
 }) {
+  const uid = useId()
+  const fieldId = (name: string): string => `campaign-${uid}-${name}`
+  const errorId = (name: string): string => `${fieldId(name)}-error`
+  const descriptionId = (name: string): string =>
+    `${fieldId(name)}-description`
+
   const update = (patch: Partial<CampaignFormState>): void => {
     onChange({ ...form, ...patch })
   }
@@ -45,27 +49,32 @@ export function CampaignSettingsPanel({
     <div className="space-y-6">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <Field>
-          <Label htmlFor="campaign-internal-name">نام داخلی</Label>
+          <Label htmlFor={fieldId('internal-name')}>نام داخلی</Label>
           <Input
-            id="campaign-internal-name"
+            id={fieldId('internal-name')}
             value={form.internalName}
             maxLength={CAMPAIGN_TEXT_LIMITS.internalName}
             disabled={disabled}
+            invalid={Boolean(errors.internalName)}
             onChange={(event) => update({ internalName: event.target.value })}
             placeholder="مثلاً کمپین نوروز ۱۴۰۵"
           />
-          <Text className="text-xs text-muted">
+          <Description className="text-xs text-muted" id={descriptionId('internal-name')}>
             فقط برای شناسایی در پنل مدیریت.
-          </Text>
-          <FieldError message={errors.internalName} />
+          </Description>
+          <FieldErrorMessage
+            id={errorId('internal-name')}
+            message={errors.internalName}
+          />
         </Field>
 
         <Field>
-          <Label htmlFor="campaign-type-select">نوع کمپین</Label>
+          <Label htmlFor={fieldId('type')}>نوع کمپین</Label>
           <Select
-            id="campaign-type-select"
+            id={fieldId('type')}
             value={form.type}
             disabled={disabled}
+            invalid={Boolean(errors.type)}
             onChange={(event) =>
               update({
                 type: event.target.value as CampaignFormState['type'],
@@ -78,74 +87,93 @@ export function CampaignSettingsPanel({
               </option>
             ))}
           </Select>
-          <Text className="text-xs text-muted">
+          <Description className="text-xs text-muted" id={descriptionId('type')}>
             نوع کمپین فقط برچسب اداری است و محدودیت ترکیب ایجاد نمی‌کند.
-          </Text>
-          <FieldError message={errors.type} />
+          </Description>
+          <FieldErrorMessage id={errorId('type')} message={errors.type} />
         </Field>
 
         <Field className="md:col-span-2">
-          <Label htmlFor="campaign-title">عنوان فارسی</Label>
+          <Label htmlFor={fieldId('title')}>عنوان فارسی</Label>
           <Input
-            id="campaign-title"
+            id={fieldId('title')}
             value={form.titleFa}
             maxLength={CAMPAIGN_TEXT_LIMITS.titleFa}
             disabled={disabled}
+            invalid={Boolean(errors.titleFa)}
             onChange={(event) => update({ titleFa: event.target.value })}
           />
-          <FieldError message={errors.titleFa} />
+          <FieldErrorMessage id={errorId('title')} message={errors.titleFa} />
         </Field>
 
         <Field>
-          <Label htmlFor="campaign-eyebrow">متن بالای عنوان (اختیاری)</Label>
+          <Label htmlFor={fieldId('eyebrow')}>
+            متن بالای عنوان (اختیاری)
+          </Label>
           <Input
-            id="campaign-eyebrow"
+            id={fieldId('eyebrow')}
             value={form.eyebrowFa}
             maxLength={CAMPAIGN_TEXT_LIMITS.eyebrowFa}
             disabled={disabled}
+            invalid={Boolean(errors.eyebrowFa)}
             onChange={(event) => update({ eyebrowFa: event.target.value })}
           />
-          <FieldError message={errors.eyebrowFa} />
+          <FieldErrorMessage
+            id={errorId('eyebrow')}
+            message={errors.eyebrowFa}
+          />
         </Field>
 
         <Field>
-          <Label htmlFor="campaign-subtitle">زیرعنوان (اختیاری)</Label>
+          <Label htmlFor={fieldId('subtitle')}>زیرعنوان (اختیاری)</Label>
           <Input
-            id="campaign-subtitle"
+            id={fieldId('subtitle')}
             value={form.subtitleFa}
             maxLength={CAMPAIGN_TEXT_LIMITS.subtitleFa}
             disabled={disabled}
+            invalid={Boolean(errors.subtitleFa)}
             onChange={(event) => update({ subtitleFa: event.target.value })}
           />
-          <FieldError message={errors.subtitleFa} />
+          <FieldErrorMessage
+            id={errorId('subtitle')}
+            message={errors.subtitleFa}
+          />
         </Field>
 
         <Field className="md:col-span-2">
-          <Label htmlFor="campaign-description">توضیحات (اختیاری)</Label>
+          <Label htmlFor={fieldId('description')}>توضیحات (اختیاری)</Label>
           <Textarea
-            id="campaign-description"
+            id={fieldId('description')}
             rows={3}
             value={form.descriptionFa}
             maxLength={CAMPAIGN_TEXT_LIMITS.descriptionFa}
             disabled={disabled}
+            invalid={Boolean(errors.descriptionFa)}
             onChange={(event) => update({ descriptionFa: event.target.value })}
           />
-          <FieldError message={errors.descriptionFa} />
+          <FieldErrorMessage
+            id={errorId('description')}
+            message={errors.descriptionFa}
+          />
         </Field>
 
         <Field className="md:col-span-2">
-          <Label htmlFor="campaign-cta-label">متن دکمه فراخوان</Label>
+          <Label htmlFor={fieldId('cta-label')}>متن دکمه فراخوان</Label>
           <Input
-            id="campaign-cta-label"
+            id={fieldId('cta-label')}
             value={form.ctaLabelFa}
             maxLength={CAMPAIGN_TEXT_LIMITS.ctaLabelFa}
             disabled={disabled}
+            invalid={Boolean(errors.ctaLabelFa)}
             onChange={(event) => update({ ctaLabelFa: event.target.value })}
           />
-          <Text className="text-xs text-muted">
+          <Description className="text-xs text-muted" id={descriptionId('cta-label')}>
             برای هر مقصدی جز «بدون فراخوان» الزامی است.
-          </Text>
-          <FieldError message={errors.ctaLabelFa} />
+          </Description>
+          <FieldErrorMessage
+            id={errorId('cta-label')}
+            message={errors.ctaLabelFa}
+          />
         </Field>
       </div>
 
@@ -166,41 +194,55 @@ export function CampaignSettingsPanel({
 
       <div className="grid grid-cols-1 gap-4 rounded-xl border border-border bg-surface p-4 md:grid-cols-3">
         <Field>
-          <Label htmlFor="campaign-starts-at">شروع بازه (به وقت تهران)</Label>
+          <Label htmlFor={fieldId('starts-at')}>
+            شروع بازه (به وقت تهران)
+          </Label>
           <Input
-            id="campaign-starts-at"
+            id={fieldId('starts-at')}
             type="datetime-local"
             dir="ltr"
             value={form.startsAt}
             disabled={disabled}
+            invalid={Boolean(errors.startsAt)}
             onChange={(event) => update({ startsAt: event.target.value })}
           />
-          <FieldError message={errors.startsAt} />
+          <FieldErrorMessage
+            id={errorId('starts-at')}
+            message={errors.startsAt}
+          />
         </Field>
         <Field>
-          <Label htmlFor="campaign-ends-at">پایان بازه (به وقت تهران)</Label>
+          <Label htmlFor={fieldId('ends-at')}>پایان بازه (به وقت تهران)</Label>
           <Input
-            id="campaign-ends-at"
+            id={fieldId('ends-at')}
             type="datetime-local"
             dir="ltr"
             value={form.endsAt}
             disabled={disabled}
+            invalid={Boolean(errors.endsAt)}
             onChange={(event) => update({ endsAt: event.target.value })}
           />
-          <FieldError message={errors.endsAt} />
+          <FieldErrorMessage
+            id={errorId('ends-at')}
+            message={errors.endsAt}
+          />
         </Field>
         <Field>
-          <Label htmlFor="campaign-priority">اولویت</Label>
+          <Label htmlFor={fieldId('priority')}>اولویت</Label>
           <Input
-            id="campaign-priority"
+            id={fieldId('priority')}
             type="number"
             min={0}
             max={CAMPAIGN_PRIORITY_MAX}
             value={form.priority}
             disabled={disabled}
+            invalid={Boolean(errors.priority)}
             onChange={(event) => update({ priority: event.target.value })}
           />
-          <FieldError message={errors.priority} />
+          <FieldErrorMessage
+            id={errorId('priority')}
+            message={errors.priority}
+          />
         </Field>
         <Text className="text-xs text-muted md:col-span-3">
           زمان‌ها به وقت تهران (Asia/Tehran) وارد و نمایش داده می‌شوند و پیش از

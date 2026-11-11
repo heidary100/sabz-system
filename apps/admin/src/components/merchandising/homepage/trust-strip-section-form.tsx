@@ -1,3 +1,4 @@
+import { useId } from 'react'
 import type {
   HomepageValidationIssue,
   MerchTrustItem,
@@ -11,15 +12,12 @@ import { Input } from '../../catalyst/input'
 import { Select } from '../../catalyst/select'
 import { Textarea } from '../../catalyst/textarea'
 import { Text } from '../../catalyst/text'
+import { FieldErrorMessage } from '../../ui/field-error'
 import {
   MERCH_TRUST_ICON_LABELS,
   MERCH_TRUST_ICON_ORDER,
 } from '../../../lib/merchandising-labels'
 import { firstValidationMessage } from '../../../lib/merchandising-homepage'
-
-function FieldError({ message }: { message: string | null }) {
-  return message ? <Text className="text-sm text-danger">{message}</Text> : null
-}
 
 export function TrustStripSectionForm({
   section,
@@ -34,6 +32,9 @@ export function TrustStripSectionForm({
   disabled?: boolean
   onSettingsChange: (settings: TrustStripSection['settings']) => void
 }) {
+  const uid = useId()
+  const fieldId = (index: number, name: string): string =>
+    `trust-${uid}-${index}-${name}`
   const items = section.settings.items
   const update = (next: MerchTrustItem[]): void => {
     onSettingsChange({ items: next })
@@ -132,9 +133,9 @@ export function TrustStripSectionForm({
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-[10rem_minmax(0,1fr)]">
                 <Field>
-                  <Label htmlFor={`trust-icon-${index}`}>آیکن</Label>
+                  <Label htmlFor={fieldId(index, 'icon')}>آیکن</Label>
                   <Select
-                    id={`trust-icon-${index}`}
+                    id={fieldId(index, 'icon')}
                     value={item.icon}
                     disabled={disabled}
                     onChange={(event) =>
@@ -152,17 +153,25 @@ export function TrustStripSectionForm({
                   </Select>
                 </Field>
                 <Field>
-                  <Label htmlFor={`trust-title-${index}`}>عنوان</Label>
+                  <Label htmlFor={fieldId(index, 'title')}>عنوان</Label>
                   <Input
-                    id={`trust-title-${index}`}
+                    id={fieldId(index, 'title')}
                     value={item.title}
                     maxLength={120}
                     disabled={disabled}
+                    invalid={Boolean(
+                      firstValidationMessage(
+                        issues,
+                        basePath,
+                        `items[${index}].title`,
+                      ),
+                    )}
                     onChange={(event) =>
                       patch(index, { title: event.target.value })
                     }
                   />
-                  <FieldError
+                  <FieldErrorMessage
+                    id={`${fieldId(index, 'title')}-error`}
                     message={firstValidationMessage(
                       issues,
                       basePath,
@@ -173,13 +182,22 @@ export function TrustStripSectionForm({
               </div>
 
               <Field className="mt-3">
-                <Label htmlFor={`trust-body-${index}`}>متن (اختیاری)</Label>
+                <Label htmlFor={fieldId(index, 'body')}>
+                  متن (اختیاری)
+                </Label>
                 <Textarea
-                  id={`trust-body-${index}`}
+                  id={fieldId(index, 'body')}
                   rows={2}
                   value={item.body ?? ''}
                   maxLength={240}
                   disabled={disabled}
+                  invalid={Boolean(
+                    firstValidationMessage(
+                      issues,
+                      basePath,
+                      `items[${index}].body`,
+                    ),
+                  )}
                   onChange={(event) =>
                     patch(index, {
                       body:
@@ -189,7 +207,8 @@ export function TrustStripSectionForm({
                     })
                   }
                 />
-                <FieldError
+                <FieldErrorMessage
+                  id={`${fieldId(index, 'body')}-error`}
                   message={firstValidationMessage(
                     issues,
                     basePath,

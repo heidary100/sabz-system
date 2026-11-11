@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import type {
   CategorySpotlightSection,
   HomepageValidationIssue,
@@ -8,6 +8,7 @@ import { Button } from '../../catalyst/button'
 import { Field, Label } from '../../catalyst/fieldset'
 import { Select } from '../../catalyst/select'
 import { Text } from '../../catalyst/text'
+import { FieldError, FieldErrorMessage } from '../../ui/field-error'
 import { InlineError } from '../../ui/inline-error'
 import { StatusBadge } from '../../ui/status-badge'
 import { useMerchCampaignDetails } from '../../../hooks/use-merch-campaign-details'
@@ -31,6 +32,12 @@ export function CategorySpotlightSectionForm({
   disabled?: boolean
   onSettingsChange: (settings: CategorySpotlightSection['settings']) => void
 }) {
+  const uid = useId()
+  const primaryId = `spotlight-${uid}-primary-category`
+  const primaryErrorId = `${primaryId}-error`
+  const secondaryLabelId = `spotlight-${uid}-secondary-label`
+  const secondaryErrorId = `spotlight-${uid}-secondary-error`
+  const campaignErrorId = `spotlight-${uid}-campaign-error`
   const [campaignPickerOpen, setCampaignPickerOpen] = useState(false)
   const [secondaryPickerOpen, setSecondaryPickerOpen] = useState(false)
   const [secondaryName, setSecondaryName] = useState<string | null>(null)
@@ -130,11 +137,12 @@ export function CategorySpotlightSectionForm({
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <Field>
-          <Label htmlFor="spotlight-primary-category">دسته‌بندی اصلی</Label>
+          <Label htmlFor={primaryId}>دسته‌بندی اصلی</Label>
           <Select
-            id="spotlight-primary-category"
+            id={primaryId}
             value={categoryId}
             disabled={disabled || categories.length === 0}
+            invalid={Boolean(categoryError || primaryInvalid)}
             onChange={(event) =>
               onSettingsChange({
                 ...section.settings,
@@ -158,16 +166,27 @@ export function CategorySpotlightSectionForm({
               تا زمانی که کمپین دسته‌بندی نداشته باشد، این بخش معتبر نیست.
             </Text>
           )}
-          {(categoryError || primaryInvalid) && (
-            <Text className="text-sm text-danger">
-              {categoryError ??
-                'دسته‌بندی اصلی باید یکی از دسته‌بندی‌های کمپین باشد.'}
-            </Text>
-          )}
+          <FieldErrorMessage
+            id={primaryErrorId}
+            message={
+              categoryError ??
+              (primaryInvalid
+                ? 'دسته‌بندی اصلی باید یکی از دسته‌بندی‌های کمپین باشد.'
+                : null)
+            }
+          />
         </Field>
 
-        <Field>
-          <Label>دسته‌بندی ثانویه (اختیاری)</Label>
+        <Field
+          role="group"
+          aria-labelledby={secondaryLabelId}
+          aria-describedby={
+            secondaryFieldError || secondarySameAsPrimary
+              ? secondaryErrorId
+              : undefined
+          }
+        >
+          <Label id={secondaryLabelId}>دسته‌بندی ثانویه (اختیاری)</Label>
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-2">
               <Button
@@ -201,12 +220,15 @@ export function CategorySpotlightSectionForm({
                 : 'بدون دسته‌بندی ثانویه'}
             </Text>
             {secondaryError && <InlineError message={secondaryError} />}
-            {(secondaryFieldError || secondarySameAsPrimary) && (
-              <Text className="text-sm text-danger">
-                {secondaryFieldError ??
-                  'دسته‌بندی ثانویه باید با دسته‌بندی اصلی متفاوت باشد.'}
-              </Text>
-            )}
+            <FieldError
+              id={secondaryErrorId}
+              message={
+                secondaryFieldError ??
+                (secondarySameAsPrimary
+                  ? 'دسته‌بندی ثانویه باید با دسته‌بندی اصلی متفاوت باشد.'
+                  : null)
+              }
+            />
             {secondarySameAsPrimary && !secondaryFieldError && (
               <StatusBadge tone="danger">
                 دسته‌بندی ثانویه با اصلی یکسان است
@@ -216,9 +238,7 @@ export function CategorySpotlightSectionForm({
         </Field>
       </div>
 
-      {campaignError && (
-        <Text className="text-sm text-danger">{campaignError}</Text>
-      )}
+      <FieldError id={campaignErrorId} message={campaignError} />
 
       <HomepageCampaignPickerDialog
         open={campaignPickerOpen}

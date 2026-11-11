@@ -186,6 +186,15 @@ describe('HomepagePublicationRollbackDialog (SS-281)', () => {
         }) as HTMLButtonElement
       ).disabled,
     ).toBe(true)
+
+    const statuses = screen.getAllByRole('status')
+    expect(statuses).toHaveLength(1)
+    expect(statuses[0]!.textContent).toContain('بازگردانی انجام نشد')
+    expect(statuses[0]!.textContent).toContain('۱ خطا')
+    expect(statuses[0]!.textContent).not.toContain(
+      'رسانه این بخش در دسترس نیست.',
+    )
+    expect(screen.queryByRole('alert')).toBeNull()
   })
 
   it('shows ambiguous failures without retrying or refreshing falsely', async () => {
@@ -200,8 +209,8 @@ describe('HomepagePublicationRollbackDialog (SS-281)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'بازگردانی نسخه' }))
     await waitFor(() =>
       expect(
-        screen.getByText(/ممکن است بازگردانی انجام شده باشد/),
-      ).toBeTruthy(),
+        screen.getAllByText(/ممکن است بازگردانی انجام شده باشد/).length,
+      ).toBeGreaterThan(0),
     )
     expect(rollback).toHaveBeenCalledTimes(1)
     expect(onConflict).not.toHaveBeenCalled()

@@ -1,7 +1,6 @@
-import { Link } from 'react-router-dom'
 import type { MerchCampaignDto } from '@sabz/types'
-import { Button } from '../../catalyst/button'
 import { Text } from '../../catalyst/text'
+import { LinkButton } from '../../ui/link-button'
 import { formatDateTime } from '../../../lib/format'
 import { formatTehranDateTime } from '../../../lib/tehran-time'
 import { MERCH_CAMPAIGN_SCHEDULE_STATUS_LABELS } from '../../../lib/merchandising-labels'
@@ -116,9 +115,9 @@ export function CampaignUsagePanel({
 
         {hasUsage && (
           <div className="mt-3">
-            <Link to="/merchandising/publications">
-              <Button outline>مشاهده انتشارهای صفحه اصلی</Button>
-            </Link>
+            <LinkButton to="/merchandising/publications" outline>
+              مشاهده انتشارهای صفحه اصلی
+            </LinkButton>
           </div>
         )}
       </div>

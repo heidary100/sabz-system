@@ -34,7 +34,7 @@ export function MerchTabs() {
           end={tab.end}
           className={({ isActive }) =>
             clsx(
-              'flex shrink-0 items-center rounded-lg px-3 py-2 text-sm font-semibold transition-colors',
+              'focus-ring flex min-h-11 shrink-0 items-center rounded-lg px-3 py-2 text-sm font-semibold transition-colors',
               isActive
                 ? 'bg-primary-subtle text-primary shadow-[inset_0_0_0_1px_var(--color-primary-border)]'
                 : 'text-muted hover:bg-primary-subtle/60 hover:text-primary',

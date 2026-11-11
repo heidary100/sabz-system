@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import type {
   BrandShowcaseSection,
   HomepageValidationIssue,
@@ -6,9 +6,10 @@ import type {
 import { MERCH_BRAND_SHOWCASE_MAX_BRANDS, MERCH_BRAND_SHOWCASE_MAX_PRODUCTS_PER_BRAND } from '@sabz/types'
 import { Plus } from 'lucide-react'
 import { Button } from '../../catalyst/button'
-import { Field, Label } from '../../catalyst/fieldset'
+import { Description, Field, Label } from '../../catalyst/fieldset'
 import { Input } from '../../catalyst/input'
 import { Text } from '../../catalyst/text'
+import { FieldError, FieldErrorMessage } from '../../ui/field-error'
 import { InlineError } from '../../ui/inline-error'
 import { StatusBadge } from '../../ui/status-badge'
 import { useMerchCampaignDetails } from '../../../hooks/use-merch-campaign-details'
@@ -32,6 +33,11 @@ export function BrandShowcaseSectionForm({
   disabled?: boolean
   onSettingsChange: (settings: BrandShowcaseSection['settings']) => void
 }) {
+  const uid = useId()
+  const productsId = `brand-showcase-${uid}-products-per-brand`
+  const productsDescriptionId = `${productsId}-description`
+  const productsErrorId = `${productsId}-error`
+  const campaignErrorId = `brand-showcase-${uid}-campaign-error`
   const [pickerOpen, setPickerOpen] = useState(false)
   const { campaignId, productsPerBrand } = section.settings
   const { details, loading, errors } = useMerchCampaignDetails(
@@ -60,7 +66,12 @@ export function BrandShowcaseSectionForm({
             کمپین را تغییر نمی‌دهد.
           </Text>
         </div>
-        <Button outline disabled={disabled} onClick={() => setPickerOpen(true)}>
+        <Button
+          outline
+          disabled={disabled}
+          aria-describedby={campaignError ? campaignErrorId : undefined}
+          onClick={() => setPickerOpen(true)}
+        >
           <Plus data-slot="icon" />
           {campaignId ? 'تغییر کمپین' : 'انتخاب کمپین'}
         </Button>
@@ -111,16 +122,15 @@ export function BrandShowcaseSectionForm({
       ) : null}
 
       <Field>
-        <Label htmlFor="brand-showcase-products-per-brand">
-          تعداد محصول هر برند
-        </Label>
+        <Label htmlFor={productsId}>تعداد محصول هر برند</Label>
         <Input
-          id="brand-showcase-products-per-brand"
+          id={productsId}
           type="number"
           min={1}
           max={MERCH_BRAND_SHOWCASE_MAX_PRODUCTS_PER_BRAND}
           value={productsPerBrand}
           disabled={disabled}
+          invalid={Boolean(productsError)}
           onChange={(event) =>
             onSettingsChange({
               ...section.settings,
@@ -128,17 +138,13 @@ export function BrandShowcaseSectionForm({
             })
           }
         />
-        <Text className="text-xs text-muted">
+        <Description className="text-xs text-muted" id={productsDescriptionId}>
           ۱ تا {MERCH_BRAND_SHOWCASE_MAX_PRODUCTS_PER_BRAND.toLocaleString('fa-IR')} محصول
-        </Text>
-        {productsError && (
-          <Text className="text-sm text-danger">{productsError}</Text>
-        )}
+        </Description>
+        <FieldErrorMessage id={productsErrorId} message={productsError} />
       </Field>
 
-      {campaignError && (
-        <Text className="text-sm text-danger">{campaignError}</Text>
-      )}
+      <FieldError id={campaignErrorId} message={campaignError} />
 
       <HomepageCampaignPickerDialog
         open={pickerOpen}

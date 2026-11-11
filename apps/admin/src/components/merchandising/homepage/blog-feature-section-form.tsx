@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import type {
   BlogFeatureSection,
   HomepageValidationIssue,
@@ -6,20 +6,17 @@ import type {
 import { MERCH_BLOG_FEATURE_MAX_POSTS } from '@sabz/types'
 import { ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react'
 import { Button } from '../../catalyst/button'
-import { Field, Label } from '../../catalyst/fieldset'
+import { Description, Field, Label } from '../../catalyst/fieldset'
 import { Input } from '../../catalyst/input'
 import { Select } from '../../catalyst/select'
 import { Text } from '../../catalyst/text'
+import { FieldError, FieldErrorMessage } from '../../ui/field-error'
 import { InlineError } from '../../ui/inline-error'
 import { StatusBadge } from '../../ui/status-badge'
 import { useBlogPostDetails } from '../../../hooks/use-blog-post-details'
 import { firstValidationMessage } from '../../../lib/merchandising-homepage'
 import { formatDate } from '../../../lib/format'
 import { HomepageBlogPickerDialog } from './homepage-blog-picker-dialog'
-
-function FieldError({ message }: { message: string | null }) {
-  return message ? <Text className="text-sm text-danger">{message}</Text> : null
-}
 
 export function BlogFeatureSectionForm({
   section,
@@ -34,6 +31,13 @@ export function BlogFeatureSectionForm({
   disabled?: boolean
   onSettingsChange: (settings: BlogFeatureSection['settings']) => void
 }) {
+  const uid = useId()
+  const modeId = `blog-feature-${uid}-mode`
+  const modeErrorId = `${modeId}-error`
+  const limitId = `blog-feature-${uid}-limit`
+  const limitDescriptionId = `${limitId}-description`
+  const limitErrorId = `${limitId}-error`
+  const postIdsErrorId = `blog-feature-${uid}-post-ids-error`
   const [pickerOpen, setPickerOpen] = useState(false)
   const settings = section.settings
   const postIds = settings.source === 'manual' ? settings.postIds : []
@@ -62,11 +66,12 @@ export function BlogFeatureSectionForm({
     <div className="space-y-4">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-[14rem_minmax(0,1fr)]">
         <Field>
-          <Label htmlFor="blog-feature-mode">حالت انتخاب مطالب</Label>
+          <Label htmlFor={modeId}>حالت انتخاب مطالب</Label>
           <Select
-            id="blog-feature-mode"
+            id={modeId}
             value={settings.source}
             disabled={disabled}
+            invalid={Boolean(modeError)}
             onChange={(event) => {
               const source = event.target.value
               if (source === 'latest') {
@@ -79,21 +84,20 @@ export function BlogFeatureSectionForm({
             <option value="latest">آخرین مطالب منتشرشده</option>
             <option value="manual">انتخاب دستی مطالب</option>
           </Select>
-          {modeError && (
-            <Text className="text-sm text-danger">{modeError}</Text>
-          )}
+          <FieldErrorMessage id={modeErrorId} message={modeError} />
         </Field>
 
         {settings.source === 'latest' ? (
           <Field>
-            <Label htmlFor="blog-feature-limit">تعداد مطالب</Label>
+            <Label htmlFor={limitId}>تعداد مطالب</Label>
             <Input
-              id="blog-feature-limit"
+              id={limitId}
               type="number"
               min={1}
               max={MERCH_BLOG_FEATURE_MAX_POSTS}
               value={settings.limit}
               disabled={disabled}
+              invalid={Boolean(limitError)}
               onChange={(event) =>
                 onSettingsChange({
                   source: 'latest',
@@ -101,11 +105,11 @@ export function BlogFeatureSectionForm({
                 })
               }
             />
-            <Text className="text-xs text-muted">
+            <Description className="text-xs text-muted" id={limitDescriptionId}>
               ۱ تا {MERCH_BLOG_FEATURE_MAX_POSTS.toLocaleString('fa-IR')} مطلب
               منتشرشده جدید.
-            </Text>
-            <FieldError message={limitError} />
+            </Description>
+            <FieldErrorMessage id={limitErrorId} message={limitError} />
           </Field>
         ) : (
           <div className="space-y-2">
@@ -126,21 +130,23 @@ export function BlogFeatureSectionForm({
                   disabled ||
                   postIds.length >= MERCH_BLOG_FEATURE_MAX_POSTS
                 }
+                aria-describedby={postIdsError ? postIdsErrorId : undefined}
                 onClick={() => setPickerOpen(true)}
               >
                 <Plus data-slot="icon" />
                 افزودن مطلب
               </Button>
             </div>
-            {postIdsError && (
-              <Text className="text-sm text-danger">{postIdsError}</Text>
-            )}
+            <FieldError id={postIdsErrorId} message={postIdsError} />
             {postIds.length === 0 ? (
               <Text className="rounded-xl border border-dashed border-border bg-background/50 px-4 py-6 text-center text-sm text-warning">
                 حداقل یک مطلب منتشرشده انتخاب کنید.
               </Text>
             ) : (
-              <ol className="divide-y divide-border rounded-xl border border-border bg-background/40">
+              <ol
+                aria-describedby={postIdsError ? postIdsErrorId : undefined}
+                className="divide-y divide-border rounded-xl border border-border bg-background/40"
+              >
                 {postIds.map((postId, index) => {
                   const displayIndex = (index + 1).toLocaleString('fa-IR')
                   const detail = details[postId]

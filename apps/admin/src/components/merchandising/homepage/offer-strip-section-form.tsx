@@ -1,13 +1,14 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import type {
   HomepageValidationIssue,
   OfferStripSection,
 } from '@sabz/types'
 import { Plus } from 'lucide-react'
 import { Button } from '../../catalyst/button'
-import { Field, Label } from '../../catalyst/fieldset'
+import { Description, Field, Label } from '../../catalyst/fieldset'
 import { Select } from '../../catalyst/select'
 import { Text } from '../../catalyst/text'
+import { FieldError, FieldErrorMessage } from '../../ui/field-error'
 import { InlineError } from '../../ui/inline-error'
 import { StatusBadge } from '../../ui/status-badge'
 import { useMerchCampaignDetails } from '../../../hooks/use-merch-campaign-details'
@@ -28,6 +29,11 @@ export function OfferStripSectionForm({
   disabled?: boolean
   onSettingsChange: (settings: OfferStripSection['settings']) => void
 }) {
+  const uid = useId()
+  const fallbackId = `offer-strip-${uid}-fallback`
+  const fallbackDescriptionId = `${fallbackId}-description`
+  const fallbackErrorId = `${fallbackId}-error`
+  const campaignErrorId = `offer-strip-${uid}-campaign-error`
   const [pickerOpen, setPickerOpen] = useState(false)
   const { campaignId, fallback } = section.settings
   const { details, loading, errors } = useMerchCampaignDetails(
@@ -49,7 +55,12 @@ export function OfferStripSectionForm({
             این فرم تغییر نمی‌کنند.
           </Text>
         </div>
-        <Button outline disabled={disabled} onClick={() => setPickerOpen(true)}>
+        <Button
+          outline
+          disabled={disabled}
+          aria-describedby={campaignError ? campaignErrorId : undefined}
+          onClick={() => setPickerOpen(true)}
+        >
           <Plus data-slot="icon" />
           {campaignId ? 'تغییر کمپین' : 'انتخاب کمپین'}
         </Button>
@@ -86,11 +97,12 @@ export function OfferStripSectionForm({
       ) : null}
 
       <Field>
-        <Label htmlFor="offer-strip-fallback">رفتار جایگزین</Label>
+        <Label htmlFor={fallbackId}>رفتار جایگزین</Label>
         <Select
-          id="offer-strip-fallback"
+          id={fallbackId}
           value={fallback}
           disabled={disabled}
+          invalid={Boolean(fallbackError)}
           onChange={(event) =>
             onSettingsChange({
               ...section.settings,
@@ -101,18 +113,17 @@ export function OfferStripSectionForm({
           <option value="featured">نمایش محصولات منتخب</option>
           <option value="hide">پنهان کردن بخش</option>
         </Select>
-        <Text className="text-xs text-muted">
+        <Description className="text-xs text-muted" id={fallbackDescriptionId}>
           «نمایش محصولات منتخب» وقتی پیشنهاد فعالی وجود ندارد محصولات منتخب را
           نشان می‌دهد؛ «پنهان کردن بخش» نوار را در آن حالت نمایش نمی‌دهد.
-        </Text>
-        {fallbackError && (
-          <Text className="text-sm text-danger">{fallbackError}</Text>
-        )}
+        </Description>
+        <FieldErrorMessage
+          id={fallbackErrorId}
+          message={fallbackError}
+        />
       </Field>
 
-      {campaignError && (
-        <Text className="text-sm text-danger">{campaignError}</Text>
-      )}
+      <FieldError id={campaignErrorId} message={campaignError} />
 
       <HomepageCampaignPickerDialog
         open={pickerOpen}

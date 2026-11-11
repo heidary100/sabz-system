@@ -4,14 +4,18 @@ export function Loading({
   label,
   className,
   compact = false,
+  announce = true,
 }: {
   label?: string
   className?: string
   compact?: boolean
+  /** Set false when a parent already provides the single live announcement. */
+  announce?: boolean
 }) {
   return (
     <div
-      role="status"
+      role={announce ? 'status' : undefined}
+      aria-live={announce ? undefined : 'off'}
       className={clsx(
         className,
         compact

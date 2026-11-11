@@ -74,6 +74,37 @@ describe('MerchMediaUploadDialog (SS-274)', () => {
     await waitFor(() => expect(onSuccess).toHaveBeenCalledWith(uploaded))
   })
 
+  it('exposes progressbar semantics and a single stable upload announcement', async () => {
+    let resolveUpload: (value: MerchMediaSummaryDto) => void = () => {}
+    mockUpload.mockImplementation((_file, options) => {
+      options?.onProgress?.(42)
+      return new Promise((resolve) => {
+        resolveUpload = resolve
+      })
+    })
+    render(
+      <MerchMediaUploadDialog open onClose={() => {}} onSuccess={() => {}} />,
+    )
+
+    const file = new File(['image'], 'hero.png', { type: 'image/png' })
+    fireEvent.change(screen.getByLabelText('فایل تصویر'), {
+      target: { files: [file] },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'بارگذاری' }))
+
+    const progressbar = screen.getByRole('progressbar', {
+      name: 'پیشرفت بارگذاری تصویر',
+    })
+    expect(progressbar.getAttribute('aria-valuemin')).toBe('0')
+    expect(progressbar.getAttribute('aria-valuemax')).toBe('100')
+    expect(progressbar.getAttribute('aria-valuenow')).toBe('42')
+    expect(screen.getByRole('status').textContent).toContain(
+      'بارگذاری تصویر آغاز شد.',
+    )
+
+    await act(async () => resolveUpload(uploaded))
+  })
+
   it('rejects unsupported file types before upload', () => {
     render(
       <MerchMediaUploadDialog
@@ -95,6 +126,16 @@ describe('MerchMediaUploadDialog (SS-274)', () => {
       (screen.getByRole('button', { name: 'بارگذاری' }) as HTMLButtonElement)
         .disabled,
     ).toBe(true)
+
+    const input = screen.getByLabelText('فایل تصویر') as HTMLInputElement
+    expect(input.getAttribute('aria-invalid')).toBe('true')
+    const describedBy = input.getAttribute('aria-describedby')
+    expect(describedBy).toBeTruthy()
+    const describedText = describedBy!
+      .split(' ')
+      .map((id) => document.getElementById(id)?.textContent ?? '')
+      .join(' ')
+    expect(describedText).toContain('فقط تصویر JPG، PNG و WEBP مجاز است.')
   })
 
   it('rejects oversized images before upload', () => {

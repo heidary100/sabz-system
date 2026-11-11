@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import type {
   BrandSummary,
   CategoryTreeNode,
@@ -6,6 +6,7 @@ import type {
 } from '@sabz/types'
 import { Button } from '../../catalyst/button'
 import { Text } from '../../catalyst/text'
+import { FieldError } from '../../ui/field-error'
 import {
   MERCH_CAMPAIGN_MAX_BRANDS,
   MERCH_CAMPAIGN_MAX_CATEGORIES,
@@ -47,6 +48,10 @@ export function CampaignSelectionsPanel({
   onAddCategory: (category: CategoryTreeNode) => void
   onAddBrand: (brand: BrandSummary) => void
 }) {
+  const uid = useId()
+  const productsErrorId = `campaign-selections-${uid}-products-error`
+  const categoriesErrorId = `campaign-selections-${uid}-categories-error`
+  const brandsErrorId = `campaign-selections-${uid}-brands-error`
   const [picker, setPicker] = useState<Picker>(null)
 
   const updateIds = (
@@ -119,7 +124,11 @@ export function CampaignSelectionsPanel({
           </div>
           <Button
             outline
+            data-add-control
             disabled={disabled || products.length >= MERCH_CAMPAIGN_MAX_PRODUCTS}
+            aria-describedby={
+              errors.products ? productsErrorId : undefined
+            }
             onClick={() => setPicker('product')}
           >
             افزودن محصول
@@ -129,12 +138,11 @@ export function CampaignSelectionsPanel({
           items={products}
           emptyLabel="محصولی انتخاب نشده است."
           disabled={disabled}
+          describedBy={errors.products ? productsErrorId : undefined}
           onMove={(id, direction) => move('productIds', id, direction)}
           onRemove={(id) => remove('productIds', id)}
         />
-        {errors.products && (
-          <Text className="text-sm text-danger">{errors.products}</Text>
-        )}
+        <FieldError id={productsErrorId} message={errors.products} />
       </section>
 
       <section className="space-y-3">
@@ -150,8 +158,12 @@ export function CampaignSelectionsPanel({
           </div>
           <Button
             outline
+            data-add-control
             disabled={
               disabled || categories.length >= MERCH_CAMPAIGN_MAX_CATEGORIES
+            }
+            aria-describedby={
+              errors.categories ? categoriesErrorId : undefined
             }
             onClick={() => setPicker('category')}
           >
@@ -162,12 +174,11 @@ export function CampaignSelectionsPanel({
           items={categories}
           emptyLabel="دسته‌بندی‌ای انتخاب نشده است."
           disabled={disabled}
+          describedBy={errors.categories ? categoriesErrorId : undefined}
           onMove={(id, direction) => move('categoryIds', id, direction)}
           onRemove={(id) => remove('categoryIds', id)}
         />
-        {errors.categories && (
-          <Text className="text-sm text-danger">{errors.categories}</Text>
-        )}
+        <FieldError id={categoriesErrorId} message={errors.categories} />
       </section>
 
       <section className="space-y-3">
@@ -184,7 +195,9 @@ export function CampaignSelectionsPanel({
           </div>
           <Button
             outline
+            data-add-control
             disabled={disabled || brands.length >= MERCH_CAMPAIGN_MAX_BRANDS}
+            aria-describedby={errors.brands ? brandsErrorId : undefined}
             onClick={() => setPicker('brand')}
           >
             افزودن برند
@@ -194,12 +207,11 @@ export function CampaignSelectionsPanel({
           items={brands}
           emptyLabel="برندی انتخاب نشده است."
           disabled={disabled}
+          describedBy={errors.brands ? brandsErrorId : undefined}
           onMove={(id, direction) => move('brandIds', id, direction)}
           onRemove={(id) => remove('brandIds', id)}
         />
-        {errors.brands && (
-          <Text className="text-sm text-danger">{errors.brands}</Text>
-        )}
+        <FieldError id={brandsErrorId} message={errors.brands} />
       </section>
 
       <CampaignProductPickerDialog

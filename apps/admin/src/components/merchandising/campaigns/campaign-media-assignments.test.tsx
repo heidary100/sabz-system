@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { useState } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { MerchMediaSummaryDto } from '@sabz/types'
 import { CampaignMediaAssignments } from './campaign-media-assignments'
@@ -163,5 +164,92 @@ describe('CampaignMediaAssignments (SS-275)', () => {
     expect(
       screen.getByText('متن جایگزین بیش از حد طولانی است.'),
     ).toBeTruthy()
+  })
+
+  it('associates assignment errors and keeps the alt description', () => {
+    render(
+      <CampaignMediaAssignments
+        value={[assignment('media-1', 'HERO_DESKTOP')]}
+        maxMedia={4}
+        errors={[
+          {
+            altFa: 'متن جایگزین بیش از حد طولانی است.',
+            focalX: 'نقطه کانونی افقی نامعتبر است.',
+          },
+        ]}
+        onChange={() => {}}
+      />,
+    )
+
+    const alt = screen.getByLabelText(
+      'متن جایگزین تخصیص (اختیاری)',
+    ) as HTMLInputElement
+    expect(alt.getAttribute('aria-invalid')).toBe('true')
+    const altTexts = alt
+      .getAttribute('aria-describedby')!
+      .split(' ')
+      .map((id) => document.getElementById(id)?.textContent ?? '')
+    expect(altTexts).toContain('متن جایگزین بیش از حد طولانی است.')
+    expect(altTexts.some((text) => text.includes('کاراکتر'))).toBe(true)
+
+    const focalX = screen.getByLabelText(
+      'نقطه کانونی افقی',
+    ) as HTMLInputElement
+    expect(focalX.getAttribute('aria-invalid')).toBe('true')
+    expect(
+      document.getElementById(focalX.getAttribute('aria-describedby')!)
+        ?.textContent,
+    ).toBe('نقطه کانونی افقی نامعتبر است.')
+  })
+
+  it('moves focus to a surviving assignment after removal', async () => {
+    const initial = [
+      assignment('media-1', 'HERO_DESKTOP'),
+      assignment('media-2', 'BANNER'),
+    ]
+
+    function ControlledAssignments() {
+      const [value, setValue] = useState(initial)
+      return (
+        <CampaignMediaAssignments
+          value={value}
+          maxMedia={4}
+          onChange={setValue}
+        />
+      )
+    }
+
+    render(<ControlledAssignments />)
+    fireEvent.click(screen.getByRole('button', { name: 'حذف media-1.png' }))
+
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        screen.getByRole('button', { name: 'حذف media-2.png' }),
+      ),
+    )
+  })
+
+  it('focuses the add-media control after removing the last assignment', async () => {
+    function ControlledAssignments() {
+      const [value, setValue] = useState([
+        assignment('media-1', 'HERO_DESKTOP'),
+      ])
+      return (
+        <CampaignMediaAssignments
+          value={value}
+          maxMedia={4}
+          onChange={setValue}
+        />
+      )
+    }
+
+    render(<ControlledAssignments />)
+    fireEvent.click(screen.getByRole('button', { name: 'حذف media-1.png' }))
+
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        screen.getByRole('button', { name: 'افزودن رسانه' }),
+      ),
+    )
   })
 })

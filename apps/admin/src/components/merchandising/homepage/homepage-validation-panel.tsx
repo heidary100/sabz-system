@@ -64,6 +64,7 @@ function IssueList({
 
 export function HomepageValidationPanel({
   validation,
+  validationRun = 0,
   target,
   outdated,
   validationError,
@@ -71,6 +72,7 @@ export function HomepageValidationPanel({
   onSelectSection,
 }: {
   validation: HomepageDraftValidationResult | null
+  validationRun?: number
   target: HomepageValidationTarget | null
   outdated: boolean
   validationError: string | null
@@ -112,6 +114,12 @@ export function HomepageValidationPanel({
     target === 'local'
       ? 'تغییرات محلی ارسال‌شده برای اعتبارسنجی (بدون ذخیره)'
       : 'نسخه ذخیره‌شده روی سرور'
+  const validationSummary =
+    grouping.errorCount === 0 && grouping.warningCount === 0
+      ? 'اعتبارسنجی کامل شد؛ خطا یا هشداری یافت نشد.'
+      : `اعتبارسنجی کامل شد؛ ${grouping.errorCount.toLocaleString(
+          'fa-IR',
+        )} خطا و ${grouping.warningCount.toLocaleString('fa-IR')} هشدار یافت شد.`
 
   return (
     <section
@@ -146,11 +154,18 @@ export function HomepageValidationPanel({
         </div>
       </div>
 
+      <p
+        key={validationRun}
+        role="status"
+        aria-live="polite"
+        data-validation-run={validationRun}
+        className="rounded-lg border border-border bg-background/40 px-3 py-2 text-sm text-foreground"
+      >
+        {validationSummary}
+      </p>
+
       {outdated && (
-        <p
-          role="status"
-          className="rounded-lg bg-warning-subtle px-3 py-2 text-sm text-warning"
-        >
+        <p className="rounded-lg bg-warning-subtle px-3 py-2 text-sm text-warning">
           این نتیجه برای ویرایش‌های فعلی به‌روز نیست؛ پس از تغییر بخش‌ها دوباره
           اعتبارسنجی کنید.
         </p>

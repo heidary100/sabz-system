@@ -204,6 +204,10 @@ describe('MerchandisingOverviewPage (SS-282)', () => {
     expect(screen.getByText('در حال بارگذاری پیش‌نویس صفحه اصلی…')).toBeTruthy()
     expect(screen.getByText('در حال بارگذاری کمپین‌ها…')).toBeTruthy()
     expect(screen.getByText('در حال بارگذاری رسانه‌ها…')).toBeTruthy()
+
+    const statuses = screen.getAllByRole('status')
+    expect(statuses).toHaveLength(1)
+    expect(statuses[0]!.textContent).toBe('در حال بارگذاری وضعیت بازاریابی…')
   })
 
   it('renders empty states without hiding other sections', () => {

@@ -41,6 +41,7 @@ export function useHomepageDraft() {
   const [validating, setValidating] = useState(false)
   const [validation, setValidation] =
     useState<HomepageDraftValidationResult | null>(null)
+  const [validationRun, setValidationRun] = useState(0)
   const [validationTarget, setValidationTarget] =
     useState<HomepageValidationTarget | null>(null)
   const [validationDocumentKey, setValidationDocumentKey] = useState<
@@ -108,6 +109,7 @@ export function useHomepageDraft() {
   const applyValidationResult = useCallback(
     (result: HomepageDraftValidationResult): void => {
       setValidation(result)
+      setValidationRun((run) => run + 1)
       setValidationTarget('server')
       setValidationDocumentKey(JSON.stringify(sections))
       setValidationError(null)
@@ -188,6 +190,7 @@ export function useHomepageDraft() {
           : { revision: serverDraft.revision },
       )
       setValidation(result)
+      setValidationRun((run) => run + 1)
       setValidationTarget(target)
       setValidationDocumentKey(documentKey)
       if (result.revision !== serverDraft.revision) {
@@ -237,6 +240,7 @@ export function useHomepageDraft() {
     conflict,
     validating,
     validation,
+    validationRun,
     validationTarget,
     validationOutdated,
     validationError,

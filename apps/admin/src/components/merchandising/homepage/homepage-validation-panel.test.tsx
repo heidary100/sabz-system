@@ -73,6 +73,59 @@ describe('HomepageValidationPanel (SS-276)', () => {
     expect(screen.getByText('مسیر ناشناخته.')).toBeTruthy()
   })
 
+  it('announces exactly one concise validation summary outside the issue list', () => {
+    render(
+      <HomepageValidationPanel
+        validation={validation}
+        target="local"
+        outdated
+        validationError={null}
+        sections={sections}
+        onSelectSection={() => {}}
+      />,
+    )
+
+    const statuses = screen.getAllByRole('status')
+    expect(statuses).toHaveLength(1)
+    expect(statuses[0]!.textContent).toBe(
+      'اعتبارسنجی کامل شد؛ ۲ خطا و ۱ هشدار یافت شد.',
+    )
+    expect(statuses[0]!.textContent).not.toContain('عنوان آیتم الزامی است.')
+    expect(screen.getByText('عنوان آیتم الزامی است.').closest('[role="status"]')).toBeNull()
+  })
+
+  it('re-announces completion for a repeat run with identical counts', () => {
+    const { rerender } = render(
+      <HomepageValidationPanel
+        validation={validation}
+        validationRun={1}
+        target="local"
+        outdated={false}
+        validationError={null}
+        sections={sections}
+        onSelectSection={() => {}}
+      />,
+    )
+    const first = screen.getByRole('status')
+    expect(first.getAttribute('data-validation-run')).toBe('1')
+
+    rerender(
+      <HomepageValidationPanel
+        validation={validation}
+        validationRun={2}
+        target="local"
+        outdated={false}
+        validationError={null}
+        sections={sections}
+        onSelectSection={() => {}}
+      />,
+    )
+    const second = screen.getByRole('status')
+    expect(second).not.toBe(first)
+    expect(second.getAttribute('data-validation-run')).toBe('2')
+    expect(second.textContent).toBe(first.textContent)
+  })
+
   it('marks outdated results and distinguishes server validation', () => {
     render(
       <HomepageValidationPanel

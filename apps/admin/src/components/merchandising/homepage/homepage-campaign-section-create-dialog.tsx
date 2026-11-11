@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import {
   MERCH_BRAND_SHOWCASE_MAX_BRANDS,
   MERCH_CATEGORY_DISCOVERY_MAX_CATEGORIES,
@@ -17,6 +17,7 @@ import { Button } from '../../catalyst/button'
 import { Field, Label } from '../../catalyst/fieldset'
 import { Select } from '../../catalyst/select'
 import { Text } from '../../catalyst/text'
+import { FieldErrorMessage } from '../../ui/field-error'
 import { InlineError } from '../../ui/inline-error'
 import { StatusBadge } from '../../ui/status-badge'
 import { useMerchCampaignDetails } from '../../../hooks/use-merch-campaign-details'
@@ -50,6 +51,9 @@ export function HomepageCampaignSectionCreateDialog({
   onClose: () => void
   onCreate: (settings: HomepageDraftSection['settings']) => string | null
 }) {
+  const uid = useId()
+  const primaryCategoryIdField = `homepage-create-${uid}-primary-category`
+  const primaryCategoryError = `homepage-create-${uid}-primary-category-error`
   const [primaryCategoryId, setPrimaryCategoryId] = useState('')
   const [error, setError] = useState<string | null>(null)
   const { details, loading, errors } = useMerchCampaignDetails(
@@ -160,13 +164,14 @@ export function HomepageCampaignSectionCreateDialog({
 
               {type === 'CATEGORY_SPOTLIGHT' && (
                 <Field>
-                  <Label htmlFor="homepage-create-primary-category">
+                  <Label htmlFor={primaryCategoryIdField}>
                     دسته‌بندی اصلی
                   </Label>
                   <Select
-                    id="homepage-create-primary-category"
+                    id={primaryCategoryIdField}
                     value={primaryCategoryId}
                     disabled={categoryCount === 0}
+                    invalid={categoryCount === 0}
                     onChange={(event) =>
                       setPrimaryCategoryId(event.target.value)
                     }
@@ -178,12 +183,14 @@ export function HomepageCampaignSectionCreateDialog({
                       </option>
                     ))}
                   </Select>
-                  {categoryCount === 0 && (
-                    <Text className="text-sm text-danger">
-                      برای ایجاد این بخش، کمپین باید حداقل یک دسته‌بندی داشته
-                      باشد.
-                    </Text>
-                  )}
+                  <FieldErrorMessage
+                    id={primaryCategoryError}
+                    message={
+                      categoryCount === 0
+                        ? 'برای ایجاد این بخش، کمپین باید حداقل یک دسته‌بندی داشته باشد.'
+                        : null
+                    }
+                  />
                 </Field>
               )}
 
