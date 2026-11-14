@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import type { TrustItem, TrustItemIcon } from '@/config/home';
+import type { MerchTrustIcon, MerchTrustItem } from '@sabz/types';
 
 /**
  * Trust strip (SS-215). Renders ONLY explicitly configured company claims —
@@ -8,7 +8,7 @@ import type { TrustItem, TrustItemIcon } from '@/config/home';
  * the home page shows no trust section at all.
  */
 
-const TRUST_ICONS: Record<TrustItemIcon, ReactNode> = {
+const TRUST_ICONS: Record<MerchTrustIcon, ReactNode> = {
   shield: (
     <svg viewBox="0 0 24 24" fill="none" strokeWidth={1.5} stroke="currentColor" aria-hidden="true" className="size-5">
       <path
@@ -47,7 +47,13 @@ const TRUST_ICONS: Record<TrustItemIcon, ReactNode> = {
   ),
 };
 
-export function TrustStrip({ items }: { items: TrustItem[] }) {
+export function TrustStrip({
+  items,
+  id = 'trust-heading',
+}: {
+  items: MerchTrustItem[]
+  id?: string
+}) {
   const visible = items.slice(0, 4);
   if (visible.length === 0) {
     return null;
@@ -55,11 +61,11 @@ export function TrustStrip({ items }: { items: TrustItem[] }) {
   return (
     <section
       data-home-section="trust"
-      aria-labelledby="trust-heading"
+      aria-labelledby={id}
       className="border-y border-border bg-surface"
     >
       <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6 lg:px-8">
-        <h2 id="trust-heading" className="sr-only">
+        <h2 id={id} className="sr-only">
           چرا سبز سیستم
         </h2>
         <ul

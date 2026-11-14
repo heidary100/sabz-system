@@ -3,47 +3,39 @@ import { describe, expect, it } from 'vitest';
 
 const source = readFileSync(new URL('./page.tsx', import.meta.url), 'utf8');
 
-describe('homepage composition', () => {
+describe('homepage composition boundary', () => {
   it('keeps the server page free of a client boundary', () => {
     expect(source.startsWith("'use client'")).toBe(false);
     expect(source).toContain('await connection()');
   });
 
-  it('renders the curated Task 04 section order', () => {
-    const order = [
-      '<HeroStage',
-      '<TrustStrip',
-      '<CategoryDiscovery',
-      '<OfferStrip',
-      '<SplitCampaign',
-      '<CompactProductList',
-      '<ProductRail',
-      '<BrandShowcase',
-      '<BlogTeaser',
-    ];
-    const indices = order.map((marker) => source.indexOf(marker));
-    for (const [index, marker] of order.entries()) {
-      expect(indices[index], `${marker} must be rendered`).toBeGreaterThan(-1);
-    }
-    expect(indices).toEqual([...indices].sort((a, b) => a - b));
+  it('uses the published homepage API as the only section source', () => {
+    expect(source).toContain('fetchPublishedHomepage()');
+    expect(source).toContain('<PublishedHomepage');
+    expect(source).toContain('<HomepageState');
   });
 
-  it('does not revive the superseded homepage sections', () => {
+  it('does not retain the old static homepage composition or queries', () => {
     for (const marker of [
-      '<CategoryBanners',
-      '<CategoryTile',
-      '<AppSection',
-      'alphabeticalLimit',
-      '<HeroSlider',
+      'homeConfig',
+      'fetchCategoryTree',
+      'fetchCategoryCovers',
+      'fetchProducts',
+      'productItems',
+      'HeroStage',
+      'SplitCampaign',
+      'BlogTeaser',
+      '<AnnouncementBar',
+      '<SaleBanner',
     ]) {
       expect(source).not.toContain(marker);
     }
   });
 
-  it('fetches every homepage collection server-side', () => {
-    expect(source).toContain('fetchCategoryTree()');
-    expect(source).toContain('fetchCategoryCovers(');
-    expect(source).toContain('fetchProducts(');
-    expect(source).toContain('productItems(');
+  it('covers every explicit API outcome', () => {
+    expect(source).toContain("result.status === 'published'");
+    expect(source).toContain("result.status === 'empty'");
+    expect(source).toContain('data-homepage-source="unavailable"');
+    expect(source).toContain('published-empty');
   });
 });

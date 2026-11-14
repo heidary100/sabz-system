@@ -131,19 +131,6 @@ export function earliestFuturePromotion(
   return future[0]?.value ?? null;
 }
 
-/** One featured story plus up to two compact companions, or null when empty. */
-export function splitBlogTeaser<T>(
-  posts: readonly T[],
-  secondaryLimit = 2,
-): { feature: T; secondary: T[] } | null {
-  if (posts.length === 0) {
-    return null;
-  }
-  return {
-    feature: posts[0]!,
-    secondary: posts.slice(1, 1 + Math.max(0, secondaryLimit)),
-  };
-}
 
 /** Resolved homepage commercial strip: real offers first, honest fallback. */
 export interface HomeOfferSelection {

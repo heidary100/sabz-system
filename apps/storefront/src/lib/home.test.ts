@@ -12,7 +12,6 @@ import {
   resolveFeaturedCategories,
   resolveHomeOffers,
   shouldShowSection,
-  splitBlogTeaser,
 } from './home';
 import {
   contactChannels,
@@ -502,25 +501,5 @@ describe('resolveHomeOffers', () => {
       now,
     );
     expect(result.products).toHaveLength(1);
-  });
-});
-
-describe('splitBlogTeaser', () => {
-  it('hides the teaser for an empty blog', () => {
-    expect(splitBlogTeaser([])).toBeNull();
-  });
-
-  it('uses a single story as the feature with no companions', () => {
-    expect(splitBlogTeaser(['a'])).toEqual({
-      feature: 'a',
-      secondary: [],
-    });
-  });
-
-  it('keeps one feature and at most two companions', () => {
-    expect(splitBlogTeaser(['a', 'b', 'c', 'd'])).toEqual({
-      feature: 'a',
-      secondary: ['b', 'c'],
-    });
   });
 });

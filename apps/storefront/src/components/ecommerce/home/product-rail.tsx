@@ -77,7 +77,7 @@ export function ProductRail({
   }
 
   const trackId = `${id}-track`;
-  const items = products.slice(0, 6);
+  const items = products;
 
   return (
     <section

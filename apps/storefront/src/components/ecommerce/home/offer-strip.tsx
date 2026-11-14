@@ -4,6 +4,7 @@ import { formatFaNumber } from '@/lib/format';
 import { ProductCardWithWishlist } from '@/components/ecommerce/wishlist/product-card-wishlist';
 import { SectionHeader } from '@/components/ecommerce/ui/section-header';
 import { CountdownTimer } from '@/components/ecommerce/ui/countdown-timer';
+import type { HomepageOfferHeading } from '@/lib/homepage-view';
 
 /**
  * Commercial strip (Task 04). Uses only products that are actually eligible:
@@ -18,36 +19,51 @@ export function OfferStrip({
   products,
   mode,
   endsAt = null,
+  heading,
+  id = 'offer-heading',
 }: {
   products: CatalogProductCardDto[];
   mode: 'offer' | 'featured';
   /** Earliest real, still-future promotion end among `products`. */
   endsAt?: string | null;
+  /** Published campaign copy; when supplied it replaces all static headings. */
+  heading?: HomepageOfferHeading;
+  id?: string;
 }) {
   const visible = products.slice(0, 6);
   if (visible.length === 0) {
     return null;
   }
   const isOffer = mode === 'offer';
+  const title = heading ? heading.title : isOffer ? 'پیشنهادهای منتخب' : 'منتخب فروشگاه';
+  const subtitle = heading
+    ? heading.subtitle
+    : isOffer
+      ? 'کالاهای موجود با قیمت ویژه'
+      : 'گزیده‌ای از کالاهای موجود در فروشگاه';
+  const actionLabel = heading ? heading.actionLabel : 'همه محصولات';
+  const actionHref = heading ? heading.actionHref : '/products';
 
   return (
     <section
       data-home-section="offer"
-      aria-labelledby="offer-heading"
+      aria-labelledby={id}
       className="border-y border-border bg-surface-2/60"
     >
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-14 lg:px-8">
-        <SectionHeader
-          id="offer-heading"
-          title={isOffer ? 'پیشنهادهای منتخب' : 'منتخب فروشگاه'}
-          subtitle={
-            isOffer
-              ? 'کالاهای موجود با قیمت ویژه'
-              : 'گزیده‌ای از کالاهای موجود در فروشگاه'
-          }
-          actionLabel="همه محصولات"
-          actionHref="/products"
-        />
+        {title ? (
+          <SectionHeader
+            id={id}
+            title={title}
+            subtitle={subtitle ?? undefined}
+            actionLabel={actionLabel ?? undefined}
+            actionHref={actionLabel ? (actionHref ?? undefined) : undefined}
+          />
+        ) : (
+          <h2 id={id} className="sr-only">
+            پیشنهادهای فروشگاه
+          </h2>
+        )}
 
         {isOffer ? (
           <p className="mt-3 text-xs text-fg-muted">
@@ -72,17 +88,11 @@ export function OfferStrip({
             className={`stage-surface flex flex-col justify-between rounded-panel border border-stage-border bg-stage p-5 text-on-stage sm:p-6 ${isOffer ? 'lg:col-span-2' : 'lg:col-span-1'}`}
           >
             <div>
-              <p className="text-[11px] font-semibold text-accent-stage">
-                {isOffer ? 'فرصت خرید' : 'انتخاب سردبیر'}
-              </p>
-              <h2 className="mt-2 text-xl font-extrabold leading-8 sm:text-2xl">
-                {isOffer ? 'قیمت‌های ویژه' : 'کالاهای منتخب'}
-              </h2>
-              <p className="mt-2 max-w-sm text-xs leading-6 text-on-stage-secondary">
-                {isOffer
-                  ? 'کالاهای دارای تخفیف واقعی و موجود در انبار.'
-                  : 'مجموعه‌ای محدود از کالاهای موجود برای شروع خرید.'}
-              </p>
+              {heading?.eyebrow ? (
+                <p className="text-[11px] font-semibold text-accent-stage">
+                  {heading.eyebrow}
+                </p>
+              ) : null}
 
               {endsAt ? (
                 <div
@@ -106,14 +116,14 @@ export function OfferStrip({
               </span>
             </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-3">
+            {!title && actionHref && actionLabel ? (
               <Link
-                href="/products"
-                className="inline-flex min-h-11 items-center justify-center rounded-control bg-on-stage px-4 text-xs font-bold text-stage transition-colors hover:bg-on-stage/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+                href={actionHref}
+                className="inline-flex min-h-11 w-fit items-center justify-center rounded-control bg-on-stage px-4 text-xs font-bold text-stage transition-colors hover:bg-on-stage/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
               >
-                مشاهده همه محصولات
+                {actionLabel}
               </Link>
-            </div>
+            ) : null}
           </aside>
         </div>
       </div>

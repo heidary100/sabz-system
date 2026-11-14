@@ -9,6 +9,10 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('@/lib/blog', () => ({
   fetchBlogPosts: mocks.fetch,
+  splitBlogTeaser: <T,>(posts: T[]) =>
+    posts.length === 0
+      ? null
+      : { feature: posts[0]!, secondary: posts.slice(1, 3) },
 }));
 
 vi.mock('next/link', () => ({

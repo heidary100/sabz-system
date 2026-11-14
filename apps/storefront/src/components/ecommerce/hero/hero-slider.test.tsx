@@ -40,28 +40,55 @@ import { HeroStage, type HeroStageSlide } from './hero-slider';
 
 const slides: HeroStageSlide[] = [
   {
+    eyebrow: null,
     title: 'کالای دیجیتال',
     subtitle: 'موبایل و لوازم جانبی',
     href: '/products',
     ctaLabel: 'مشاهده محصولات',
+    desktopImageUrl: null,
+    mobileImageUrl: null,
+    focalX: 50,
+    focalY: 50,
+    altFa: null,
     images: ['/media/a', '/media/b', '/media/c'],
   },
   {
+    eyebrow: null,
     title: 'کالای استوک',
+    subtitle: null,
     href: '/categories/stock-goods',
     ctaLabel: 'مشاهده کالای استوک',
+    desktopImageUrl: null,
+    mobileImageUrl: null,
+    focalX: 50,
+    focalY: 50,
+    altFa: null,
     images: ['/media/d'],
   },
   {
+    eyebrow: null,
     title: 'لوازم جانبی',
+    subtitle: null,
     href: '/categories/mobile-accessories',
     ctaLabel: 'مشاهده دسته‌بندی',
+    desktopImageUrl: null,
+    mobileImageUrl: null,
+    focalX: 50,
+    focalY: 50,
+    altFa: null,
     images: [],
   },
   {
+    eyebrow: null,
     title: 'اسلاید چهارم',
+    subtitle: null,
     href: '/products',
     ctaLabel: 'چهارم',
+    desktopImageUrl: null,
+    mobileImageUrl: null,
+    focalX: 50,
+    focalY: 50,
+    altFa: null,
     images: [],
   },
 ];
@@ -89,16 +116,9 @@ afterEach(() => {
 });
 
 describe('HeroStage', () => {
-  it('renders a polished static fallback when no slides exist', () => {
-    render(<HeroStage slides={[]} />);
-    expect(
-      screen.getByRole('heading', {
-        name: 'فروشگاه کالای دیجیتال سبز سیستم',
-      }),
-    ).toBeTruthy();
-    expect(
-      screen.getByRole('link', { name: 'مشاهده محصولات' }).getAttribute('href'),
-    ).toBe('/products');
+  it('renders nothing when the published hero has no slides', () => {
+    const { container } = render(<HeroStage slides={[]} />);
+    expect(container.firstChild).toBeNull();
   });
 
   it('caps configured slides at three and keeps real CTA destinations', () => {
@@ -111,6 +131,38 @@ describe('HeroStage', () => {
     expect(hrefs).toContain('/categories/stock-goods');
     expect(screen.queryByText('اسلاید چهارم')).toBeNull();
   });
+
+
+  it('renders published campaign media, alt text and optional CTA', () => {
+    const { container } = render(
+      <HeroStage
+        slides={[
+          {
+            eyebrow: null,
+            title: 'کمپین رسانه‌ای',
+            subtitle: null,
+            href: null,
+            ctaLabel: null,
+            desktopImageUrl: 'https://media.example/desktop.jpg',
+            mobileImageUrl: 'https://media.example/mobile.jpg',
+            focalX: 25,
+            focalY: 75,
+            altFa: 'تصویر کمپین',
+            images: [],
+          },
+        ]}
+      />,
+    )
+
+    const image = container.querySelector('img[alt="تصویر کمپین"]') as HTMLImageElement
+    expect(image).toBeTruthy()
+    expect(image.getAttribute('src')).toBe('https://media.example/mobile.jpg')
+    expect(
+      container.querySelector('source')?.getAttribute('srcset'),
+    ).toBe('https://media.example/desktop.jpg')
+    expect(image.style.objectPosition).toBe('25% 75%')
+    expect(screen.queryByRole('link')).toBeNull()
+  })
 
   it('renders active-slide controls with RTL accessible names', () => {
     render(<HeroStage slides={slides} />);

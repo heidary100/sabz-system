@@ -1,6 +1,5 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen } from '@testing-library/react';
-import type { CatalogCategoryNode } from '@sabz/types';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('next/link', () => ({
@@ -38,18 +37,13 @@ vi.mock('next/image', () => ({
 import { formatFaNumber } from '@/lib/format';
 import { CategoryDiscovery } from './category-discovery';
 
-function node(
-  slug: string,
-  count: number,
-  name = slug,
-): CatalogCategoryNode {
+function category(slug: string, count: number, name = slug) {
   return {
     id: slug,
     name,
     slug,
-    sortOrder: 0,
     publishedProductCount: count,
-    children: [],
+    coverUrl: null,
   };
 }
 
@@ -58,7 +52,7 @@ afterEach(cleanup);
 describe('CategoryDiscovery', () => {
   it('renders nothing for an empty category list', () => {
     const { container } = render(
-      <CategoryDiscovery categories={[]} covers={{}} />,
+      <CategoryDiscovery categories={[]} />,
     );
     expect(container.firstChild).toBeNull();
   });
@@ -66,8 +60,7 @@ describe('CategoryDiscovery', () => {
   it('hides categories with no published products', () => {
     const { container } = render(
       <CategoryDiscovery
-        categories={[node('empty', 0), node('phones', 12)]}
-        covers={{}}
+        categories={[category('empty', 0), category('phones', 12)]}
       />,
     );
     expect(
@@ -80,11 +73,10 @@ describe('CategoryDiscovery', () => {
     const { container } = render(
       <CategoryDiscovery
         categories={[
-          node('phones', 12, 'گوشی'),
-          node('audio', 7, 'صدا'),
-          node('games', 3, 'بازی'),
+          { ...category('phones', 12, 'گوشی'), coverUrl: '/media/phones' },
+          { ...category('audio', 7, 'صدا'), coverUrl: '/media/audio' },
+          category('games', 3, 'بازی'),
         ]}
-        covers={{ phones: '/media/phones', audio: '/media/audio' }}
       />,
     );
     const links = [
@@ -106,8 +98,7 @@ describe('CategoryDiscovery', () => {
   it('uses the semantic fallback when a category cover is unavailable', () => {
     const { container } = render(
       <CategoryDiscovery
-        categories={[node('phones', 12, 'گوشی')]}
-        covers={{ phones: null }}
+        categories={[category('phones', 12, 'گوشی')]}
       />,
     );
     expect(container.querySelectorAll('img')).toHaveLength(0);
