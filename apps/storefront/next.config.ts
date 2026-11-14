@@ -1,32 +1,16 @@
 import type { NextConfig } from 'next';
+import {
+  getImageRemotePatterns,
+  resolveApiConfig,
+} from './src/lib/api-url';
 
 // Product media (watermarked assets and thumbnails) is served by the API.
-// next/image fetches upstreams server-side, so inside Docker the upstream
-// must be the compose-internal hostname (NEXT_PUBLIC_MEDIA_BASE_URL); the
-// browser-facing host is kept for host-native development. Both are
-// allow-listed; the optimizer only ever fetches the configured media base.
-function toPattern(baseUrl: string) {
-  const url = new URL(baseUrl);
-  return {
-    protocol: url.protocol.replace(':', '') as 'http' | 'https',
-    hostname: url.hostname,
-    ...(url.port ? { port: url.port } : {}),
-  };
-}
-
-const browserBaseUrl =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3000/api/v1';
-const mediaBaseUrl =
-  process.env.NEXT_PUBLIC_MEDIA_BASE_URL ?? browserBaseUrl;
-
-const patterns = [browserBaseUrl, mediaBaseUrl].map(toPattern);
-const remotePatterns = patterns.filter(
-  (pattern, index) =>
-    patterns.findIndex(
-      (other) =>
-        other.hostname === pattern.hostname && other.port === pattern.port,
-    ) === index,
-);
+// next/image fetches absolute upstreams server-side. A same-origin relative
+// media base needs no remote pattern; only explicit absolute origins are
+// allow-listed. Configuration is validated here so a missing/invalid
+// production base fails the build instead of falling back to localhost.
+const config = resolveApiConfig(process.env);
+const remotePatterns = getImageRemotePatterns(config);
 
 const nextConfig: NextConfig = {
   images: {

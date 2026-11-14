@@ -9,6 +9,10 @@ import type {
   PaginatedResult,
 } from '@sabz/types';
 import { ApiError, API_BASE_URL, MEDIA_BASE_URL, request } from '@/lib/api';
+import {
+  resolveBrowserMediaUrl,
+  resolveOptimizerMediaUrl,
+} from '@/lib/api-url';
 import { tomanToRialString } from '@/lib/currency';
 import {
   CATALOG_BRANDS_TAG,
@@ -66,10 +70,7 @@ function cachedFetchInit({ revalidate, tags }: CatalogFetchInit): RequestInit {
  * fetched client-side and must stay on the browser-facing host).
  */
 export function mediaUrl(path: string | null | undefined): string | null {
-  if (!path) {
-    return null;
-  }
-  return new URL(path, API_BASE_URL).toString();
+  return resolveBrowserMediaUrl(path, API_BASE_URL);
 }
 
 /**
@@ -79,10 +80,7 @@ export function mediaUrl(path: string | null | undefined): string | null {
  * (see MEDIA_BASE_URL); the browser never fetches this URL itself.
  */
 export function mediaImageUrl(path: string | null | undefined): string | null {
-  if (!path) {
-    return null;
-  }
-  return new URL(path, MEDIA_BASE_URL).toString();
+  return resolveOptimizerMediaUrl(path, MEDIA_BASE_URL);
 }
 
 function toQueryString(query: CatalogListQuery): string {

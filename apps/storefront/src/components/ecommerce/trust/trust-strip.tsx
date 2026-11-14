@@ -2,10 +2,9 @@ import type { ReactNode } from 'react';
 import type { MerchTrustIcon, MerchTrustItem } from '@sabz/types';
 
 /**
- * Trust strip (SS-215). Renders ONLY explicitly configured company claims —
- * never derived from per-product warranty fields, stock metadata, or import
- * columns. With the safe defaults (`trustItems: []`) this returns null and
- * the home page shows no trust section at all.
+ * Trust strip (SS-215). Renders ONLY the published homepage items supplied
+ * by the API — never derived from per-product warranty fields, stock
+ * metadata, or import columns. An empty array renders nothing.
  */
 
 const TRUST_ICONS: Record<MerchTrustIcon, ReactNode> = {
@@ -72,9 +71,9 @@ export function TrustStrip({
           role="list"
           className="grid grid-cols-2 gap-x-4 gap-y-3 sm:flex sm:items-center sm:justify-between sm:gap-0"
         >
-          {visible.map((item) => (
+          {visible.map((item, index) => (
             <li
-              key={item.title}
+              key={`${item.icon}-${index}-${item.title}`}
               className="flex items-center gap-2.5 sm:flex-1 sm:justify-center sm:border-s sm:border-border sm:px-4 sm:first:border-s-0"
             >
               <span className="flex size-5 shrink-0 items-center justify-center text-accent">

@@ -39,6 +39,8 @@ interpolation; `apps/*/.env` are read by host-native processes only.
 | `CORS_ORIGINS` | api / root | The two public frontend origins, no localhost entries |
 | `VITE_API_BASE_URL` | admin / root | Scenario C: `/api/v1` (served by the admin host's same-origin proxy). Scenario B: `https://api-admin.<domain>/api/v1`. Must **not** be the storefront's cookie-issuing origin. Vite inlines at **build time** — rebuild the admin image after changing |
 | `NEXT_PUBLIC_API_BASE_URL` | storefront | Scenario C: `/api/v1` (served by the storefront host's same-origin proxy). Scenario B: `https://api-shop.<domain>/api/v1`. Must **not** be the admin's cookie-issuing origin. Inlined at **build time** |
+| `NEXT_PUBLIC_MEDIA_BASE_URL` | storefront | Optional. Defaults to the public API base. Use an absolute optimizer-reachable origin, or a root-relative same-origin path when the storefront host proxies media |
+| `API_INTERNAL_BASE_URL` | storefront server | Absolute http(s) API origin for server components. Required when `NEXT_PUBLIC_API_BASE_URL` is root-relative; otherwise defaults to the public base |
 | `NEXT_PUBLIC_SITE_URL` | storefront | Public storefront origin (OG/canonical `metadataBase`) |
 | `TOROB_JWT_AUDIENCE` | api / root | The public API origin **as Torob sees it** |
 | `TOROB_FEED_STOREFRONT_BASE_URL` / `TOROB_FEED_API_BASE_URL` | api / root | Public storefront / API origins (absolute `page_url`s in the feed) |

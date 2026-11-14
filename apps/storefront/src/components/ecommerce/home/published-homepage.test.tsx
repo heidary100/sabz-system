@@ -199,6 +199,29 @@ describe('PublishedHomepage', () => {
     expect(screen.queryByTestId('blog')).toBeNull()
   })
 
+  it('keeps array order and accepts legitimate gaps in stored order values', () => {
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const base = allSectionsFixture()
+    const sections = [
+      { ...base[1]!, key: 'trust-after-hidden', order: 0 },
+      { ...base[2]!, key: 'discovery-after-hidden', order: 2 },
+    ]
+
+    render(
+      <PublishedHomepage
+        homepage={publishedHomepageFixture({ sections })}
+      />,
+    )
+
+    const rendered = [
+      ...document.querySelectorAll<HTMLElement>('[data-testid]'),
+    ].map((node) => node.dataset.testid)
+    expect(rendered).toEqual(['trust', 'discovery'])
+    expect(log).not.toHaveBeenCalledWith(
+      expect.stringContaining('Section order mismatch'),
+    )
+  })
+
   it('skips unknown section types and keeps the remaining sections', () => {
     const unknown = {
       key: 'future',

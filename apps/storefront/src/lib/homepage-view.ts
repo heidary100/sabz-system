@@ -319,6 +319,11 @@ function safeAbsoluteUrl(
     if (!resolved) {
       return null
     }
+    // Same-origin deployments resolve media to a root-relative path. That is
+    // a valid browser/optimizer source and must not be forced through URL().
+    if (resolved.startsWith('/') && !resolved.startsWith('//')) {
+      return resolved
+    }
     const url = new URL(resolved)
     if (url.protocol !== 'http:' && url.protocol !== 'https:') {
       return null

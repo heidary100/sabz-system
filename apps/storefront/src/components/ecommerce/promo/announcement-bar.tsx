@@ -5,13 +5,11 @@ import { useState } from 'react';
 import type { AnnouncementConfig } from '@/config/home';
 
 /**
- * Store-wide announcement bar (SS-215). Rendered only when the home config
- * carries an announcement — with the safe defaults the page omits it
- * entirely and this component never mounts.
+ * Legacy store-wide announcement bar (SS-215). The published homepage does
+ * not mount it; a caller must validate any destination before passing it in.
  *
  * Non-sticky single line; dismissal is local component state (no
- * localStorage, no persistence). The `href` is pre-validated by
- * `resolveAnnouncement`, so a present link always targets a real route.
+ * localStorage, no persistence).
  */
 export function AnnouncementBar({
   announcement,

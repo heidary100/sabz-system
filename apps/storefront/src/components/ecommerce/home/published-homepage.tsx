@@ -51,17 +51,12 @@ export function PublishedHomepage({
 }) {
   return (
     <>
-      {homepage.sections.map((section, index) =>
-        renderSection(section, index),
-      )}
+      {homepage.sections.map((section) => renderSection(section))}
     </>
   )
 }
 
-function renderSection(
-  section: PublishedHomepageSection,
-  index: number,
-): ReactNode {
+function renderSection(section: PublishedHomepageSection): ReactNode {
   if (!isRecord(section)) {
     console.error('[storefront:homepage] Skipping malformed non-object section')
     return null
@@ -77,12 +72,9 @@ function renderSection(
     logMalformed(type, key, 'missing section key')
     return null
   }
-  if (section.order !== index) {
-    console.error(
-      `[storefront:homepage] Section order mismatch type=${type} key=${key} expected=${index} received=${String(section.order)}`,
-    )
-  }
-
+  // The API array is the authoritative order. Hidden sections may leave
+  // legitimate gaps in `order` values, so array position must not be compared
+  // against the stored order field.
   switch (type) {
     case 'HERO_CAROUSEL':
       return renderHero(section, key)

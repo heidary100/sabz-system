@@ -3,12 +3,9 @@ import type { SaleBannerConfig } from '@/config/home';
 import { CountdownTimer } from '@/components/ecommerce/ui/countdown-timer';
 
 /**
- * Site-wide sale countdown bar (SS-224): the «حراج» pattern from the live
- * site — a slim accent strip with the remaining time. Rendered only from an
- * explicitly configured window (`homeConfig.saleBanner`); the countdown
- * itself hides once the window expires (client), leaving the text until the
- * next render. The real sale engine (windows from pricing rules) arrives
- * with SS-235.
+ * Legacy site-wide sale countdown bar (SS-224): the «حراج» pattern from the
+ * live site. The published homepage does not mount it; a caller must supply
+ * an explicit real window. The countdown hides once the window expires.
  */
 export function SaleBanner({ banner }: { banner: SaleBannerConfig }) {
   return (
