@@ -96,16 +96,17 @@ describe('HomepageSectionAccordion', () => {
     expect(document.querySelectorAll('[data-homepage-config-pane]')).toHaveLength(
       1,
     )
-    expect(pane.className).toContain('lg:col-start-2')
-    expect(pane.className).toContain('lg:sticky')
+    expect(pane.className).toContain('xl:col-start-2')
+    expect(pane.className).toContain('xl:sticky')
     expect(pane.className).not.toContain('absolute')
 
     const panel = document.getElementById('homepage-accordion-panel-trust-main')!
     expect(pane.contains(panel)).toBe(true)
+    expect((panel as HTMLElement).className).toContain('@container')
 
     const grid = pane.parentElement as HTMLElement
-    expect(grid.className).toContain('lg:grid')
-    expect(grid.className).toContain('lg:grid-cols-[22rem_minmax(0,1fr)]')
+    expect(grid.className).toContain('xl:grid')
+    expect(grid.className).toContain('xl:grid-cols-[22rem_minmax(0,1fr)]')
   })
 
   it('keeps the same config child mounted when the layout switches', () => {

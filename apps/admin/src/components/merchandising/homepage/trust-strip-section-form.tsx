@@ -131,7 +131,7 @@ export function TrustStripSectionForm({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-[10rem_minmax(0,1fr)]">
+              <div className="grid grid-cols-1 gap-3 @md:grid-cols-[10rem_minmax(0,1fr)]">
                 <Field>
                   <Label htmlFor={fieldId(index, 'icon')}>آیکن</Label>
                   <Select

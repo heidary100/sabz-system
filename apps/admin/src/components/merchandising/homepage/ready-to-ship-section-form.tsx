@@ -40,7 +40,7 @@ export function ReadyToShipSectionForm({
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,1fr)_10rem]">
+      <div className="grid grid-cols-1 gap-4 @md:grid-cols-[minmax(0,1fr)_10rem]">
         <Field>
           <Label htmlFor={fieldId('title')}>عنوان (اختیاری)</Label>
           <Input
