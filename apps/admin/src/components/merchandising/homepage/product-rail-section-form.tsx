@@ -164,7 +164,7 @@ export function ProductRailSectionForm({
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 @md:grid-cols-2">
         <Field>
           <Label htmlFor={fieldId('title')}>عنوان</Label>
           <Input
@@ -290,7 +290,7 @@ export function ProductRailSectionForm({
         </div>
       ) : (
         <div className="space-y-4 rounded-xl border border-border bg-background/40 p-3">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 @md:grid-cols-2">
             <Field>
               <Label>دسته‌بندی (اختیاری)</Label>
               <div className="flex flex-wrap items-center gap-2">
@@ -373,7 +373,7 @@ export function ProductRailSectionForm({
             </Field>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 @md:grid-cols-2">
             <Field>
               <Label htmlFor={fieldId('sort')}>مرتب‌سازی</Label>
               <Select

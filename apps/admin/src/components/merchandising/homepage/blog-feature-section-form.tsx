@@ -64,7 +64,7 @@ export function BlogFeatureSectionForm({
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-[14rem_minmax(0,1fr)]">
+      <div className="grid grid-cols-1 gap-4 @md:grid-cols-[14rem_minmax(0,1fr)]">
         <Field>
           <Label htmlFor={modeId}>حالت انتخاب مطالب</Label>
           <Select

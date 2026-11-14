@@ -78,7 +78,10 @@ export function MerchandisingHomepagePage() {
   const setConfigFocus = (node: HTMLElement | null): void => {
     configFocusRef.current = node
   }
-  const isDesktop = useMediaQuery('(min-width: 64rem)')
+  // 1024px landscape tablets keep the single-column editor and the 44px
+  // action bar; the two-pane desktop editor starts at 1280px where the
+  // secondary pane has enough width for two-column forms.
+  const isDesktop = useMediaQuery('(min-width: 80rem)')
 
   const navigationGuard = useDirtyNavigationGuard(dirty)
 

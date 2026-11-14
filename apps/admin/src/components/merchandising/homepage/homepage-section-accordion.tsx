@@ -119,12 +119,12 @@ export function HomepageSectionAccordion({
         onAdd={onAdd}
       />
 
-      <div className="lg:grid lg:grid-cols-[22rem_minmax(0,1fr)] lg:items-start lg:gap-4">
+      <div className="xl:grid xl:grid-cols-[22rem_minmax(0,1fr)] xl:items-start xl:gap-4">
       <ol
         ref={listRef}
         tabIndex={-1}
         aria-label="بخش‌های صفحه اصلی"
-        className="relative min-w-0 space-y-2 lg:col-start-1 lg:row-start-1"
+        className="relative min-w-0 space-y-2 xl:col-start-1 xl:row-start-1"
       >
         {sections.map((section, index) => {
           const counts = sectionIssueCounts(grouping, index)
@@ -238,7 +238,7 @@ export function HomepageSectionAccordion({
 
       <div
         data-homepage-config-pane
-        className="mt-4 min-w-0 lg:sticky lg:top-4 lg:col-start-2 lg:row-start-1 lg:mt-0"
+        className="mt-4 min-w-0 xl:sticky xl:top-4 xl:col-start-2 xl:row-start-1 xl:mt-0"
       >
         {selectedSection ? (
           <div
@@ -247,7 +247,7 @@ export function HomepageSectionAccordion({
             role="region"
             aria-labelledby={`homepage-accordion-header-${selectedSection.key}`}
             tabIndex={-1}
-            className="focus-ring rounded-xl lg:max-h-[calc(100dvh-2rem)] lg:overflow-y-auto lg:overscroll-contain"
+            className="focus-ring @container rounded-xl xl:max-h-[calc(100dvh-2rem)] xl:overflow-y-auto xl:overscroll-contain"
           >
             {renderConfig(selectedSection, selectedIndex)}
           </div>

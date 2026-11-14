@@ -62,7 +62,7 @@ export function HomepageSectionConfigPanel({
             بازنویسی نمی‌شود؛ برای ویرایش آن به نسخه سازگار پنل مدیریت نیاز است.
           </Text>
         </div>
-        <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+        <dl className="grid grid-cols-1 gap-3 text-sm @md:grid-cols-2">
           <div>
             <dt className="text-xs text-muted">کلید</dt>
             <dd dir="ltr" className="break-all text-foreground">
@@ -100,7 +100,7 @@ export function HomepageSectionConfigPanel({
         </StatusBadge>
       </div>
 
-      <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
+      <dl className="grid grid-cols-1 gap-3 text-sm @md:grid-cols-3">
         <div>
           <dt className="text-xs text-muted">ترتیب</dt>
           <dd className="text-foreground">

@@ -208,7 +208,7 @@ function installMatchMedia(initialMatches = true) {
     get matches() {
       return matches
     },
-    media: '(min-width: 64rem)',
+    media: '(min-width: 80rem)',
     onchange: null,
     addEventListener: (_type: string, listener: (event: MediaQueryListEvent) => void) => {
       listeners.add(listener)

@@ -160,7 +160,7 @@ export function HeroCarouselSectionForm({
               {detail && (
                 <>
                   <CampaignCategorySummary campaign={detail} />
-                  <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                  <div className="grid grid-cols-1 gap-3 @md:grid-cols-2">
                     <div className="space-y-2">
                       <div className="flex flex-wrap items-center gap-2">
                         <StatusBadge tone={hasDesktop ? 'success' : 'danger'}>

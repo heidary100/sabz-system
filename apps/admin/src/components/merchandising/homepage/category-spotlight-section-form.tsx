@@ -135,7 +135,7 @@ export function CategorySpotlightSectionForm({
         </div>
       ) : null}
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 @md:grid-cols-2">
         <Field>
           <Label htmlFor={primaryId}>دسته‌بندی اصلی</Label>
           <Select
