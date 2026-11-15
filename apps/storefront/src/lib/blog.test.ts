@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { blogListPath } from './blog';
+import { blogListPath, splitBlogTeaser } from './blog';
 
 /** SS-238: blog list paths stay shareable and deterministic. */
 describe('blogListPath', () => {
@@ -14,5 +14,25 @@ describe('blogListPath', () => {
     expect(blogListPath({ page: 1, limit: 9, category: 'guides' })).toBe(
       '/blog?page=1&limit=9&category=guides',
     );
+  });
+});
+
+describe('splitBlogTeaser', () => {
+  it('hides the teaser for an empty blog', () => {
+    expect(splitBlogTeaser([])).toBeNull();
+  });
+
+  it('uses a single story as the feature with no companions', () => {
+    expect(splitBlogTeaser(['a'])).toEqual({
+      feature: 'a',
+      secondary: [],
+    });
+  });
+
+  it('keeps one feature and at most two companions', () => {
+    expect(splitBlogTeaser(['a', 'b', 'c', 'd'])).toEqual({
+      feature: 'a',
+      secondary: ['b', 'c'],
+    });
   });
 });

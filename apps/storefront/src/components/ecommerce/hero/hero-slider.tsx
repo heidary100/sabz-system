@@ -9,8 +9,7 @@ import {
   useState,
   useSyncExternalStore,
 } from 'react';
-import type { HeroSlide } from '@/config/home';
-import { limitHeroSlides } from '@/lib/home';
+import type { HomepageHeroSlideView } from '@/lib/homepage-view';
 
 const AUTOPLAY_MS = 7000;
 
@@ -33,10 +32,7 @@ function getTabHidden() {
   return document.hidden;
 }
 
-export interface HeroStageSlide extends HeroSlide {
-  /** Representative catalog product images, resolved server-side. */
-  images: string[];
-}
+export type HeroStageSlide = HomepageHeroSlideView;
 
 /**
  * Homepage hero campaign stage (Task 04).
@@ -47,7 +43,7 @@ export interface HeroStageSlide extends HeroSlide {
  * and never hides copy behind an entrance animation.
  */
 export function HeroStage({ slides }: { slides: HeroStageSlide[] }) {
-  const usableSlides = limitHeroSlides(slides);
+  const usableSlides = slides.slice(0, 3);
   const trackRef = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(0);
   const [paused, setPaused] = useState(false);
@@ -110,7 +106,7 @@ export function HeroStage({ slides }: { slides: HeroStageSlide[] }) {
   }, [paused, tabHidden, reduceMotion, usableSlides.length, goTo]);
 
   if (usableSlides.length === 0) {
-    return <HeroFallback />;
+    return null;
   }
 
   return (
@@ -138,7 +134,7 @@ export function HeroStage({ slides }: { slides: HeroStageSlide[] }) {
           >
             {usableSlides.map((slide, slideIndex) => (
               <article
-                key={`${slide.href}-${slide.title}`}
+                key={`${slideIndex}-${slide.title}`}
                 aria-roledescription="اسلاید"
                 aria-label={`${slideIndex + 1} از ${usableSlides.length}`}
                 data-active={active === slideIndex}
@@ -147,8 +143,8 @@ export function HeroStage({ slides }: { slides: HeroStageSlide[] }) {
                 className="grid min-w-full snap-start lg:grid-cols-12"
               >
                 <div className="relative min-h-[19rem] bg-plate p-4 sm:min-h-[24rem] lg:col-span-7 lg:min-h-[30rem] lg:p-6">
-                  <HeroProductStage
-                    images={slide.images}
+                  <PublishedHeroMedia
+                    slide={slide}
                     priority={slideIndex === 0}
                   />
 
@@ -205,13 +201,15 @@ export function HeroStage({ slides }: { slides: HeroStageSlide[] }) {
 
                 <div className="flex flex-col justify-between bg-stage p-6 text-on-stage sm:p-8 lg:col-span-5 lg:p-10">
                   <div>
-                    <p className="inline-flex items-center gap-2 rounded-pill bg-on-stage/5 px-3 py-1 text-[11px] font-semibold text-accent-stage ring-1 ring-inset ring-on-stage/10">
-                      <span
-                        aria-hidden="true"
-                        className="size-1.5 rounded-pill bg-accent-stage"
-                      />
-                      سبز سیستم
-                    </p>
+                    {slide.eyebrow ? (
+                      <p className="inline-flex items-center gap-2 rounded-pill bg-on-stage/5 px-3 py-1 text-[11px] font-semibold text-accent-stage ring-1 ring-inset ring-on-stage/10">
+                        <span
+                          aria-hidden="true"
+                          className="size-1.5 rounded-pill bg-accent-stage"
+                        />
+                        {slide.eyebrow}
+                      </p>
+                    ) : null}
                     <h1 className="mt-5 text-balance text-3xl font-black leading-[1.25] text-on-stage sm:text-4xl lg:text-5xl">
                       {slide.title}
                     </h1>
@@ -223,12 +221,14 @@ export function HeroStage({ slides }: { slides: HeroStageSlide[] }) {
                   </div>
 
                   <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-                    <Link
-                      href={slide.href}
-                      className="inline-flex min-h-12 w-full items-center justify-center rounded-pill bg-on-stage px-7 text-sm font-bold text-stage transition-colors hover:bg-on-stage/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus active:scale-[0.98] sm:w-auto"
-                    >
-                      {slide.ctaLabel}
-                    </Link>
+                    {slide.href && slide.ctaLabel ? (
+                      <Link
+                        href={slide.href}
+                        className="inline-flex min-h-12 w-full items-center justify-center rounded-pill bg-on-stage px-7 text-sm font-bold text-stage transition-colors hover:bg-on-stage/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus active:scale-[0.98] sm:w-auto"
+                      >
+                        {slide.ctaLabel}
+                      </Link>
+                    ) : null}
 
                     {usableSlides.length > 1 ? (
                       <div className="flex items-center justify-between gap-2 sm:justify-start">
@@ -239,7 +239,7 @@ export function HeroStage({ slides }: { slides: HeroStageSlide[] }) {
                         >
                           {usableSlides.map((item, index) => (
                             <button
-                              key={`${item.href}-${item.title}`}
+                              key={`${index}-${item.title}`}
                               type="button"
                               onClick={() => goTo(index)}
                               aria-label={`رفتن به اسلاید ${index + 1}`}
@@ -305,7 +305,7 @@ export function HeroStage({ slides }: { slides: HeroStageSlide[] }) {
             >
               {usableSlides.map((slide, index) => (
                 <span
-                  key={`${slide.href}-${slide.title}-progress`}
+                  key={`${index}-${slide.title}-progress`}
                   className="hero-progress absolute inset-y-0 start-0 bg-accent-stage"
                   style={{
                     width: `${100 / usableSlides.length}%`,
@@ -322,6 +322,41 @@ export function HeroStage({ slides }: { slides: HeroStageSlide[] }) {
       </div>
     </section>
   );
+}
+
+function PublishedHeroMedia({
+  slide,
+  priority,
+}: {
+  slide: HeroStageSlide
+  priority: boolean
+}) {
+  if (slide.desktopImageUrl || slide.mobileImageUrl) {
+    return (
+      <div className="relative h-full min-h-[17rem] overflow-hidden rounded-card border border-plate-border bg-plate">
+        {/* Published campaign media is browser-fetched; the API path is
+            resolved through the browser-facing media origin. */}
+        <picture>
+          <source
+            media="(min-width: 640px)"
+            srcSet={slide.desktopImageUrl ?? slide.mobileImageUrl ?? undefined}
+          />
+          <img
+            src={slide.mobileImageUrl ?? slide.desktopImageUrl ?? ''}
+            alt={slide.altFa ?? ''}
+            loading={priority ? 'eager' : 'lazy'}
+            fetchPriority={priority ? 'high' : 'auto'}
+            className="absolute inset-0 h-full w-full object-cover"
+            style={{
+              objectPosition: `${slide.focalX}% ${slide.focalY}%`,
+            }}
+          />
+        </picture>
+      </div>
+    )
+  }
+
+  return <HeroProductStage images={slide.images} priority={priority} />
 }
 
 function HeroProductStage({
@@ -348,7 +383,6 @@ function HeroProductStage({
             <rect x="3.75" y="13.25" width="7" height="7" rx="1.5" />
             <rect x="13.25" y="13.25" width="7" height="7" rx="1.5" />
           </svg>
-          <p className="mt-3 text-xs font-medium">سبز سیستم</p>
         </div>
       </div>
     );
@@ -398,36 +432,5 @@ function HeroProductStage({
         ) : null,
       )}
     </div>
-  );
-}
-
-function HeroFallback() {
-  return (
-    <section
-      data-home-section="hero"
-      aria-label="معرفی فروشگاه"
-      className="pb-2 pt-4 sm:pt-6"
-    >
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="grid overflow-hidden rounded-panel border border-border lg:grid-cols-12">
-          <div className="min-h-[19rem] bg-plate p-6 lg:col-span-7" />
-          <div className="bg-stage p-8 text-on-stage lg:col-span-5 lg:p-10">
-            <p className="text-xs font-semibold text-accent-stage">سبز سیستم</p>
-            <h1 className="mt-4 text-3xl font-black leading-tight">
-              فروشگاه کالای دیجیتال سبز سیستم
-            </h1>
-            <p className="mt-3 text-sm leading-7 text-on-stage-secondary">
-              موبایل، لوازم جانبی، رایانه و گجت‌های هوشمند
-            </p>
-            <Link
-              href="/products"
-              className="mt-7 inline-flex min-h-12 items-center rounded-pill bg-on-stage px-6 text-sm font-bold text-stage"
-            >
-              مشاهده محصولات
-            </Link>
-          </div>
-        </div>
-      </div>
-    </section>
   );
 }

@@ -1,14 +1,13 @@
 import type { ReactNode } from 'react';
-import type { TrustItem, TrustItemIcon } from '@/config/home';
+import type { MerchTrustIcon, MerchTrustItem } from '@sabz/types';
 
 /**
- * Trust strip (SS-215). Renders ONLY explicitly configured company claims —
- * never derived from per-product warranty fields, stock metadata, or import
- * columns. With the safe defaults (`trustItems: []`) this returns null and
- * the home page shows no trust section at all.
+ * Trust strip (SS-215). Renders ONLY the published homepage items supplied
+ * by the API — never derived from per-product warranty fields, stock
+ * metadata, or import columns. An empty array renders nothing.
  */
 
-const TRUST_ICONS: Record<TrustItemIcon, ReactNode> = {
+const TRUST_ICONS: Record<MerchTrustIcon, ReactNode> = {
   shield: (
     <svg viewBox="0 0 24 24" fill="none" strokeWidth={1.5} stroke="currentColor" aria-hidden="true" className="size-5">
       <path
@@ -47,7 +46,13 @@ const TRUST_ICONS: Record<TrustItemIcon, ReactNode> = {
   ),
 };
 
-export function TrustStrip({ items }: { items: TrustItem[] }) {
+export function TrustStrip({
+  items,
+  id = 'trust-heading',
+}: {
+  items: MerchTrustItem[]
+  id?: string
+}) {
   const visible = items.slice(0, 4);
   if (visible.length === 0) {
     return null;
@@ -55,20 +60,20 @@ export function TrustStrip({ items }: { items: TrustItem[] }) {
   return (
     <section
       data-home-section="trust"
-      aria-labelledby="trust-heading"
+      aria-labelledby={id}
       className="border-y border-border bg-surface"
     >
       <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6 lg:px-8">
-        <h2 id="trust-heading" className="sr-only">
+        <h2 id={id} className="sr-only">
           چرا سبز سیستم
         </h2>
         <ul
           role="list"
           className="grid grid-cols-2 gap-x-4 gap-y-3 sm:flex sm:items-center sm:justify-between sm:gap-0"
         >
-          {visible.map((item) => (
+          {visible.map((item, index) => (
             <li
-              key={item.title}
+              key={`${item.icon}-${index}-${item.title}`}
               className="flex items-center gap-2.5 sm:flex-1 sm:justify-center sm:border-s sm:border-border sm:px-4 sm:first:border-s-0"
             >
               <span className="flex size-5 shrink-0 items-center justify-center text-accent">

@@ -80,9 +80,9 @@ describe('ProductRail', () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it('renders at most six compact cards with the real see-all destination', () => {
+  it('renders every supplied compact card with the real see-all destination', () => {
     render(rail());
-    expect(screen.getAllByTestId('rail-card')).toHaveLength(6);
+    expect(screen.getAllByTestId('rail-card')).toHaveLength(7);
     expect(screen.getAllByTestId('rail-card')[0]!.getAttribute('data-density')).toBe(
       'compact',
     );

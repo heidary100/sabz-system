@@ -87,6 +87,74 @@ describe('OfferStrip', () => {
     expect(screen.queryByTestId('countdown')).toBeNull();
   });
 
+
+  it('uses only published campaign copy when a heading is supplied', () => {
+    render(
+      <OfferStrip
+        products={[product()]}
+        mode="offer"
+        heading={{
+          eyebrow: 'ویژه آزمون',
+          title: 'عنوان منتشرشده',
+          subtitle: null,
+          actionLabel: null,
+          actionHref: null,
+        }}
+      />,
+    )
+
+    expect(screen.getByRole('heading', { name: 'عنوان منتشرشده' })).toBeTruthy()
+    expect(screen.getByText('ویژه آزمون')).toBeTruthy()
+    expect(screen.queryByText('پیشنهادهای منتخب')).toBeNull()
+    expect(screen.queryByText('کالاهای موجود با قیمت ویژه')).toBeNull()
+    expect(screen.queryByRole('link', { name: 'مشاهده همه محصولات' })).toBeNull()
+  })
+
+  it('does not fabricate a visible heading when published copy is absent', () => {
+    render(
+      <OfferStrip
+        products={[product()]}
+        mode="offer"
+        heading={{
+          eyebrow: null,
+          title: null,
+          subtitle: null,
+          actionLabel: null,
+          actionHref: null,
+        }}
+      />,
+    )
+
+    expect(
+      screen.queryByRole('heading', { name: 'پیشنهادهای منتخب' }),
+    ).toBeNull()
+    expect(
+      screen.getByRole('heading', { name: 'پیشنهادهای فروشگاه' }),
+    ).toBeTruthy()
+  })
+
+
+  it('renders a published CTA even when the campaign title is null', () => {
+    render(
+      <OfferStrip
+        products={[product()]}
+        mode="offer"
+        heading={{
+          eyebrow: null,
+          title: null,
+          subtitle: null,
+          actionLabel: 'مشاهده پیشنهاد',
+          actionHref: '/products?sort=price_asc',
+        }}
+      />,
+    )
+
+    expect(
+      screen.getByRole('link', { name: 'مشاهده پیشنهاد' }).getAttribute('href'),
+    ).toBe('/products?sort=price_asc')
+    expect(screen.queryByText('پیشنهادهای منتخب')).toBeNull()
+  })
+
   it('only shows a countdown when a real future end is supplied', () => {
     render(
       <OfferStrip
@@ -117,7 +185,7 @@ describe('OfferStrip', () => {
   it('links to the existing catalogue route', () => {
     render(<OfferStrip products={[product()]} mode="offer" />);
     expect(
-      screen.getByRole('link', { name: 'مشاهده همه محصولات' }).getAttribute(
+      screen.getByRole('link', { name: 'همه محصولات' }).getAttribute(
         'href',
       ),
     ).toBe('/products');

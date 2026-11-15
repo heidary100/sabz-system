@@ -20,7 +20,13 @@ export interface BrandShowcaseGroup {
  * only toggles visibility. Full tab semantics with roving tabIndex and
  * arrow-key navigation.
  */
-export function BrandShowcase({ groups }: { groups: BrandShowcaseGroup[] }) {
+export function BrandShowcase({
+  groups,
+  id = 'brands-heading',
+}: {
+  groups: BrandShowcaseGroup[]
+  id?: string
+}) {
   const baseId = useId();
   const [active, setActive] = useState(0);
   const visible = groups.filter((group) => group.products.length > 0);
@@ -56,12 +62,12 @@ export function BrandShowcase({ groups }: { groups: BrandShowcaseGroup[] }) {
   return (
     <section
       data-home-section="brands"
-      aria-labelledby="brands-heading"
+      aria-labelledby={id}
       className="border-y border-border bg-surface"
     >
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-14 lg:px-8">
         <SectionHeader
-          id="brands-heading"
+          id={id}
           title="برندها"
           subtitle="منتخبی از کالاهای موجود هر برند"
         />

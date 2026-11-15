@@ -66,25 +66,47 @@ describe('CompactProductList', () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it('caps the compact collection at four cards', () => {
+  it('renders every supplied ready-to-ship card', () => {
     render(
       <CompactProductList
         products={[product(1), product(2), product(3), product(4), product(5)]}
       />,
     );
-    expect(screen.getAllByTestId('ready-card')).toHaveLength(4);
+    expect(screen.getAllByTestId('ready-card')).toHaveLength(5);
     expect(
       screen.getAllByTestId('ready-card')[0]!.getAttribute('data-density'),
     ).toBe('compact');
-    expect(screen.getByText(`${formatFaNumber(4)} کالا`)).toBeTruthy();
+    expect(screen.getByText(`${formatFaNumber(5)} کالا`)).toBeTruthy();
   });
 
-  it('points to the real in-stock catalogue filter', () => {
-    render(<CompactProductList products={[product(1)]} />);
-    expect(
-      screen
-        .getByRole('link', { name: /مشاهده موجودی کامل/ })
-        .getAttribute('href'),
-    ).toBe('/products?inStockOnly=true');
+
+  it('uses published title and subtitle and omits them when null', () => {
+    const { rerender } = render(
+      <CompactProductList
+        products={[product(1)]}
+        title="عنوان منتشرشده"
+        subtitle="زیرعنوان منتشرشده"
+      />,
+    )
+    expect(screen.getByRole('heading', { name: 'عنوان منتشرشده' })).toBeTruthy()
+    expect(screen.getByText('زیرعنوان منتشرشده')).toBeTruthy()
+
+    rerender(
+      <CompactProductList products={[product(1)]} title={null} subtitle={null} />,
+    )
+    expect(screen.queryByRole('heading', { name: 'آماده ارسال' })).toBeNull()
+    expect(screen.queryByText(/گزیده‌ای از کالاهایی/)).toBeNull()
+    expect(screen.queryByText('موجودی انبار')).toBeNull()
+  })
+
+  it('does not invent a promotional action for published content', () => {
+    render(
+      <CompactProductList
+        products={[product(1)]}
+        title="عنوان منتشرشده"
+        subtitle={null}
+      />,
+    );
+    expect(screen.queryByRole('link')).toBeNull();
   });
 });

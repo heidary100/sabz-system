@@ -2,9 +2,8 @@ import type { AppLink } from '@/config/home';
 
 /**
  * Mobile-app download section (SS-224): parity with the live site's app
- * block. Rendered only from verified distribution URLs — the repository has
- * none yet, so `appLinks: []` keeps the section hidden rather than
- * advertising placeholder destinations.
+ * block. Rendered only from verified distribution URLs supplied by a caller;
+ * the homepage does not use this legacy section.
  */
 export function AppSection({ links }: { links: AppLink[] }) {
   if (links.length === 0) {

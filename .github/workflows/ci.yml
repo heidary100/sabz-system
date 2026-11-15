@@ -60,6 +60,10 @@ jobs:
         run: pnpm test
 
       - name: Build
+        env:
+          # Non-routable build-only value; never use as a deployment endpoint.
+          # The production resolver requires an explicit absolute API base.
+          NEXT_PUBLIC_API_BASE_URL: https://api.example.invalid/api/v1
         run: pnpm build
 
       - name: Contrast gate

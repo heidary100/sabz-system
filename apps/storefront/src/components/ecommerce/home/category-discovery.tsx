@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import type { CatalogCategoryNode } from '@sabz/types';
+import type { HomepageCategoryView } from '@/lib/homepage-view';
 import { formatFaNumber } from '@/lib/format';
 import { CategoryCover } from '@/components/ecommerce/header/category-cover';
 import { SectionHeader } from '@/components/ecommerce/ui/section-header';
@@ -12,10 +12,10 @@ import { SectionHeader } from '@/components/ecommerce/ui/section-header';
  */
 export function CategoryDiscovery({
   categories,
-  covers,
+  id = 'categories-heading',
 }: {
-  categories: CatalogCategoryNode[];
-  covers: Record<string, string | null>;
+  categories: HomepageCategoryView[];
+  id?: string;
 }) {
   const visible = categories.filter(
     (category) => category.publishedProductCount > 0,
@@ -28,11 +28,11 @@ export function CategoryDiscovery({
   return (
     <section
       data-home-section="categories"
-      aria-labelledby="categories-heading"
+      aria-labelledby={id}
       className="mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8"
     >
       <SectionHeader
-        id="categories-heading"
+        id={id}
         title="دسته‌بندی‌ها"
         subtitle="از میان دسته‌های اصلی فروشگاه"
         actionHref="/categories"
@@ -45,7 +45,7 @@ export function CategoryDiscovery({
           <li className="col-span-1 lg:col-span-2 lg:row-span-2">
             <CategoryDiscoveryTile
               category={feature}
-              cover={covers[feature.slug] ?? null}
+              cover={feature.coverUrl}
               featured
             />
           </li>
@@ -54,7 +54,7 @@ export function CategoryDiscovery({
           <li key={category.id} className="min-h-40">
             <CategoryDiscoveryTile
               category={category}
-              cover={covers[category.slug] ?? null}
+              cover={category.coverUrl}
             />
           </li>
         ))}
@@ -68,7 +68,7 @@ function CategoryDiscoveryTile({
   cover,
   featured = false,
 }: {
-  category: CatalogCategoryNode;
+  category: HomepageCategoryView;
   cover: string | null;
   featured?: boolean;
 }) {
