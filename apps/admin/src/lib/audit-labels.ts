@@ -119,6 +119,9 @@ const AUDIT_ACTION_LABELS: Record<string, string> = {
   HOMEPAGE_DRAFT_CREATED: 'ایجاد پیش‌نویس صفحه اصلی',
   HOMEPAGE_DRAFT_UPDATED: 'به‌روزرسانی پیش‌نویس صفحه اصلی',
   HOMEPAGE_DRAFT_VALIDATION_FAILED: 'خطای اعتبارسنجی پیش‌نویس صفحه اصلی',
+  HOMEPAGE_DEMO_BLOGS_ACTIVATED: 'فعال‌سازی مقاله‌های وبلاگ نمایشی صفحه اصلی',
+  HOMEPAGE_DEMO_DRAFT_REPLACED: 'جایگزینی پیش‌نویس صفحه اصلی با داده نمایشی',
+  HOMEPAGE_DEMO_PUBLICATION_CREATED: 'ایجاد انتشار نمایشی صفحه اصلی',
 
   // Homepage publications
   HOMEPAGE_PUBLICATION_SCHEDULED: 'زمان‌بندی انتشار صفحه اصلی',
