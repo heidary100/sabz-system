@@ -1603,16 +1603,23 @@ model MerchCampaignBrand {
 /// in the existing Product media storage + processing infrastructure; this
 /// table only records merchant-facing campaign assets and their public gate.
 model MerchMedia {
-  id           String    @id @default(uuid())
-  originalName String
-  mimeType     String
-  sizeBytes    Int
-  storageKey   String    @unique
-  thumbnailKey String?
-  width        Int?
-  height       Int?
-  altFa        String?
-  publishedAt  DateTime?
+  id              String    @id @default(uuid())
+  originalName    String
+  mimeType        String
+  sizeBytes       Int
+  storageKey      String    @unique
+  thumbnailKey    String?
+  /// Demo-seed provenance: SHA-256 of the approved source bytes that produced
+  /// this row. Null for ordinary (non-demo) uploads and legacy rows.
+  sourceSha256    String?
+  /// SHA-256 of the stored processed main artifact.
+  processedSha256 String?
+  /// SHA-256 of the stored thumbnail artifact.
+  thumbnailSha256 String?
+  width           Int?
+  height          Int?
+  altFa           String?
+  publishedAt     DateTime?
 
   campaignUsages MerchCampaignMedia[]
 
@@ -1664,6 +1671,54 @@ model HomepageDraft {
   updatedAt DateTime @updatedAt
 }
 
+/// Singleton database-enforced lease for the one-off homepage demo seed.
+/// The lease is heartbeated from the operation process and expires after a
+/// crash, so a later retry can take over without relying on a pooled connection
+/// holding a session advisory lock. `fencingGeneration` increments on every
+/// successful acquisition; protected transactions lock this row and validate
+/// the owner/generation before their first mutation.
+model HomepageDemoSeedLock {
+  id                String    @id
+  ownerToken        String?
+  fencingGeneration Int       @default(0)
+  leaseExpiresAt    DateTime?
+  operationId       String?
+  updatedAt         DateTime  @updatedAt
+  createdAt         DateTime  @default(now())
+}
+
+/// Durable journal for guarded homepage demo seed runs. The immutable intent
+/// is written once; state transitions are conditional, fenced and validated
+/// against an explicit state machine. Retries use the same operation id.
+model HomepageDemoSeedOperation {
+  id                   String    @id
+  state                String    @default("STARTED")
+  planHash             String?
+  intentHash           String?
+  /// Hash of the mutable planning baseline (draft/publication/candidates).
+  /// Required to match for an incomplete retry; completed replay ignores it
+  /// because the completed operation itself changes that baseline.
+  baselineHash         String?
+  intent               Json?
+  result               Json?
+  backupPath           String?
+  backupChecksum       String?
+  backupRevision       Int?
+  publicationId        String?   @unique
+  publication          HomepagePublication? @relation(fields: [publicationId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  publicationVersion   Int?
+  draftRevision        Int?
+  affectedMediaIds     Json      @default("[]")
+  acknowledgedMediaIds Json      @default("[]")
+  steps                Json      @default("{}")
+  failureReason        String?
+  startedAt            DateTime  @default(now())
+  completedAt          DateTime?
+  updatedAt            DateTime  @updatedAt
+
+  @@index([state, startedAt])
+}
+
 /// Immutable published homepage snapshot. `sections` freezes campaign display
 /// content and references; product/category/brand/price/stock resolution stays
 /// authoritative at public-read time. History is append-only: rollback creates
@@ -1671,6 +1726,10 @@ model HomepageDraft {
 model HomepagePublication {
   id                  String                    @id @default(uuid())
   version             Int                       @unique
+  /// Set only by the guarded homepage demo seed. The unique relation makes a
+  /// retry of the same operation unable to create a second publication.
+  demoSeedOperationId String?                   @unique
+  demoSeedOperationResult HomepageDemoSeedOperation?
   status              HomepagePublicationStatus @default(SCHEDULED)
   publishAt           DateTime?
   publishedAt         DateTime?

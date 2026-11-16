@@ -13,10 +13,14 @@ import type {
   MerchMediaSummaryDto,
   MerchMediaUsageDto,
 } from '@sabz/types';
-import { randomUUID } from 'crypto';
-import { rm, stat } from 'fs/promises';
+import { createHash, randomUUID } from 'crypto';
+import { readFile, rm, stat } from 'fs/promises';
 import type { Readable } from 'stream';
 import { PrismaService } from '../../../common/database/prisma.service';
+import {
+  acquireTransactionFence,
+  type TransactionFence,
+} from '../../../common/database/transaction-fence';
 import { AuditService } from '../../audit/audit.service';
 import { MEDIA_HEADER_READ_BYTES } from '../../products/media-validation';
 import {
@@ -40,6 +44,39 @@ import {
   snapshotReferencesMedia,
 } from './media-lifecycle';
 import { parseMerchMediaUpdateBody } from './media-update-input';
+import {
+  storeFileIdempotently,
+  type StorageWriteAction,
+} from './idempotent-media-storage';
+
+export interface MerchMediaUploadOptions {
+  storageKeys?: { storageKey: string; thumbnailKey: string };
+  /**
+   * Optional fencing participant. When supplied, the media row is created in a
+   * transaction that first locks and validates the caller's coordination row.
+   */
+  fence?: TransactionFence;
+  /**
+   * Demo recovery mode: an existing deterministic key is verified and reused
+   * instead of replaced. Storage artifacts are retained when the database
+   * transaction fails, so a retry can reconcile the exact operation slot.
+   */
+  idempotentStorage?: boolean;
+  /**
+   * Approved source SHA-256. When supplied, the uploaded source file must match
+   * it and the row persists source/processed/thumbnail provenance hashes.
+   */
+  sourceSha256?: string;
+  onStorageAction?: (action: StorageWriteAction) => void;
+  onStoredKeys?: (keys: {
+    storageKey: string;
+    thumbnailKey: string | null;
+  }) => void;
+}
+
+function sha256(value: Buffer): string {
+  return createHash('sha256').update(value).digest('hex');
+}
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 20;
@@ -75,11 +112,17 @@ export class MerchMediaService {
     dto: UploadMerchMediaDto,
     actorId: string,
     ipAddress?: string,
+    options?: MerchMediaUploadOptions,
   ): Promise<MerchMediaSummaryDto> {
     if (!file?.path) {
       throw new BadRequestException('فایل الزامی است.');
     }
 
+    const storageKeys = options?.storageKeys;
+    const idempotentStorage = options?.idempotentStorage === true;
+    const provenanceRequired =
+      idempotentStorage || options?.sourceSha256 !== undefined;
+    let sourceSha256: string | null = null;
     let processed: {
       outputPath: string;
       sizeBytes: number;
@@ -87,10 +130,24 @@ export class MerchMediaService {
       height?: number;
       thumbnailPath?: string;
     } | null = null;
+    let processedSha256: string | null = null;
+    let thumbnailSha256: string | null = null;
     let storedKey: string | null = null;
     let thumbnailStoredKey: string | null = null;
+    let storageAction: StorageWriteAction = 'written';
 
     try {
+      if (provenanceRequired) {
+        sourceSha256 = sha256(await readFile(file.path));
+        if (
+          options?.sourceSha256 !== undefined &&
+          sourceSha256 !== options.sourceSha256
+        ) {
+          throw new BadRequestException(
+            'The uploaded source does not match the approved source SHA-256.',
+          );
+        }
+      }
       const header = await readFileHeader(file.path, MEDIA_HEADER_READ_BYTES);
       const sizeBytes = (await stat(file.path)).size;
       const detectedMime = validateMediaFile(
@@ -106,8 +163,12 @@ export class MerchMediaService {
 
       const mediaId = randomUUID();
       const extension = extensionForMediaMime(detectedMime);
-      const storageKey = `${MERCH_STORAGE_PREFIX}/${mediaId}.${extension}`;
-      const thumbnailKey = `${MERCH_STORAGE_PREFIX}/${mediaId}.thumb.webp`;
+      const storageKey =
+        storageKeys?.storageKey ??
+        `${MERCH_STORAGE_PREFIX}/${mediaId}.${extension}`;
+      const thumbnailKey =
+        storageKeys?.thumbnailKey ??
+        `${MERCH_STORAGE_PREFIX}/${mediaId}.thumb.webp`;
       const originalName = sanitizeMediaDisplayName(file.originalname);
 
       // Editorial/campaign artwork is processed without the product-image
@@ -118,16 +179,55 @@ export class MerchMediaService {
         this.tempDir,
         { watermark: false },
       );
-
-      await this.storage.putFile(storageKey, processed.outputPath);
-      storedKey = storageKey;
-
-      if (processed.thumbnailPath !== undefined) {
-        await this.storage.putFile(thumbnailKey, processed.thumbnailPath);
-        thumbnailStoredKey = thumbnailKey;
+      if (provenanceRequired) {
+        processedSha256 = sha256(await readFile(processed.outputPath));
+        if (processed.thumbnailPath !== undefined) {
+          thumbnailSha256 = sha256(await readFile(processed.thumbnailPath));
+        }
+        if (idempotentStorage && processed.thumbnailPath === undefined) {
+          throw new BadRequestException(
+            'Demo media requires a generated thumbnail for provenance verification.',
+          );
+        }
       }
 
+      if (idempotentStorage) {
+        const mainAction = await storeFileIdempotently(
+          this.storage,
+          storageKey,
+          processed.outputPath,
+        );
+        if (mainAction === 'written') {
+          storedKey = storageKey;
+        } else {
+          storageAction = 'reused-verified';
+        }
+        if (processed.thumbnailPath !== undefined) {
+          const thumbnailAction = await storeFileIdempotently(
+            this.storage,
+            thumbnailKey,
+            processed.thumbnailPath,
+          );
+          // The verified object exists for both written and reused cases and
+          // must be referenced by the new database row.
+          thumbnailStoredKey = thumbnailKey;
+          if (thumbnailAction === 'reused-verified') {
+            storageAction = 'reused-verified';
+          }
+        }
+      } else {
+        await this.storage.putFile(storageKey, processed.outputPath);
+        storedKey = storageKey;
+
+        if (processed.thumbnailPath !== undefined) {
+          await this.storage.putFile(thumbnailKey, processed.thumbnailPath);
+          thumbnailStoredKey = thumbnailKey;
+        }
+      }
+      options?.onStorageAction?.(storageAction);
+
       const created = await this.prisma.$transaction(async (tx) => {
+        await acquireTransactionFence(options?.fence, tx);
         const row = await tx.merchMedia.create({
           data: {
             id: mediaId,
@@ -142,6 +242,9 @@ export class MerchMediaService {
             // Publication eligibility is set exclusively by the future
             // publication activation service, never by upload/campaign attach.
             publishedAt: null,
+            sourceSha256: provenanceRequired ? sourceSha256 : null,
+            processedSha256: provenanceRequired ? processedSha256 : null,
+            thumbnailSha256: provenanceRequired ? thumbnailSha256 : null,
             createdBy: actorId,
           },
         });
@@ -167,22 +270,32 @@ export class MerchMediaService {
         return row;
       });
 
+      options?.onStoredKeys?.({
+        storageKey: created.storageKey,
+        thumbnailKey: created.thumbnailKey,
+      });
       return this.toSummary(created);
     } catch (error) {
-      for (const key of [storedKey, thumbnailStoredKey]) {
-        if (key === null) {
-          continue;
-        }
-        try {
-          await this.storage.delete(key);
-        } catch (cleanupError) {
-          this.logger.error(
-            `Failed to clean up merchandising media ${key}: ${
-              cleanupError instanceof Error
-                ? cleanupError.message
-                : String(cleanupError)
-            }`,
-          );
+      // A demo upload uses deterministic operation/asset keys. A binary that
+      // was written before the fenced database transaction failed is a
+      // recoverable orphan, not garbage: retain it and let the retry verify and
+      // reuse exactly those bytes.
+      if (!idempotentStorage) {
+        for (const key of [storedKey, thumbnailStoredKey]) {
+          if (key === null) {
+            continue;
+          }
+          try {
+            await this.storage.delete(key);
+          } catch (cleanupError) {
+            this.logger.error(
+              `Failed to clean up merchandising media ${key}: ${
+                cleanupError instanceof Error
+                  ? cleanupError.message
+                  : String(cleanupError)
+              }`,
+            );
+          }
         }
       }
       throw error;

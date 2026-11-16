@@ -17,6 +17,10 @@ import type {
   MerchMediaSlot,
 } from '@sabz/types';
 import { PrismaService } from '../../../common/database/prisma.service';
+import {
+  acquireTransactionFence,
+  type TransactionFence,
+} from '../../../common/database/transaction-fence';
 import { AuditService } from '../../audit/audit.service';
 import { validateCampaignWindow } from '../campaign-validation';
 import {
@@ -30,6 +34,15 @@ import { ListMerchCampaignsQueryDto } from './dto/list-merch-campaigns-query.dto
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 20;
 const CAMPAIGN_ENTITY = 'MerchCampaign';
+
+export interface CampaignUpdateGuard {
+  beforeWrite?(existing: {
+    internalName: string;
+    createdBy: string | null;
+    updatedBy: string | null;
+    archivedAt: Date | null;
+  }): void;
+}
 
 const detailInclude = {
   products: {
@@ -189,6 +202,7 @@ export class CampaignService {
     actorId: string,
     body: unknown,
     ipAddress?: string,
+    fence?: TransactionFence,
   ): Promise<MerchCampaignDto> {
     const validation = validateCampaignInput(body, 'create');
     if (!validation.valid) throwCampaignInputError(validation);
@@ -205,6 +219,7 @@ export class CampaignService {
     const media = (input.media as CampaignMediaInput[] | undefined) ?? [];
 
     const created = await this.prisma.$transaction(async (tx) => {
+      await acquireTransactionFence(fence, tx);
       // A new campaign cannot be referenced by an existing snapshot yet, so it
       // does not need the campaign lifecycle lock. Media assignments do need the
       // media lifecycle lock: otherwise a concurrent soft-delete can pass its
@@ -266,14 +281,17 @@ export class CampaignService {
     actorId: string,
     body: unknown,
     ipAddress?: string,
+    fence?: TransactionFence,
+    guard?: CampaignUpdateGuard,
   ): Promise<MerchCampaignDto> {
     const validation = validateCampaignInput(body, 'update');
     if (!validation.valid) throwCampaignInputError(validation);
     const input = body as Record<string, unknown>;
 
     await this.prisma.$transaction(async (tx) => {
+      await acquireTransactionFence(fence, tx);
       // Snapshot source edits must not race a homepage publication build.
-      // Global order: campaign lifecycle -> campaign edit -> media lifecycle.
+      // Global order: fence -> campaign lifecycle -> campaign edit -> media lifecycle.
       await lockCampaignLifecycle(tx);
       await lockCampaignEdit(tx, id);
       if ('media' in input) {
@@ -283,6 +301,12 @@ export class CampaignService {
       if (existing.archivedAt !== null) {
         throw new ConflictException('کمپین آرشیوشده قابل ویرایش نیست.');
       }
+      guard?.beforeWrite?.({
+        internalName: existing.internalName,
+        createdBy: existing.createdBy,
+        updatedBy: existing.updatedBy,
+        archivedAt: existing.archivedAt,
+      });
 
       const nextStartsAt =
         'startsAt' in input ? toDate(input.startsAt as string | null) : existing.startsAt;

@@ -1,4 +1,5 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import { createHash } from 'crypto';
 import { mkdtemp, rm, writeFile } from 'fs/promises';
 import { join } from 'path';
 import { tmpdir } from 'os';
@@ -64,10 +65,13 @@ function makeDeps() {
     merchCampaignMedia: { findMany: jest.fn() },
     homepagePublication: { findMany: jest.fn() },
   };
-  const storage: jest.Mocked<Pick<ProductMediaStorage, 'putFile' | 'getStream' | 'delete'>> = {
+  const storage: jest.Mocked<
+    Pick<ProductMediaStorage, 'putFile' | 'getStream' | 'delete' | 'get'>
+  > = {
     putFile: jest.fn().mockResolvedValue(undefined),
     getStream: jest.fn(),
     delete: jest.fn().mockResolvedValue(undefined),
+    get: jest.fn(),
   };
   const processing = {
     process: jest.fn(),
@@ -148,6 +152,65 @@ describe('MerchMediaService', () => {
     expect(result).not.toHaveProperty('storageKey');
     expect(result.status).toBe('DRAFT');
     expect(result.publishedAt).toBeNull();
+  });
+
+  it('persists the verified thumbnail key and provenance when reusing deterministic bytes', async () => {
+    const deps = makeDeps();
+    const input = join(dir, 'input.jpg');
+    const output = join(dir, 'output.jpg');
+    const thumb = join(dir, 'thumb.webp');
+    const sourceBytes = JPEG;
+    const mainBytes = Buffer.from('processed-main-bytes');
+    const thumbBytes = Buffer.from('processed-thumb-bytes');
+    await writeFile(input, sourceBytes);
+    await writeFile(output, mainBytes);
+    await writeFile(thumb, thumbBytes);
+    deps.processing.process.mockResolvedValue({
+      outputPath: output,
+      sizeBytes: mainBytes.byteLength,
+      width: 10,
+      height: 10,
+      thumbnailPath: thumb,
+      thumbnailSizeBytes: thumbBytes.byteLength,
+    });
+    deps.storage.get.mockImplementation(async (key: string) =>
+      key.endsWith('.thumb.webp') ? thumbBytes : mainBytes,
+    );
+    deps.tx.merchMedia.create.mockImplementation(
+      async ({ data }: { data: Record<string, unknown> }) => row({ ...data }),
+    );
+    const onStoredKeys = jest.fn();
+    await service(deps, dir).upload(
+      file(input),
+      { altFa: 'تصویر' },
+      'operator-1',
+      undefined,
+      {
+        storageKeys: {
+          storageKey: 'merchandising/demo/op/asset.jpg',
+          thumbnailKey: 'merchandising/demo/op/asset.thumb.webp',
+        },
+        idempotentStorage: true,
+        sourceSha256: createHash('sha256').update(sourceBytes).digest('hex'),
+        onStoredKeys,
+      },
+    );
+    expect(deps.storage.putFile).not.toHaveBeenCalled();
+    expect(deps.tx.merchMedia.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        storageKey: 'merchandising/demo/op/asset.jpg',
+        thumbnailKey: 'merchandising/demo/op/asset.thumb.webp',
+        sourceSha256: createHash('sha256').update(sourceBytes).digest('hex'),
+        processedSha256: createHash('sha256').update(mainBytes).digest('hex'),
+        thumbnailSha256: createHash('sha256')
+          .update(thumbBytes)
+          .digest('hex'),
+      }),
+    });
+    expect(onStoredKeys).toHaveBeenCalledWith({
+      storageKey: 'merchandising/demo/op/asset.jpg',
+      thumbnailKey: 'merchandising/demo/op/asset.thumb.webp',
+    });
   });
 
   it('rejects an unsupported content type before processing/storage/DB writes', async () => {
