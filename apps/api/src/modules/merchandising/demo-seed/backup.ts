@@ -217,6 +217,17 @@ async function prepareBackupRoot(
 ): Promise<string> {
   const lexical = resolve(root);
   await assertNoSymlinkComponents(dirname(lexical), fs);
+
+  // Never chmod an existing operator directory: changing a shared directory
+  // to 0700 is destructive and can break other services. New roots are
+  // created with the required mode; existing roots must already comply.
+  let existed = true;
+  try {
+    await fs.lstat(lexical);
+  } catch (error) {
+    if (!isMissing(error)) throw error;
+    existed = false;
+  }
   if (create) {
     await fs.mkdir(lexical, { recursive: true, mode: BACKUP_DIR_MODE });
   }
@@ -232,7 +243,15 @@ async function prepareBackupRoot(
       `Backup root resolves through a symbolic link and is not accepted: ${lexical}`,
     );
   }
-  if (create) {
+  if (expectedUid !== null && info.uid !== expectedUid) {
+    throw new Error('Backup directory ownership does not match the expected owner.');
+  }
+  if (existed && info.mode !== BACKUP_DIR_MODE) {
+    throw new Error(
+      `Existing backup directory permissions are ${info.mode.toString(8)}, expected ${BACKUP_DIR_MODE.toString(8)}; refusing to change an existing directory.`,
+    );
+  }
+  if (!existed) {
     await fs.chmod(canonical, BACKUP_DIR_MODE);
   }
   const finalInfo = await fs.lstat(canonical);

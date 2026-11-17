@@ -417,7 +417,7 @@ export class BlogService {
       const { existing, updated } = await this.prisma.$transaction(
         async (tx) => {
           await acquireTransactionFence(fence, tx);
-          const current = await this.requirePost(id, tx);
+          const current = await this.requirePost(id, tx, true);
           guard?.beforeWrite?.(current);
           const categoryId =
             dto.categoryId === undefined
@@ -547,6 +547,7 @@ export class BlogService {
   private async requirePost(
     id: string,
     client: Prisma.TransactionClient = this.prisma,
+    forUpdate = false,
   ): Promise<{
     slug: string;
     status: BlogStatus;
@@ -554,6 +555,17 @@ export class BlogService {
     createdBy: string | null;
     updatedBy: string | null;
   }> {
+    if (forUpdate) {
+      const locked = await client.$queryRaw<Array<{ id: string }>>`
+        SELECT "id"
+        FROM "BlogPost"
+        WHERE "id" = ${id}
+        FOR UPDATE
+      `;
+      if (locked.length !== 1) {
+        throw new NotFoundException('مطلب وبلاگ یافت نشد.');
+      }
+    }
     const row = await client.blogPost.findUnique({
       where: { id },
       select: {

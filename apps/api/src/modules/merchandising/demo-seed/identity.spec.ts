@@ -89,6 +89,12 @@ describe('homepage demo seed identity', () => {
       'http://127.0.0.1:3000/api/v1',
       'http://api:3000/api/v1',
       'http://192.168.1.10:3000/api/v1',
+      'http://[::1]:3000/api/v1',
+      'http://[::ffff:127.0.0.1]/api/v1',
+      'http://[fc00::1]/api/v1',
+      'http://0.0.0.0/api/v1',
+      'http://100.64.0.1/api/v1',
+      'http://localhost./api/v1',
       'https://user:pass@shop.example.com/api/v1',
     ]) {
       expect(validatePublicApiBaseUrl(value).valid).toBe(false);

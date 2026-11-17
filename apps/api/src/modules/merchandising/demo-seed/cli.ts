@@ -64,10 +64,10 @@ function options(argv: string[]): DemoSeedOptions {
     publicApiBaseUrl:
       process.env[DEMO_PUBLIC_API_BASE_URL_ENV]?.trim() || null,
     assetsDir: resolve(
-      process.env[DEMO_ASSETS_DIR_ENV] ?? DEFAULT_ASSETS_DIR,
+      process.env[DEMO_ASSETS_DIR_ENV]?.trim() || DEFAULT_ASSETS_DIR,
     ),
     backupDir: resolve(
-      process.env[DEMO_BACKUP_DIR_ENV] ?? DEFAULT_BACKUP_DIR,
+      process.env[DEMO_BACKUP_DIR_ENV]?.trim() || DEFAULT_BACKUP_DIR,
     ),
     // `backupDir` is also the verification root. Create and verify use the
     // same configured containment boundary.

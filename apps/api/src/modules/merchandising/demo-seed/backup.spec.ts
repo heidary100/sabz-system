@@ -88,6 +88,22 @@ describe('homepage demo seed draft backup', () => {
     ).rejects.toBeInstanceOf(BackupExistsError);
   });
 
+  it('refuses to change permissions on an existing backup root', async () => {
+    const backupDir = await createDir();
+    await chmod(backupDir, 0o755);
+    const before = (await stat(backupDir)).mode & 0o777;
+    await expect(
+      createDraftBackup({
+        backupDir,
+        identity: HISTORICAL_IDENTITY,
+        draft,
+        operationId: 'existing-root',
+        now: NOW,
+      }),
+    ).rejects.toThrow(/refusing to change an existing directory/);
+    expect((await stat(backupDir)).mode & 0o777).toBe(before);
+  });
+
   it('detects read-back tampering', async () => {
     const backupDir = await createDir();
     const result = await createDraftBackup({
