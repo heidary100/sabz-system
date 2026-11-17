@@ -185,6 +185,7 @@ describe('Public media thumbnails (SS-129) (e2e)', () => {
       .expect(200);
     expect(res.headers['content-type']).toContain('image/webp');
     expect(res.headers['cache-control']).toBe('public, max-age=31536000, immutable');
+    expect(res.headers['cross-origin-resource-policy']).toBe('cross-origin');
     expect(Number(res.headers['content-length'])).toBe(row.thumbnailSizeBytes);
     const metadata = await sharp(res.body).metadata();
     expect(metadata.format).toBe('webp');

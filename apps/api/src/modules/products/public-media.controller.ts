@@ -49,6 +49,11 @@ export class PublicProductMediaController {
   ) {
     const { stream, mimeType, sizeBytes } =
       await this.mediaService.getPublicStream(mediaId);
+    // Public read-only assets are embedded by the separately hosted
+    // storefront. Helmet's same-origin default would make browsers reject
+    // those image requests, so this route explicitly opts into cross-origin
+    // embedding. It exposes no credentials or private data.
+    response.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
     // Server-generated UUID keys never change, so assets are immutable.
     response.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
     // Declared length lets clients and proxies detect truncation and lets
@@ -74,6 +79,9 @@ export class PublicProductMediaController {
   ) {
     const { stream, sizeBytes } =
       await this.mediaService.getPublicThumbnail(mediaId);
+    // See the original-media route: public storefront assets must be
+    // embeddable from the storefront's distinct origin.
+    response.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
     // Thumbnails are derived once from the immutable original.
     response.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
     return new StreamableFile(stream, {

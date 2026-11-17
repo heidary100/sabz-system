@@ -46,6 +46,10 @@ export class PublicMerchMediaController {
   ) {
     const { stream, mimeType, sizeBytes } =
       await this.mediaService.getPublicStream(id);
+    // Homepage campaigns and blog covers are rendered by <img> tags in the
+    // separately hosted storefront, including cover URLs on operator-supplied
+    // hosts. Helmet's same-origin default would block those public images.
+    response.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
     response.setHeader('Cache-Control', 'public, max-age=60, must-revalidate');
     return new StreamableFile(stream, { type: mimeType, length: sizeBytes });
   }
@@ -61,6 +65,9 @@ export class PublicMerchMediaController {
     @Res({ passthrough: true }) response: Response,
   ) {
     const { stream } = await this.mediaService.getPublicThumbnail(id);
+    // See the original-media route: public storefront assets must be
+    // embeddable from the storefront's distinct origin.
+    response.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
     response.setHeader('Cache-Control', 'public, max-age=60, must-revalidate');
     return new StreamableFile(stream, { type: 'image/webp' });
   }

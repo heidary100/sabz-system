@@ -292,10 +292,15 @@ describe('Merchandising media API (Task 05.2) (e2e)', () => {
       .expect(200);
     expect(publicFile.headers['content-type']).toContain('image/jpeg');
     expect(publicFile.headers['cache-control']).toContain('public');
+    // Hero campaigns and blog covers are embedded by the storefront's origin.
+    expect(publicFile.headers['cross-origin-resource-policy']).toBe('cross-origin');
     const publicThumbnail = await request(app.getHttpServer())
       .get(`${PUBLIC_BASE}/${id}/thumbnail`)
       .expect(200);
     expect(publicThumbnail.headers['content-type']).toContain('image/webp');
+    expect(publicThumbnail.headers['cross-origin-resource-policy']).toBe(
+      'cross-origin',
+    );
 
     await prisma.merchMedia.update({
       where: { id },
