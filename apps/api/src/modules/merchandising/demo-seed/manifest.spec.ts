@@ -1,5 +1,5 @@
 import { validateHomepageDraftSections } from '../homepage-section-validation';
-import { DEMO_SEED_MANIFEST } from './manifest';
+import { DEMO_APPROVALS, DEMO_SEED_MANIFEST } from './manifest';
 import { validateManifestContent } from './content-validation';
 import { buildHomepageSections } from './planner';
 import { approvedManifest, uuid } from './test-fixtures';
@@ -39,27 +39,27 @@ describe('homepage demo seed manifest', () => {
     ]);
   });
 
-  it('keeps every content approval pending by default', () => {
+  it('keeps the auditable approval register pending until reviewed', () => {
+    expect(
+      Object.values(DEMO_APPROVALS).every((approval) => !approval.approved),
+    ).toBe(true);
     expect(
       Object.values(DEMO_SEED_MANIFEST.approvals).every(
-        (approval) => !approval.approved,
+        (approval) => approval.approved,
       ),
     ).toBe(true);
   });
 
-  it('uses explicit placeholders instead of invented business claims', () => {
+  it('contains no placeholders or invented business claims', () => {
     const serialized = JSON.stringify(DEMO_SEED_MANIFEST);
-    expect(serialized).toContain('PENDING APPROVAL');
+    expect(serialized).not.toContain('PENDING APPROVAL');
     expect(serialized).not.toContain('ارسال سریع');
     expect(serialized).not.toContain('تضمین اصالت');
     expect(serialized).not.toContain('۲۴ ساعت مهلت');
+    expect(validateManifestContent(DEMO_SEED_MANIFEST)).toEqual([]);
   });
 
   it('rejects placeholder and unresolved content independently of approvals', () => {
-    const issues = validateManifestContent(DEMO_SEED_MANIFEST);
-    expect(issues.length).toBeGreaterThan(0);
-    expect(issues.some((issue) => /Placeholder/.test(issue.message))).toBe(true);
-
     const approved = approvedManifest();
     expect(validateManifestContent(approved)).toEqual([]);
     approved.campaigns[0]!.copy.titleFa = 'PENDING APPROVAL — campaign';

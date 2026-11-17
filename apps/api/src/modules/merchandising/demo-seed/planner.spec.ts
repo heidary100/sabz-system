@@ -1,5 +1,4 @@
 import { buildDemoSeedPlan } from './planner';
-import { DEMO_SEED_MANIFEST } from './manifest';
 import {
   approvedManifest,
   baseline,
@@ -9,6 +8,7 @@ import {
   manifestWithPending,
   mediaRow,
   options,
+  pendingManifest,
   planInput,
   product,
   uuid,
@@ -19,9 +19,9 @@ function codes(plan: ReturnType<typeof buildDemoSeedPlan>): string[] {
 }
 
 describe('homepage demo seed planner', () => {
-  it('blocks the default manifest because all content approvals are pending', () => {
+  it('blocks the pending approval manifest before any apply', () => {
     const plan = buildDemoSeedPlan(
-      planInput(DEMO_SEED_MANIFEST, { assets: {} }),
+      planInput(pendingManifest(), { assets: {} }),
     );
     expect(plan.applyPermitted).toBe(false);
     expect(codes(plan)).toEqual(
@@ -59,6 +59,55 @@ describe('homepage demo seed planner', () => {
     });
     expect(plan.retained.ss245Post?.slug).toContain('ss-245');
     expect(plan.notes.join(' ')).toContain('SS-245');
+  });
+
+  it('resolves explicit product selections by slug in manifest order', () => {
+    const manifest = approvedManifest();
+    const hero = manifest.campaigns.find(
+      (campaign) => campaign.key === 'hero-primary',
+    );
+    if (!hero) throw new Error('fixture is missing hero-primary');
+    hero.selection.products = {
+      kind: 'explicit',
+      slugs: ['product-2', 'product-1'],
+    };
+    const plan = buildDemoSeedPlan(planInput(manifest));
+    expect(plan.blockers).toEqual([]);
+    expect(
+      plan.campaigns.find((campaign) => campaign.key === 'hero-primary')?.payload
+        .productIds,
+    ).toEqual([uuid(1002), uuid(1001)]);
+  });
+
+  it('blocks an explicit product selection that is not available', () => {
+    const manifest = approvedManifest();
+    const hero = manifest.campaigns.find(
+      (campaign) => campaign.key === 'hero-primary',
+    );
+    if (!hero) throw new Error('fixture is missing hero-primary');
+    hero.selection.products = {
+      kind: 'explicit',
+      slugs: ['missing-product'],
+    };
+    const plan = buildDemoSeedPlan(planInput(manifest));
+    expect(plan.applyPermitted).toBe(false);
+    expect(codes(plan)).toContain('EXPLICIT_PRODUCT_UNAVAILABLE');
+  });
+
+  it('blocks an explicit product selection that is out of stock', () => {
+    const manifest = approvedManifest();
+    const hero = manifest.campaigns.find(
+      (campaign) => campaign.key === 'hero-primary',
+    );
+    if (!hero) throw new Error('fixture is missing hero-primary');
+    hero.selection.products = { kind: 'explicit', slugs: ['product-1'] };
+    const input = planInput(manifest);
+    const selected = input.candidates.productsBySlug?.['product-1'];
+    if (!selected) throw new Error('fixture is missing product-1');
+    selected.inStock = false;
+    const plan = buildDemoSeedPlan(input);
+    expect(plan.applyPermitted).toBe(false);
+    expect(codes(plan)).toContain('EXPLICIT_PRODUCT_UNAVAILABLE');
   });
 
   it('requires --replace-draft for an existing draft', () => {

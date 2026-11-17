@@ -208,9 +208,38 @@ export class PrismaDemoSeedReadRepository implements DemoSeedReadRepository {
     return result.items;
   }
 
+  async readProductsBySlugs(
+    slugs: string[],
+  ): Promise<CatalogProductCardDto[]> {
+    if (slugs.length === 0) return [];
+    const rows = await this.client.product.findMany({
+      where: {
+        slug: { in: slugs },
+        status: 'PUBLISHED',
+        deletedAt: null,
+      },
+      select: { id: true, slug: true },
+    });
+    const cards = await this.catalog.getVisibleCardsByIds(
+      rows.map((row) => row.id),
+    );
+    const byId = new Map(cards.map((card) => [card.id, card]));
+    return slugs.flatMap((slug) => {
+      const row = rows.find((item) => item.slug === slug);
+      const card = row ? byId.get(row.id) : undefined;
+      return card ? [card] : [];
+    });
+  }
+
   async readCategories(limit: number): Promise<DemoCategoryCandidate[]> {
     const tree = await this.catalog.getCategoryTree();
-    return flattenCategories(tree)
+    // The single root category ("کالای دیجیتال") is a catalog container, not a
+    // useful discovery tile. Use its top-level children when it has them.
+    const selectable =
+      tree.length === 1 && tree[0]!.children.length > 0
+        ? tree[0]!.children
+        : tree;
+    return selectable
       .filter((category) => category.publishedProductCount > 0)
       .sort(
         (a, b) =>

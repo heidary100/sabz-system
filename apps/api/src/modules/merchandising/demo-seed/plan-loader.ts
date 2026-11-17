@@ -46,6 +46,14 @@ export class PrismaDemoSeedPlanLoader implements DemoSeedPlanLoader {
         const mediaNames = manifest.media.map((asset) =>
           expectedMediaOriginalName(asset),
         );
+        const explicitProductSlugs = [
+          ...new Set(
+            manifest.campaigns.flatMap((campaign) => {
+              const selection = campaign.selection.products;
+              return selection?.kind === 'explicit' ? selection.slugs : [];
+            }),
+          ),
+        ];
         const [
           campaigns,
           blogPosts,
@@ -53,6 +61,7 @@ export class PrismaDemoSeedPlanLoader implements DemoSeedPlanLoader {
           publishedMedia,
           ss245Post,
           products,
+          explicitProducts,
           categories,
           brandResult,
         ] = await Promise.all([
@@ -62,6 +71,7 @@ export class PrismaDemoSeedPlanLoader implements DemoSeedPlanLoader {
           repository.readPublishedMedia(),
           repository.readSs245Post(),
           repository.readProducts(8),
+          repository.readProductsBySlugs(explicitProductSlugs),
           repository.readCategories(6),
           repository.readBrands(4, 6),
         ]);
@@ -89,6 +99,9 @@ export class PrismaDemoSeedPlanLoader implements DemoSeedPlanLoader {
             categories,
             brands: brandResult.brands,
             products,
+            productsBySlug: Object.fromEntries(
+              explicitProducts.map((product) => [product.slug, product]),
+            ),
             productsByBrand: brandResult.productsByBrand,
           },
           assets,

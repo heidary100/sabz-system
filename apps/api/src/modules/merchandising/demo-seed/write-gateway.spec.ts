@@ -3,6 +3,7 @@ import type { PrismaService } from '../../../common/database/prisma.service';
 import { BlogService } from '../../blog/blog.service';
 import { CampaignService } from '../campaigns/campaign.service';
 import { DEMO_SEED_ACTOR_ID } from './constants';
+import { DEMO_SEED_MANIFEST } from './manifest';
 import type { DemoSeedFence } from './demo-fence';
 import {
   buildDemoSeedIntent,
@@ -375,7 +376,7 @@ describe('homepage demo seed write gateway blog slug policy', () => {
     expect(create.mock.calls[0]![1]).toEqual(
       expect.objectContaining({ slug: definition.slug }),
     );
-    expect(definition.slug).toBe('homepage-demo-article-1');
+    expect(definition.slug).toBe(DEMO_SEED_MANIFEST.blog[0]!.slug);
   });
 
   it('fails closed when the canonical slug belongs to a non-demo post', async () => {
@@ -426,21 +427,24 @@ describe('homepage demo seed write gateway blog slug policy', () => {
   });
 
   it('resolves the same canonical manifest slug after creation', async () => {
-    const { gateway, fake } = gatewayFixture();
+    const { gateway, fake, manifest } = gatewayFixture();
     const resolve = (
       gateway as unknown as {
         resolveBlogIds(): Promise<Record<string, string>>;
       }
     ).resolveBlogIds.bind(gateway);
 
-    await expect(resolve()).resolves.toEqual({
-      'demo-article-1': 'resolved-homepage-demo-article-1',
-      'demo-article-2': 'resolved-homepage-demo-article-2',
-      'demo-article-3': 'resolved-homepage-demo-article-3',
-    });
+    await expect(resolve()).resolves.toEqual(
+      Object.fromEntries(
+        manifest.blog.map((article) => [
+          article.key,
+          `resolved-${article.slug}`,
+        ]),
+      ),
+    );
     expect(fake.raw.blogPost.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { slug: 'homepage-demo-article-1' },
+        where: { slug: manifest.blog[0]!.slug },
       }),
     );
   });

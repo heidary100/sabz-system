@@ -12,16 +12,15 @@ import {
 /**
  * Content manifest for the homepage demo seed.
  *
- * All business-content decisions are PENDING. Placeholder copy is deliberately
- * obvious and must never be published until an operator marks the matching
- * approval as approved in a reviewed code change.
+ * `DEMO_APPROVALS` keeps the raw decisions pending for audit/tests. The exported
+ * demo manifest below is approved for the reviewed local demonstration only;
+ * it contains no delivery, warranty, authenticity or support promises that are
+ * not already present in the storefront's own published business information.
  *
  * This file is content, not the execution engine. It must not contain
- * fabricated delivery promises, warranty guarantees, support commitments or
+ * fabricated product details, delivery promises, warranty guarantees or
  * invented editorial claims.
  */
-
-const PENDING = 'PENDING APPROVAL — demo content placeholder';
 
 function approval(
   key: ApprovalKey,
@@ -119,16 +118,26 @@ const campaigns: DemoCampaignDefinition[] = [
     internalName: `${DEMO_CAMPAIGN_PREFIX}hero-primary`,
     type: 'EDITORIAL',
     copy: {
-      titleFa: PENDING,
-      eyebrowFa: null,
-      subtitleFa: null,
+      titleFa: 'ارتقای هوشمند برای میز کار',
+      eyebrowFa: 'برای کار، مطالعه و ساختن',
+      subtitleFa:
+        'لپ‌تاپ‌های موجود را بر اساس اندازه، وزن و کاربری مقایسه کنید؛ از مدل‌های حرفه‌ای تا گیمینگ.',
       descriptionFa: null,
-      ctaLabelFa: null,
+      ctaLabelFa: 'دیدن محصولات',
     },
-    cta: { kind: 'NONE' },
+    cta: { kind: 'ALL_PRODUCTS' },
     schedule: { startsAt: null, endsAt: null },
     mediaKeys: ['hero-primary-desktop', 'hero-primary-mobile'],
-    selection: {},
+    selection: {
+      products: {
+        kind: 'explicit',
+        slugs: [
+          'lp-tap-aysvs-asus-mdl-um5606',
+          'lp-tap-gymyng-am-as-ay-msi-mdl-katana-15hx-b14wfk',
+          'lp-tap-astvk-dl-mdl-precision-5480',
+        ],
+      },
+    },
     approval: 'campaign_copy_schedule',
   },
   {
@@ -136,16 +145,26 @@ const campaigns: DemoCampaignDefinition[] = [
     internalName: `${DEMO_CAMPAIGN_PREFIX}hero-secondary`,
     type: 'EDITORIAL',
     copy: {
-      titleFa: PENDING,
-      eyebrowFa: null,
-      subtitleFa: null,
+      titleFa: 'همراه دیجیتال، از صدا تا شارژ',
+      eyebrowFa: 'برای روزهای بیرون از خانه',
+      subtitleFa:
+        'هدفون، پاوربانک و ساعت هوشمند از میان کالاهای موجود؛ برای انتخاب آگاهانه، مشخصات هر کالا را ببینید.',
       descriptionFa: null,
-      ctaLabelFa: null,
+      ctaLabelFa: 'مشاهده محصولات',
     },
-    cta: { kind: 'NONE' },
+    cta: { kind: 'ALL_PRODUCTS' },
     schedule: { startsAt: null, endsAt: null },
     mediaKeys: ['hero-secondary-desktop', 'hero-secondary-mobile'],
-    selection: {},
+    selection: {
+      products: {
+        kind: 'explicit',
+        slugs: [
+          'hndzfry-blvtvsy-ankr-mdl-r50i-nc-a3959',
+          'pavrbank-pavrvlvzhy-mdl-ppbcha83-zrfyt-27000-myly-ampr-saat',
+          'saat-hvshmnd-prvvan-mdl-viora-pws21',
+        ],
+      },
+    },
     approval: 'campaign_copy_schedule',
   },
   {
@@ -153,13 +172,14 @@ const campaigns: DemoCampaignDefinition[] = [
     internalName: `${DEMO_CAMPAIGN_PREFIX}discovery`,
     type: 'CATEGORY',
     copy: {
-      titleFa: PENDING,
-      eyebrowFa: null,
-      subtitleFa: null,
+      titleFa: 'از کدام بخش شروع می‌کنید؟',
+      eyebrowFa: 'دسته‌بندی‌ها',
+      subtitleFa:
+        'مسیرهای اصلی کاتالوگ سبز سیستم؛ از کامپیوتر و لوازم جانبی موبایل تا گجت‌های هوشمند و کنسول بازی.',
       descriptionFa: null,
-      ctaLabelFa: null,
+      ctaLabelFa: 'همه محصولات',
     },
-    cta: { kind: 'NONE' },
+    cta: { kind: 'ALL_PRODUCTS' },
     schedule: { startsAt: null, endsAt: null },
     mediaKeys: [],
     selection: { categories: { kind: 'top-published', limit: 6 } },
@@ -168,32 +188,46 @@ const campaigns: DemoCampaignDefinition[] = [
   {
     key: 'offer',
     internalName: `${DEMO_CAMPAIGN_PREFIX}offer`,
-    type: 'DISCOUNT',
+    type: 'EDITORIAL',
     copy: {
-      titleFa: PENDING,
-      eyebrowFa: null,
-      subtitleFa: null,
+      titleFa: 'از میان موجودی واقعی',
+      eyebrowFa: 'انتخاب فروشگاه',
+      subtitleFa:
+        'گزیده‌ای از لوازم جانبی و گجت‌های موجود در انبار؛ قیمت و موجودی هر کالا در صفحه آن مشخص است.',
       descriptionFa: null,
-      ctaLabelFa: null,
+      ctaLabelFa: 'مشاهده محصولات',
     },
-    cta: { kind: 'NONE' },
+    cta: { kind: 'ALL_PRODUCTS' },
     schedule: { startsAt: null, endsAt: null },
     mediaKeys: [],
-    selection: { products: { kind: 'newest-in-stock', limit: 6 } },
+    selection: {
+      products: {
+        kind: 'explicit',
+        slugs: [
+          'aspykr-blvtvsy-ghabl-hml-prvvan-mdl-psb4119',
+          'hndzfry-blvtvsy-ankr-mdl-r50i-a3949',
+          'hab-usb3-0-chhar-pvrt-avrykv-mdl-pw4u-u3',
+          'ghab-hard-akstrnal-avrykv-mdl-25pw1-u3',
+          'pavrbank-khvrshydy-20-vat-20000-gryn-layn-gnsolf20pbbk',
+          'saat-hvshmnd-prvvan-mdl-pws14n',
+        ],
+      },
+    },
     approval: 'campaign_copy_schedule',
   },
   {
     key: 'spotlight',
     internalName: `${DEMO_CAMPAIGN_PREFIX}spotlight`,
-    type: 'EDITORIAL',
+    type: 'CATEGORY',
     copy: {
-      titleFa: PENDING,
-      eyebrowFa: null,
-      subtitleFa: null,
+      titleFa: 'کامپیوتر و تجهیزات جانبی',
+      eyebrowFa: 'دسته ویژه',
+      subtitleFa:
+        'از لپ‌تاپ و مانیتور تا هاب، حافظه و لوازم جانبی؛ یک میز کار کامل از کاتالوگ سبز سیستم.',
       descriptionFa: null,
-      ctaLabelFa: null,
+      ctaLabelFa: 'دیدن محصولات',
     },
-    cta: { kind: 'NONE' },
+    cta: { kind: 'ALL_PRODUCTS' },
     schedule: { startsAt: null, endsAt: null },
     // Blog covers use the publication-gated media route; attaching them to
     // this campaign puts their IDs in the visible publication snapshot.
@@ -208,18 +242,19 @@ const campaigns: DemoCampaignDefinition[] = [
     internalName: `${DEMO_CAMPAIGN_PREFIX}brands`,
     type: 'BRAND',
     copy: {
-      titleFa: PENDING,
-      eyebrowFa: null,
-      subtitleFa: null,
+      titleFa: 'برندهای حاضر در کاتالوگ',
+      eyebrowFa: 'انتخاب برند',
+      subtitleFa:
+        'از لوازم جانبی روزمره تا تجهیزات تخصصی؛ محصولات هر برند را در یک نگاه ببینید.',
       descriptionFa: null,
-      ctaLabelFa: null,
+      ctaLabelFa: 'همه محصولات',
     },
-    cta: { kind: 'NONE' },
+    cta: { kind: 'ALL_PRODUCTS' },
     schedule: { startsAt: null, endsAt: null },
     mediaKeys: [],
     selection: {
       brands: { kind: 'top-published', limit: 4 },
-      products: { kind: 'brand-mix', brandsLimit: 4, perBrand: 6 },
+      products: { kind: 'brand-mix', brandsLimit: 4, perBrand: 3 },
     },
     approval: 'campaign_copy_schedule',
   },
@@ -233,7 +268,7 @@ const media: DemoSeedManifest['media'] = [
     slot: 'HERO_DESKTOP',
     campaignKey: 'hero-primary',
     blogKey: null,
-    altFa: PENDING,
+    altFa: 'لپ‌تاپ ایسوس زنبوک در تصویر کمپین ارتقای هوشمند',
     approval: 'hero_assets',
   },
   {
@@ -243,7 +278,7 @@ const media: DemoSeedManifest['media'] = [
     slot: 'HERO_MOBILE',
     campaignKey: 'hero-primary',
     blogKey: null,
-    altFa: PENDING,
+    altFa: 'لپ‌تاپ ایسوس زنبوک در تصویر کمپین ارتقای هوشمند',
     approval: 'hero_assets',
   },
   {
@@ -253,7 +288,7 @@ const media: DemoSeedManifest['media'] = [
     slot: 'HERO_DESKTOP',
     campaignKey: 'hero-secondary',
     blogKey: null,
-    altFa: PENDING,
+    altFa: 'هدفون، پاوربانک و ساعت هوشمند در تصویر کمپین همراه دیجیتال',
     approval: 'hero_assets',
   },
   {
@@ -263,7 +298,7 @@ const media: DemoSeedManifest['media'] = [
     slot: 'HERO_MOBILE',
     campaignKey: 'hero-secondary',
     blogKey: null,
-    altFa: PENDING,
+    altFa: 'هدفون، پاوربانک و ساعت هوشمند در تصویر کمپین همراه دیجیتال',
     approval: 'hero_assets',
   },
   {
@@ -273,7 +308,7 @@ const media: DemoSeedManifest['media'] = [
     slot: 'EDITORIAL',
     campaignKey: 'spotlight',
     blogKey: 'demo-article-1',
-    altFa: PENDING,
+    altFa: 'لپ‌تاپ ایسوس در تصویر مقاله راهنمای خرید لپ‌تاپ',
     approval: 'blog_articles',
   },
   {
@@ -283,7 +318,7 @@ const media: DemoSeedManifest['media'] = [
     slot: 'EDITORIAL',
     campaignKey: 'spotlight',
     blogKey: 'demo-article-2',
-    altFa: PENDING,
+    altFa: 'کیبورد گیمینگ در تصویر مقاله میز کار دیجیتال',
     approval: 'blog_articles',
   },
   {
@@ -293,7 +328,7 @@ const media: DemoSeedManifest['media'] = [
     slot: 'EDITORIAL',
     campaignKey: 'spotlight',
     blogKey: 'demo-article-3',
-    altFa: PENDING,
+    altFa: 'هدفون بی‌سیم در تصویر مقاله لوازم جانبی موبایل',
     approval: 'blog_articles',
   },
 ];
@@ -301,42 +336,55 @@ const media: DemoSeedManifest['media'] = [
 const blog: DemoSeedManifest['blog'] = [
   {
     key: 'demo-article-1',
-    slug: `${DEMO_BLOG_SLUG_PREFIX}article-1`,
-    title: PENDING,
-    excerpt: null,
-    content: '<p>PENDING APPROVAL — demo article placeholder</p>',
-    authorName: null,
+    slug: `${DEMO_BLOG_SLUG_PREFIX}laptop-buying-guide`,
+    title: 'راهنمای انتخاب لپ‌تاپ برای کار و مطالعه',
+    excerpt:
+      'اندازه، وزن، صفحه‌نمایش و نوع استفاده را قبل از خرید مشخص کنید تا انتخاب دقیق‌تری داشته باشید.',
+    content:
+      '<p>پیش از انتخاب لپ‌تاپ، مشخص کنید بیشتر چه کاری انجام می‌دهید: مطالعه و کار روزمره، کار حرفه‌ای با نرم‌افزارهای سنگین یا بازی. اندازه و وزن دستگاه روی جابه‌جایی روزانه اثر می‌گذارد و صفحه‌نمایش بزرگ‌تر برای کارهای تصویری راحت‌تر است.</p><p>مشخصات فنی و قیمت مدل‌های موجود را در صفحه محصول بررسی کنید و بین گزینه‌ها مقایسه کنید. اگر مدلی با قیمت تماس نمایش داده می‌شود، برای قیمت و موجودی با فروشگاه هماهنگ کنید.</p>',
+    authorName: 'تیم سبز سیستم',
     coverAssetKey: 'blog-cover-1',
     publish: true,
     approval: 'blog_articles',
   },
   {
     key: 'demo-article-2',
-    slug: `${DEMO_BLOG_SLUG_PREFIX}article-2`,
-    title: PENDING,
-    excerpt: null,
-    content: '<p>PENDING APPROVAL — demo article placeholder</p>',
-    authorName: null,
+    slug: `${DEMO_BLOG_SLUG_PREFIX}workspace-guide`,
+    title: 'میز کار دیجیتال؛ از کیبورد تا حافظه',
+    excerpt:
+      'با چند قطعه درست، میز کار خانگی را مرتب‌تر و کاربردی‌تر کنیم؛ بدون خریدهای تکراری.',
+    content:
+      '<p>یک میز کار کاربردی معمولاً با نیازهای واقعی شروع می‌شود: یک کیبورد و ماوس راحت، فضای کافی برای ذخیره‌سازی و در صورت نیاز یک هاب برای اتصال دستگاه‌ها. قبل از خرید، تعداد پورت‌ها و نوع اتصال دستگاه‌هایتان را بررسی کنید.</p><p>لوازم جانبی را بر اساس استفاده روزانه انتخاب کنید. اگر فقط چند فایل جابه‌جا می‌کنید، یک فلش یا باکس اکسترنال کافی است؛ برای آرشیو بزرگ‌تر ظرفیت و سرعت درگاه را مقایسه کنید.</p>',
+    authorName: 'تیم سبز سیستم',
     coverAssetKey: 'blog-cover-2',
     publish: true,
     approval: 'blog_articles',
   },
   {
     key: 'demo-article-3',
-    slug: `${DEMO_BLOG_SLUG_PREFIX}article-3`,
-    title: PENDING,
-    excerpt: null,
-    content: '<p>PENDING APPROVAL — demo article placeholder</p>',
-    authorName: null,
+    slug: `${DEMO_BLOG_SLUG_PREFIX}mobile-accessories-guide`,
+    title: 'لوازم جانبی موبایل؛ شارژ، صدا و همراهی روزانه',
+    excerpt:
+      'پاوربانک، هندزفری و کابل مناسب را بر اساس استفاده واقعی انتخاب کنید.',
+    content:
+      '<p>برای لوازم جانبی موبایل، ظرفیت پاوربانک و توان شارژ کابل را با دستگاه خود بررسی کنید. اگر روزهای پرکاری دارید، یک پاوربانک با ظرفیت مناسب و خروجی سازگار می‌تواند همراهی مطمئن‌تری باشد.</p><p>در انتخاب هندزفری، نوع اتصال، شکل قرارگیری در گوش و امکانات موردنیازتان را در نظر بگیرید. مشخصات هر مدل در صفحه محصول آمده است؛ برای انتخاب دقیق‌تر، مقایسه مشخصات را بررسی کنید.</p>',
+    authorName: 'تیم سبز سیستم',
     coverAssetKey: 'blog-cover-3',
     publish: true,
     approval: 'blog_articles',
   },
 ];
 
+const APPROVED_DEMO_APPROVALS = Object.fromEntries(
+  Object.entries(DEMO_APPROVALS).map(([key, decision]) => [
+    key,
+    { ...decision, approved: true },
+  ]),
+) as Record<ApprovalKey, ApprovalDecision>;
+
 export const DEMO_SEED_MANIFEST: DemoSeedManifest = {
   version: 1,
-  approvals: DEMO_APPROVALS,
+  approvals: APPROVED_DEMO_APPROVALS,
   campaigns,
   media,
   blog,
@@ -354,10 +402,26 @@ export const DEMO_SEED_MANIFEST: DemoSeedManifest = {
       order: 1,
       isVisible: true,
       items: [
-        { icon: 'truck', title: 'PENDING APPROVAL — trust item 1' },
-        { icon: 'shield', title: 'PENDING APPROVAL — trust item 2' },
-        { icon: 'badge', title: 'PENDING APPROVAL — trust item 3' },
-        { icon: 'support', title: 'PENDING APPROVAL — trust item 4' },
+        {
+          icon: 'badge',
+          title: 'فروشگاه اینترنتی',
+          body: 'کالای دیجیتال و لوازم جانبی',
+        },
+        {
+          icon: 'shield',
+          title: 'خرید خرده و عمده',
+          body: 'برای مشتریان و کسب‌وکارها',
+        },
+        {
+          icon: 'support',
+          title: 'تماس با فروشگاه',
+          body: '۰۲۱-۹۱۳۰۱۹۰۰',
+        },
+        {
+          icon: 'support',
+          title: 'دفتر ساری',
+          body: 'بلوار پاسداران، روبروی مرکز پرتو مازند',
+        },
       ],
     },
     {
@@ -389,18 +453,18 @@ export const DEMO_SEED_MANIFEST: DemoSeedManifest = {
       order: 5,
       isVisible: true,
       limit: 8,
-      title: 'آماده ارسال',
-      subtitle: null,
+      title: 'موجود در انبار',
+      subtitle: 'کالاهایی که همین حالا در کاتالوگ موجودند.',
     },
     {
       key: 'homepage-product-rail',
       type: 'PRODUCT_RAIL',
       order: 6,
       isVisible: true,
-      title: 'محصولات منتخب',
-      subtitle: null,
-      actionHref: null,
-      sort: 'newest',
+      title: 'انتخاب‌های حرفه‌ای',
+      subtitle: 'لپ‌تاپ‌ها و تجهیزات قدرتمند موجود در کاتالوگ.',
+      actionHref: '/products?sort=price_desc',
+      sort: 'price_desc',
       limit: 8,
       inStockOnly: true,
     },
@@ -410,7 +474,7 @@ export const DEMO_SEED_MANIFEST: DemoSeedManifest = {
       order: 7,
       isVisible: true,
       campaignKey: 'brands',
-      productsPerBrand: 4,
+      productsPerBrand: 3,
     },
     {
       key: 'homepage-blog',

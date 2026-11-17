@@ -72,7 +72,13 @@ export function candidates(): DemoSeedCandidates {
   for (const [index, brand] of brands.entries()) {
     productsByBrand[brand.slug] = [product(20 + index), product(30 + index)];
   }
-  return { categories, brands, products, productsByBrand };
+  return {
+    categories,
+    brands,
+    products,
+    productsBySlug: Object.fromEntries(products.map((item) => [item.slug, item])),
+    productsByBrand,
+  };
 }
 
 export function baseline(): DemoSeedBaseline {
@@ -140,7 +146,24 @@ export function approvedManifest(): DemoSeedManifest {
   for (const approval of Object.values(manifest.approvals)) {
     approval.approved = true;
   }
+  // The tests use synthetic catalog candidates (`product-1`...`product-8`),
+  // not the real reviewed catalog. Keep explicit selections valid without
+  // coupling unit fixtures to production product slugs.
+  for (const campaign of content.campaigns) {
+    const selection = campaign.selection.products;
+    if (selection?.kind === 'explicit') {
+      selection.slugs = ['product-1', 'product-2', 'product-3'];
+    }
+  }
   return { ...content, approvals: manifest.approvals };
+}
+
+export function pendingManifest(): DemoSeedManifest {
+  const manifest = approvedManifest();
+  for (const approval of Object.values(manifest.approvals)) {
+    approval.approved = false;
+  }
+  return manifest;
 }
 
 export function manifestWithPending(

@@ -314,6 +314,31 @@ export function buildDemoSeedPlan(input: DemoSeedPlanInput): DemoSeedPlan {
     }
   }
 
+  const explicitSlugs = new Set<string>();
+  for (const campaign of input.manifest.campaigns) {
+    const selection = campaign.selection.products;
+    if (selection?.kind !== 'explicit') continue;
+    for (const slug of selection.slugs) {
+      explicitSlugs.add(slug);
+    }
+  }
+  for (const slug of explicitSlugs) {
+    const product = input.candidates.productsBySlug?.[slug];
+    if (!product) {
+      blockers.push({
+        code: 'EXPLICIT_PRODUCT_UNAVAILABLE',
+        message: `Explicit campaign product ${slug} is not available in the public catalog.`,
+        severity: 'BLOCKER',
+      });
+    } else if (!product.inStock) {
+      blockers.push({
+        code: 'EXPLICIT_PRODUCT_UNAVAILABLE',
+        message: `Explicit campaign product ${slug} is not currently in stock.`,
+        severity: 'BLOCKER',
+      });
+    }
+  }
+
   candidateGuards(input.candidates, blockers, warnings);
 
   const readyProducts = input.candidates.products.slice(0, 8);
@@ -476,6 +501,14 @@ export function campaignPayload(
       definition.selection.products.limit,
     )) {
       productIds.add(product.id);
+    }
+  }
+  if (definition.selection.products?.kind === 'explicit') {
+    for (const slug of definition.selection.products.slugs) {
+      const product = candidates.productsBySlug?.[slug];
+      if (product) {
+        productIds.add(product.id);
+      }
     }
   }
   if (definition.selection.products?.kind === 'brand-mix') {

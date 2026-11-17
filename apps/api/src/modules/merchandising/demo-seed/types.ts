@@ -46,7 +46,8 @@ export interface DemoCampaignSelection {
   categories?: { kind: 'top-published'; limit: number };
   products?:
     | { kind: 'newest-in-stock'; limit: number }
-    | { kind: 'brand-mix'; brandsLimit: number; perBrand: number };
+    | { kind: 'brand-mix'; brandsLimit: number; perBrand: number }
+    | { kind: 'explicit'; slugs: string[] };
   brands?: { kind: 'top-published'; limit: number };
 }
 
@@ -338,6 +339,7 @@ export interface DemoSeedCandidates {
   categories: DemoCategoryCandidate[];
   brands: DemoBrandCandidate[];
   products: CatalogProductCardDto[];
+  productsBySlug?: Record<string, CatalogProductCardDto>;
   productsByBrand: Record<string, CatalogProductCardDto[]>;
 }
 
@@ -365,6 +367,7 @@ export type DemoSeedBlockerCode =
   | 'BLOG_ARTICLE_PUBLISH_REQUIRED'
   | 'BLOG_ACTIVATION_REQUIRES_PUBLICATION'
   | 'CATALOG_CANDIDATES_INSUFFICIENT'
+  | 'EXPLICIT_PRODUCT_UNAVAILABLE'
   | 'CALL_FOR_PRICE_NOT_APPROVED'
   | 'MEDIA_RECONCILIATION_NOT_ACKNOWLEDGED'
   | 'SS245_POST_CHANGED';
@@ -511,6 +514,7 @@ export interface DemoSeedReadRepository {
   readMediaByOriginalNames(originalNames: string[]): Promise<DemoMediaRow[]>;
   readPublishedMedia(): Promise<DemoMediaRow[]>;
   readProducts(limit: number): Promise<CatalogProductCardDto[]>;
+  readProductsBySlugs(slugs: string[]): Promise<CatalogProductCardDto[]>;
   readCategories(limit: number): Promise<DemoCategoryCandidate[]>;
   readBrands(limit: number, perBrand: number): Promise<{
     brands: DemoBrandCandidate[];

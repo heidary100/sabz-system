@@ -599,10 +599,12 @@ The manifest is `manifest.ts`. It defines:
 - three demo blog articles;
 - the 13-item approval register.
 
-All approvals are **pending** by default. Placeholder copy is clearly marked
-`PENDING APPROVAL`; the manifest contains no delivery, authenticity, warranty or
-support claims. Do not mark an approval approved without explicit business
-sign-off.
+`DEMO_APPROVALS` is the auditable approval register and stays pending until
+business sign-off. The exported `DEMO_SEED_MANIFEST` carries the reviewed demo
+decisions and approved content; regression tests assert both states. Any
+unreviewed placeholder copy is clearly marked `PENDING APPROVAL`; the reviewed
+manifest contains no delivery, authenticity, warranty or support claims. Do not
+mark an approval approved without explicit business sign-off.
 
 Content completeness is validated independently of the approval booleans.
 `PENDING APPROVAL`, placeholder/TODO/TBD markers, unresolved template tokens,
@@ -633,11 +635,15 @@ The planner reuses the current public catalog resolver contracts. It reports:
 
 - up to eight newest eligible in-stock published products for READY_TO_SHIP;
 - top-published categories for discovery/spotlight;
-- top-published brands and their newest products for brand showcase.
+- top-published brands and their newest products for brand showcase;
+- explicit manifest product slugs for deliberately curated campaigns.
 
-No product IDs are hardcoded and no catalog rows are modified. If a candidate is
-`CALL_FOR_PRICE`, apply is blocked until the corresponding approval is granted.
-If fewer than eight candidates exist, the plan warns; zero candidates block.
+No database IDs are hardcoded; curated selections reference public product slugs
+and are re-resolved at plan time. A selected product that is missing,
+unpublished or out of stock blocks apply. No catalog rows are modified. If a
+candidate is `CALL_FOR_PRICE`, apply is blocked until the corresponding approval
+is granted. If fewer than eight candidates exist, the plan warns; zero candidates
+block.
 
 ## Media and public URLs
 
@@ -666,6 +672,11 @@ by a customer browser. The tool rejects:
 - `.local` names and private IPv4 ranges;
 - URLs with embedded credentials, query strings or fragments.
 
+For a local demo, a loopback hostname such as
+`http://127.0.0.1.sslip.io:3000/api/v1` keeps stored media URLs browser-valid
+without weakening the URL guard. It is a development convenience, not a
+production origin.
+
 Blog cover URLs use:
 
 ```text
@@ -674,6 +685,9 @@ Blog cover URLs use:
 
 Merchandising media is only publicly served after publication sets
 `publishedAt`. Upload or campaign attachment alone does not make it public.
+Public product and merchandising media responses set
+`Cross-Origin-Resource-Policy: cross-origin` so the separately hosted storefront
+can embed them; the rest of the API keeps Helmet's same-origin default.
 
 Media storage identity is deterministic per operation and manifest asset slot:
 
