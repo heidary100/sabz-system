@@ -19,7 +19,11 @@ export function CategorySpotlight({
   const { category, copy, secondaryCount } = section
   const heading = copy.titleFa ?? category.name
   const cover = safeMediaImageUrl(category.coverUrl)
-  const href = safeInternalHref(copy.href)
+  const copyHref = safeInternalHref(copy.href)
+  // A category spotlight's primary action belongs to its own category. Scope
+  // a generic all-products campaign CTA to the spotlighted category.
+  const href =
+    copyHref === '/products' ? `/categories/${category.slug}` : copyHref
 
   return (
     <section

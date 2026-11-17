@@ -77,6 +77,23 @@ describe('CategorySpotlight', () => {
     )
   })
 
+  it('scopes a generic all-products CTA to the spotlighted category', () => {
+    render(
+      <CategorySpotlight
+        section={section({
+          copy: campaignCopy({
+            ctaLabelFa: 'مشاهده دسته',
+            href: '/products',
+          }),
+        })}
+      />,
+    )
+
+    expect(
+      screen.getByRole('link', { name: 'مشاهده دسته' }).getAttribute('href'),
+    ).toBe('/categories/category-b')
+  })
+
   it('does not invent optional copy or a CTA when the payload omits them', () => {
     render(
       <CategorySpotlight
