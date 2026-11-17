@@ -47,6 +47,23 @@ describe('BlogFeature', () => {
     )
   })
 
+  it('gives the compact companions a cover and readable excerpt', () => {
+    const { container } = render(
+      <BlogFeature
+        posts={[blogCard('1'), blogCard('2'), blogCard('3')]}
+      />,
+    )
+    const articles = container.querySelectorAll('article')
+    expect(articles).toHaveLength(3)
+    for (const index of [1, 2]) {
+      const article = articles[index]!
+      expect(article.textContent).toContain(`خلاصه مقاله ${index + 1}`)
+      expect(
+        article.querySelector('img')?.getAttribute('src'),
+      ).toBe(`/api/v1/catalog/media/${index + 1}`)
+    }
+  })
+
   it('renders nothing when the published feature has no posts', () => {
     const { container } = render(<BlogFeature posts={[]} />)
     expect(container.firstChild).toBeNull()

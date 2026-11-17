@@ -25,17 +25,17 @@ export function BlogCard({
 
   return (
     <article
-      className={`group flex h-full overflow-hidden border border-border bg-surface transition-colors hover:border-accent ${
+      className={`group flex overflow-hidden border border-border bg-surface transition-colors hover:border-accent ${
         compact
           ? 'gap-3 rounded-card p-3'
-          : 'flex-col rounded-card shadow-card'
+          : 'h-full flex-col rounded-card shadow-card'
       }`}
     >
       {post.coverImageUrl ? (
         <Link
           href={`/blog/${post.slug}`}
           className={`block shrink-0 overflow-hidden bg-plate focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${
-            compact ? 'w-24 rounded-control sm:w-28' : ''
+            compact ? 'w-28 rounded-control sm:w-48' : ''
           }`}
           tabIndex={-1}
           aria-hidden="true"
@@ -84,10 +84,14 @@ export function BlogCard({
           </Link>
         </h3>
 
-        {post.excerpt && !compact ? (
+        {post.excerpt ? (
           <p
             className={`text-xs leading-5 text-fg-muted ${
-              feature ? 'line-clamp-3 sm:text-sm sm:leading-6' : 'line-clamp-2'
+              feature
+                ? 'line-clamp-3 sm:text-sm sm:leading-6'
+                : compact
+                  ? 'line-clamp-2 text-[11px]'
+                  : 'line-clamp-2'
             }`}
           >
             {post.excerpt}

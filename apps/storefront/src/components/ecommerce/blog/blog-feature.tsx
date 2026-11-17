@@ -42,7 +42,7 @@ export function BlogFeature({
           <BlogCard post={layout.feature} variant="feature" />
         </div>
         {layout.secondary.length > 0 ? (
-          <div className="grid gap-3 sm:grid-cols-2 lg:col-span-5 lg:grid-cols-1">
+          <div className="grid content-start gap-3 sm:grid-cols-2 lg:col-span-5 lg:grid-cols-1">
             {layout.secondary.map((post) => (
               <BlogCard key={post.id} post={post} variant="compact" />
             ))}
