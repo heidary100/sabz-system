@@ -32,7 +32,7 @@ export function Pagination({
         <Link
           href={makeHref(page - 1)}
           rel="prev"
-          className="inline-flex min-h-11 items-center rounded-md border border-sand-200 bg-white px-3 py-2 text-sm text-gray-600 transition-colors duration-200 hover:border-sabz-300 hover:text-sabz-700"
+          className="inline-flex min-h-11 items-center rounded-control border border-border bg-surface px-3 py-2 text-sm text-fg-secondary transition-colors duration-200 hover:border-accent hover:text-accent"
         >
           قبلی
         </Link>
@@ -41,7 +41,7 @@ export function Pagination({
       {windowStart > 1 ? (
         <Link
           href={makeHref(1)}
-          className="inline-flex min-h-11 items-center rounded-md border border-sand-200 bg-white px-3.5 py-2 text-sm text-gray-600 transition-colors duration-200 hover:border-sabz-300 hover:text-sabz-700"
+          className="inline-flex min-h-11 items-center rounded-control border border-border bg-surface px-3.5 py-2 text-sm text-fg-secondary transition-colors duration-200 hover:border-accent hover:text-accent"
         >
           {formatFaNumber(1)}
         </Link>
@@ -52,7 +52,7 @@ export function Pagination({
           <span
             key={number}
             aria-current="page"
-            className="animate-pop inline-flex min-h-11 items-center rounded-md bg-gradient-sabz px-3.5 py-2 text-sm font-semibold text-white shadow-sm"
+            className="animate-pop inline-flex min-h-11 items-center rounded-control bg-accent px-3.5 py-2 text-sm font-semibold text-on-accent shadow-card"
           >
             {formatFaNumber(number)}
           </span>
@@ -60,7 +60,7 @@ export function Pagination({
           <Link
             key={number}
             href={makeHref(number)}
-            className="inline-flex min-h-11 items-center rounded-md border border-sand-200 bg-white px-3.5 py-2 text-sm text-gray-600 hover:border-sabz-300 hover:text-sabz-700"
+            className="inline-flex min-h-11 items-center rounded-control border border-border bg-surface px-3.5 py-2 text-sm text-fg-secondary hover:border-accent hover:text-accent"
           >
             {formatFaNumber(number)}
           </Link>
@@ -70,7 +70,7 @@ export function Pagination({
       {windowEnd < totalPages ? (
         <Link
           href={makeHref(totalPages)}
-          className="inline-flex min-h-11 items-center rounded-md border border-sand-200 bg-white px-3.5 py-2 text-sm text-gray-600 transition-colors duration-200 hover:border-sabz-300 hover:text-sabz-700"
+          className="inline-flex min-h-11 items-center rounded-control border border-border bg-surface px-3.5 py-2 text-sm text-fg-secondary transition-colors duration-200 hover:border-accent hover:text-accent"
         >
           {formatFaNumber(totalPages)}
         </Link>
@@ -80,7 +80,7 @@ export function Pagination({
         <Link
           href={makeHref(page + 1)}
           rel="next"
-          className="inline-flex min-h-11 items-center rounded-md border border-sand-200 bg-white px-3 py-2 text-sm text-gray-600 transition-colors duration-200 hover:border-sabz-300 hover:text-sabz-700"
+          className="inline-flex min-h-11 items-center rounded-control border border-border bg-surface px-3 py-2 text-sm text-fg-secondary transition-colors duration-200 hover:border-accent hover:text-accent"
         >
           بعدی
         </Link>

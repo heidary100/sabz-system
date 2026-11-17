@@ -11,7 +11,7 @@ import {
 } from '@/lib/national-id';
 
 const inputClassName =
-  'min-h-11 w-full rounded-md border border-sand-200 bg-white px-3 text-left text-sm tabular-nums tracking-[0.08em] text-ink-900 placeholder:tracking-normal placeholder:text-gray-400';
+  'min-h-11 w-full rounded-control border border-border-control bg-surface px-3 text-left text-sm tabular-nums tracking-[0.08em] text-fg placeholder:tracking-normal placeholder:text-fg-muted';
 
 export interface NationalIdSummary {
   hasNationalId: boolean;
@@ -146,20 +146,20 @@ export function NationalIdField({
   const helpId = 'account-nationalId-help';
 
   return (
-    <section className="rounded-2xl border border-sand-200 bg-white p-6 shadow-card">
-      <h2 className="text-sm font-bold text-ink-900">اطلاعات هویتی</h2>
+    <section className="rounded-panel border border-border bg-surface p-6 shadow-card">
+      <h2 className="text-sm font-bold text-fg">اطلاعات هویتی</h2>
 
       {!editing ? (
         <div className="mt-4 space-y-3">
           <div>
-            <p className="text-xs text-gray-500">{NATIONAL_ID_MESSAGES.savedState}</p>
+            <p className="text-xs text-fg-muted">{NATIONAL_ID_MESSAGES.savedState}</p>
             <p
               dir="ltr"
-              className="mt-1 text-left text-base font-semibold tabular-nums tracking-[0.12em] text-ink-900"
+              className="mt-1 text-left text-base font-semibold tabular-nums tracking-[0.12em] text-fg"
             >
               {maskedNationalId ?? '****'}
             </p>
-            <p className="mt-1 text-xs leading-5 text-gray-500">
+            <p className="mt-1 text-xs leading-5 text-fg-muted">
               برای حفظ حریم خصوصی، فقط چهار رقم آخر نمایش داده می‌شود.
             </p>
           </div>
@@ -170,19 +170,19 @@ export function NationalIdField({
       ) : (
         <form onSubmit={handleSubmit} className="mt-4 space-y-3" noValidate>
           {!hasNationalId && (
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-fg-muted">
               {NATIONAL_ID_MESSAGES.unsetState}
             </p>
           )}
           {hasNationalId && (
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-fg-muted">
               کد ملی فعلی: <span dir="ltr">{maskedNationalId ?? '****'}</span>
             </p>
           )}
           <div>
             <label
               htmlFor="account-nationalId"
-              className="mb-1 block text-sm font-semibold text-ink-900"
+              className="mb-1 block text-sm font-semibold text-fg"
             >
               {NATIONAL_ID_MESSAGES.label}
             </label>
@@ -212,18 +212,18 @@ export function NationalIdField({
               aria-describedby={`${helpId}${error !== null ? ` ${errorId}` : ''}`}
               className={inputClassName}
             />
-            <p id={helpId} className="mt-1.5 text-xs leading-5 text-gray-500">
+            <p id={helpId} className="mt-1.5 text-xs leading-5 text-fg-muted">
               {hasNationalId
                 ? NATIONAL_ID_MESSAGES.replacementNote
                 : NATIONAL_ID_MESSAGES.helper}
             </p>
-            <p className="mt-1 text-xs leading-5 text-gray-500">
+            <p className="mt-1 text-xs leading-5 text-fg-muted">
               {NATIONAL_ID_MESSAGES.disclaimer}
             </p>
             {showLiveValid && (
               <p
                 role="status"
-                className="mt-1.5 text-xs font-medium text-sabz-700"
+                className="mt-1.5 text-xs font-medium text-accent"
               >
                 {NATIONAL_ID_MESSAGES.valid}
               </p>
@@ -232,7 +232,7 @@ export function NationalIdField({
               <p
                 id={errorId}
                 role="alert"
-                className="mt-1.5 text-xs font-medium text-red-700"
+                className="mt-1.5 text-xs font-medium text-danger"
               >
                 {error}
               </p>
@@ -259,7 +259,7 @@ export function NationalIdField({
       {notice !== null && (
         <p
           role="status"
-          className="mt-3 rounded-lg bg-sabz-50 px-3 py-2.5 text-sm font-medium text-sabz-700 ring-1 ring-inset ring-sabz-200 motion-reduce:animate-none"
+          className="mt-3 rounded-control bg-accent-soft px-3 py-2.5 text-sm font-medium text-accent ring-1 ring-inset ring-accent/20 motion-reduce:animate-none"
         >
           {notice}
         </p>

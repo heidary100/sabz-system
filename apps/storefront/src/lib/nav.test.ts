@@ -10,10 +10,19 @@ import {
   navRoots,
   searchSubmitPath,
   splitNavCategories,
+  visibleCategoryChildren,
 } from './nav';
 
 function node(id: string, children: CatalogCategoryNode[] = []): CatalogCategoryNode {
   return { id, name: id, slug: id, sortOrder: 0, publishedProductCount: 1, children };
+}
+
+function counted(
+  id: string,
+  publishedProductCount: number,
+  children: CatalogCategoryNode[] = [],
+): CatalogCategoryNode {
+  return { id, name: id, slug: id, sortOrder: 0, publishedProductCount, children };
 }
 
 describe('splitNavCategories', () => {
@@ -43,6 +52,24 @@ describe('categoryHasChildren', () => {
   it('detects parent vs leaf nodes', () => {
     expect(categoryHasChildren(node('leaf'))).toBe(false);
     expect(categoryHasChildren(node('parent', [node('child')]))).toBe(true);
+  });
+
+  it('does not treat a parent with only empty subtree children as navigable', () => {
+    expect(
+      categoryHasChildren(counted('parent', 5, [counted('empty', 0)])),
+    ).toBe(false);
+  });
+});
+
+describe('visibleCategoryChildren', () => {
+  it('keeps only children whose visible subtree has published products', () => {
+    const parent = counted('parent', 8, [
+      counted('empty', 0),
+      counted('populated', 8),
+    ]);
+    expect(visibleCategoryChildren(parent).map((n) => n.slug)).toEqual([
+      'populated',
+    ]);
   });
 });
 
@@ -74,10 +101,34 @@ describe('navRoots', () => {
     expect(navRoots(tree)).toBe(tree);
   });
 
-  it('never unwraps when all counts are zero', () => {
+  it('hides a navigation tree whose whole visible subtree is empty', () => {
     const empty = { ...node('root', [node('a')]), publishedProductCount: 0 };
-    const tree = [empty];
-    expect(navRoots(tree)).toBe(tree);
+    expect(navRoots([empty])).toEqual([]);
+  });
+
+  it('filters zero-subtree roots and children without hiding populated parents', () => {
+    const empty = counted('empty', 0);
+    const populatedDescendant = counted('parent', 5, [counted('child', 5)]);
+    const trunk = counted('trunk', 1000, [
+      counted('c1', 10),
+      counted('empty-child', 0),
+      populatedDescendant,
+      counted('c3', 4),
+    ]);
+    const roots = navRoots([trunk, empty, counted('minor', 3)]);
+    expect(roots.map((n) => n.slug)).toEqual([
+      'c1',
+      'parent',
+      'c3',
+      'minor',
+    ]);
+    expect(roots.find((n) => n.slug === 'parent')).toBe(populatedDescendant);
+  });
+
+  it('does not unwrap a dominant trunk when every child subtree is empty', () => {
+    const trunk = counted('trunk', 1000, [counted('empty-child', 0)]);
+    const roots = navRoots([trunk]);
+    expect(roots.map((n) => n.slug)).toEqual(['trunk']);
   });
 });
 

@@ -95,7 +95,7 @@ export function RfqList() {
 
   if (status === 'error') {
     return (
-      <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+      <p role="alert" className="rounded-control bg-danger-soft px-3 py-2 text-sm text-danger">
         {error ?? LOAD_FAILED}
       </p>
     );
@@ -104,7 +104,7 @@ export function RfqList() {
   if (items.length === 0) {
     return (
       <Card className="p-6 text-center">
-        <p className="text-sm leading-6 text-gray-600">
+        <p className="text-sm leading-6 text-fg-secondary">
           هنوز استعلامی ثبت نکرده‌اید. روی مدل‌های بدون قیمت، دکمه «درخواست
           استعلام» را بزنید.
         </p>
@@ -122,8 +122,8 @@ export function RfqList() {
           <Card className="p-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <p className="text-sm font-bold text-ink-900">{rfq.productName}</p>
-                <p className="mt-1 text-xs text-gray-500">
+                <p className="text-sm font-bold text-fg">{rfq.productName}</p>
+                <p className="mt-1 text-xs text-fg-muted">
                   {formatFaNumber(rfq.quantity)} عدد
                   {rfq.quotedLineTotal !== null
                     ? ` — ${formatToman(rialToTomanString(rfq.quotedLineTotal))}`

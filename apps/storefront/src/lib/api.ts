@@ -1,29 +1,42 @@
 import { createApiClient } from '@sabz/api-client'
+import {
+  resolveBrowserApiBaseUrl,
+  resolveInternalApiBaseUrl,
+  resolveMediaBaseUrl,
+} from './api-url'
 
 export { ApiError } from '@sabz/api-client'
 
-/** Browser-facing API origin — also the origin that hosts product media. */
-export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3000/api/v1'
+const production = process.env.NODE_ENV === 'production'
 
 /**
- * API origin as seen by the Next.js image optimizer, which fetches upstream
- * media server-side. Inside Docker that is the compose-internal hostname
- * (the browser-facing URL is unreachable from the storefront container and
- * Next refuses private-IP upstreams without the dev flag in next.config.ts);
- * outside Docker it falls back to the browser-facing URL.
+ * Browser-facing API origin. Absolute HTTP(S) or a root-relative same-origin
+ * path such as `/api/v1` are both valid.
  */
-export const MEDIA_BASE_URL =
-  process.env.NEXT_PUBLIC_MEDIA_BASE_URL ?? API_BASE_URL
+export const API_BASE_URL = resolveBrowserApiBaseUrl(
+  process.env.NEXT_PUBLIC_API_BASE_URL,
+  production,
+)
 
 /**
- * Server components resolve the API through the compose-internal hostname
- * when deployed in Docker: the browser-facing URL (published port) is not
- * reachable from inside the storefront container. Outside Docker both point
- * at the same address.
+ * API origin as seen by the Next.js image optimizer. It may be the
+ * compose-internal hostname or a same-origin path; next/image handles a
+ * root-relative source without a remote pattern.
+ */
+export const MEDIA_BASE_URL = resolveMediaBaseUrl(
+  process.env.NEXT_PUBLIC_MEDIA_BASE_URL,
+  API_BASE_URL,
+)
+
+/**
+ * Server components fetch through an absolute internal API origin. In Docker
+ * that is the compose service name; outside Docker an absolute browser base
+ * is reused. A relative browser base requires an explicit internal origin.
  */
 const SERVER_API_BASE_URL =
-  process.env.API_INTERNAL_BASE_URL ?? API_BASE_URL
+  typeof window === 'undefined'
+    ? resolveInternalApiBaseUrl(process.env.API_INTERNAL_BASE_URL, API_BASE_URL)
+    : API_BASE_URL
 
 const client = createApiClient({
   baseUrl:

@@ -21,8 +21,8 @@ export function AddToCartButton({
 }: {
   identity: CartAddInput;
   productName: string;
-  /** `full` for the detail panel, `icon` for the card slot overlay. */
-  size?: 'full' | 'icon';
+  /** `full` for the detail panel, `icon` for overlays, `card` for card footers. */
+  size?: 'full' | 'icon' | 'card';
 }) {
   const { add } = useCart();
   const router = useRouter();
@@ -53,6 +53,41 @@ export function AddToCartButton({
     }
   }
 
+  if (size === 'card') {
+    return (
+      <span className="flex min-w-0 flex-1 flex-col gap-1">
+        <button
+          type="button"
+          onClick={() => void handleAdd()}
+          disabled={pending}
+          aria-label={`افزودن ${productName} به سبد خرید`}
+          className="flex min-h-11 w-full items-center justify-center gap-1.5 rounded-control bg-accent px-2 text-xs font-semibold text-on-accent transition-colors hover:bg-accent-hover disabled:pointer-events-none disabled:bg-surface-3 disabled:text-fg-muted"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            strokeWidth={1.5}
+            stroke="currentColor"
+            aria-hidden="true"
+            className="size-4 shrink-0"
+          >
+            <path
+              d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 0 0-16.536-1.84M7.5 14.25 5.106 5.272M6 20.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm12.75 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          {pending ? 'افزودن…' : 'افزودن'}
+        </button>
+        {error ? (
+          <span role="alert" className="text-[11px] leading-4 text-danger">
+            {error}
+          </span>
+        ) : null}
+      </span>
+    );
+  }
+
   if (size === 'icon') {
     return (
       <span className="inline-flex flex-col items-end gap-1">
@@ -61,7 +96,7 @@ export function AddToCartButton({
           onClick={() => void handleAdd()}
           disabled={pending}
           aria-label={`افزودن ${productName} به سبد خرید`}
-          className="flex min-h-11 min-w-11 items-center justify-center rounded-full bg-white text-gray-500 shadow-card transition-colors hover:text-sabz-700 disabled:opacity-60"
+          className="flex min-h-11 min-w-11 items-center justify-center rounded-pill bg-surface text-fg-muted ring-1 ring-inset ring-border-control transition-colors hover:text-accent disabled:opacity-60"
         >
           <svg
             viewBox="0 0 24 24"
@@ -79,7 +114,7 @@ export function AddToCartButton({
           </svg>
         </button>
         {error ? (
-          <span role="alert" className="max-w-40 rounded-md bg-white px-2 py-1 text-[11px] leading-4 text-red-700 shadow-card">
+          <span role="alert" className="max-w-40 rounded-control bg-surface px-2 py-1 text-[11px] leading-4 text-danger shadow-card">
             {error}
           </span>
         ) : null}
@@ -99,7 +134,7 @@ export function AddToCartButton({
         {pending ? 'در حال افزودن…' : 'افزودن به سبد خرید'}
       </Button>
       {error ? (
-        <span role="alert" className="mt-2 block text-xs leading-5 text-red-700">
+        <span role="alert" className="mt-2 block text-xs leading-5 text-danger">
           {error}
         </span>
       ) : null}

@@ -27,9 +27,9 @@ export function EmptyState({
 }) {
   if (!isFiltering(state)) {
     return (
-      <div className="rounded-xl border border-sand-200 bg-white px-6 py-20 text-center">
-        <h2 className="text-lg font-semibold text-ink-900">محصولی یافت نشد</h2>
-        <p className="mt-2 text-sm text-gray-500">{emptyCategoryMessage}</p>
+      <div className="rounded-card border border-border bg-surface px-6 py-20 text-center">
+        <h2 className="text-lg font-semibold text-fg">محصولی یافت نشد</h2>
+        <p className="mt-2 text-sm text-fg-muted">{emptyCategoryMessage}</p>
       </div>
     );
   }
@@ -39,12 +39,12 @@ export function EmptyState({
   return (
     <div
       role="status"
-      className="rounded-xl border border-sand-200 bg-white px-6 py-20 text-center"
+      className="rounded-card border border-border bg-surface px-6 py-20 text-center"
     >
-      <h2 className="text-lg font-semibold text-ink-900">
+      <h2 className="text-lg font-semibold text-fg">
         محصولی با فیلترهای فعلی پیدا نشد.
       </h2>
-      <p className="mt-2 text-sm text-gray-500">
+      <p className="mt-2 text-sm text-fg-muted">
         فیلترها را تغییر دهید یا همه فیلترها را پاک کنید.
       </p>
       <Link href={resetHref} className={`${buttonVariants()} mt-6`}>

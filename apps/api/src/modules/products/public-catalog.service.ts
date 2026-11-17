@@ -1,8 +1,13 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PriceStatus, Prisma, ProductStatus, ReviewStatus } from '@prisma/client';
 import { tokenizeQuery } from '@sabz/search';
 import type {
   CatalogBrandDto,
+  CatalogCategoryCoverDto,
   CatalogCategoryCrumb,
   CatalogCategoryNode,
   CatalogPriceQuoteDto,
@@ -34,6 +39,10 @@ import {
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 20;
+
+/** Bounded batch size for the derived category-cover lookup (Task 03). */
+export const CATEGORY_COVER_MAX = 12;
+const CATEGORY_COVER_SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 /**
  * Server-provided public URL of a stored (watermarked) media asset (SS-123).
@@ -152,6 +161,126 @@ export class PublicCatalogService {
           a.id.localeCompare(b.id),
       )
       .map(strip);
+  }
+
+
+  /**
+   * Derived navigation covers (Task 03).
+   *
+   * One bounded raw query resolves every requested visible category subtree,
+   * picks the newest PUBLISHED product with a public primary image, and
+   * returns that image. This is intentionally a representative product
+   * image, never an editorial category photograph. Unknown/invalid/invisible
+   * slugs are omitted; a resolved visible category with no eligible image is
+   * returned with `imageUrl: null`.
+   */
+  async getCategoryCovers(
+    slugsRaw: string | undefined,
+  ): Promise<CatalogCategoryCoverDto[]> {
+    const slugs = [
+      ...new Set(
+        (slugsRaw ?? '')
+          .split(',')
+          .map((slug) => slug.trim())
+          .filter(
+            (slug) =>
+              slug.length > 0 &&
+              slug.length <= 200 &&
+              CATEGORY_COVER_SLUG.test(slug),
+          ),
+      ),
+    ].slice(0, CATEGORY_COVER_MAX + 1);
+
+    if (slugs.length === 0) {
+      return [];
+    }
+    if (slugs.length > CATEGORY_COVER_MAX) {
+      throw new BadRequestException(
+        `حداکثر ${CATEGORY_COVER_MAX} دسته‌بندی در هر درخواست مجاز است.`,
+      );
+    }
+
+    const slugParams = Prisma.join(
+      slugs.map((slug) => Prisma.sql`${slug}`),
+    );
+
+    const rows = await this.prisma.$queryRaw<
+      Array<{
+        slug: string;
+        name: string;
+        mediaId: string | null;
+        thumbnailKey: string | null;
+      }>
+    >(Prisma.sql`
+      WITH RECURSIVE requested AS (
+        SELECT c.id, c.slug, c.name
+        FROM "Category" c
+        WHERE c."deletedAt" IS NULL
+          AND c."isVisible" = true
+          AND c.slug IN (${slugParams})
+      ),
+      subtree AS (
+        SELECT r.id AS root_id, r.slug, r.name, r.id AS category_id
+        FROM requested r
+        UNION ALL
+        SELECT s.root_id, s.slug, s.name, child.id
+        FROM subtree s
+        JOIN "Category" child ON child."parentId" = s.category_id
+        WHERE child."deletedAt" IS NULL
+          AND child."isVisible" = true
+      ),
+      candidates AS (
+        SELECT DISTINCT ON (s.root_id)
+          s.root_id,
+          s.slug,
+          s.name,
+          pm.id AS media_id,
+          pm."thumbnailKey" AS thumbnail_key
+        FROM subtree s
+        JOIN "Product" p ON p."categoryId" = s.category_id
+        JOIN "ProductMedia" pm ON pm."productId" = p.id
+        LEFT JOIN "ProductVariant" v ON v.id = pm."variantId"
+        WHERE p."deletedAt" IS NULL
+          AND p.status = 'PUBLISHED'
+          AND pm."deletedAt" IS NULL
+          AND pm."mediaType" = 'IMAGE'
+          AND (pm."variantId" IS NULL OR v."deletedAt" IS NULL)
+        ORDER BY
+          s.root_id,
+          p."createdAt" DESC,
+          p.id DESC,
+          pm."isPrimary" DESC,
+          pm."sortOrder" ASC,
+          pm."createdAt" ASC
+      )
+      SELECT
+        r.slug,
+        r.name,
+        c.media_id AS "mediaId",
+        c.thumbnail_key AS "thumbnailKey"
+      FROM requested r
+      LEFT JOIN candidates c ON c.root_id = r.id
+    `);
+
+    const bySlug = new Map(rows.map((row) => [row.slug, row]));
+    return slugs.flatMap((slug) => {
+      const row = bySlug.get(slug);
+      if (!row) {
+        return [];
+      }
+      const imageUrl = row.mediaId
+        ? row.thumbnailKey
+          ? `${PUBLIC_MEDIA_URL_PREFIX}/${row.mediaId}/thumbnail`
+          : `${PUBLIC_MEDIA_URL_PREFIX}/${row.mediaId}`
+        : null;
+      return [
+        {
+          slug,
+          imageUrl,
+          alt: `تصویر دسته‌بندی ${row.name}`,
+        },
+      ];
+    });
   }
 
   async listBrands(

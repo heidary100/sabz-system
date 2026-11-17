@@ -1,16 +1,16 @@
 import type { CatalogCategoryNode } from '@sabz/types';
-import type { AnnouncementConfig } from '../config/home';
-import { isAdvertisableInternalHref } from './site';
 import { findCategoryNode, navRoots } from './nav';
 
 /**
- * Home curation helpers (SS-215 foundation). Pure — derived from the
- * already-fetched public category tree, no extra requests. Consumed by the
- * home page; the visual sections themselves belong to Muse.
+ * Footer/global-chrome curation helpers.
+ *
+ * Homepage merchandising is resolved from the published homepage API; there
+ * are deliberately no static hero, trust, campaign, offer, brand, or blog
+ * helpers in this module.
  */
 
 /**
- * Resolves the category tiles for the home page.
+ * Resolves the footer category links.
  *
  * 1. Explicit slugs first, in config order. Slugs are looked up in the full
  *    tree (so nested children are curatable), missing/hidden slugs are
@@ -21,8 +21,7 @@ import { findCategoryNode, navRoots } from './nav';
  *    API's deterministic order (sortOrder → name → id), capped at `limit`.
  *
  * Never uses `tree[0]` or any positional pick for business meaning, never
- * randomizes, and never throws on an empty tree (returns `[]` so the section
- * hides instead of crashing the homepage).
+ * randomizes, and never throws on an empty tree.
  */
 export function resolveFeaturedCategories(
   tree: CatalogCategoryNode[],
@@ -56,31 +55,4 @@ export function resolveFeaturedCategories(
         a.id.localeCompare(b.id),
     )
     .slice(0, cap);
-}
-
-/**
- * Section visibility for product rails: an empty rail hides, a non-empty
- * rail renders. No placeholder or dummy products are ever synthesized.
- */
-export function shouldShowSection(items: readonly unknown[]): boolean {
-  return items.length > 0;
-}
-
-/**
- * Resolves the configured announcement into a renderable value (or null).
- * Empty text disables the bar. A present-but-invalid `href` (placeholder
- * route, relative path, or unsafe URL) is stripped while keeping the text —
- * a store-wide message must never link to a dead destination.
- */
-export function resolveAnnouncement(
-  announcement: AnnouncementConfig | null,
-): AnnouncementConfig | null {
-  if (!announcement || announcement.text.trim() === '') {
-    return null;
-  }
-  const { href, ...rest } = announcement;
-  if (href === undefined || isAdvertisableInternalHref(href.trim())) {
-    return announcement;
-  }
-  return { ...rest };
 }

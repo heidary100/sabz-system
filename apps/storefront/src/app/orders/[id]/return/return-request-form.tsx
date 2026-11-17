@@ -138,7 +138,7 @@ export function ReturnRequestForm({ id }: { id: string }) {
   if (status === 'missing') {
     return (
       <Card className="p-6 text-center">
-        <p className="text-sm leading-6 text-gray-600">سفارش یافت نشد.</p>
+        <p className="text-sm leading-6 text-fg-secondary">سفارش یافت نشد.</p>
         <Link href="/orders" className={buttonVariants({ variant: 'primary' }) + ' mt-6'}>
           بازگشت به سفارش‌ها
         </Link>
@@ -149,7 +149,7 @@ export function ReturnRequestForm({ id }: { id: string }) {
   if (status === 'ineligible' || (status === 'ready' && order === null)) {
     return (
       <Card className="p-6 text-center">
-        <p className="text-sm leading-6 text-gray-600">
+        <p className="text-sm leading-6 text-fg-secondary">
           فقط سفارش‌های تحویل‌شده در مهلت مرجوعی قابل برگشت هستند.
         </p>
         <Link href={`/orders/${id}`} className={buttonVariants({ variant: 'primary' }) + ' mt-6'}>
@@ -161,7 +161,7 @@ export function ReturnRequestForm({ id }: { id: string }) {
 
   if (status === 'error' || order === null) {
     return (
-      <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+      <p role="alert" className="rounded-control bg-danger-soft px-3 py-2 text-sm text-danger">
         {error ?? LOAD_FAILED}
       </p>
     );
@@ -182,26 +182,26 @@ export function ReturnRequestForm({ id }: { id: string }) {
   return (
     <form onSubmit={(event) => void handleSubmit(event)} className="space-y-6">
       <Card className="p-6">
-        <h2 className="text-sm font-bold text-ink-900">
+        <h2 className="text-sm font-bold text-fg">
           اقلام سفارش {formatFaNumber(order.orderNumber)}
         </h2>
         <ul role="list" className="mt-3 space-y-3 text-sm">
           {order.items.map((line) => {
             const quantity = selected[line.id] ?? 0;
             return (
-              <li key={line.id} className="flex items-center justify-between gap-3 border-b border-sand-100 pb-3 last:border-0">
-                <label className="flex min-h-11 cursor-pointer items-start gap-3 leading-6 text-gray-600">
+              <li key={line.id} className="flex items-center justify-between gap-3 border-b border-border pb-3 last:border-0">
+                <label className="flex min-h-11 cursor-pointer items-start gap-3 leading-6 text-fg-secondary">
                   <input
                     type="checkbox"
                     checked={quantity > 0}
                     disabled={submitting}
                     onChange={() => toggleLine(line.id, line.quantity)}
-                    className="mt-1.5 size-4 shrink-0 accent-sabz-700"
+                    className="mt-1.5 size-4 shrink-0 accent-accent"
                   />
                   <span>
                     {line.productName}
                     {line.variantName !== null ? ` — ${line.variantName}` : ''}
-                    <span className="block text-xs text-gray-400">
+                    <span className="block text-xs text-fg-muted">
                       {line.sku} — حداکثر {formatFaNumber(line.quantity)} عدد
                     </span>
                   </span>
@@ -213,11 +213,11 @@ export function ReturnRequestForm({ id }: { id: string }) {
                       aria-label="کاهش تعداد"
                       disabled={submitting || quantity <= 1}
                       onClick={() => setQuantity(line.id, line.quantity, quantity - 1)}
-                      className="flex min-h-11 min-w-11 items-center justify-center rounded-full ring-1 ring-inset ring-sand-200 transition-colors hover:bg-sand-100 disabled:opacity-40"
+                      className="flex min-h-11 min-w-11 items-center justify-center rounded-pill ring-1 ring-inset ring-border transition-colors hover:bg-surface-2 disabled:opacity-40"
                     >
                       −
                     </button>
-                    <span aria-live="polite" className="w-6 text-center font-bold text-ink-900">
+                    <span aria-live="polite" className="w-6 text-center font-bold text-fg">
                       {formatFaNumber(quantity)}
                     </span>
                     <button
@@ -225,7 +225,7 @@ export function ReturnRequestForm({ id }: { id: string }) {
                       aria-label="افزایش تعداد"
                       disabled={submitting || quantity >= line.quantity}
                       onClick={() => setQuantity(line.id, line.quantity, quantity + 1)}
-                      className="flex min-h-11 min-w-11 items-center justify-center rounded-full ring-1 ring-inset ring-sand-200 transition-colors hover:bg-sand-100 disabled:opacity-40"
+                      className="flex min-h-11 min-w-11 items-center justify-center rounded-pill ring-1 ring-inset ring-border transition-colors hover:bg-surface-2 disabled:opacity-40"
                     >
                       +
                     </button>
@@ -238,7 +238,7 @@ export function ReturnRequestForm({ id }: { id: string }) {
       </Card>
 
       <Card className="p-6">
-        <label htmlFor="return-reason" className="text-sm font-bold text-ink-900">
+        <label htmlFor="return-reason" className="text-sm font-bold text-fg">
           دلیل مرجوعی
         </label>
         <textarea
@@ -249,15 +249,15 @@ export function ReturnRequestForm({ id }: { id: string }) {
           rows={4}
           maxLength={1000}
           placeholder="لطفاً دلیل برگشت کالا را بنویسید…"
-          className="mt-2 w-full rounded-xl border border-sand-200 bg-white px-3 py-2 text-sm leading-6 text-ink-900 placeholder:text-gray-400 focus:border-sabz-500 focus:outline-none"
+          className="mt-2 w-full rounded-control border border-border-control bg-surface px-3 py-2 text-sm leading-6 text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none"
         />
         {reasonError !== null ? (
-          <p role="alert" className="mt-2 text-xs text-red-700">{reasonError}</p>
+          <p role="alert" className="mt-2 text-xs text-danger">{reasonError}</p>
         ) : null}
       </Card>
 
       {submitError !== null ? (
-        <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+        <p role="alert" className="rounded-control bg-danger-soft px-3 py-2 text-sm text-danger">
           {submitError}
         </p>
       ) : null}

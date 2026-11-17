@@ -34,7 +34,7 @@ export function CompareRemoveButton({
       type="button"
       onClick={handleRemove}
       aria-label={`حذف ${productName} از مقایسه`}
-      className="flex min-h-9 items-center gap-1 rounded-md px-2 text-xs text-gray-500 hover:bg-red-50 hover:text-red-700"
+      className="flex min-h-9 items-center gap-1 rounded-control px-2 text-xs text-fg-muted hover:bg-danger-soft hover:text-danger"
     >
       <svg viewBox="0 0 24 24" fill="none" strokeWidth={1.5} stroke="currentColor" aria-hidden="true" className="size-4">
         <path

@@ -27,8 +27,10 @@ describe('audit labels (SS-271)', () => {
   it('exposes every labeled action and entity to the filter controls', () => {
     expect(AUDIT_ACTION_ORDER).toContain('PRODUCT_PUBLISHED')
     expect(AUDIT_ACTION_ORDER).toContain('RFQ_EXPIRED')
+    expect(AUDIT_ACTION_ORDER).toContain('HOMEPAGE_SCHEDULED_ACTIVATION_BLOCKED')
     expect(AUDIT_ENTITY_ORDER).toContain('Warehouse')
+    expect(AUDIT_ENTITY_ORDER).toContain('MerchCampaign')
     expect(AUDIT_ACTION_ORDER.length).toBeGreaterThan(80)
-    expect(AUDIT_ENTITY_ORDER.length).toBe(25)
+    expect(AUDIT_ENTITY_ORDER.length).toBe(29)
   })
 })

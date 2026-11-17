@@ -62,13 +62,13 @@ export function ActivePills({
       >
         {pills.map((pill) => (
           <li key={pill.key}>
-            <span className="inline-flex min-h-10 items-center gap-1.5 rounded-full bg-sand-100 py-1 pe-2 ps-3 text-xs font-medium text-ink-900 ring-1 ring-inset ring-sand-200">
+            <span className="inline-flex min-h-10 items-center gap-1.5 rounded-pill bg-surface-2 py-1 pe-2 ps-3 text-xs font-medium text-fg ring-1 ring-inset ring-border">
               {pill.label}
               <button
                 type="button"
                 onClick={() => remove(pill.clear)}
                 aria-label={`حذف فیلتر ${pill.label}`}
-                className="inline-flex size-8 items-center justify-center rounded-full text-gray-500 hover:bg-sand-200 hover:text-ink-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-600"
+                className="inline-flex size-8 items-center justify-center rounded-pill text-fg-muted hover:bg-surface-3 hover:text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
               >
                 <span aria-hidden="true">×</span>
               </button>
@@ -79,7 +79,7 @@ export function ActivePills({
           <button
             type="button"
             onClick={clearAll}
-            className="inline-flex min-h-10 items-center rounded-full px-3 py-1 text-xs font-semibold text-sabz-700 hover:text-sabz-800 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-600"
+            className="inline-flex min-h-10 items-center rounded-pill px-3 py-1 text-xs font-semibold text-accent hover:text-accent-hover hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
           >
             پاک کردن فیلترها
           </button>

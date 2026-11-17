@@ -18,13 +18,13 @@ export function RelatedProducts({
     <section aria-labelledby="related-heading" className="mt-14">
       <h2
         id="related-heading"
-        className="text-xl font-bold tracking-tight text-ink-900"
+        className="text-xl font-bold tracking-tight text-fg"
       >
         محصولات مرتبط
       </h2>
       <div className="mt-4 grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         {items.map((product) => (
-          <ProductCardWithWishlist key={product.id} product={product} />
+          <ProductCardWithWishlist key={product.id} product={product} density="compact" />
         ))}
       </div>
     </section>

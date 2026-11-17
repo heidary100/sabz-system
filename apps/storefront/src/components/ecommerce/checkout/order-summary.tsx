@@ -12,39 +12,39 @@ export function OrderSummary({ summary }: { summary: CheckoutSummaryDto }) {
   return (
     <aside
       aria-label="خلاصه سفارش"
-      className="h-fit rounded-2xl border border-sand-200 bg-white p-5"
+      className="h-fit rounded-panel border border-border bg-surface p-5"
     >
-      <h2 className="text-sm font-bold text-ink-900">خلاصه سفارش</h2>
+      <h2 className="text-sm font-bold text-fg">خلاصه سفارش</h2>
       <ul role="list" className="mt-3 space-y-2 text-sm">
         {priced.map((item) => (
           <li key={item.variantId} className="flex items-start justify-between gap-3">
-            <span className="leading-6 text-gray-600">
+            <span className="leading-6 text-fg-secondary">
               {item.productName}
-              <span className="text-gray-400"> × {formatFaNumber(item.quantity)}</span>
+              <span className="text-fg-muted"> × {formatFaNumber(item.quantity)}</span>
             </span>
-            <span className="shrink-0 font-semibold text-ink-900">
+            <span className="shrink-0 font-semibold text-fg">
               {formatToman(item.lineTotal)}
             </span>
           </li>
         ))}
       </ul>
-      <dl className="mt-3 space-y-2 border-t border-sand-200 pt-3 text-sm">
+      <dl className="mt-3 space-y-2 border-t border-border pt-3 text-sm">
         <div className="flex items-center justify-between gap-3">
-          <dt className="text-gray-600">تعداد اقلام قابل تسویه</dt>
-          <dd className="font-semibold text-ink-900">{formatFaNumber(lineCount)} قلم</dd>
+          <dt className="text-fg-secondary">تعداد اقلام قابل تسویه</dt>
+          <dd className="font-semibold text-fg">{formatFaNumber(lineCount)} قلم</dd>
         </div>
         <div className="flex items-center justify-between gap-3">
-          <dt className="text-gray-600">هزینه ارسال</dt>
-          <dd className="font-semibold text-ink-900">{formatToman(summary.shippingFee)}</dd>
+          <dt className="text-fg-secondary">هزینه ارسال</dt>
+          <dd className="font-semibold text-fg">{formatToman(summary.shippingFee)}</dd>
         </div>
-        <div className="flex items-center justify-between gap-3 border-t border-sand-200 pt-3">
-          <dt className="font-semibold text-ink-900">جمع سفارش</dt>
-          <dd aria-live="polite" className="text-lg font-bold text-sabz-800">
+        <div className="flex items-center justify-between gap-3 border-t border-border pt-3">
+          <dt className="font-semibold text-fg">جمع سفارش</dt>
+          <dd aria-live="polite" className="text-lg font-bold text-accent-hover">
             {formatToman(summary.total)}
           </dd>
         </div>
       </dl>
-      <p className="mt-3 text-xs leading-5 text-gray-500">
+      <p className="mt-3 text-xs leading-5 text-fg-muted">
         قیمت‌ها به تومان و بر اساس آخرین قیمت فروشگاه محاسبه شده است.
       </p>
     </aside>

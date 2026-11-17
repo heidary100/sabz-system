@@ -1,10 +1,10 @@
 import type { ReactNode } from 'react';
 
 /**
- * App Router template (SS-246): remounts on every navigation, so one class
- * gives each route a soft fade-up entrance — the no-JS page transition.
- * The global reduced-motion rule collapses the animation to instantaneous.
+ * App Router template. The former page-wide fade-up entrance was removed:
+ * no content may depend on an entrance animation to become visible, and
+ * per-route motion is reserved for the hero campaign rather than every page.
  */
 export default function Template({ children }: { children: ReactNode }) {
-  return <div className="page-enter">{children}</div>;
+  return children;
 }

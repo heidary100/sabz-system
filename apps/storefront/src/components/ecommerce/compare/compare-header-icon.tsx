@@ -21,7 +21,7 @@ export function CompareHeaderIcon() {
           ? `مقایسه محصولات، ${formatFaNumber(count)} محصول`
           : 'مقایسه محصولات'
       }
-      className="relative flex min-h-11 min-w-11 items-center justify-center rounded-md p-2 text-gray-600 hover:bg-sabz-50 hover:text-sabz-700"
+      className="relative flex min-h-11 min-w-11 items-center justify-center rounded-control p-2 text-fg-secondary hover:bg-accent-soft hover:text-accent"
     >
       <svg viewBox="0 0 24 24" fill="none" strokeWidth={1.5} stroke="currentColor" aria-hidden="true" className="size-6">
         <path
@@ -33,7 +33,7 @@ export function CompareHeaderIcon() {
       {ready && count > 0 ? (
         <span
           aria-hidden="true"
-          className="absolute end-0 top-0 flex min-h-5 min-w-5 items-center justify-center rounded-full bg-sabz-700 px-1 text-[11px] font-bold text-white"
+          className="absolute end-0 top-0 flex min-h-5 min-w-5 items-center justify-center rounded-pill bg-accent px-1 text-[11px] font-bold text-on-accent"
         >
           {formatFaNumber(count)}
         </span>

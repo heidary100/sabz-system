@@ -48,7 +48,7 @@ export function CompareToggle({
             ? `حذف ${productName} از مقایسه`
             : `افزودن ${productName} به مقایسه`
         }
-        className={`flex min-h-11 min-w-11 items-center justify-center rounded-full bg-white text-gray-500 shadow-card transition-colors hover:text-sabz-700 ${active ? 'text-sabz-700' : ''}`}
+        className={`flex min-h-11 min-w-11 items-center justify-center rounded-pill bg-surface text-fg-muted ring-1 ring-inset ring-border-control transition-colors hover:text-accent ${active ? 'text-accent' : ''}`}
       >
         <svg
           viewBox="0 0 24 24"
@@ -68,7 +68,7 @@ export function CompareToggle({
       {fullNotice ? (
         <span
           role="alert"
-          className="max-w-40 rounded-md bg-white px-2 py-1 text-[11px] leading-4 text-red-700 shadow-card"
+          className="max-w-40 rounded-control bg-surface px-2 py-1 text-[11px] leading-4 text-danger shadow-card"
         >
           {COMPARE_FULL_MESSAGE}
         </span>

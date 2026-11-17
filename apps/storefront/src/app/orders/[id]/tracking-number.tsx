@@ -27,7 +27,7 @@ export function TrackingNumberValue({
       <span
         dir="ltr"
         translate="no"
-        className="break-all font-semibold text-ink-900"
+        className="break-all font-semibold text-fg"
       >
         {display}
       </span>
@@ -39,7 +39,7 @@ export function TrackingNumberValue({
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="rounded-sm font-semibold text-sabz-700 underline decoration-sabz-300 underline-offset-4 transition-colors hover:text-sabz-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700"
+      className="rounded-control font-semibold text-accent underline decoration-accent/40 underline-offset-4 transition-colors hover:text-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
     >
       <span dir="ltr" translate="no" className="break-all">
         {display}

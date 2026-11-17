@@ -12,9 +12,11 @@ import type { Readable } from 'stream';
  * `DocumentStorage` (SS-038/SS-039): partner business documents and product
  * media (which will eventually be publicly consumable by the storefront) have
  * different security and lifecycle semantics, and the SS-100 schema note
- * records this product-specific storage boundary. The abstraction exposes only
- * `put`/`get`/`delete` in M1; no public-URL or signed-URL generation exists
- * yet (storefront/public delivery is out of SS-105 scope).
+ * records this product-specific storage boundary. The abstraction exposes
+ * `put`/`putFile`/`get`/`getStream`/`delete`, plus an optional atomic
+ * create-if-absent `putFileExclusive` used by demo recovery; no public-URL or
+ * signed-URL generation exists yet (storefront/public delivery is out of
+ * SS-105 scope).
  */
 export const PRODUCT_MEDIA_STORAGE = Symbol('PRODUCT_MEDIA_STORAGE');
 
@@ -26,6 +28,12 @@ export interface ProductMediaStorage {
    * large file into memory.
    */
   putFile(key: string, sourcePath: string): Promise<void>;
+  /**
+   * Optional atomic create-if-absent. Returns true when this call created the
+   * object and false when a different object already occupies the key. Demo
+   * recovery uses this to avoid replacing a concurrent operation's bytes.
+   */
+  putFileExclusive?(key: string, sourcePath: string): Promise<boolean>;
   get(key: string): Promise<Buffer>;
   /** Streams a stored object for download without buffering it in memory. */
   getStream(key: string): Promise<Readable>;

@@ -71,7 +71,7 @@ export function WishlistGrid() {
   if (status === 'checking' || status === 'loading') {
     return (
       <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8" aria-busy="true" aria-label="در حال بارگذاری علاقه‌مندی‌ها">
-        <div className="h-8 w-48 rounded-md bg-sand-100" aria-hidden="true" />
+        <div className="h-8 w-48 rounded-control bg-surface-2" aria-hidden="true" />
         <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
           {Array.from({ length: 8 }, (_, index) => (
             <ProductCardSkeleton key={index} />
@@ -84,10 +84,10 @@ export function WishlistGrid() {
   if (status === 'login') {
     return (
       <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
-        <h1 className="text-balance text-2xl font-extrabold text-ink-900">علاقه‌مندی‌ها</h1>
-        <div className="mt-8 rounded-2xl border border-sand-200 bg-white">
+        <h1 className="text-balance text-2xl font-extrabold text-fg">علاقه‌مندی‌ها</h1>
+        <div className="mt-8 rounded-panel border border-border bg-surface">
           <div className="flex flex-col items-center px-6 py-16 text-center">
-            <span className="flex size-14 items-center justify-center rounded-full bg-sabz-50 text-sabz-600">
+            <span className="flex size-14 items-center justify-center rounded-pill bg-accent-soft text-accent">
               <svg viewBox="0 0 24 24" fill="none" strokeWidth={1.5} stroke="currentColor" aria-hidden="true" className="size-7">
                 <path
                   d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z"
@@ -96,8 +96,8 @@ export function WishlistGrid() {
                 />
               </svg>
             </span>
-            <h2 className="mt-5 text-lg font-semibold text-ink-900">برای مشاهده علاقه‌مندی‌ها وارد شوید</h2>
-            <p className="mt-2 max-w-md text-sm leading-6 text-gray-600">
+            <h2 className="mt-5 text-lg font-semibold text-fg">برای مشاهده علاقه‌مندی‌ها وارد شوید</h2>
+            <p className="mt-2 max-w-md text-sm leading-6 text-fg-secondary">
               علاقه‌مندی‌ها به حساب کاربری شما متصل است. وارد شوید تا محصولاتی
               که ذخیره کرده‌اید را ببینید.
             </p>
@@ -113,11 +113,11 @@ export function WishlistGrid() {
   if (status === 'error') {
     return (
       <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
-        <h1 className="text-balance text-2xl font-extrabold text-ink-900">علاقه‌مندی‌ها</h1>
-        <div className="mt-8 rounded-2xl border border-sand-200 bg-white">
+        <h1 className="text-balance text-2xl font-extrabold text-fg">علاقه‌مندی‌ها</h1>
+        <div className="mt-8 rounded-panel border border-border bg-surface">
           <div className="flex flex-col items-center px-6 py-16 text-center">
-            <h2 className="text-lg font-semibold text-ink-900">خطا در بارگذاری علاقه‌مندی‌ها</h2>
-            <p className="mt-2 max-w-md text-sm leading-6 text-gray-600">{error ?? LOAD_FAILED}</p>
+            <h2 className="text-lg font-semibold text-fg">خطا در بارگذاری علاقه‌مندی‌ها</h2>
+            <p className="mt-2 max-w-md text-sm leading-6 text-fg-secondary">{error ?? LOAD_FAILED}</p>
             <Button variant="primary" className="mt-8" onClick={load}>
               تلاش مجدد
             </Button>
@@ -130,10 +130,10 @@ export function WishlistGrid() {
   if (items.length === 0) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
-        <h1 className="text-balance text-2xl font-extrabold text-ink-900">علاقه‌مندی‌ها</h1>
-        <div className="mt-8 rounded-2xl border border-sand-200 bg-white">
+        <h1 className="text-balance text-2xl font-extrabold text-fg">علاقه‌مندی‌ها</h1>
+        <div className="mt-8 rounded-panel border border-border bg-surface">
           <div className="flex flex-col items-center px-6 py-16 text-center">
-            <span className="flex size-14 items-center justify-center rounded-full bg-sabz-50 text-sabz-600">
+            <span className="flex size-14 items-center justify-center rounded-pill bg-accent-soft text-accent">
               <svg viewBox="0 0 24 24" fill="none" strokeWidth={1.5} stroke="currentColor" aria-hidden="true" className="size-7">
                 <path
                   d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z"
@@ -142,8 +142,8 @@ export function WishlistGrid() {
                 />
               </svg>
             </span>
-            <h2 className="mt-5 text-lg font-semibold text-ink-900">هنوز محصولی به علاقه‌مندی‌ها اضافه نکرده‌اید</h2>
-            <p className="mt-2 max-w-md text-sm leading-6 text-gray-600">
+            <h2 className="mt-5 text-lg font-semibold text-fg">هنوز محصولی به علاقه‌مندی‌ها اضافه نکرده‌اید</h2>
+            <p className="mt-2 max-w-md text-sm leading-6 text-fg-secondary">
               محصولات موردعلاقه‌تان را با زدن قلب روی کارت محصول ذخیره کنید تا
               اینجا ببینید.
             </p>
@@ -161,15 +161,16 @@ export function WishlistGrid() {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-      <h1 className="text-balance text-2xl font-extrabold text-ink-900">علاقه‌مندی‌ها</h1>
-      <p className="mt-1 text-sm text-gray-500">
+      <h1 className="text-balance text-2xl font-extrabold text-fg">علاقه‌مندی‌ها</h1>
+      <p className="mt-1 text-sm text-fg-muted">
         {items.length.toLocaleString('fa-IR')} محصول
       </p>
       <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         {items.map((product) => (
-          <div key={product.id} className="relative">
-            <ProductCard product={product} />
-            <div className="absolute end-2 top-2">
+          <ProductCard
+            key={product.id}
+            product={product}
+            corner={
               <WishlistHeart
                 productId={product.id}
                 initialActive
@@ -181,8 +182,8 @@ export function WishlistGrid() {
                   }
                 }}
               />
-            </div>
-          </div>
+            }
+          />
         ))}
       </div>
     </div>

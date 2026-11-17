@@ -13,6 +13,9 @@ import type { AllowedMediaMimeType } from '../media-validation';
 export interface ProcessedAsset {
   outputPath: string;
   sizeBytes: number;
+  /** Intrinsic dimensions of the processed image (images only). */
+  width?: number;
+  height?: number;
   /** Watermarked WEBP derivative for listings (SS-129). Images only. */
   thumbnailPath?: string;
   thumbnailSizeBytes?: number;
@@ -49,6 +52,7 @@ export class ImageProcessorService {
     inputPath: string,
     _detectedMime: AllowedMediaMimeType,
     outputPath: string,
+    options: { watermark?: boolean } = {},
   ): Promise<ProcessedAsset> {
     try {
       const metadata = await sharp(inputPath).metadata();
@@ -56,6 +60,19 @@ export class ImageProcessorService {
       const sourceHeight = metadata.height ?? 0;
       if (sourceWidth === 0 || sourceHeight === 0) {
         throw new BadRequestException('پردازش تصویر ناموفق بود.');
+      }
+
+      // Merchandising/editorial media can opt out of the product watermark
+      // without changing the product media default. This is a single,
+      // intentional processing profile, not a configurable watermark system.
+      if (options.watermark === false) {
+        await sharp(inputPath).toFile(outputPath);
+        return {
+          outputPath,
+          sizeBytes: await this.fileSize(outputPath),
+          width: sourceWidth,
+          height: sourceHeight,
+        };
       }
 
       const overlayWidth = watermarkOverlayWidthFor(sourceWidth, this.config);
@@ -99,7 +116,12 @@ export class ImageProcessorService {
         .toFile(outputPath);
 
       const sizeBytes = await this.fileSize(outputPath);
-      return { outputPath, sizeBytes };
+      return {
+        outputPath,
+        sizeBytes,
+        width: sourceWidth,
+        height: sourceHeight,
+      };
     } catch (error) {
       if (error instanceof BadRequestException) {
         throw error;
@@ -129,8 +151,25 @@ export class ImageProcessorService {
     originalPath: string,
     thumbnailPath: string,
     watermarkedPath?: string,
+    options: { watermark?: boolean } = {},
   ): Promise<{ thumbnailPath: string; thumbnailSizeBytes: number }> {
     try {
+      if (options.watermark === false) {
+        await sharp(originalPath)
+          .resize({
+            width: THUMBNAIL_MAX_EDGE_PX,
+            height: THUMBNAIL_MAX_EDGE_PX,
+            fit: 'inside',
+            withoutEnlargement: true,
+          })
+          .webp({ quality: 80 })
+          .toFile(thumbnailPath);
+        return {
+          thumbnailPath,
+          thumbnailSizeBytes: await this.fileSize(thumbnailPath),
+        };
+      }
+
       if (this.config.thumbnailMode !== 'smaller') {
         await sharp(watermarkedPath ?? originalPath)
           .resize({

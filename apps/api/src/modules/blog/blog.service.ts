@@ -15,6 +15,10 @@ import type {
 } from '@sabz/types';
 import { BLOG_STATUS_FA } from '@sabz/types';
 import { PrismaService } from '../../common/database/prisma.service';
+import {
+  acquireTransactionFence,
+  type TransactionFence,
+} from '../../common/database/transaction-fence';
 import { StorefrontCacheService } from '../../common/storefront-cache/storefront-cache.service';
 import {
   BLOG_CATEGORIES_TAG,
@@ -39,6 +43,15 @@ const CATEGORY_SELECT = {
   description: true,
   sortOrder: true,
 } as const;
+
+export interface BlogPostUpdateGuard {
+  beforeWrite?(existing: {
+    slug: string;
+    status: BlogStatus;
+    createdBy: string | null;
+    updatedBy: string | null;
+  }): void;
+}
 
 const POST_CARD_SELECT = {
   id: true,
@@ -154,6 +167,39 @@ export class BlogService {
       throw new NotFoundException('مطلب وبلاگ یافت نشد.');
     }
     return toDetailDto(row);
+  }
+
+  /**
+   * Batched public blog cards for an explicit ordered id list (Task 05.5).
+   * Missing/unpublished ids are omitted; output order follows the input.
+   */
+  async getPublishedCardsByIds(ids: string[]): Promise<BlogPostCardDto[]> {
+    if (ids.length === 0) {
+      return [];
+    }
+    const rows = await this.prisma.blogPost.findMany({
+      where: { id: { in: ids }, status: BlogStatus.PUBLISHED },
+      select: POST_CARD_SELECT,
+    });
+    const byId = new Map(rows.map((row) => [row.id, toCardDto(row)]));
+    return ids.flatMap((id) => {
+      const post = byId.get(id);
+      return post ? [post] : [];
+    });
+  }
+
+  /** Latest public blog cards, newest first (Task 05.5 homepage section). */
+  async getLatestPublishedCards(limit: number): Promise<BlogPostCardDto[]> {
+    if (limit <= 0) {
+      return [];
+    }
+    const rows = await this.prisma.blogPost.findMany({
+      where: { status: BlogStatus.PUBLISHED },
+      select: POST_CARD_SELECT,
+      orderBy: PUBLISHED_ORDER,
+      take: limit,
+    });
+    return rows.map(toCardDto);
   }
 
   /**
@@ -308,36 +354,45 @@ export class BlogService {
     userId: string,
     dto: CreateBlogPostDto,
     ipAddress?: string,
+    fence?: TransactionFence,
   ): Promise<BlogPostDetailDto> {
-    const categoryId = await this.resolveCategoryId(dto.categoryId);
-    const slug = dto.slug?.trim() || (await this.uniquePostSlug(dto.title));
-    const status = dto.status ?? BlogStatus.DRAFT;
-    const publishedAt = this.resolvePublishedAt(status, dto.publishedAt);
     try {
-      const created = await this.prisma.blogPost.create({
-        data: {
-          slug,
-          categoryId,
-          title: dto.title.trim(),
-          excerpt: dto.excerpt?.trim() || null,
-          content: sanitizeRichText(dto.content),
-          coverImageUrl: dto.coverImageUrl?.trim() || null,
-          authorName: dto.authorName?.trim() || null,
-          metaTitle: dto.metaTitle?.trim() || null,
-          metaDescription: dto.metaDescription?.trim() || null,
-          status,
-          publishedAt,
-          createdBy: userId,
-        },
-        select: POST_DETAIL_SELECT,
-      });
-      await this.audit.log({
-        userId,
-        action: 'BLOG_POST_CREATED',
-        entity: 'BlogPost',
-        entityId: created.id,
-        after: { slug, status },
-        ipAddress,
+      const created = await this.prisma.$transaction(async (tx) => {
+        await acquireTransactionFence(fence, tx);
+        const categoryId = await this.resolveCategoryId(dto.categoryId, tx);
+        const slug =
+          dto.slug?.trim() || (await this.uniquePostSlug(dto.title, tx));
+        const status = dto.status ?? BlogStatus.DRAFT;
+        const publishedAt = this.resolvePublishedAt(status, dto.publishedAt);
+        const row = await tx.blogPost.create({
+          data: {
+            slug,
+            categoryId,
+            title: dto.title.trim(),
+            excerpt: dto.excerpt?.trim() || null,
+            content: sanitizeRichText(dto.content),
+            coverImageUrl: dto.coverImageUrl?.trim() || null,
+            authorName: dto.authorName?.trim() || null,
+            metaTitle: dto.metaTitle?.trim() || null,
+            metaDescription: dto.metaDescription?.trim() || null,
+            status,
+            publishedAt,
+            createdBy: userId,
+          },
+          select: POST_DETAIL_SELECT,
+        });
+        await this.audit.log(
+          {
+            userId,
+            action: 'BLOG_POST_CREATED',
+            entity: 'BlogPost',
+            entityId: row.id,
+            after: { slug, status },
+            ipAddress,
+          },
+          tx,
+        );
+        return row;
       });
       void this.storefrontCache.invalidate([BLOG_POSTS_TAG]);
       return toDetailDto(created);
@@ -355,69 +410,81 @@ export class BlogService {
     id: string,
     dto: UpdateBlogPostDto,
     ipAddress?: string,
+    fence?: TransactionFence,
+    guard?: BlogPostUpdateGuard,
   ): Promise<BlogPostDetailDto> {
-    const existing = await this.requirePost(id);
-    const categoryId =
-      dto.categoryId === undefined
-        ? undefined
-        : await this.resolveCategoryId(dto.categoryId);
-    // First-time publish without an explicit timestamp stamps now so the
-    // row orders with the newest; otherwise timestamps stay untouched
-    // unless publishedAt is given explicitly.
-    let publishedAt: Date | null | undefined;
-    if (dto.publishedAt === undefined) {
-      publishedAt =
-        dto.status === BlogStatus.PUBLISHED &&
-        existing.status !== BlogStatus.PUBLISHED &&
-        existing.publishedAt === null
-          ? new Date()
-          : undefined;
-    } else {
-      publishedAt = this.resolvePublishedAt(
-        dto.status ?? existing.status,
-        dto.publishedAt,
-      );
-    }
     try {
-      const updated = await this.prisma.blogPost.update({
-        where: { id },
-        data: {
-          ...(dto.slug ? { slug: dto.slug.trim() } : {}),
-          ...(categoryId !== undefined ? { categoryId } : {}),
-          ...(dto.title ? { title: dto.title.trim() } : {}),
-          ...(dto.excerpt !== undefined
-            ? { excerpt: dto.excerpt?.trim() || null }
-            : {}),
-          ...(dto.content !== undefined
-            ? { content: sanitizeRichText(dto.content) }
-            : {}),
-          ...(dto.coverImageUrl !== undefined
-            ? { coverImageUrl: dto.coverImageUrl?.trim() || null }
-            : {}),
-          ...(dto.authorName !== undefined
-            ? { authorName: dto.authorName?.trim() || null }
-            : {}),
-          ...(dto.metaTitle !== undefined
-            ? { metaTitle: dto.metaTitle?.trim() || null }
-            : {}),
-          ...(dto.metaDescription !== undefined
-            ? { metaDescription: dto.metaDescription?.trim() || null }
-            : {}),
-          ...(dto.status ? { status: dto.status } : {}),
-          ...(publishedAt !== undefined ? { publishedAt } : {}),
-          updatedBy: userId,
+      const { existing, updated } = await this.prisma.$transaction(
+        async (tx) => {
+          await acquireTransactionFence(fence, tx);
+          const current = await this.requirePost(id, tx, true);
+          guard?.beforeWrite?.(current);
+          const categoryId =
+            dto.categoryId === undefined
+              ? undefined
+              : await this.resolveCategoryId(dto.categoryId, tx);
+          // First-time publish without an explicit timestamp stamps now so the
+          // row orders with the newest; otherwise timestamps stay untouched
+          // unless publishedAt is given explicitly.
+          let publishedAt: Date | null | undefined;
+          if (dto.publishedAt === undefined) {
+            publishedAt =
+              dto.status === BlogStatus.PUBLISHED &&
+              current.status !== BlogStatus.PUBLISHED &&
+              current.publishedAt === null
+                ? new Date()
+                : undefined;
+          } else {
+            publishedAt = this.resolvePublishedAt(
+              dto.status ?? current.status,
+              dto.publishedAt,
+            );
+          }
+          const row = await tx.blogPost.update({
+            where: { id },
+            data: {
+              ...(dto.slug ? { slug: dto.slug.trim() } : {}),
+              ...(categoryId !== undefined ? { categoryId } : {}),
+              ...(dto.title ? { title: dto.title.trim() } : {}),
+              ...(dto.excerpt !== undefined
+                ? { excerpt: dto.excerpt?.trim() || null }
+                : {}),
+              ...(dto.content !== undefined
+                ? { content: sanitizeRichText(dto.content) }
+                : {}),
+              ...(dto.coverImageUrl !== undefined
+                ? { coverImageUrl: dto.coverImageUrl?.trim() || null }
+                : {}),
+              ...(dto.authorName !== undefined
+                ? { authorName: dto.authorName?.trim() || null }
+                : {}),
+              ...(dto.metaTitle !== undefined
+                ? { metaTitle: dto.metaTitle?.trim() || null }
+                : {}),
+              ...(dto.metaDescription !== undefined
+                ? { metaDescription: dto.metaDescription?.trim() || null }
+                : {}),
+              ...(dto.status ? { status: dto.status } : {}),
+              ...(publishedAt !== undefined ? { publishedAt } : {}),
+              updatedBy: userId,
+            },
+            select: POST_DETAIL_SELECT,
+          });
+          await this.audit.log(
+            {
+              userId,
+              action: 'BLOG_POST_UPDATED',
+              entity: 'BlogPost',
+              entityId: id,
+              before: { slug: current.slug, status: current.status },
+              after: { slug: row.slug, status: row.status },
+              ipAddress,
+            },
+            tx,
+          );
+          return { existing: current, updated: row };
         },
-        select: POST_DETAIL_SELECT,
-      });
-      await this.audit.log({
-        userId,
-        action: 'BLOG_POST_UPDATED',
-        entity: 'BlogPost',
-        entityId: id,
-        before: { slug: existing.slug, status: existing.status },
-        after: { slug: updated.slug, status: updated.status },
-        ipAddress,
-      });
+      );
       const tags = [BLOG_POSTS_TAG, blogPostTag(updated.slug)];
       if (existing.slug !== updated.slug) {
         tags.push(blogPostTag(existing.slug));
@@ -463,8 +530,11 @@ export class BlogService {
     return toDetailDto(archived);
   }
 
-  private async requireCategory(id: string): Promise<CategoryRow> {
-    const row = await this.prisma.blogCategory.findUnique({
+  private async requireCategory(
+    id: string,
+    client: Prisma.TransactionClient = this.prisma,
+  ): Promise<CategoryRow> {
+    const row = await client.blogCategory.findUnique({
       where: { id },
       select: CATEGORY_SELECT,
     });
@@ -476,10 +546,35 @@ export class BlogService {
 
   private async requirePost(
     id: string,
-  ): Promise<{ slug: string; status: BlogStatus; publishedAt: Date | null }> {
-    const row = await this.prisma.blogPost.findUnique({
+    client: Prisma.TransactionClient = this.prisma,
+    forUpdate = false,
+  ): Promise<{
+    slug: string;
+    status: BlogStatus;
+    publishedAt: Date | null;
+    createdBy: string | null;
+    updatedBy: string | null;
+  }> {
+    if (forUpdate) {
+      const locked = await client.$queryRaw<Array<{ id: string }>>`
+        SELECT "id"
+        FROM "BlogPost"
+        WHERE "id" = ${id}
+        FOR UPDATE
+      `;
+      if (locked.length !== 1) {
+        throw new NotFoundException('مطلب وبلاگ یافت نشد.');
+      }
+    }
+    const row = await client.blogPost.findUnique({
       where: { id },
-      select: { slug: true, status: true, publishedAt: true },
+      select: {
+        slug: true,
+        status: true,
+        publishedAt: true,
+        createdBy: true,
+        updatedBy: true,
+      },
     });
     if (!row) {
       throw new NotFoundException('مطلب وبلاگ یافت نشد.');
@@ -489,6 +584,7 @@ export class BlogService {
 
   private async resolveCategoryId(
     categoryId?: string | null,
+    client: Prisma.TransactionClient = this.prisma,
   ): Promise<string | null | undefined> {
     if (categoryId === undefined) {
       return undefined;
@@ -496,13 +592,16 @@ export class BlogService {
     if (categoryId === null) {
       return null;
     }
-    await this.requireCategory(categoryId);
+    await this.requireCategory(categoryId, client);
     return categoryId;
   }
 
-  private async uniquePostSlug(title: string): Promise<string> {
+  private async uniquePostSlug(
+    title: string,
+    client: Prisma.TransactionClient = this.prisma,
+  ): Promise<string> {
     const { slug } = await ensureUniqueSlug(title, 'post', async (candidate) => {
-      const row = await this.prisma.blogPost.findUnique({
+      const row = await client.blogPost.findUnique({
         where: { slug: candidate },
         select: { id: true },
       });

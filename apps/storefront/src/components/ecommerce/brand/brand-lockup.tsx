@@ -10,7 +10,7 @@ import { brand } from '@/lib/brand';
 export function BrandLockup({
   href = '/',
   markSize = brand.markSize,
-  wordmarkClassName = 'text-lg font-bold tracking-tight text-sabz-800',
+  wordmarkClassName = 'text-lg font-bold tracking-tight text-accent-hover',
 }: {
   href?: string;
   markSize?: number;
@@ -23,7 +23,7 @@ export function BrandLockup({
         alt={brand.logoAlt}
         width={markSize}
         height={markSize}
-        className="rounded-md"
+        className="rounded-control"
         priority={false}
       />
       <span className={wordmarkClassName}>{brand.nameFa}</span>

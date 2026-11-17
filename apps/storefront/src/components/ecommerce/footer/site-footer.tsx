@@ -42,24 +42,13 @@ export function SiteFooter({ categories }: { categories: CatalogCategoryNode[] }
   ];
 
   return (
-    <footer className="relative mt-16 overflow-hidden bg-ink-950 text-gray-300">
-      {/* Cinematic stage (SS-246): brand-green glows anchor the footer to the
-          hero's visual language. Decorative, aria-hidden. */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -top-24 start-1/4 size-96 rounded-full bg-sabz-700/20 blur-3xl"
-      />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -bottom-32 end-0 size-80 rounded-full bg-sabz-800/25 blur-3xl"
-      />
-
+    <footer className="stage-surface relative mt-16 overflow-hidden bg-stage text-on-stage-secondary">
       <div className="relative mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 gap-12 sm:grid-cols-2 lg:grid-cols-12">
           <div className="lg:col-span-4">
-            <BrandLockup wordmarkClassName="text-lg font-bold text-white" />
+            <BrandLockup wordmarkClassName="text-lg font-bold text-on-stage" />
             {siteConfig.blurb ? (
-              <p className="mt-4 max-w-sm text-sm leading-7 text-gray-400">
+              <p className="mt-4 max-w-sm text-sm leading-7 text-on-stage-muted">
                 {siteConfig.blurb}
               </p>
             ) : null}
@@ -72,7 +61,7 @@ export function SiteFooter({ categories }: { categories: CatalogCategoryNode[] }
                         href={social.href}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex min-h-9 items-center rounded-full bg-white/5 px-3.5 text-xs font-medium text-gray-300 ring-1 ring-inset ring-white/10 transition-all duration-200 hover:bg-sabz-700 hover:text-white hover:ring-sabz-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-400"
+                        className="inline-flex min-h-9 items-center rounded-pill bg-on-stage/5 px-3.5 text-xs font-medium text-on-stage-secondary ring-1 ring-inset ring-on-stage/10 transition-all duration-200 hover:bg-accent-stage hover:text-stage hover:ring-focus focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
                       >
                         {social.label}
                         <span className="sr-only"> (باز شدن در پنجره جدید)</span>
@@ -85,17 +74,17 @@ export function SiteFooter({ categories }: { categories: CatalogCategoryNode[] }
           </div>
 
           <nav aria-label="دسته‌بندی‌های فروشگاه" className="lg:col-span-3">
-            <p className="text-sm font-bold text-white">دسته‌بندی‌ها</p>
+            <p className="text-sm font-bold text-on-stage">دسته‌بندی‌ها</p>
             <ul role="list" className="mt-5 space-y-3">
               {featuredCategories.map((category) => (
                 <li key={category.id}>
                   <Link
                     href={`/categories/${category.slug}`}
-                    className="group inline-flex items-center gap-2 text-sm text-gray-400 transition-colors hover:text-sabz-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-400"
+                    className="group inline-flex items-center gap-2 text-sm text-on-stage-muted transition-colors hover:text-accent-stage focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
                   >
                     <span
                       aria-hidden="true"
-                      className="h-px w-0 bg-sabz-400 transition-all duration-300 ease-[var(--ease-swift)] group-hover:w-3"
+                      className="h-px w-0 bg-accent transition-all duration-300 ease-[var(--ease-swift)] group-hover:w-3"
                     />
                     {category.name}
                   </Link>
@@ -104,7 +93,7 @@ export function SiteFooter({ categories }: { categories: CatalogCategoryNode[] }
               <li>
                 <Link
                   href="/categories"
-                  className="text-sm font-medium text-sabz-300 hover:text-sabz-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-400"
+                  className="text-sm font-medium text-accent-stage hover:text-accent-stage focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
                 >
                   همه دسته‌بندی‌ها ←
                 </Link>
@@ -113,7 +102,7 @@ export function SiteFooter({ categories }: { categories: CatalogCategoryNode[] }
           </nav>
 
           <nav aria-label="فروشگاه" className="lg:col-span-2">
-            <p className="text-sm font-bold text-white">فروشگاه</p>
+            <p className="text-sm font-bold text-on-stage">فروشگاه</p>
             <ul role="list" className="mt-5 space-y-3">
               {shopLinks.map((link) => (
                 <li key={link.href}>
@@ -122,7 +111,7 @@ export function SiteFooter({ categories }: { categories: CatalogCategoryNode[] }
                       href={link.href}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-sm text-gray-400 transition-colors hover:text-sabz-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-400"
+                      className="text-sm text-on-stage-muted transition-colors hover:text-accent-stage focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
                     >
                       {link.label}
                       <span className="sr-only"> (باز شدن در پنجره جدید)</span>
@@ -130,7 +119,7 @@ export function SiteFooter({ categories }: { categories: CatalogCategoryNode[] }
                   ) : (
                     <Link
                       href={link.href}
-                      className="text-sm text-gray-400 transition-colors hover:text-sabz-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-400"
+                      className="text-sm text-on-stage-muted transition-colors hover:text-accent-stage focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
                     >
                       {link.label}
                     </Link>
@@ -142,13 +131,13 @@ export function SiteFooter({ categories }: { categories: CatalogCategoryNode[] }
 
           {hasContact ? (
             <div className="lg:col-span-3">
-              <p className="text-sm font-bold text-white">تماس با ما</p>
-              <ul role="list" className="mt-5 space-y-3 text-sm text-gray-400">
+              <p className="text-sm font-bold text-on-stage">تماس با ما</p>
+              <ul role="list" className="mt-5 space-y-3 text-sm text-on-stage-muted">
                 {siteConfig.address ? (
                   <li className="leading-7">
                     {siteConfig.address}
                     {contactChannels.postalCode ? (
-                      <span className="mt-0.5 block text-xs text-gray-500">
+                      <span className="mt-0.5 block text-xs text-on-stage-muted">
                         کدپستی: {contactChannels.postalCode}
                       </span>
                     ) : null}
@@ -159,7 +148,7 @@ export function SiteFooter({ categories }: { categories: CatalogCategoryNode[] }
                     <a
                       href={`tel:${phone.tel}`}
                       dir="ltr"
-                      className="inline-block rounded-sm transition-colors hover:text-sabz-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-400"
+                      className="inline-block rounded-control transition-colors hover:text-accent-stage focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
                     >
                       {phone.display}
                     </a>
@@ -173,7 +162,7 @@ export function SiteFooter({ categories }: { categories: CatalogCategoryNode[] }
                     <a
                       href={`mailto:${siteConfig.email}`}
                       dir="ltr"
-                      className="rounded-sm break-all transition-colors hover:text-sabz-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-400"
+                      className="rounded-control break-all transition-colors hover:text-accent-stage focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
                     >
                       {siteConfig.email}
                     </a>
@@ -184,12 +173,12 @@ export function SiteFooter({ categories }: { categories: CatalogCategoryNode[] }
           ) : null}
         </div>
 
-        <div className="mt-14 flex flex-col items-center justify-between gap-3 border-t border-white/10 pt-6 sm:flex-row">
-          <p className="text-xs leading-5 text-gray-500">
+        <div className="mt-14 flex flex-col items-center justify-between gap-3 border-t border-on-stage/10 pt-6 sm:flex-row">
+          <p className="text-xs leading-5 text-on-stage-muted">
             © {formatFaNumber(new Date().getFullYear())} {brand.nameFa} — تمامی
             حقوق محفوظ است.
           </p>
-          <p className="text-xs text-gray-600">{brand.nameEn}</p>
+          <p className="text-xs text-on-stage-secondary">{brand.nameEn}</p>
         </div>
       </div>
       <ScrollTopButton />

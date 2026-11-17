@@ -65,7 +65,7 @@ export function WishlistHeart({
       disabled={pending}
       aria-pressed={active}
       aria-label={active ? 'حذف از علاقه‌مندی‌ها' : 'افزودن به علاقه‌مندی‌ها'}
-      className={`flex min-h-11 min-w-11 items-center justify-center rounded-full bg-white text-gray-500 shadow-card transition-colors hover:text-sabz-700 disabled:opacity-60 ${active ? 'text-sabz-700' : ''} ${className}`}
+      className={`flex min-h-11 min-w-11 items-center justify-center rounded-pill bg-surface text-fg-muted ring-1 ring-inset ring-border-control transition-colors hover:text-accent disabled:opacity-60 ${active ? 'text-accent' : ''} ${className}`}
     >
       <svg
         viewBox="0 0 24 24"

@@ -42,10 +42,10 @@ export function CartPageContent() {
         aria-busy="true"
         aria-label="در حال بارگذاری سبد خرید"
       >
-        <div className="h-8 w-48 rounded-md bg-sand-100" aria-hidden="true" />
+        <div className="h-8 w-48 rounded-control bg-surface-2" aria-hidden="true" />
         <div className="mt-6 space-y-3">
           {Array.from({ length: 3 }, (_, index) => (
-            <div key={index} className="h-24 rounded-xl bg-sand-100" aria-hidden="true" />
+            <div key={index} className="h-24 rounded-card bg-surface-2" aria-hidden="true" />
           ))}
         </div>
       </div>
@@ -59,16 +59,16 @@ export function CartPageContent() {
   if (!authed) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
-        <h1 className="text-balance text-2xl font-extrabold text-ink-900">سبد خرید</h1>
-        <div className="mt-8 rounded-2xl border border-sand-200 bg-white">
+        <h1 className="text-balance text-2xl font-extrabold text-fg">سبد خرید</h1>
+        <div className="mt-8 rounded-panel border border-border bg-surface">
           <div className="flex flex-col items-center px-6 py-16 text-center">
-            <span className="flex size-14 items-center justify-center rounded-full bg-sabz-50 text-sabz-600">
+            <span className="flex size-14 items-center justify-center rounded-pill bg-accent-soft text-accent">
               <CartIcon />
             </span>
-            <h2 className="mt-5 text-lg font-semibold text-ink-900">
+            <h2 className="mt-5 text-lg font-semibold text-fg">
               {formatFaNumber(count)} قلم در سبد مهمان شماست
             </h2>
-            <p className="mt-2 max-w-md text-sm leading-6 text-gray-600">
+            <p className="mt-2 max-w-md text-sm leading-6 text-fg-secondary">
               برای مشاهده جزئیات، قیمت و ادامه خرید وارد شوید؛ سبد مهمان پس
               از ورود به حساب شما منتقل می‌شود.
             </p>
@@ -99,13 +99,13 @@ export function CartPageContent() {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-      <h1 className="text-balance text-2xl font-extrabold text-ink-900">سبد خرید</h1>
-      <p className="mt-1 text-sm text-gray-500">
+      <h1 className="text-balance text-2xl font-extrabold text-fg">سبد خرید</h1>
+      <p className="mt-1 text-sm text-fg-muted">
         {formatFaNumber(totalQuantity)} قلم
       </p>
 
       {lastMerge && (lastMerge.merged > 0 || lastMerge.failed.length > 0) ? (
-        <div className="mt-4 rounded-xl border border-sabz-200 bg-sabz-50 p-4 text-sm leading-6 text-sabz-800">
+        <div className="mt-4 rounded-card border border-accent/30 bg-accent-soft p-4 text-sm leading-6 text-accent-hover">
           <div className="flex items-start justify-between gap-2">
             <p>
               {lastMerge.merged > 0 ? (
@@ -119,7 +119,7 @@ export function CartPageContent() {
               type="button"
               onClick={clearMerge}
               aria-label="بستن پیام ادغام"
-              className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full hover:bg-white"
+              className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-pill hover:bg-surface-2"
             >
               <span aria-hidden="true">×</span>
             </button>
@@ -128,7 +128,7 @@ export function CartPageContent() {
       ) : null}
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_22rem]">
-        <ul role="list" className="divide-y divide-sand-200 rounded-2xl border border-sand-200 bg-white px-4 sm:px-6">
+        <ul role="list" className="divide-y divide-border rounded-panel border border-border bg-surface px-4 sm:px-6">
           {items.map((item) => (
             <CartLineRow
               key={item.variantId}
@@ -139,20 +139,20 @@ export function CartPageContent() {
           ))}
         </ul>
 
-        <aside aria-label="خلاصه سبد خرید" className="h-fit rounded-2xl border border-sand-200 bg-white p-5 lg:sticky lg:top-24">
+        <aside aria-label="خلاصه سبد خرید" className="h-fit rounded-panel border border-border bg-surface p-5 lg:sticky lg:top-24">
           <dl className="space-y-2 text-sm">
             <div className="flex items-center justify-between gap-3">
-              <dt className="text-gray-600">تعداد اقلام</dt>
-              <dd className="font-semibold text-ink-900">{formatFaNumber(totalQuantity)} قلم</dd>
+              <dt className="text-fg-secondary">تعداد اقلام</dt>
+              <dd className="font-semibold text-fg">{formatFaNumber(totalQuantity)} قلم</dd>
             </div>
-            <div className="flex items-center justify-between gap-3 border-t border-sand-200 pt-3">
-              <dt className="font-semibold text-ink-900">جمع سبد</dt>
-              <dd aria-live="polite" className="text-lg font-bold text-sabz-800">
+            <div className="flex items-center justify-between gap-3 border-t border-border pt-3">
+              <dt className="font-semibold text-fg">جمع سبد</dt>
+              <dd aria-live="polite" className="text-lg font-bold text-accent-hover">
                 {formatToman(subtotal)}
               </dd>
             </div>
           </dl>
-          <p className="mt-3 text-xs leading-5 text-gray-500">
+          <p className="mt-3 text-xs leading-5 text-fg-muted">
             قیمت‌ها به تومان و بر اساس آخرین قیمت فروشگاه محاسبه شده است.
           </p>
           <Link href="/checkout" className={`${buttonVariants({ variant: 'primary', size: 'lg' })} mt-4 w-full`}>
@@ -167,7 +167,7 @@ export function CartPageContent() {
             </Link>
             <Button
               variant="ghost"
-              className="px-2 text-red-700 hover:bg-red-50 hover:text-red-700"
+              className="px-2 text-danger hover:bg-danger-soft hover:text-danger"
               disabled={clearing}
               onClick={() => {
                 setClearing(true);
@@ -209,12 +209,12 @@ function CartLineRow({
       <Link
         href={`/products/${item.productSlug}`}
         aria-label={item.productName}
-        className="relative size-20 shrink-0 overflow-hidden rounded-xl bg-sand-100 sm:size-24"
+        className="relative size-20 shrink-0 overflow-hidden rounded-card bg-surface-2 sm:size-24"
       >
         {image ? (
           <Image src={image} alt="" fill sizes="96px" className="object-cover" />
         ) : (
-          <span className="flex h-full items-center justify-center text-sabz-300">
+          <span className="flex h-full items-center justify-center text-accent">
             <svg viewBox="0 0 24 24" fill="none" strokeWidth={1.5} stroke="currentColor" aria-hidden="true" className="size-8">
               <path
                 d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A1.5 1.5 0 0 0 21.75 19.5V4.5A1.5 1.5 0 0 0 20.25 3H3.75A1.5 1.5 0 0 0 2.25 4.5v15A1.5 1.5 0 0 0 3.75 21Z"
@@ -229,24 +229,24 @@ function CartLineRow({
       <div className="min-w-0 flex-1">
         <Link
           href={`/products/${item.productSlug}`}
-          className="line-clamp-2 font-semibold leading-6 text-ink-900 hover:text-sabz-700"
+          className="line-clamp-2 font-semibold leading-6 text-fg hover:text-accent"
         >
           {item.productName}
         </Link>
-        <p className="mt-1 text-xs text-gray-500">
+        <p className="mt-1 text-xs text-fg-muted">
           {item.variantName ?? item.variantSku}
           {item.variantName ? <span className="ms-2" dir="ltr">{item.variantSku}</span> : null}
         </p>
-        <p className="mt-1 text-xs text-gray-500">
+        <p className="mt-1 text-xs text-fg-muted">
           قیمت واحد: {formatToman(item.unitPrice)}
         </p>
         {item.priceChanged ? (
-          <p className="mt-1 text-xs font-medium text-amber-700">
+          <p className="mt-1 text-xs font-medium text-warning">
             قیمت این کالا نسبت به زمان افزودن تغییر کرده است (افزودن: {formatToman(item.unitPriceAtAdd)}).
           </p>
         ) : null}
         {!item.inStock ? (
-          <p className="mt-1 text-xs font-medium text-red-700">
+          <p className="mt-1 text-xs font-medium text-danger">
             این کالا فعلاً ناموجود است و در تسویه لحاظ نمی‌شود.
           </p>
         ) : null}
@@ -258,12 +258,12 @@ function CartLineRow({
             itemLabel={item.productName}
             onChange={handleQuantity}
           />
-          <p aria-live="polite" className="text-base font-bold text-sabz-800">
+          <p aria-live="polite" className="text-base font-bold text-accent-hover">
             {formatToman(item.lineTotal)}
           </p>
         </div>
         {error ? (
-          <p role="alert" className="mt-2 text-xs leading-5 text-red-700">
+          <p role="alert" className="mt-2 text-xs leading-5 text-danger">
             {error}
           </p>
         ) : null}
@@ -276,7 +276,7 @@ function CartLineRow({
               void onRemove().finally(() => setRemoving(false));
             }}
             aria-label={`حذف ${item.productName} از سبد خرید`}
-            className="flex min-h-11 items-center rounded-md px-2 text-xs text-gray-500 hover:bg-red-50 hover:text-red-700 disabled:opacity-50"
+            className="flex min-h-11 items-center rounded-control px-2 text-xs text-fg-muted hover:bg-danger-soft hover:text-danger disabled:opacity-50"
           >
             حذف از سبد
           </button>
@@ -289,21 +289,21 @@ function CartLineRow({
 function CartEmptyState() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
-      <h1 className="text-balance text-2xl font-extrabold text-ink-900">سبد خرید</h1>
+      <h1 className="text-balance text-2xl font-extrabold text-fg">سبد خرید</h1>
 
-      <div className="mt-8 rounded-2xl border border-sand-200 bg-white">
+      <div className="mt-8 rounded-panel border border-border bg-surface">
         <div className="flex flex-col items-center px-6 py-16 text-center">
-          <span className="flex size-14 items-center justify-center rounded-full bg-sabz-50 text-sabz-600">
+          <span className="flex size-14 items-center justify-center rounded-pill bg-accent-soft text-accent">
             <CartIcon />
           </span>
-          <h2 className="mt-5 text-lg font-semibold text-ink-900">سبد خرید شما خالی است</h2>
-          <p className="mt-2 max-w-md text-sm leading-6 text-gray-600">
+          <h2 className="mt-5 text-lg font-semibold text-fg">سبد خرید شما خالی است</h2>
+          <p className="mt-2 max-w-md text-sm leading-6 text-fg-secondary">
             هنوز محصولی به سبد خرید اضافه نکرده‌اید. از میان دسته‌بندی‌های فروشگاه
             دیدن کنید تا محصول مورد نظرتان را پیدا کنید.
           </p>
           <Link
             href="/products"
-            className="mt-8 inline-flex items-center justify-center rounded-md bg-gradient-sabz px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:brightness-110"
+            className="mt-8 inline-flex items-center justify-center rounded-control bg-accent px-6 py-2.5 text-sm font-semibold text-on-accent shadow-card hover:bg-accent-hover"
           >
             رفتن به فروشگاه
             <span aria-hidden="true" className="ms-2">

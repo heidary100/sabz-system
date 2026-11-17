@@ -68,7 +68,7 @@ function GroupedSelector({
     <div className="space-y-4">
       {groups.map((group) => (
         <fieldset key={group.attributeSlug}>
-          <legend className="mb-2 text-sm font-medium text-ink-900">
+          <legend className="mb-2 text-sm font-medium text-fg">
             {group.attributeName}
           </legend>
           <div className="flex flex-wrap gap-2">
@@ -87,10 +87,10 @@ function GroupedSelector({
               return (
                 <label
                   key={entry.valueSlug}
-                  className={`inline-flex cursor-pointer items-center gap-1.5 rounded-lg border px-3 py-2 text-sm transition focus-within:ring-2 focus-within:ring-sabz-600 focus-within:outline-none ${
+                  className={`inline-flex cursor-pointer items-center gap-1.5 rounded-control border px-3 py-2 text-sm transition focus-within:ring-2 focus-within:ring-focus focus-within:outline-none ${
                     checked
-                      ? 'border-sabz-600 bg-sabz-50 font-semibold text-sabz-800'
-                      : 'border-sand-200 bg-white text-gray-700 hover:border-sabz-300'
+                      ? 'border-accent bg-accent-soft font-semibold text-accent-hover'
+                      : 'border-border bg-surface text-fg-secondary hover:border-accent'
                   } ${compatible ? '' : 'cursor-not-allowed opacity-50'}`}
                 >
                   <input
@@ -114,7 +114,7 @@ function GroupedSelector({
                   />
                   <span>{entry.value}</span>
                   {outOfStock ? (
-                    <span className="text-xs font-normal text-red-600">
+                    <span className="text-xs font-normal text-danger">
                       (ناموجود)
                     </span>
                   ) : null}
@@ -139,7 +139,7 @@ function FlatSelector({
 }) {
   return (
     <fieldset>
-      <legend className="mb-2 text-sm font-medium text-ink-900">
+      <legend className="mb-2 text-sm font-medium text-fg">
         نوع محصول
       </legend>
       <div className="space-y-2">
@@ -149,10 +149,10 @@ function FlatSelector({
           return (
             <label
               key={variant.id}
-              className={`flex cursor-pointer items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-sm transition focus-within:ring-2 focus-within:ring-sabz-600 focus-within:outline-none ${
+              className={`flex cursor-pointer items-center justify-between gap-3 rounded-control border px-3 py-2.5 text-sm transition focus-within:ring-2 focus-within:ring-focus focus-within:outline-none ${
                 checked
-                  ? 'border-sabz-600 bg-sabz-50 font-semibold text-sabz-800'
-                  : 'border-sand-200 bg-white text-gray-700 hover:border-sabz-300'
+                  ? 'border-accent bg-accent-soft font-semibold text-accent-hover'
+                  : 'border-border bg-surface text-fg-secondary hover:border-accent'
               }`}
             >
               <span className="inline-flex items-center gap-2">
@@ -162,18 +162,18 @@ function FlatSelector({
                   value={variant.id}
                   checked={checked}
                   onChange={() => onSelect(variant.id)}
-                  className="size-4 shrink-0 accent-sabz-700"
+                  className="size-4 shrink-0 accent-accent"
                 />
                 <span>{label}</span>
                 {variant.inStock ? null : (
-                  <span className="text-xs font-normal text-red-600">
+                  <span className="text-xs font-normal text-danger">
                     (ناموجود)
                   </span>
                 )}
               </span>
               <span
                 dir="ltr"
-                className="shrink-0 font-mono text-xs text-gray-500"
+                className="shrink-0 font-mono text-xs text-fg-muted"
               >
                 {variant.sku}
               </span>

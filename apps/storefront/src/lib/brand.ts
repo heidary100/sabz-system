@@ -44,8 +44,11 @@ export const brand = {
     width: 1200,
     height: 630,
   },
-  /** `theme-color` / tile color for browser chrome. */
-  themeColor: '#344e41',
+  /** `theme-color` values for browser chrome, per resolved theme (Task 01). */
+  themeColors: {
+    light: '#f8f7f5',
+    dark: '#151814',
+  },
 } as const;
 
 export type Brand = typeof brand;

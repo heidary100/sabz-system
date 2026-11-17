@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { CatalogCategoryNode } from '@sabz/types';
 import { homeConfig } from '../config/home';
-import { resolveAnnouncement, resolveFeaturedCategories, shouldShowSection } from './home';
+import { resolveFeaturedCategories } from './home';
 import {
   contactChannels,
   filterValidFooterLinks,
@@ -101,44 +101,6 @@ describe('resolveFeaturedCategories', () => {
 
   it('returns an empty array for a zero limit', () => {
     expect(resolveFeaturedCategories(singleRootTree(), ['phone'], 0)).toEqual([]);
-  });
-});
-
-describe('shouldShowSection', () => {
-  it('hides empty rails', () => {
-    expect(shouldShowSection([])).toBe(false);
-  });
-
-  it('shows non-empty rails', () => {
-    expect(shouldShowSection([{ id: 'x' }])).toBe(true);
-  });
-});
-
-describe('resolveAnnouncement', () => {
-  it('resolves null to null', () => {
-    expect(resolveAnnouncement(null)).toBeNull();
-  });
-
-  it('disables the bar for empty text', () => {
-    expect(
-      resolveAnnouncement({ text: '   ', dismissible: true }),
-    ).toBeNull();
-  });
-
-  it('keeps a text-only announcement', () => {
-    const config = { text: 'خبر مهم', dismissible: true };
-    expect(resolveAnnouncement(config)).toEqual(config);
-  });
-
-  it('keeps a valid internal destination', () => {
-    const config = { text: 'خبر مهم', href: '/products', dismissible: false };
-    expect(resolveAnnouncement(config)).toEqual(config);
-  });
-
-  it('strips a placeholder destination but keeps the text', () => {
-    expect(
-      resolveAnnouncement({ text: 'خبر مهم', href: '/cart', dismissible: true }),
-    ).toEqual({ text: 'خبر مهم', dismissible: true });
   });
 });
 
@@ -244,22 +206,21 @@ describe('filterValidFooterLinks', () => {
   });
 });
 
-describe('safe defaults', () => {
-  it('ships only verified facts: trust claims present, unverified windows absent (SS-224)', () => {
-    // Trust claims + hero slides come from the client's own live-site copy.
-    expect(homeConfig.trustItems.length).toBeGreaterThan(0);
-    expect(homeConfig.heroSlides.length).toBeGreaterThan(0);
-    expect(homeConfig.brandTabs.length).toBeGreaterThan(0);
-    expect(homeConfig.categoryBanners.length).toBeGreaterThan(0);
-    // Unverified values stay absent — anti-fabrication rule.
-    expect(homeConfig.announcement).toBeNull();
-    expect(homeConfig.saleBanner).toBeNull();
-    expect(homeConfig.appLinks).toEqual([]);
-    // Curated slugs empty = deterministic fallback; rails stay bounded.
-    expect(homeConfig.featuredCategorySlugs).toEqual([]);
-    expect(homeConfig.latestLimit).toBe(8);
-    expect(homeConfig.inStockLimit).toBe(8);
-    expect(homeConfig.maxCategoryTiles).toBeGreaterThan(0);
+describe('footer chrome config', () => {
+  it('keeps only footer category chrome; homepage merchandising is API-owned', () => {
+    expect(homeConfig.featuredCategorySlugs).toEqual([
+      'mobile-accessories',
+      'computer-accessories',
+      'stock-goods',
+      'smart-gadgets',
+      'game-consoles',
+      'audio-video',
+    ]);
+    expect(homeConfig.maxCategoryTiles).toBe(6);
+    expect(Object.keys(homeConfig).sort()).toEqual([
+      'featuredCategorySlugs',
+      'maxCategoryTiles',
+    ]);
   });
 
   it('ships the verified company facts (SS-224): contact, socials, seals', () => {

@@ -8,7 +8,9 @@ export default defineConfig({
     // @sabz/api-client is a linked workspace package built as CommonJS; without
     // pre-bundling the browser imports its raw CJS output and fails with
     // "does not provide an export named 'ApiError'", rendering a blank page.
-    include: ['@sabz/api-client'],
+    // @sabz/types also exposes runtime constants from CJS re-exports, so the
+    // same interop issue would otherwise affect merchandising labels/limits.
+    include: ['@sabz/api-client', '@sabz/types'],
   },
   server: {
     proxy: {

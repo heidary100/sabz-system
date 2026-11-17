@@ -111,7 +111,7 @@ export function OrderDetail({ id }: { id: string }) {
   if (status === 'missing') {
     return (
       <Card className="p-6 text-center">
-        <p className="text-sm leading-6 text-gray-600">سفارش یافت نشد.</p>
+        <p className="text-sm leading-6 text-fg-secondary">سفارش یافت نشد.</p>
         <Link href="/orders" className={buttonVariants({ variant: 'primary' }) + ' mt-6'}>
           بازگشت به سفارش‌ها
         </Link>
@@ -121,7 +121,7 @@ export function OrderDetail({ id }: { id: string }) {
 
   if (status === 'error' || order === null) {
     return (
-      <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+      <p role="alert" className="rounded-control bg-danger-soft px-3 py-2 text-sm text-danger">
         {error ?? LOAD_FAILED}
       </p>
     );
@@ -133,10 +133,10 @@ export function OrderDetail({ id }: { id: string }) {
       <Card className="p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-bold text-ink-900">
+            <h2 className="text-lg font-bold text-fg">
               سفارش {formatFaNumber(order.orderNumber)}
             </h2>
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="mt-1 text-xs text-fg-muted">
               {paymentMethodLabel(order.paymentMethod)} — {paymentStatusLabel(order.paymentStatus)} — جمع {formatToman(order.total)}
             </p>
           </div>
@@ -150,31 +150,31 @@ export function OrderDetail({ id }: { id: string }) {
       </Card>
 
       <Card className="p-6">
-        <h2 className="text-sm font-bold text-ink-900">اقلام سفارش</h2>
+        <h2 className="text-sm font-bold text-fg">اقلام سفارش</h2>
         <ul role="list" className="mt-3 space-y-3 text-sm">
           {order.items.map((item, index) => (
-            <li key={`${item.variantId}-${index}`} className="flex items-start justify-between gap-3 border-b border-sand-100 pb-3 last:border-0">
-              <span className="leading-6 text-gray-600">
+            <li key={`${item.variantId}-${index}`} className="flex items-start justify-between gap-3 border-b border-border pb-3 last:border-0">
+              <span className="leading-6 text-fg-secondary">
                 {item.productName}
                 {item.variantName !== null ? ` — ${item.variantName}` : ''}
-                <span className="block text-xs text-gray-400">
+                <span className="block text-xs text-fg-muted">
                   {item.sku} × {formatFaNumber(item.quantity)}
                 </span>
               </span>
-              <span className="shrink-0 font-semibold text-ink-900">
+              <span className="shrink-0 font-semibold text-fg">
                 {formatToman(item.lineTotal)}
               </span>
             </li>
           ))}
         </ul>
-        <dl className="mt-3 space-y-2 border-t border-sand-200 pt-3 text-sm">
+        <dl className="mt-3 space-y-2 border-t border-border pt-3 text-sm">
           <div className="flex items-center justify-between gap-3">
-            <dt className="text-gray-600">هزینه ارسال</dt>
-            <dd className="font-semibold text-ink-900">{formatToman(order.shippingFee)}</dd>
+            <dt className="text-fg-secondary">هزینه ارسال</dt>
+            <dd className="font-semibold text-fg">{formatToman(order.shippingFee)}</dd>
           </div>
           <div className="flex items-center justify-between gap-3">
-            <dt className="font-semibold text-ink-900">جمع سفارش</dt>
-            <dd aria-live="polite" className="text-lg font-bold text-sabz-800">
+            <dt className="font-semibold text-fg">جمع سفارش</dt>
+            <dd aria-live="polite" className="text-lg font-bold text-accent-hover">
               {formatToman(order.total)}
             </dd>
           </div>
@@ -184,20 +184,20 @@ export function OrderDetail({ id }: { id: string }) {
       {order.shipment !== null ? (
         <Card className="p-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-sm font-bold text-ink-900">ارسال و رهگیری</h2>
+            <h2 className="text-sm font-bold text-fg">ارسال و رهگیری</h2>
             <Badge variant="neutral">{shipmentStatusLabel(order.shipment.status)}</Badge>
           </div>
           <dl className="mt-3 space-y-2 text-sm">
             <div className="flex items-center justify-between gap-3">
-              <dt className="text-gray-600">شیوه ارسال</dt>
-              <dd className="font-semibold text-ink-900">
+              <dt className="text-fg-secondary">شیوه ارسال</dt>
+              <dd className="font-semibold text-fg">
                 {shippingMethodLabel(order.shipment.method)}
               </dd>
             </div>
             {order.shipment.trackingNumber !== null &&
             order.shipment.trackingNumber.trim() !== '' ? (
               <div className="flex items-center justify-between gap-3">
-                <dt className="text-gray-600">کد رهگیری</dt>
+                <dt className="text-fg-secondary">کد رهگیری</dt>
                 <dd className="min-w-0">
                   <TrackingNumberValue
                     method={order.shipment.method}
@@ -208,10 +208,10 @@ export function OrderDetail({ id }: { id: string }) {
             ) : null}
           </dl>
           {order.shipment.events.length > 0 ? (
-            <ol aria-label="رویدادهای رهگیری" className="mt-3 space-y-2 border-t border-sand-200 pt-3 text-sm">
+            <ol aria-label="رویدادهای رهگیری" className="mt-3 space-y-2 border-t border-border pt-3 text-sm">
               {order.shipment.events.map((event) => (
-                <li key={event.id} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 leading-6 text-gray-600">
-                  <span className="font-semibold text-ink-900">
+                <li key={event.id} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 leading-6 text-fg-secondary">
+                  <span className="font-semibold text-fg">
                     {shipmentStatusLabel(event.status)}
                   </span>
                   {event.location !== null ? <span>{event.location}</span> : null}
@@ -224,8 +224,8 @@ export function OrderDetail({ id }: { id: string }) {
       ) : null}
 
       <Card className="p-6">
-        <h2 className="text-sm font-bold text-ink-900">نشانی تحویل</h2>
-        <p className="mt-2 text-sm leading-6 text-gray-600">
+        <h2 className="text-sm font-bold text-fg">نشانی تحویل</h2>
+        <p className="mt-2 text-sm leading-6 text-fg-secondary">
           {snapshot.fullName} — <span dir="ltr">{snapshot.phone}</span>
           <br />
           {[snapshot.province, snapshot.city, snapshot.address].filter(Boolean).join('، ')}
@@ -234,7 +234,7 @@ export function OrderDetail({ id }: { id: string }) {
       </Card>
 
       {cancelError !== null ? (
-        <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+        <p role="alert" className="rounded-control bg-danger-soft px-3 py-2 text-sm text-danger">
           {cancelError}
         </p>
       ) : null}
@@ -243,7 +243,7 @@ export function OrderDetail({ id }: { id: string }) {
           چاپ فاکتور
         </Link>
         {order.status === 'PENDING' ? (
-          <Button variant="ghost" disabled={cancelling} onClick={() => void handleCancel()} className="text-red-700 hover:bg-red-50 hover:text-red-700">
+          <Button variant="ghost" disabled={cancelling} onClick={() => void handleCancel()} className="text-danger hover:bg-danger-soft hover:text-danger">
             {cancelling ? 'در حال لغو…' : 'لغو سفارش'}
           </Button>
         ) : null}

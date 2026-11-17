@@ -9,7 +9,7 @@ import { ApiError } from '@/lib/api';
 const SAVE_FAILED = 'ذخیره نشانی ناموفق بود؛ لطفاً دوباره تلاش کنید.';
 
 const inputClassName =
-  'min-h-11 w-full rounded-md border border-sand-200 bg-white px-3 text-sm text-ink-900 placeholder:text-gray-400';
+  'min-h-11 w-full rounded-control border border-border-control bg-surface px-3 text-sm text-fg placeholder:text-fg-muted';
 
 /**
  * New-address form (SS-233): controlled fields over `POST /addresses`;
@@ -74,17 +74,17 @@ export function AddressForm({ onCreated }: { onCreated: (row: AddressDto) => voi
   return (
     <form
       onSubmit={handleSubmit}
-      className="mt-4 space-y-4 rounded-xl border border-sand-200 bg-sand-50 p-4"
+      className="mt-4 space-y-4 rounded-card border border-border bg-surface-2 p-4"
     >
-      <h3 className="text-sm font-bold text-ink-900">نشانی جدید</h3>
+      <h3 className="text-sm font-bold text-fg">نشانی جدید</h3>
       {error !== null ? (
-        <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+        <p role="alert" className="rounded-control bg-danger-soft px-3 py-2 text-sm text-danger">
           {error}
         </p>
       ) : null}
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <label htmlFor="checkout-fullName" className="mb-1 block text-sm font-semibold text-ink-900">
+          <label htmlFor="checkout-fullName" className="mb-1 block text-sm font-semibold text-fg">
             نام و نام خانوادگی تحویل‌گیرنده *
           </label>
           <input
@@ -96,7 +96,7 @@ export function AddressForm({ onCreated }: { onCreated: (row: AddressDto) => voi
           />
         </div>
         <div>
-          <label htmlFor="checkout-phone" className="mb-1 block text-sm font-semibold text-ink-900">
+          <label htmlFor="checkout-phone" className="mb-1 block text-sm font-semibold text-fg">
             موبایل *
           </label>
           <input
@@ -110,7 +110,7 @@ export function AddressForm({ onCreated }: { onCreated: (row: AddressDto) => voi
           />
         </div>
         <div>
-          <label htmlFor="checkout-province" className="mb-1 block text-sm font-semibold text-ink-900">
+          <label htmlFor="checkout-province" className="mb-1 block text-sm font-semibold text-fg">
             استان
           </label>
           <input
@@ -121,7 +121,7 @@ export function AddressForm({ onCreated }: { onCreated: (row: AddressDto) => voi
           />
         </div>
         <div>
-          <label htmlFor="checkout-city" className="mb-1 block text-sm font-semibold text-ink-900">
+          <label htmlFor="checkout-city" className="mb-1 block text-sm font-semibold text-fg">
             شهر
           </label>
           <input
@@ -132,7 +132,7 @@ export function AddressForm({ onCreated }: { onCreated: (row: AddressDto) => voi
           />
         </div>
         <div className="sm:col-span-2">
-          <label htmlFor="checkout-address" className="mb-1 block text-sm font-semibold text-ink-900">
+          <label htmlFor="checkout-address" className="mb-1 block text-sm font-semibold text-fg">
             نشانی *
           </label>
           <textarea
@@ -144,7 +144,7 @@ export function AddressForm({ onCreated }: { onCreated: (row: AddressDto) => voi
           />
         </div>
         <div>
-          <label htmlFor="checkout-postalCode" className="mb-1 block text-sm font-semibold text-ink-900">
+          <label htmlFor="checkout-postalCode" className="mb-1 block text-sm font-semibold text-fg">
             کد پستی
           </label>
           <input
@@ -158,7 +158,7 @@ export function AddressForm({ onCreated }: { onCreated: (row: AddressDto) => voi
           />
         </div>
         <div>
-          <label htmlFor="checkout-label" className="mb-1 block text-sm font-semibold text-ink-900">
+          <label htmlFor="checkout-label" className="mb-1 block text-sm font-semibold text-fg">
             برچسب (مثلاً خانه)
           </label>
           <input

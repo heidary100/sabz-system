@@ -36,7 +36,7 @@ export function FacetShowMore({
       onClick={onToggle}
       aria-expanded={expanded}
       aria-controls={controlsId}
-      className="mt-2 inline-flex min-h-11 items-center rounded-md px-1 text-xs font-semibold text-sabz-700 hover:text-sabz-800"
+      className="mt-2 inline-flex min-h-11 items-center rounded-control px-1 text-xs font-semibold text-accent hover:text-accent-hover"
     >
       {expanded ? (
         <>نمایش کمتر</>

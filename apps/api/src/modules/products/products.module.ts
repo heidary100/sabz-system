@@ -148,8 +148,10 @@ export const PRODUCT_MEDIA_TEMP_DIR = 'PRODUCT_MEDIA_TEMP_DIR';
   ],
   exports: [
     AttributesService,
+    MediaProcessingService,
     MediaService,
     PRODUCT_MEDIA_STORAGE,
+    PRODUCT_MEDIA_TEMP_DIR,
     PublicCatalogService,
     TagsService,
   ],

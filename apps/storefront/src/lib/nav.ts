@@ -32,9 +32,26 @@ export function splitNavCategories(
   return { visible, overflowCount, hasOverflow: overflowCount > 0 };
 }
 
+/**
+ * A category is visible in navigation only when its entire publicly visible
+ * subtree has at least one published product. The API's
+ * `publishedProductCount` is already rolled up, so a parent with no directly
+ * assigned products still passes when a descendant has products.
+ */
+export function hasPublishedSubtree(node: CatalogCategoryNode): boolean {
+  return node.publishedProductCount > 0;
+}
+
+/** Navigable children after applying the same zero-subtree rule. */
+export function visibleCategoryChildren(
+  node: CatalogCategoryNode,
+): CatalogCategoryNode[] {
+  return node.children.filter(hasPublishedSubtree);
+}
+
 /** Whether a node has navigable children (drives disclosure vs plain link). */
 export function categoryHasChildren(node: CatalogCategoryNode): boolean {
-  return node.children.length > 0;
+  return visibleCategoryChildren(node).length > 0;
 }
 
 /**
@@ -56,7 +73,7 @@ export function navRoots(categories: CatalogCategoryNode[]): CatalogCategoryNode
     0,
   );
   if (total === 0) {
-    return categories;
+    return [];
   }
   const trunk = categories.find(
     (category) =>
@@ -64,9 +81,22 @@ export function navRoots(categories: CatalogCategoryNode[]): CatalogCategoryNode
       category.publishedProductCount / total >= DOMINANT_ROOT_SHARE,
   );
   if (!trunk) {
-    return categories;
+    return categories.every(hasPublishedSubtree)
+      ? categories
+      : categories.filter(hasPublishedSubtree);
   }
-  return [...trunk.children, ...categories.filter((category) => category !== trunk)];
+  const children = visibleCategoryChildren(trunk);
+  if (children.length === 0) {
+    return categories.every(hasPublishedSubtree)
+      ? categories
+      : categories.filter(hasPublishedSubtree);
+  }
+  return [
+    ...children,
+    ...categories.filter(
+      (category) => category !== trunk && hasPublishedSubtree(category),
+    ),
+  ];
 }
 
 /**

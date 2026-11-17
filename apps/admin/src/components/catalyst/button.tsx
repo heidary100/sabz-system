@@ -178,15 +178,39 @@ type ButtonProps = (
     | ({ href: string } & Omit<React.ComponentPropsWithoutRef<typeof Link>, 'className'>)
   )
 
+export interface ButtonStyleOptions {
+  color?: keyof typeof styles.colors
+  outline?: boolean
+  plain?: boolean
+  className?: string
+}
+
+/**
+ * Shared Catalyst button classes. Exported so router-aware link controls can
+ * reuse the exact same visual system instead of copying the stylesheet.
+ */
+export function buttonClassName({
+  color,
+  outline,
+  plain,
+  className,
+}: ButtonStyleOptions = {}): string {
+  return clsx(
+    className,
+    styles.base,
+    outline
+      ? styles.outline
+      : plain
+        ? styles.plain
+        : clsx(styles.solid, styles.colors[color ?? 'dark/zinc']),
+  )
+}
+
 export const Button = forwardRef(function Button(
   { color, outline, plain, className, children, ...props }: ButtonProps,
   ref: React.ForwardedRef<HTMLElement>
 ) {
-  const classes = clsx(
-    className,
-    styles.base,
-    outline ? styles.outline : plain ? styles.plain : clsx(styles.solid, styles.colors[color ?? 'dark/zinc'])
-  )
+  const classes = buttonClassName({ color, outline, plain, className })
 
   return typeof props.href === 'string' ? (
     <Link {...props} className={classes} ref={ref as React.ForwardedRef<HTMLAnchorElement>}>

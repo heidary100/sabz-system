@@ -7,5 +7,10 @@
     "^.+\\.(t|j)s$": "ts-jest"
   },
   "maxWorkers": 1,
+  "testPathIgnorePatterns": [
+    "/node_modules/",
+    "demo-seed\\.integration-spec\\.ts$",
+    "demo-seed-storage\\.integration-spec\\.ts$"
+  ],
   "globalSetup": "<rootDir>/test-database.setup.ts"
 }

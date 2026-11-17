@@ -46,13 +46,13 @@ export function BrandFacetSearch({
         onChange={(event) => onQueryChange(event.target.value)}
         placeholder="جستجو در برندها…"
         autoComplete="off"
-        className="w-full rounded-md border-0 bg-sand-100 py-2 pe-9 ps-3 text-sm ring-1 ring-inset ring-sand-200 placeholder:text-gray-600 focus-visible:ring-2 focus-visible:ring-sabz-600"
+        className="w-full rounded-control border-0 bg-surface-2 py-2 pe-9 ps-3 text-sm ring-1 ring-inset ring-border placeholder:text-fg-secondary focus-visible:ring-2 focus-visible:ring-focus"
       />
       <svg
         viewBox="0 0 20 20"
         fill="currentColor"
         aria-hidden="true"
-        className="pointer-events-none absolute start-2.5 top-1/2 size-4 -translate-y-1/2 text-gray-400"
+        className="pointer-events-none absolute start-2.5 top-1/2 size-4 -translate-y-1/2 text-fg-muted"
       >
         <path
           fillRule="evenodd"
@@ -65,7 +65,7 @@ export function BrandFacetSearch({
           type="button"
           onClick={() => onQueryChange('')}
           aria-label="پاک کردن جستجو"
-          className="absolute end-1 top-1/2 inline-flex min-h-9 min-w-9 -translate-y-1/2 items-center justify-center rounded-md text-gray-500 hover:text-gray-700"
+          className="absolute end-1 top-1/2 inline-flex min-h-9 min-w-9 -translate-y-1/2 items-center justify-center rounded-control text-fg-muted hover:text-fg-secondary"
         >
           <span aria-hidden="true">×</span>
         </button>

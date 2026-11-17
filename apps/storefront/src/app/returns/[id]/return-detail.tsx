@@ -108,7 +108,7 @@ export function ReturnDetail({ id }: { id: string }) {
   if (status === 'missing') {
     return (
       <Card className="p-6 text-center">
-        <p className="text-sm leading-6 text-gray-600">درخواست مرجوعی یافت نشد.</p>
+        <p className="text-sm leading-6 text-fg-secondary">درخواست مرجوعی یافت نشد.</p>
         <Link href="/returns" className={buttonVariants({ variant: 'primary' }) + ' mt-6'}>
           بازگشت به مرجوعی‌ها
         </Link>
@@ -118,7 +118,7 @@ export function ReturnDetail({ id }: { id: string }) {
 
   if (status === 'error' || detail === null) {
     return (
-      <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+      <p role="alert" className="rounded-control bg-danger-soft px-3 py-2 text-sm text-danger">
         {error ?? LOAD_FAILED}
       </p>
     );
@@ -129,10 +129,10 @@ export function ReturnDetail({ id }: { id: string }) {
       <Card className="p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-bold text-ink-900">
+            <h2 className="text-lg font-bold text-fg">
               مرجوعی سفارش {formatFaNumber(detail.orderNumber)}
             </h2>
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="mt-1 text-xs text-fg-muted">
               ثبت {formatFaDate(detail.createdAt)}
             </p>
           </div>
@@ -148,17 +148,17 @@ export function ReturnDetail({ id }: { id: string }) {
             {returnStatusLabel(detail.status)}
           </Badge>
         </div>
-        <dl className="mt-4 space-y-3 border-t border-sand-100 pt-4 text-sm">
+        <dl className="mt-4 space-y-3 border-t border-border pt-4 text-sm">
           <div>
-            <dt className="font-semibold text-ink-900">دلیل مرجوعی</dt>
-            <dd className="mt-1 whitespace-pre-wrap leading-6 text-gray-600">
+            <dt className="font-semibold text-fg">دلیل مرجوعی</dt>
+            <dd className="mt-1 whitespace-pre-wrap leading-6 text-fg-secondary">
               {detail.reason}
             </dd>
           </div>
           {detail.rejectReason !== null ? (
             <div>
-              <dt className="font-semibold text-ink-900">دلیل رد</dt>
-              <dd className="mt-1 whitespace-pre-wrap leading-6 text-gray-600">
+              <dt className="font-semibold text-fg">دلیل رد</dt>
+              <dd className="mt-1 whitespace-pre-wrap leading-6 text-fg-secondary">
                 {detail.rejectReason}
               </dd>
             </div>
@@ -167,14 +167,14 @@ export function ReturnDetail({ id }: { id: string }) {
       </Card>
 
       <Card className="p-6">
-        <h2 className="text-sm font-bold text-ink-900">اقلام مرجوعی</h2>
+        <h2 className="text-sm font-bold text-fg">اقلام مرجوعی</h2>
         <ul role="list" className="mt-3 space-y-3 text-sm">
           {detail.items.map((item) => (
-            <li key={item.id} className="flex items-start justify-between gap-3 border-b border-sand-100 pb-3 last:border-0">
-              <span className="leading-6 text-gray-600">
+            <li key={item.id} className="flex items-start justify-between gap-3 border-b border-border pb-3 last:border-0">
+              <span className="leading-6 text-fg-secondary">
                 {item.productName}
                 {item.variantName !== null ? ` — ${item.variantName}` : ''}
-                <span className="block text-xs text-gray-400">
+                <span className="block text-xs text-fg-muted">
                   {item.sku} × {formatFaNumber(item.quantity)}
                 </span>
               </span>
@@ -184,7 +184,7 @@ export function ReturnDetail({ id }: { id: string }) {
       </Card>
 
       {cancelError !== null ? (
-        <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+        <p role="alert" className="rounded-control bg-danger-soft px-3 py-2 text-sm text-danger">
           {cancelError}
         </p>
       ) : null}
@@ -193,7 +193,7 @@ export function ReturnDetail({ id }: { id: string }) {
           مشاهده سفارش
         </Link>
         {detail.status === 'PENDING' ? (
-          <Button variant="ghost" disabled={cancelling} onClick={() => void handleCancel()} className="text-red-700 hover:bg-red-50 hover:text-red-700">
+          <Button variant="ghost" disabled={cancelling} onClick={() => void handleCancel()} className="text-danger hover:bg-danger-soft hover:text-danger">
             {cancelling ? 'در حال لغو…' : 'لغو درخواست'}
           </Button>
         ) : null}

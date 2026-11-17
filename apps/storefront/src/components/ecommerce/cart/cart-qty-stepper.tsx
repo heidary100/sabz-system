@@ -40,21 +40,21 @@ export function CartQtyStepper({
     <div
       role="group"
       aria-label={`تعداد ${itemLabel}`}
-      className="inline-flex items-center gap-1 rounded-lg border border-sand-200 bg-white"
+      className="inline-flex items-center gap-1 rounded-control border border-border bg-surface"
     >
       <button
         type="button"
         onClick={() => void change(quantity + 1)}
         disabled={pending || quantity >= max}
         aria-label={`افزایش تعداد ${itemLabel}`}
-        className="flex min-h-11 min-w-11 items-center justify-center rounded-md text-lg font-bold text-sabz-700 transition-colors hover:bg-sabz-50 disabled:opacity-40"
+        className="flex min-h-11 min-w-11 items-center justify-center rounded-control text-lg font-bold text-accent transition-colors hover:bg-accent-soft disabled:opacity-40"
       >
         <span aria-hidden="true">+</span>
       </button>
       <span
         aria-live="polite"
         aria-label={`${formatFaNumber(quantity)} عدد`}
-        className="min-w-8 text-center text-sm font-bold text-ink-900"
+        className="min-w-8 text-center text-sm font-bold text-fg"
       >
         {formatFaNumber(quantity)}
       </span>
@@ -63,7 +63,7 @@ export function CartQtyStepper({
         onClick={() => void change(quantity - 1)}
         disabled={pending || quantity <= 1}
         aria-label={`کاهش تعداد ${itemLabel}`}
-        className="flex min-h-11 min-w-11 items-center justify-center rounded-md text-lg font-bold text-sabz-700 transition-colors hover:bg-sabz-50 disabled:opacity-40"
+        className="flex min-h-11 min-w-11 items-center justify-center rounded-control text-lg font-bold text-accent transition-colors hover:bg-accent-soft disabled:opacity-40"
       >
         <span aria-hidden="true">−</span>
       </button>

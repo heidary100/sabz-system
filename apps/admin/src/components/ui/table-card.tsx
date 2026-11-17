@@ -16,7 +16,7 @@ export function TableCard({
     <div
       className={clsx(
         className,
-        'rule-double-top rounded-xl border border-border bg-surface p-3 shadow-sm sm:p-4',
+        'min-w-0 rule-double-top rounded-xl border border-border bg-surface p-3 shadow-sm sm:p-4',
       )}
     >
       {children}

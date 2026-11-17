@@ -8,8 +8,8 @@ import { contactChannels } from '@/lib/site';
  */
 export function ProductConsultation() {
   return (
-    <div className="rounded-xl border border-sand-200 bg-white p-5">
-      <h2 className="text-sm font-bold text-ink-900">
+    <div className="rounded-card border border-border bg-surface p-5">
+      <h2 className="text-sm font-bold text-fg">
         برای دریافت مشاوره با ما در ارتباط باشید.
       </h2>
       <ul role="list" className="mt-3 flex flex-wrap gap-2">
@@ -19,7 +19,7 @@ export function ProductConsultation() {
               href={channel.href}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex min-h-11 items-center gap-1.5 rounded-full bg-sand-100 px-4 text-xs font-semibold text-gray-700 transition-colors hover:bg-sabz-50 hover:text-sabz-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700"
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-pill bg-surface-2 px-4 text-xs font-semibold text-fg-secondary transition-colors hover:bg-accent-soft hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
             >
               {channel.label}
               <span className="sr-only"> (باز شدن در پنجره جدید)</span>
@@ -27,13 +27,13 @@ export function ProductConsultation() {
           </li>
         ))}
       </ul>
-      <ul role="list" className="mt-4 space-y-1.5 border-t border-sand-100 pt-3 text-sm text-gray-600">
+      <ul role="list" className="mt-4 space-y-1.5 border-t border-border pt-3 text-sm text-fg-secondary">
         {contactChannels.phones.map((phone) => (
           <li key={phone.tel}>
             <a
               href={`tel:${phone.tel}`}
               dir="ltr"
-              className="inline-block rounded-sm font-medium hover:text-sabz-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700"
+              className="inline-block rounded-control font-medium hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
             >
               {phone.display}
             </a>

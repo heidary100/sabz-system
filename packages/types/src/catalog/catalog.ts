@@ -75,6 +75,19 @@ export interface CatalogCategoryNode {
   children: CatalogCategoryNode[];
 }
 
+/**
+ * Derived navigation cover for one visible category (Task 03).
+ *
+ * `imageUrl` is a representative published product image, not an editorial
+ * category photograph. It is null when the visible subtree has no eligible
+ * image. Unknown or invisible slugs are omitted by the API.
+ */
+export interface CatalogCategoryCoverDto {
+  slug: string;
+  imageUrl: string | null;
+  alt: string;
+}
+
 export interface CatalogBrandDto {
   id: string;
   name: string;

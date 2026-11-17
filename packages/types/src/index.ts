@@ -3,6 +3,7 @@ export { PaginatedResult } from './api/pagination';
 
 export {
   CatalogBrandDto,
+  CatalogCategoryCoverDto,
   CatalogCategoryCrumb,
   CatalogCategoryNode,
   CatalogListQuery,
@@ -308,3 +309,5 @@ export {
   TorobProductsResponse,
   TorobSort,
 } from './torob/torob';
+
+export * from './merchandising';

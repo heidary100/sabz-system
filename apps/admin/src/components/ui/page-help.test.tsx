@@ -27,6 +27,20 @@ describe('route-help registry (SS-269)', () => {
     expect(resolveRouteHelp('/inventory/variants/abc-def')?.title).toBe('موجودی نوع')
     expect(resolveRouteHelp('/nope')).toBeNull()
   })
+
+  it('covers every merchandising route added by SS-273/SS-275', () => {
+    expect(resolveRouteHelp('/merchandising')?.title).toBe('بازاریابی')
+    expect(resolveRouteHelp('/merchandising/homepage')?.title).toBe('صفحه اصلی')
+    expect(resolveRouteHelp('/merchandising/publications')?.title).toBe('انتشارها')
+    expect(resolveRouteHelp('/merchandising/campaigns')?.title).toBe('کمپین‌ها')
+    expect(resolveRouteHelp('/merchandising/campaigns/new')?.title).toBe(
+      'کمپین جدید',
+    )
+    expect(resolveRouteHelp('/merchandising/campaigns/123')?.title).toBe(
+      'ویرایش کمپین',
+    )
+    expect(resolveRouteHelp('/merchandising/media')?.title).toBe('کتابخانه رسانه')
+  })
 })
 
 describe('PageHeader help wiring (SS-269)', () => {

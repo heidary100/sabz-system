@@ -32,25 +32,25 @@ export default async function BlogIndexPage({ searchParams }: PageProps) {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-      <nav aria-label="مسیر" className="text-xs text-gray-500">
-        <Link href="/" className="hover:text-sabz-700">
+      <nav aria-label="مسیر" className="text-xs text-fg-muted">
+        <Link href="/" className="hover:text-accent">
           خانه
         </Link>
         <span aria-hidden="true"> / </span>
         <span aria-current="page">وبلاگ</span>
       </nav>
-      <h1 className="mt-3 text-balance text-2xl font-extrabold text-ink-900">وبلاگ</h1>
-      <p className="mt-1 text-sm text-gray-500">راهنماهای خرید و تازه‌های فروشگاه</p>
+      <h1 className="mt-3 text-balance text-2xl font-extrabold text-fg">وبلاگ</h1>
+      <p className="mt-1 text-sm text-fg-muted">راهنماهای خرید و تازه‌های فروشگاه</p>
 
       {categories.length > 0 ? (
         <div className="mt-6 flex flex-wrap items-center gap-2" role="group" aria-label="دسته‌بندی مطالب">
           <Link
             href="/blog"
             aria-current={category ? undefined : 'page'}
-            className={`inline-flex min-h-9 items-center rounded-full border px-3 text-xs transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700 ${
+            className={`inline-flex min-h-9 items-center rounded-pill border px-3 text-xs transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${
               category
-                ? 'border-sand-200 bg-white text-gray-600 hover:border-sabz-300 hover:text-sabz-700'
-                : 'border-sabz-700 bg-sabz-700 text-white'
+                ? 'border-border bg-surface text-fg-secondary hover:border-accent hover:text-accent'
+                : 'border-accent bg-accent text-on-accent'
             }`}
           >
             همه مطالب
@@ -62,10 +62,10 @@ export default async function BlogIndexPage({ searchParams }: PageProps) {
                 key={entry.id}
                 href={`/blog?category=${encodeURIComponent(entry.slug)}`}
                 aria-current={active ? 'page' : undefined}
-                className={`inline-flex min-h-9 items-center rounded-full border px-3 text-xs transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700 ${
+                className={`inline-flex min-h-9 items-center rounded-pill border px-3 text-xs transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${
                   active
-                    ? 'border-sabz-700 bg-sabz-700 text-white'
-                    : 'border-sand-200 bg-white text-gray-600 hover:border-sabz-300 hover:text-sabz-700'
+                    ? 'border-accent bg-accent text-on-accent'
+                    : 'border-border bg-surface text-fg-secondary hover:border-accent hover:text-accent'
                 }`}
               >
                 {entry.name}
@@ -82,7 +82,7 @@ export default async function BlogIndexPage({ searchParams }: PageProps) {
           ))}
         </div>
       ) : (
-        <p className="mt-10 text-center text-sm text-gray-500">
+        <p className="mt-10 text-center text-sm text-fg-muted">
           {activeCategory
             ? `در دسته‌بندی «${activeCategory.name}» هنوز مطلبی منتشر نشده است.`
             : 'هنوز مطلبی در وبلاگ منتشر نشده است.'}

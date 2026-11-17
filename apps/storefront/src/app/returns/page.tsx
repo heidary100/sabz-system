@@ -7,7 +7,7 @@ export const metadata: Metadata = { title: 'مرجوعی‌ها' };
 export default function ReturnsPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
-      <h1 className="text-balance text-2xl font-extrabold text-ink-900">مرجوعی‌ها</h1>
+      <h1 className="text-balance text-2xl font-extrabold text-fg">مرجوعی‌ها</h1>
       <div className="mt-6">
         <ReturnsList />
       </div>

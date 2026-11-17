@@ -8,6 +8,7 @@ import {
   FileText,
   FolderTree,
   LayoutDashboard,
+  Megaphone,
   Newspaper,
   Package,
   PanelRightClose,
@@ -33,6 +34,7 @@ const SIDEBAR_STORAGE_KEY = 'sabz-admin-sidebar'
 
 export const NAV_ITEMS: Array<{ to: string; label: string; icon: LucideIcon }> = [
   { to: '/dashboard', label: 'پیشخوان', icon: LayoutDashboard },
+  { to: '/merchandising', label: 'بازاریابی', icon: Megaphone },
   { to: '/products', label: 'محصولات', icon: Package },
   { to: '/categories', label: 'دسته‌بندی‌ها', icon: FolderTree },
   { to: '/brands', label: 'برندها', icon: Tag },

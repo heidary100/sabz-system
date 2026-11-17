@@ -124,7 +124,7 @@ export function NotificationsList() {
 
   if (status === 'error') {
     return (
-      <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+      <p role="alert" className="rounded-control bg-danger-soft px-3 py-2 text-sm text-danger">
         {error ?? LOAD_FAILED}
       </p>
     );
@@ -161,7 +161,7 @@ export function NotificationsList() {
 
       {items.length === 0 ? (
         <Card className="p-6 text-center">
-          <p className="text-sm leading-6 text-gray-600">
+          <p className="text-sm leading-6 text-fg-secondary">
             {unreadOnly
               ? 'اعلان خوانده‌نشده‌ای ندارید.'
               : 'تاکنون اعلانی برای شما ثبت نشده است.'}
@@ -182,20 +182,20 @@ export function NotificationsList() {
                     <Badge variant={isUnread ? 'success' : 'neutral'}>
                       {notificationTypeLabel(item.type)}
                     </Badge>
-                    <span className="text-xs text-gray-500">
+                    <span className="text-xs text-fg-muted">
                       {formatFaDate(item.createdAt)}
                     </span>
                   </div>
                   <p
                     className={
                       isUnread
-                        ? 'mt-2 text-sm font-bold text-ink-900'
-                        : 'mt-2 text-sm font-semibold text-ink-900'
+                        ? 'mt-2 text-sm font-bold text-fg'
+                        : 'mt-2 text-sm font-semibold text-fg'
                     }
                   >
                     {item.title}
                   </p>
-                  <p className="mt-1 text-sm leading-6 text-gray-600">{item.body}</p>
+                  <p className="mt-1 text-sm leading-6 text-fg-secondary">{item.body}</p>
                   <div className="mt-3 flex flex-wrap items-center gap-3">
                     {href && (
                       <Link

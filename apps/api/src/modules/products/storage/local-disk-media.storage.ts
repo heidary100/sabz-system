@@ -1,7 +1,16 @@
 import { randomUUID } from 'crypto';
 import { createReadStream } from 'fs';
 import { mkdirSync } from 'fs';
-import { copyFile, mkdir, readFile, rename, rm, stat, writeFile } from 'fs/promises';
+import {
+  copyFile,
+  link,
+  mkdir,
+  readFile,
+  rename,
+  rm,
+  stat,
+  writeFile,
+} from 'fs/promises';
 import { dirname, resolve, sep } from 'path';
 import type { Readable } from 'stream';
 import {
@@ -83,6 +92,36 @@ export class LocalDiskMediaStorage implements ProductMediaStorage {
       await rename(temporary, target);
     } finally {
       await rm(temporary, { force: true });
+    }
+  }
+
+  /**
+   * Atomic create-if-absent. Copies the source to a unique temporary sibling,
+   * then hard-links it into the final key. `link()` fails with EEXIST instead
+   * of replacing an existing object, so a concurrent writer can never have its
+   * bytes silently overwritten by this call.
+   */
+  async putFileExclusive(key: string, sourcePath: string): Promise<boolean> {
+    const target = this.resolveKey(key);
+    await mkdir(dirname(target), { recursive: true });
+    const temporary = `${target}.${randomUUID()}.tmp`;
+    try {
+      await copyFile(sourcePath, temporary);
+      try {
+        await link(temporary, target);
+        return true;
+      } catch (error) {
+        if (
+          typeof error === 'object' &&
+          error !== null &&
+          (error as NodeJS.ErrnoException).code === 'EEXIST'
+        ) {
+          return false;
+        }
+        throw error;
+      }
+    } finally {
+      await rm(temporary, { force: true }).catch(() => undefined);
     }
   }
 

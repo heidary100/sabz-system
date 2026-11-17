@@ -14,16 +14,16 @@ export function Hero() {
   return (
     <section
       aria-labelledby="home-hero-heading"
-      className="border-b border-sand-200 bg-white"
+      className="border-b border-border bg-surface"
     >
       <div className="mx-auto max-w-7xl px-4 py-12 text-center sm:px-6 sm:py-16 lg:px-8">
         <h1
           id="home-hero-heading"
-          className="text-3xl font-bold tracking-tight text-ink-900 sm:text-4xl"
+          className="text-3xl font-bold tracking-tight text-fg sm:text-4xl"
         >
           فروشگاه کالای دیجیتال سبز سیستم
         </h1>
-        <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-gray-600">
+        <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-fg-secondary">
           موبایل، لوازم جانبی، رایانه و گجت‌های هوشمند را از میان
           دسته‌بندی‌های فروشگاه پیدا کنید. قیمت‌ها به تومان و برای خرید
           خرد نمایش داده می‌شود.

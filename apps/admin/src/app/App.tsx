@@ -1,8 +1,16 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { useRef } from 'react'
+import {
+  Navigate,
+  Route,
+  RouterProvider,
+  createBrowserRouter,
+  createRoutesFromElements,
+} from 'react-router-dom'
 import { ADMIN_ROLES, AuthProvider } from '../auth/auth-provider'
 import { RequireAuth } from '../auth/require-auth'
 import { RequireRole } from '../auth/require-role'
 import { AdminLayout } from '../layouts/admin-layout'
+import { MerchandisingLayout } from '../layouts/merchandising-layout'
 import { AccessDeniedPage } from '../pages/access-denied-page'
 import { AuditPage } from '../pages/audit-page'
 import { BlogEditorPage } from '../pages/blog-editor-page'
@@ -14,6 +22,13 @@ import { InventoryMovementsPage } from '../pages/inventory-movements-page'
 import { InventoryPage } from '../pages/inventory-page'
 import { InventoryReservationsPage } from '../pages/inventory-reservations-page'
 import { LoginPage } from '../pages/login-page'
+import { MerchandisingCampaignsPage } from '../pages/merchandising/merchandising-campaigns-page'
+import { MerchandisingCampaignEditorPage } from '../pages/merchandising/merchandising-campaign-editor-page'
+import { MerchandisingHomepagePage } from '../pages/merchandising/merchandising-homepage-page'
+import { MerchandisingHomepagePublicationDetailRoute } from '../pages/merchandising/merchandising-homepage-publication-detail-page'
+import { MerchandisingMediaPage } from '../pages/merchandising/merchandising-media-page'
+import { MerchandisingOverviewPage } from '../pages/merchandising/merchandising-overview-page'
+import { MerchandisingPublicationsPage } from '../pages/merchandising/merchandising-publications-page'
 import { OrderDetailPage } from '../pages/order-detail-page'
 import { OrdersPage } from '../pages/orders-page'
 import { NotificationsPage } from '../pages/notifications-page'
@@ -35,12 +50,10 @@ import { VariantInventoryPage } from '../pages/variant-inventory-page'
 import { WarehouseInventoryPage } from '../pages/warehouse-inventory-page'
 import { WarehousesPage } from '../pages/warehouses-page'
 
-export default function App() {
-  return (
-    <BrowserRouter>
-      <AuthProvider>
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
+function createAppRoutes() {
+  return createRoutesFromElements(
+    <>
+      <Route path="/login" element={<LoginPage />} />
           <Route
             path="/access-denied"
             element={
@@ -66,6 +79,35 @@ export default function App() {
                 </RequireRole>
               }
             />
+            <Route
+              path="merchandising"
+              element={
+                <RequireRole roles={ADMIN_ROLES}>
+                  <MerchandisingLayout />
+                </RequireRole>
+              }
+            >
+              <Route index element={<MerchandisingOverviewPage />} />
+              <Route path="homepage" element={<MerchandisingHomepagePage />} />
+              <Route
+                path="publications"
+                element={<MerchandisingPublicationsPage />}
+              />
+              <Route
+                path="publications/:id"
+                element={<MerchandisingHomepagePublicationDetailRoute />}
+              />
+              <Route path="campaigns" element={<MerchandisingCampaignsPage />} />
+              <Route
+                path="campaigns/new"
+                element={<MerchandisingCampaignEditorPage />}
+              />
+              <Route
+                path="campaigns/:id"
+                element={<MerchandisingCampaignEditorPage />}
+              />
+              <Route path="media" element={<MerchandisingMediaPage />} />
+            </Route>
             <Route
               path="orders"
               element={
@@ -307,9 +349,25 @@ export default function App() {
               }
             />
           </Route>
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
-        </Routes>
-      </AuthProvider>
-    </BrowserRouter>
+      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+    </>,
+  )
+}
+
+function createAppRouter() {
+  return createBrowserRouter(createAppRoutes())
+}
+
+export default function App() {
+  const routerRef = useRef<ReturnType<typeof createBrowserRouter> | null>(null)
+
+  if (routerRef.current === null) {
+    routerRef.current = createAppRouter()
+  }
+
+  return (
+    <AuthProvider>
+      <RouterProvider router={routerRef.current} />
+    </AuthProvider>
   )
 }

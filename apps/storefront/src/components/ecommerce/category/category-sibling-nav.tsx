@@ -28,7 +28,7 @@ export function CategorySiblingNav({
               {isCurrent ? (
                 <span
                   aria-current="page"
-                  className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-transparent bg-sabz-700 px-4 py-2 text-sm font-semibold text-white"
+                  className="inline-flex min-h-11 items-center gap-1.5 rounded-pill border border-transparent bg-accent px-4 py-2 text-sm font-semibold text-on-accent"
                 >
                   {sibling.name}
                   <span className="text-xs opacity-80">
@@ -38,10 +38,10 @@ export function CategorySiblingNav({
               ) : (
                 <Link
                   href={`/categories/${sibling.slug}`}
-                  className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-sand-200 bg-white px-4 py-2 text-sm text-gray-600 hover:border-sabz-300 hover:text-sabz-700"
+                  className="inline-flex min-h-11 items-center gap-1.5 rounded-pill border border-border bg-surface px-4 py-2 text-sm text-fg-secondary hover:border-accent hover:text-accent"
                 >
                   {sibling.name}
-                  <span className="text-xs text-gray-500">
+                  <span className="text-xs text-fg-muted">
                     {formatFaNumber(sibling.publishedProductCount)}
                   </span>
                 </Link>

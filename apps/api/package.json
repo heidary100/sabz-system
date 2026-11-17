@@ -13,6 +13,7 @@
     "prisma:bootstrap": "tsx prisma/bootstrap.ts",
     "brand:merge": "tsx src/modules/products/cli/brand-merge.ts",
     "seed:reference": "tsx prisma/seed-reference.ts",
+    "homepage:demo-seed": "tsx src/modules/merchandising/demo-seed/cli.ts",
     "media:backfill-thumbnails": "tsx prisma/backfill-thumbnails.ts",
     "woo:dry-run": "tsx src/modules/import/cli/dry-run.ts",
     "woo:import": "tsx src/modules/import/cli/import.ts",
@@ -22,7 +23,9 @@
     "typecheck": "tsc --noEmit",
     "test": "jest",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "test:integration": "jest --config ./test/jest-integration.json"
+    "test:integration": "jest --config ./test/jest-integration.json",
+    "test:integration:demo-seed": "jest --config ./test/jest-demo-seed-integration.json",
+    "test:integration:demo-seed-storage": "jest --config ./test/jest-demo-seed-storage.json"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.28",

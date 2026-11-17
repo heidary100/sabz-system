@@ -57,6 +57,25 @@ export class PublicCatalogCategoriesController {
   async tree() {
     return this.publicCatalogService.getCategoryTree();
   }
+
+  @Get('covers')
+  @ApiOperation({
+    summary: 'Derived representative images for a bounded category slug list',
+  })
+  @ApiQuery({
+    name: 'slugs',
+    required: false,
+    description:
+      'Comma-separated visible category slugs, maximum 12. Unknown/invisible slugs are omitted.',
+    type: String,
+  })
+  @ApiResponse({ status: 200, description: 'Category covers returned.' })
+  @ApiResponse({ status: 400, description: 'More than 12 slugs requested.' })
+  async covers(@Query('slugs') slugs?: string | string[]) {
+    return this.publicCatalogService.getCategoryCovers(
+      Array.isArray(slugs) ? slugs.join(',') : slugs,
+    );
+  }
 }
 
 @ApiTags('catalog')

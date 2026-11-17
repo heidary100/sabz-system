@@ -77,7 +77,7 @@ function SearchForm({
         جستجوی محصولات
       </label>
       <div className="relative w-full">
-        <div className="pointer-events-none absolute inset-y-0 start-0 flex items-center ps-4 text-sabz-500">
+        <div className="pointer-events-none absolute inset-y-0 start-0 flex items-center ps-4 text-accent">
           <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="size-5">
             <path
               fillRule="evenodd"
@@ -93,7 +93,7 @@ function SearchForm({
           value={value}
           onChange={(event) => setValue(event.target.value)}
           placeholder="جستجو در محصولات…"
-          className={`w-full rounded-full border-0 bg-sand-100 ps-11 pe-11 text-sm text-ink-900 shadow-inner shadow-sand-200/50 ring-1 ring-inset ring-sand-200 transition-shadow placeholder:text-gray-600 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sabz-600 ${
+          className={`w-full rounded-pill border-0 bg-surface-2 ps-11 pe-11 text-sm text-fg ring-1 ring-inset ring-border-control transition-shadow placeholder:text-fg-secondary focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus ${
             compact ? 'py-1.5' : 'py-2.5'
           }`}
         />
@@ -105,7 +105,7 @@ function SearchForm({
               setValue('');
               submitSearch('');
             }}
-            className="absolute inset-y-0 end-0 flex w-11 items-center justify-center text-gray-500 hover:text-ink-900"
+            className="absolute inset-y-0 end-0 flex w-11 items-center justify-center text-fg-muted hover:text-fg"
           >
             <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="size-5">
               <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
@@ -123,7 +123,7 @@ function SearchForm({
         <button
           type="submit"
           aria-label="جستجو"
-          className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full bg-gradient-sabz text-white shadow-sm transition duration-200 ease-[var(--ease-swift)] hover:brightness-110 active:scale-95"
+          className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-pill bg-accent text-on-accent transition-colors hover:bg-accent-hover active:scale-95"
         >
           <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="size-5">
             <path

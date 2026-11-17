@@ -1,10 +1,10 @@
 import Link from 'next/link';
 
 /**
- * Shared section header (SS-221, reworked SS-246): the one pattern for
- * titled content sections on home/listing/detail — accent bar + heading +
- * optional subtitle + an optional "see all" action. `id` is the heading's
- * anchor for the parent section's `aria-labelledby`.
+ * Shared section header (SS-221, tokenized Task 01): the one pattern for
+ * titled content sections on home/listing/detail — a solid accent rule,
+ * heading, optional subtitle and an optional "see all" action. `id` is the
+ * heading anchor for the parent section's `aria-labelledby`.
  */
 export function SectionHeader({
   id,
@@ -24,28 +24,23 @@ export function SectionHeader({
   return (
     <div className="flex items-end justify-between gap-4">
       <div className="flex items-start gap-3">
-        {/* Brand accent: a short gradient bar that anchors every section
-            title — the horizontal signature of the design system. */}
         <span
           aria-hidden="true"
-          className="mt-1.5 h-7 w-1.5 shrink-0 rounded-full bg-gradient-to-b from-sabz-400 to-sabz-700"
+          className="mt-1.5 h-7 w-1.5 shrink-0 rounded-pill bg-accent"
         />
         <div>
-          <h2
-            id={id}
-            className="text-balance text-xl font-bold text-ink-900 sm:text-2xl"
-          >
+          <h2 id={id} className="text-balance text-h2 text-fg">
             {title}
           </h2>
           {subtitle ? (
-            <p className="mt-1 text-sm text-gray-500">{subtitle}</p>
+            <p className="mt-1 text-body text-fg-muted">{subtitle}</p>
           ) : null}
         </div>
       </div>
       {actionHref ? (
         <Link
           href={actionHref}
-          className="group inline-flex shrink-0 items-center gap-1 rounded-md pb-1 text-sm font-medium text-sabz-700 transition-colors hover:text-sabz-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700"
+          className="group inline-flex shrink-0 items-center gap-1 rounded-control pb-1 text-sm font-medium text-accent transition-colors hover:text-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
         >
           {actionLabel}
           <svg

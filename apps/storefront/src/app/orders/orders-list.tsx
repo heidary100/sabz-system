@@ -82,7 +82,7 @@ export function OrdersList() {
 
   if (status === 'error') {
     return (
-      <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+      <p role="alert" className="rounded-control bg-danger-soft px-3 py-2 text-sm text-danger">
         {error ?? LOAD_FAILED}
       </p>
     );
@@ -91,7 +91,7 @@ export function OrdersList() {
   if (items.length === 0) {
     return (
       <Card className="p-6 text-center">
-        <p className="text-sm leading-6 text-gray-600">
+        <p className="text-sm leading-6 text-fg-secondary">
           هنوز سفارشی ثبت نکرده‌اید.
         </p>
         <Link href="/products" className={buttonVariants({ variant: 'primary' }) + ' mt-6'}>
@@ -102,12 +102,12 @@ export function OrdersList() {
   }
 
   return (
-    <ul role="list" className="stagger space-y-4">
+    <ul role="list" className=" space-y-4">
       {items.map((order) => (
         <li key={order.id}>
           <Card
             hover
-            className="group relative overflow-hidden border-sand-200 p-5 transition-colors hover:border-sabz-300"
+            className="group relative overflow-hidden border-border p-5 transition-colors hover:border-accent"
           >
             {/* Status accent rail (SS-246): the order's state reads from the
                 card edge before the badge — color never carries it alone. */}
@@ -115,58 +115,58 @@ export function OrdersList() {
               aria-hidden="true"
               className={`absolute inset-y-0 start-0 w-1 ${
                 order.status === 'DELIVERED'
-                  ? 'bg-sabz-500'
+                  ? 'bg-accent'
                   : order.status === 'SHIPPED'
-                    ? 'bg-amber-500'
+                    ? 'bg-warning'
                     : order.status === 'CANCELLED'
-                      ? 'bg-red-400'
-                      : 'bg-sand-200'
+                      ? 'bg-danger'
+                      : 'bg-surface-3'
               }`}
             />
             <div className="flex flex-wrap items-center justify-between gap-3 ps-3">
               <div>
-                <p className="text-sm font-extrabold text-ink-900">
+                <p className="text-sm font-extrabold text-fg">
                   سفارش {formatFaNumber(order.orderNumber)}
                 </p>
-                <p className="mt-1 text-xs text-gray-500">
+                <p className="mt-1 text-xs text-fg-muted">
                   {formatFaDate(order.createdAt)}
                 </p>
               </div>
               <span
-                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ring-1 ring-inset ${
+                className={`inline-flex items-center gap-1.5 rounded-pill px-3 py-1 text-xs font-semibold ring-1 ring-inset ${
                   order.status === 'DELIVERED'
-                    ? 'bg-sabz-50 text-sabz-700 ring-sabz-200'
+                    ? 'bg-accent-soft text-accent ring-accent/20'
                     : order.status === 'SHIPPED'
-                      ? 'bg-amber-50 text-amber-700 ring-amber-200'
+                      ? 'bg-warning-soft text-warning ring-warning/30'
                       : order.status === 'CANCELLED'
-                        ? 'bg-red-50 text-red-700 ring-red-100'
-                        : 'bg-sand-100 text-gray-600 ring-sand-200'
+                        ? 'bg-danger-soft text-danger ring-danger/20'
+                        : 'bg-surface-2 text-fg-secondary ring-border'
                 }`}
               >
                 <span
                   aria-hidden="true"
-                  className={`size-1.5 rounded-full ${
+                  className={`size-1.5 rounded-pill ${
                     order.status === 'DELIVERED'
-                      ? 'bg-sabz-500'
+                      ? 'bg-accent'
                       : order.status === 'SHIPPED'
-                        ? 'bg-amber-500'
+                        ? 'bg-warning'
                         : order.status === 'CANCELLED'
-                          ? 'bg-red-400'
-                          : 'bg-gray-400'
+                          ? 'bg-danger'
+                          : 'bg-fg-muted'
                   }`}
                 />
                 {orderStatusLabel(order.status)}
               </span>
             </div>
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-sand-100 pt-4 ps-3">
-              <p className="text-sm text-gray-600">
-                <span className="font-bold text-ink-900">{formatFaNumber(order.itemCount)}</span> قلم
-                <span className="mx-2 text-sand-200" aria-hidden="true">|</span>
-                جمع: <span className="font-extrabold text-sabz-800">{formatToman(order.total)}</span>
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4 ps-3">
+              <p className="text-sm text-fg-secondary">
+                <span className="font-bold text-fg">{formatFaNumber(order.itemCount)}</span> قلم
+                <span className="mx-2 text-border" aria-hidden="true">|</span>
+                جمع: <span className="font-extrabold text-accent-hover">{formatToman(order.total)}</span>
               </p>
               <Link
                 href={`/orders/${order.id}`}
-                className="group inline-flex min-h-10 items-center gap-1.5 rounded-full bg-white px-4 text-sm font-semibold text-sabz-700 ring-1 ring-inset ring-sabz-200 transition-all duration-200 hover:bg-sabz-700 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sabz-700"
+                className="group inline-flex min-h-10 items-center gap-1.5 rounded-pill bg-surface px-4 text-sm font-semibold text-accent ring-1 ring-inset ring-accent/20 transition-all duration-200 hover:bg-accent hover:text-on-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
               >
                 جزئیات سفارش
                 <svg

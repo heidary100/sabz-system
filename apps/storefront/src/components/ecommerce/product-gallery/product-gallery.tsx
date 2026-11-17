@@ -52,7 +52,7 @@ export function ProductGallery({
 
   if (media.length === 0) {
     return (
-      <div className="flex aspect-square items-center justify-center rounded-2xl bg-sand-100 text-sabz-300">
+      <div className="flex aspect-square items-center justify-center rounded-panel bg-plate text-plate-muted">
         <svg viewBox="0 0 24 24" fill="none" strokeWidth={1.5} stroke="currentColor" aria-hidden="true" className="size-16">
           <path
             d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A1.5 1.5 0 0 0 21.75 19.5V4.5A1.5 1.5 0 0 0 20.25 3H3.75A1.5 1.5 0 0 0 2.25 4.5v15A1.5 1.5 0 0 0 3.75 21Z"
@@ -84,7 +84,7 @@ export function ProductGallery({
         role="region"
         aria-roledescription="نگارخانه محصول"
         aria-label={`${name}: ${positionLabel}`}
-        className="relative aspect-square overflow-hidden rounded-2xl bg-sand-100"
+        className="relative aspect-square overflow-hidden rounded-panel bg-plate"
       >
         {active.mediaType === 'VIDEO' ? (
           <video
@@ -112,7 +112,7 @@ export function ProductGallery({
             <button
               type="button"
               onClick={() => step(-1)}
-              className="absolute end-3 top-1/2 inline-flex min-h-11 min-w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/80 text-ink-900 shadow-sm backdrop-blur-sm transition-colors hover:bg-white"
+              className="absolute end-3 top-1/2 inline-flex min-h-11 min-w-11 -translate-y-1/2 items-center justify-center rounded-pill bg-surface text-fg transition-colors hover:bg-surface-2"
             >
               <span className="sr-only">تصویر قبلی</span>
               <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="size-5">
@@ -122,7 +122,7 @@ export function ProductGallery({
             <button
               type="button"
               onClick={() => step(1)}
-              className="absolute start-3 top-1/2 inline-flex min-h-11 min-w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/80 text-ink-900 shadow-sm backdrop-blur-sm transition-colors hover:bg-white"
+              className="absolute start-3 top-1/2 inline-flex min-h-11 min-w-11 -translate-y-1/2 items-center justify-center rounded-pill bg-surface text-fg transition-colors hover:bg-surface-2"
             >
               <span className="sr-only">تصویر بعدی</span>
               <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="size-5">
@@ -138,7 +138,7 @@ export function ProductGallery({
             type="button"
             onClick={() => setZoomed(true)}
             aria-haspopup="dialog"
-            className="absolute bottom-3 end-3 inline-flex min-h-11 items-center gap-1.5 rounded-full bg-white/80 px-3 text-xs font-semibold text-ink-900 shadow-sm backdrop-blur-sm transition-colors hover:bg-white"
+            className="absolute bottom-3 end-3 inline-flex min-h-11 items-center gap-1.5 rounded-pill bg-surface px-3 text-xs font-semibold text-fg transition-colors hover:bg-surface-2"
           >
             <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="size-4">
               <path d="M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM2 9a7 7 0 1 1 12.452 4.391l3.328 3.329a.75.75 0 1 1-1.06 1.06l-3.329-3.328A7 7 0 0 1 2 9Z" />
@@ -170,12 +170,12 @@ export function ProductGallery({
                 onClick={() => setActiveIndex(index)}
                 aria-pressed={index === activeIndex}
                 aria-label={thumbLabel}
-                className={`relative block size-20 shrink-0 overflow-hidden rounded-lg border-2 focus-visible:ring-2 focus-visible:ring-sabz-600 focus-visible:outline-none ${
-                  index === activeIndex ? 'border-sabz-600' : 'border-transparent'
+                className={`relative block size-20 shrink-0 overflow-hidden rounded-control border-2 focus-visible:ring-2 focus-visible:ring-focus focus-visible:outline-none ${
+                  index === activeIndex ? 'border-accent' : 'border-transparent'
                 }`}
               >
                 {item.mediaType === 'VIDEO' ? (
-                  <span className="flex size-full items-center justify-center bg-sand-100 text-sabz-600">
+                  <span className="flex size-full items-center justify-center bg-plate text-plate-muted">
                     <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className="size-6">
                       <path d="M4.5 5.653c0-1.427 1.529-2.33 2.779-1.643l11.54 6.347c1.295.712 1.295 2.573 0 3.286L7.28 19.99c-1.25.687-2.779-.217-2.779-1.643V5.653Z" />
                     </svg>
@@ -205,7 +205,7 @@ export function ProductGallery({
               role="dialog"
               aria-modal="true"
               aria-label={`بزرگنمایی: ${name}`}
-              className="fixed inset-0 z-50 flex items-center justify-center bg-ink-950/90 p-4"
+              className="fixed inset-0 z-50 flex items-center justify-center bg-stage/90 p-4"
               onClick={() => setZoomed(false)}
             >
               <button
@@ -213,7 +213,7 @@ export function ProductGallery({
                 type="button"
                 onClick={() => setZoomed(false)}
                 autoFocus
-                className="absolute end-4 top-4 inline-flex min-h-11 min-w-11 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur-sm transition-colors hover:bg-white/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                className="absolute end-4 top-4 inline-flex min-h-11 min-w-11 items-center justify-center rounded-pill bg-on-stage/15 text-on-stage transition-colors hover:bg-on-stage/25 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
               >
                 <span className="sr-only">بستن بزرگنمایی</span>
                 <svg viewBox="0 0 24 24" fill="none" strokeWidth={1.5} stroke="currentColor" aria-hidden="true" className="size-6">
@@ -228,7 +228,7 @@ export function ProductGallery({
                       event.stopPropagation();
                       step(-1);
                     }}
-                    className="absolute end-4 top-1/2 inline-flex min-h-12 min-w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur-sm transition-colors hover:bg-white/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                    className="absolute end-4 top-1/2 inline-flex min-h-12 min-w-12 -translate-y-1/2 items-center justify-center rounded-pill bg-on-stage/15 text-on-stage transition-colors hover:bg-on-stage/25 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
                   >
                     <span className="sr-only">تصویر قبلی</span>
                     <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="size-6">
@@ -241,7 +241,7 @@ export function ProductGallery({
                       event.stopPropagation();
                       step(1);
                     }}
-                    className="absolute start-4 top-1/2 inline-flex min-h-12 min-w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur-sm transition-colors hover:bg-white/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                    className="absolute start-4 top-1/2 inline-flex min-h-12 min-w-12 -translate-y-1/2 items-center justify-center rounded-pill bg-on-stage/15 text-on-stage transition-colors hover:bg-on-stage/25 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
                   >
                     <span className="sr-only">تصویر بعدی</span>
                     <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="size-6">

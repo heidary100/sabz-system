@@ -12,12 +12,12 @@ export const metadata: Metadata = {
 export default function AboutPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
-      <p className="text-sm text-gray-500">فروشگاه</p>
-      <h1 className="mt-1 text-balance text-2xl font-extrabold text-ink-900">
+      <p className="text-sm text-fg-muted">فروشگاه</p>
+      <h1 className="mt-1 text-balance text-2xl font-extrabold text-fg">
         درباره سبز سیستم
       </h1>
 
-      <div className="mt-8 space-y-6 rounded-xl border border-sand-200 bg-white p-6 text-base leading-8 text-gray-700 sm:p-8">
+      <div className="mt-8 space-y-6 rounded-card border border-border bg-surface p-6 text-base leading-8 text-fg-secondary sm:p-8">
         <p>
           سبز سیستم، فروشگاه اینترنتی کالای دیجیتال و لوازم جانبی در شمال کشور،
           با گستره‌ای از کالاهای متنوع برای تمام اقشار جامعه و هر رده‌ی سنی،

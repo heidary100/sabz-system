@@ -182,6 +182,8 @@ describe('Public catalog media API (SS-123) (e2e)', () => {
       .expect(200);
     expect(res.headers['content-type']).toContain('image/jpeg');
     expect(res.headers['cache-control']).toBe('public, max-age=31536000, immutable');
+    // The storefront is a separate origin and embeds public images directly.
+    expect(res.headers['cross-origin-resource-policy']).toBe('cross-origin');
     expect(Number(res.headers['content-length'])).toBe(jpegBuffer().length);
     expect(Buffer.from(res.body).equals(jpegBuffer())).toBe(true);
     expect(JSON.stringify(res.headers)).not.toContain('storageKey');

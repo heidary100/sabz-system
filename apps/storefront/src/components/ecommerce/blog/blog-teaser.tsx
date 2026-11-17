@@ -1,11 +1,11 @@
 import { fetchBlogPosts } from '@/lib/blog';
-import { BlogCard } from '@/components/ecommerce/blog/blog-card';
-import { SectionHeader } from '@/components/ecommerce/ui/section-header';
+import { BlogFeature } from '@/components/ecommerce/blog/blog-feature';
 
 /**
- * Home blog teaser (SS-238, master plan §5.10): the latest published
- * articles. Renders nothing until the first article is published
- * (no-fake-UI rule — the slot stays dormant on empty catalogs).
+ * Legacy independently-fetching blog teaser.
+ *
+ * The merchandising homepage no longer uses this component; it remains for
+ * non-homepage consumers and delegates presentation to `BlogFeature`.
  */
 export async function BlogTeaser() {
   let posts;
@@ -15,25 +15,8 @@ export async function BlogTeaser() {
   } catch {
     return null;
   }
-  if (posts.length === 0) {
+  if (!posts || posts.length === 0) {
     return null;
   }
-  return (
-    <section
-      aria-labelledby="blog-heading"
-      className="mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-14 lg:px-8"
-    >
-      <SectionHeader
-        id="blog-heading"
-        title="وبلاگ"
-        subtitle="راهنماها و تازه‌های فروشگاه"
-        actionHref="/blog"
-      />
-      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {posts.map((post) => (
-          <BlogCard key={post.id} post={post} />
-        ))}
-      </div>
-    </section>
-  );
+  return <BlogFeature posts={posts} />;
 }

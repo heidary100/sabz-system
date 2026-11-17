@@ -7,7 +7,7 @@ function Separator() {
       viewBox="0 0 20 20"
       fill="currentColor"
       aria-hidden="true"
-      className="size-3.5 shrink-0 text-gray-300"
+      className="size-3.5 shrink-0 text-fg-muted"
     >
       <path
         fillRule="evenodd"
@@ -26,9 +26,9 @@ function Separator() {
 export function CategoryBreadcrumb({ trail }: { trail: CategoryCrumb[] }) {
   return (
     <nav aria-label="مسیر دسته‌بندی">
-      <ol className="flex items-center gap-1.5 overflow-x-auto whitespace-nowrap py-1 text-sm text-gray-500">
+      <ol className="flex items-center gap-1.5 overflow-x-auto whitespace-nowrap py-1 text-sm text-fg-muted">
         <li className="flex items-center gap-1.5">
-          <Link href="/" className="rounded-sm hover:text-sabz-700">
+          <Link href="/" className="rounded-control hover:text-accent">
             خانه
           </Link>
         </li>
@@ -38,13 +38,13 @@ export function CategoryBreadcrumb({ trail }: { trail: CategoryCrumb[] }) {
             <li key={crumb.slug} className="flex items-center gap-1.5">
               <Separator />
               {isLast ? (
-                <span aria-current="page" className="font-medium text-ink-900">
+                <span aria-current="page" className="font-medium text-fg">
                   {crumb.name}
                 </span>
               ) : (
                 <Link
                   href={`/categories/${crumb.slug}`}
-                  className="rounded-sm hover:text-sabz-700"
+                  className="rounded-control hover:text-accent"
                 >
                   {crumb.name}
                 </Link>

@@ -29,14 +29,14 @@ export function CheckoutSteps({
         return (
           <li key={step} className="flex items-center gap-2">
             {index > 0 ? (
-              <span aria-hidden="true" className="text-gray-300">
+              <span aria-hidden="true" className="text-fg-muted">
                 ‹
               </span>
             ) : null}
             {done || (open && !active) ? (
               <Link
                 href={`/checkout?step=${step}`}
-                className="rounded-md px-2 py-1 text-sabz-700 underline-offset-4 hover:underline"
+                className="rounded-control px-2 py-1 text-accent underline-offset-4 hover:underline"
               >
                 {formatFaNumber(index + 1)}. {stepLabel(step)}
               </Link>
@@ -45,8 +45,8 @@ export function CheckoutSteps({
                 aria-current={active ? 'step' : undefined}
                 className={
                   active
-                    ? 'rounded-md bg-sabz-800 px-2 py-1 font-semibold text-white'
-                    : 'px-2 py-1 text-gray-400'
+                    ? 'rounded-control bg-accent-hover px-2 py-1 font-semibold text-on-accent'
+                    : 'px-2 py-1 text-fg-muted'
                 }
               >
                 {formatFaNumber(index + 1)}. {stepLabel(step)}

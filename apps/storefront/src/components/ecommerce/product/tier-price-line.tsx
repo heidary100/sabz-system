@@ -73,7 +73,7 @@ export function TierPriceLine({
     return null;
   }
   return (
-    <p className="mt-2 text-sm font-semibold text-sabz-700">
+    <p className="mt-2 text-sm font-semibold text-accent">
       قیمت همکار: {formatToman(resolved)}
     </p>
   );
