@@ -1,7 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 import { shareTextWithoutUrl, type ProductSharePayload } from '@/lib/share-message';
+
+const unsubscribeNoop = () => undefined;
+function subscribeNoop(): () => void {
+  return unsubscribeNoop;
+}
+function hasNativeShare(): boolean {
+  return typeof navigator !== 'undefined' && typeof navigator.share === 'function';
+}
 
 /**
  * Social share row (SS-227): parity with the live site's share links
@@ -30,6 +38,9 @@ export function ProductShare({
   const imageUrl = sharePayload?.imageUrl ?? null;
   const [copied, setCopied] = useState<'link' | 'bale' | null>(null);
   const [nativeState, setNativeState] = useState<'idle' | 'sharing' | 'unsupported'>('idle');
+  // Server and pre-hydration renders must agree; capability detection is a
+  // client-only enhancement, not part of the SSR markup.
+  const canNativeShare = useSyncExternalStore(subscribeNoop, hasNativeShare, () => false);
   const url = encodeURIComponent(canonicalUrl);
 
   // Telegram renders its `url` parameter as the shared link, so the text
@@ -102,7 +113,7 @@ export function ProductShare({
   return (
     <div className="flex flex-wrap items-center gap-2">
       <span className="text-xs font-semibold text-fg-muted">اشتراک‌گذاری:</span>
-      {nativeState !== 'unsupported' && typeof navigator !== 'undefined' && 'share' in navigator ? (
+      {canNativeShare && nativeState !== 'unsupported' ? (
         <button
           type="button"
           onClick={() => void nativeShare()}

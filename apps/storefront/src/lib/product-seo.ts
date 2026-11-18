@@ -78,9 +78,9 @@ export function buildProductJsonLd({
   } else if (priced.length > 1) {
     offers = {
       '@type': 'AggregateOffer',
-      priceCurrency: 'IRT',
+      priceCurrency: 'IRR',
       offerCount: priced.length,
-      // Toman bounds (SS-222) — min/max order is invariant under ÷10.
+      // Rial bounds: the API detail projection is already customer-rounded.
       lowPrice: rialMachineValue(
         priced.reduce((min, v) => (Number(v.price) < Number(min.price) ? v : min))
           .price,

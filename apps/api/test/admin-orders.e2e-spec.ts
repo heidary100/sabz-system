@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { ProductCondition } from '@prisma/client';
@@ -403,6 +404,16 @@ describe('Admin orders API (SS-240A) (e2e)', () => {
     expect(Object.keys(detail.body.items[0]).sort()).toEqual(
       ADMIN_ORDER_ITEM_KEYS,
     );
+
+    if (['/usr/bin/chromium', '/usr/bin/google-chrome'].some((path) => existsSync(path))) {
+      const pdf = await request(app.getHttpServer())
+        .get(`${ADMIN_BASE}/${orderId}/invoice/pdf`)
+        .set('Authorization', `Bearer ${operator.token}`)
+        .expect(200)
+        .expect('Content-Type', /application\/pdf/);
+      expect(pdf.body.subarray(0, 5).toString('ascii')).toBe('%PDF-');
+      expect(pdf.headers['content-disposition']).toContain('attachment');
+    }
 
     await request(app.getHttpServer())
       .get(`${ADMIN_BASE}/3fa85f64-5717-4562-b3fc-2c963f66afa6`)

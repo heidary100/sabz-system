@@ -65,8 +65,8 @@ function MissingCell() {
  * Comparison table (SS-237, server). Columns are products, rows are
  * attributes: header (image/name/remove), price, rating, stock, brand,
  * condition, promotion countdown, the union of spec keys, and the purchase
- * action. Prices come from the server DTOs via the single Toman conversion
- * point; rating reuses the Rating primitive; missing spec values render «—»,
+ * action. Prices come from the server DTOs through the single Rial display
+ * helper; rating reuses the Rating primitive; missing spec values render «—»,
  * never invented data.
  */
 export function CompareTable({

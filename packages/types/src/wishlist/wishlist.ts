@@ -7,7 +7,7 @@ import type { CatalogProductCardDto } from '../catalog/catalog';
  * reads, no pagination v1 (user-bounded, tens of rows). Each item reuses
  * `CatalogProductCardDto` verbatim plus the save timestamp, so the
  * storefront renders wishlist rows with the existing `ProductCard` and the
- * single Rial→Toman conversion point (`lib/currency.ts`) without mapping.
+ * server-rounded Rial display value without mapping.
  */
 export interface WishlistItemDto extends CatalogProductCardDto {
   /** ISO timestamp of when the product was saved. */

@@ -117,7 +117,7 @@ export class ListCatalogProductsQueryDto {
   @ApiPropertyOptional({
     example: '1500000',
     description:
-      'Minimum price in Toman (SS-213). Matches products with at least one PRICED, live variant priced at or above this value. CALL_FOR_PRICE rows never contribute.',
+      'Minimum customer-facing Rial price (SS-900). Matches products with at least one PRICED, live variant whose rounded Rial price is at or above this value. CALL_FOR_PRICE rows never contribute.',
   })
   @IsOptional()
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
@@ -130,7 +130,7 @@ export class ListCatalogProductsQueryDto {
   @ApiPropertyOptional({
     example: '20000000',
     description:
-      'Maximum price in Toman (SS-213). Matches products with at least one PRICED, live variant priced at or below this value. With both bounds present, the SAME variant must satisfy the range (normalized by swapping when inverted).',
+      'Maximum customer-facing Rial price (SS-900). Matches products with at least one PRICED, live variant whose rounded Rial price is at or below this value. With both bounds present, the SAME variant must satisfy the range (normalized by swapping when inverted).',
   })
   @IsOptional()
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))

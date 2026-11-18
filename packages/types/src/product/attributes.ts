@@ -145,8 +145,8 @@ export type BulkAttributeOperation =
 
 export interface BulkAttributeProductRef {
   id: string;
-  /** Optimistic concurrency token from the catalog grid row. */
-  updatedAt?: string;
+  /** Optimistic concurrency token from the catalog grid row (required). */
+  updatedAt: string;
 }
 
 export interface BulkAttributePreviewInput {

@@ -31,7 +31,7 @@ function badgeVariant(status: RfqDto['status']): 'success' | 'outOfStock' | 'neu
 /**
  * RFQ-history island (SS-235 B2): newest-first list behind the OTP
  * session. Guests are sent to `/login?next=/rfq`. Mirrors the orders
- * list; quoted rows show the agreed Toman price.
+ * list; quoted rows show the agreed Rial price.
  */
 export function RfqList() {
   const router = useRouter();

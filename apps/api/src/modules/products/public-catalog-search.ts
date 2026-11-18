@@ -49,9 +49,9 @@ export interface CatalogSearchFilters {
   brandSlug?: string;
   /** ProductCondition enum value (validated by the DTO). */
   condition?: string;
-  /** Inclusive Toman lower bound (decimal-as-string, from/to pre-ordered). */
+  /** Inclusive customer-facing Rial lower bound (decimal-as-string, pre-ordered). */
   priceFrom?: string;
-  /** Inclusive Toman upper bound (decimal-as-string, from/to pre-ordered). */
+  /** Inclusive customer-facing Rial upper bound (decimal-as-string, pre-ordered). */
   priceTo?: string;
   /** Precomputed in-stock product ids (service-owned inventory truth). */
   stockProductIds?: string[];
@@ -278,13 +278,15 @@ export function buildCatalogSearchPageSql(query: CatalogSearchQuery): Prisma.Sql
     predicates.push(Prisma.sql`p."condition"::text = ${filters.condition}`);
   }
   if (filters.priceFrom !== undefined || filters.priceTo !== undefined) {
-    // The SAME live variant must satisfy both bounds (service parity).
+    // The SAME live variant must satisfy both bounds (service parity). Bounds
+    // are customer-facing Rial, so compare the rounded amount the storefront
+    // displays, never the raw stored Decimal.
     predicates.push(
       Prisma.sql`EXISTS (
         SELECT 1 FROM "ProductVariant" pv
         WHERE pv."productId" = p."id" AND pv."deletedAt" IS NULL AND pv."priceStatus" = 'PRICED'
-          ${filters.priceFrom !== undefined ? Prisma.sql`AND pv."price" >= ${filters.priceFrom}::numeric` : Prisma.empty}
-          ${filters.priceTo !== undefined ? Prisma.sql`AND pv."price" <= ${filters.priceTo}::numeric` : Prisma.empty}
+          ${filters.priceFrom !== undefined ? Prisma.sql`AND CEIL(pv."price" / 100000) * 100000 >= ${filters.priceFrom}::numeric` : Prisma.empty}
+          ${filters.priceTo !== undefined ? Prisma.sql`AND CEIL(pv."price" / 100000) * 100000 <= ${filters.priceTo}::numeric` : Prisma.empty}
       )`,
     );
   }

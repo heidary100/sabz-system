@@ -5,6 +5,34 @@ import webpush from 'web-push';
 import type { NotificationDto } from '@sabz/types';
 import { PrismaService } from '../../common/database/prisma.service';
 
+const ALLOWED_PUSH_HOSTS = [
+  'fcm.googleapis.com',
+  'push.services.mozilla.com',
+  'push.apple.com',
+  'notify.windows.com',
+];
+
+/**
+ * Web Push endpoints are supplied by the browser, not by the API. Restrict
+ * them to the public push services we support so an authenticated user cannot
+ * turn notification delivery into a blind SSRF request to an internal HTTPS
+ * host. Custom/self-hosted push services need an explicit allowlist entry.
+ */
+export function isAllowedPushEndpoint(raw: string): boolean {
+  try {
+    const url = new URL(raw);
+    if (url.protocol !== 'https:' || url.username !== '' || url.password !== '') {
+      return false;
+    }
+    const host = url.hostname.toLowerCase();
+    return ALLOWED_PUSH_HOSTS.some(
+      (allowed) => host === allowed || host.endsWith(`.${allowed}`),
+    );
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Browser Web Push (VAPID) delivery (SS-900). Disabled unless all three VAPID
  * values are configured. Credentials remain env-only; endpoints and browser
@@ -54,7 +82,7 @@ export class PushService {
         'اعلان مرورگری در این سرور پیکربندی نشده است.',
       );
     }
-    if (!/^https:\/\//i.test(input.endpoint) || input.endpoint.length > 2048) {
+    if (!isAllowedPushEndpoint(input.endpoint) || input.endpoint.length > 2048) {
       throw new BadRequestException('نشانی اشتراک اعلان معتبر نیست.');
     }
     if (!input.keys.p256dh || !input.keys.auth) {

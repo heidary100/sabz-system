@@ -32,9 +32,8 @@ export interface DashboardPartnerCounts {
 
 /**
  * Commerce report block (SS-240F). Read-only aggregations over the order,
- * RFQ, review and blog domains for dashboard v2. Money stays Rial verbatim
- * (Decimal strings); the admin formats via `formatRial`, the storefront
- * alone converts to Toman.
+ * RFQ, review and blog domains for dashboard v2. Money stays Rial (Decimal
+ * strings); both admin and storefront display the server-rounded Rial value.
  */
 export interface DashboardOrdersByStatus {
   pending: number;

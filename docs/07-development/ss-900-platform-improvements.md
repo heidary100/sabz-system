@@ -75,7 +75,8 @@ Behavior:
 - public facets: `GET /api/v1/catalog/facets?category=...` returns only
   category-assigned value attrs plus brands, with counts;
 - filtering: `GET /api/v1/catalog/products?category=...&attrs={"slug":["value"]}`;
-  unknown attributes/values are rejected;
+  unknown attributes are rejected and numeric bounds are validated; price
+  bounds use the same rounded Rial value shown on the storefront;
 - comparison: `GET /api/v1/catalog/products/compare?slugs=a,b` uses
   category-configured comparable attributes and returns typed display values.
 
@@ -123,7 +124,8 @@ table selection.
   permission is never requested on page load.
 - Web Push requires `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` and
   `VAPID_SUBJECT`. When absent, the API reports push disabled and in-app
-  realtime continues to work.
+  realtime continues to work. Subscription endpoints are restricted to the
+  supported browser push-service hosts to prevent blind SSRF.
 
 ## 6. Customer support chat
 
@@ -148,9 +150,11 @@ table selection.
   1000 characters, stored on the order, and shown to customer/admin.
 - RFQ acceptance supports the same national ID/note contract.
 - Customer invoice data: `GET /api/v1/orders/:id/invoice`; print-ready PDF:
-  `GET /api/v1/orders/:id/invoice/pdf`. The PDF is owner-scoped, rendered by
-  headless Chromium with embedded Vazirmatn and a transparent logo. Missing
-  Chromium/font/logo returns a clear `503` instead of a corrupt file.
+  `GET /api/v1/orders/:id/invoice/pdf`. Operators use
+  `GET /api/v1/admin/orders/:id/invoice/pdf`. The customer PDF is owner-scoped
+  and the admin PDF is staff-only; both are rendered by headless Chromium with
+  embedded Vazirmatn and a transparent logo. Missing Chromium/font/logo
+  returns a clear `503` instead of a corrupt file.
 
 ## 8. Payments and SMS (honest blockers)
 
@@ -191,6 +195,7 @@ See the root `.env.example` and `apps/api/.env.example` for full comments.
 | `PDF_CHROME_NO_SANDBOX` | Pass `--no-sandbox` in containers | `true` |
 | `INVOICE_FONT_PATH` / `INVOICE_LOGO_PATH` | Embedded PDF assets | bundled Vazirmatn/logo |
 | `COMPANY_LEGAL_NAME` / `COMPANY_ADDRESS` / `COMPANY_PHONE` / `COMPANY_WEBSITE` | Invoice header | `سبز سیستم` / empty |
+| `SNAPPAY_*` / `DIGIPAY_*` | Payment readiness credentials; fail closed until protocol is complete | disabled/empty |
 
 Generate VAPID keys once per deployment:
 

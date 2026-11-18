@@ -211,12 +211,19 @@ export class AttributesService {
 
     const existing = await this.prisma.attribute.findUnique({
       where: { name },
-      select: attributeSelect,
+      select: attributeWithValuesSelect,
     });
     if (existing) {
       if (existing.type !== input.type) {
         throw new ConflictException(
           `ویژگی «${name}» از نوع دیگری ثبت شده و قابل استفاده مجدد نیست.`,
+        );
+      }
+      if (input.valueType !== undefined && input.valueType !== existing.valueType) {
+        await this.assertAttributeShapeChangeSafe(
+          existing,
+          existing.type,
+          input.valueType,
         );
       }
       const updated = await this.prisma.attribute.update({
@@ -642,6 +649,13 @@ export class AttributesService {
           where: { productId, attributeId: { notIn: applicableIds } },
         });
       }
+      // Keep the catalog-row optimistic-concurrency token in sync with
+      // attribute edits. ProductAttributeValue rows are children, so Prisma
+      // does not touch Product.updatedAt by itself.
+      await tx.product.update({
+        where: { id: productId },
+        data: { updatedAt: new Date() },
+      });
     });
     return this.getProductAttributes(productId);
   }
@@ -661,9 +675,15 @@ export class AttributesService {
         `مقدار ویژگی «${assignment.attribute.name}» الزامی است و پاک نمی‌شود.`,
       );
     }
-    await this.prisma.productAttributeValue.deleteMany({
-      where: { productId, attributeId },
-    });
+    await this.prisma.$transaction([
+      this.prisma.productAttributeValue.deleteMany({
+        where: { productId, attributeId },
+      }),
+      this.prisma.product.update({
+        where: { id: productId },
+        data: { updatedAt: new Date() },
+      }),
+    ]);
     return this.getProductAttributes(productId);
   }
 
@@ -753,7 +773,7 @@ export class AttributesService {
     for (const product of products) {
       const ref = input.products.find((row) => row.id === product.id);
       if (
-        ref?.updatedAt !== undefined &&
+        !ref ||
         ref.updatedAt !== product.updatedAt.toISOString()
       ) {
         outcomes.push({
@@ -807,6 +827,10 @@ export class AttributesService {
               userId,
             );
           }
+          await tx.product.update({
+            where: { id: product.id },
+            data: { updatedAt: new Date() },
+          });
         });
         outcomes.push({
           productId: product.id,
@@ -1125,6 +1149,23 @@ export class AttributesService {
     const optionLike =
       nextValueType === AttributeValueType.SELECT ||
       nextValueType === AttributeValueType.MULTI_SELECT;
+    const existingOptionLike =
+      existing.valueType === AttributeValueType.SELECT ||
+      existing.valueType === AttributeValueType.MULTI_SELECT;
+    // SELECT ↔ MULTI_SELECT keeps the same option rows valid. Any other
+    // value-type change can invalidate scalar rows already attached to
+    // products, so it must be blocked rather than silently leaving stale
+    // valueNumber/valueText/valueBoolean data behind.
+    if (!(optionLike && existingOptionLike)) {
+      const used = await this.prisma.productAttributeValue.count({
+        where: { attributeId: existing.id },
+      });
+      if (used > 0) {
+        throw new ConflictException(
+          'این ویژگی در محصولات استفاده شده و تغییر نوع مقدار آن مجاز نیست.',
+        );
+      }
+    }
     if (!optionLike && existing.values.length > 0) {
       throw new ConflictException(
         'این ویژگی مقدارهای انتخابی دارد و تغییر نوع آن‌ها را نامعتبر می‌کند.',
@@ -1383,7 +1424,7 @@ export class AttributesService {
   private bulkToken(input: BulkAttributePreviewInput): string {
     const canonical = JSON.stringify({
       products: input.products
-        .map((row) => ({ id: row.id, updatedAt: row.updatedAt ?? null }))
+        .map((row) => ({ id: row.id, updatedAt: row.updatedAt }))
         .sort((a, b) => a.id.localeCompare(b.id)),
       operations: input.operations,
     });

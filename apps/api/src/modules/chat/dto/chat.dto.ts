@@ -6,6 +6,7 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  Max,
   MaxLength,
   Min,
 } from 'class-validator';
@@ -90,11 +91,16 @@ export class ListAdminChatQueryDto {
   @ApiPropertyOptional({ default: 1 })
   @IsOptional()
   @Transform(({ value }) => Number(value))
+  @IsInt({ message: 'page باید عدد صحیح باشد.' })
+  @Min(1, { message: 'page باید حداقل ۱ باشد.' })
   page?: number;
 
   @ApiPropertyOptional({ default: 30 })
   @IsOptional()
   @Transform(({ value }) => Number(value))
+  @IsInt({ message: 'limit باید عدد صحیح باشد.' })
+  @Min(1, { message: 'limit باید حداقل ۱ باشد.' })
+  @Max(100, { message: 'limit حداکثر ۱۰۰ است.' })
   limit?: number;
 }
 

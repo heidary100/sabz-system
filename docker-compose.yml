@@ -147,6 +147,20 @@ services:
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
       VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@example.com}
       PREVIEW_TOKEN_SECRET: ${PREVIEW_TOKEN_SECRET:-}
+      # SnappPay/DigiPay readiness (SS-900). Empty/false values keep the
+      # adapters fail-closed; the protocol adapter is not implemented yet.
+      SNAPPAY_ENABLED: ${SNAPPAY_ENABLED:-false}
+      SNAPPAY_CLIENT_ID: ${SNAPPAY_CLIENT_ID:-}
+      SNAPPAY_CLIENT_SECRET: ${SNAPPAY_CLIENT_SECRET:-}
+      SNAPPAY_BASE_URL: ${SNAPPAY_BASE_URL:-}
+      SNAPPAY_CALLBACK_URL: ${SNAPPAY_CALLBACK_URL:-}
+      SNAPPAY_SANDBOX: ${SNAPPAY_SANDBOX:-false}
+      DIGIPAY_ENABLED: ${DIGIPAY_ENABLED:-false}
+      DIGIPAY_CLIENT_ID: ${DIGIPAY_CLIENT_ID:-}
+      DIGIPAY_CLIENT_SECRET: ${DIGIPAY_CLIENT_SECRET:-}
+      DIGIPAY_BASE_URL: ${DIGIPAY_BASE_URL:-}
+      DIGIPAY_CALLBACK_URL: ${DIGIPAY_CALLBACK_URL:-}
+      DIGIPAY_SANDBOX: ${DIGIPAY_SANDBOX:-false}
       # Storefront cache invalidation (SS-217). The shared token must match
       # the storefront's REVALIDATE_TOKEN; override both from the root .env
       # with a long random string outside local development.

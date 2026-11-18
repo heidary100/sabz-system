@@ -3,7 +3,7 @@ import { formatFaNumber, formatRial } from '@/lib/format';
 
 /**
  * Order summary card (SS-233): mirrors the cart summary `aside + dl +
- * aria-live` pattern. Money is server-computed Rial rendered as Toman —
+ * aria-live` pattern. Money is server-computed Rial rendered as Rial —
  * this component never computes prices.
  */
 export function OrderSummary({ summary }: { summary: CheckoutSummaryDto }) {

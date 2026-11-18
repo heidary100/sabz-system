@@ -458,7 +458,7 @@ export class ChatService {
       }),
     ]);
     const updated = await this.adminDetail(conversationId);
-    const latest = updated.messages[0];
+    const latest = updated.messages.at(-1);
     if (latest) {
       this.realtime.emitToUser(conversation.userId, 'chat:message', {
         conversationId,

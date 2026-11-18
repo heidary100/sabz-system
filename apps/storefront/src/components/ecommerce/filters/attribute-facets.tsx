@@ -22,6 +22,7 @@ export function AttributeFacets({
 }) {
   const [open, setOpen] = useState(true)
   const [numericDrafts, setNumericDrafts] = useState<Record<string, { min: string; max: string }>>({})
+  const [numericErrors, setNumericErrors] = useState<Record<string, string>>({})
   if (!facets || facets.attributes.length === 0) {
     return null
   }
@@ -136,7 +137,16 @@ export function AttributeFacets({
               )
             }
             if (attribute.valueType === 'NUMBER') {
-              const draft = numericDrafts[attribute.slug] ?? { min: '', max: '' }
+              const saved = selected[attribute.slug]
+              const savedRange =
+                saved && typeof saved === 'object' && !Array.isArray(saved)
+                  ? (saved as { min?: unknown; max?: unknown })
+                  : null
+              const draft = numericDrafts[attribute.slug] ?? {
+                min: typeof savedRange?.min === 'number' ? String(savedRange.min) : '',
+                max: typeof savedRange?.max === 'number' ? String(savedRange.max) : '',
+              }
+              const error = numericErrors[attribute.slug]
               return (
                 <fieldset key={attribute.attributeId}>
                   <legend className="text-xs font-semibold text-fg-secondary">
@@ -177,15 +187,34 @@ export function AttributeFacets({
                   <div className="mt-1.5 flex gap-2">
                     <button
                       type="button"
-                      onClick={() =>
+                      onClick={() => {
+                        const minText = draft.min.trim()
+                        const maxText = draft.max.trim()
+                        const min = minText === '' ? null : Number(minText)
+                        const max = maxText === '' ? null : Number(maxText)
+                        if (
+                          (min !== null && !Number.isFinite(min)) ||
+                          (max !== null && !Number.isFinite(max))
+                        ) {
+                          setNumericErrors((rows) => ({
+                            ...rows,
+                            [attribute.slug]: 'محدوده عددی معتبر نیست.',
+                          }))
+                          return
+                        }
+                        setNumericErrors((rows) => {
+                          const next = { ...rows }
+                          delete next[attribute.slug]
+                          return next
+                        })
                         commit({
                           ...selected,
                           [attribute.slug]: {
-                            ...(draft.min !== '' ? { min: Number(draft.min) } : {}),
-                            ...(draft.max !== '' ? { max: Number(draft.max) } : {}),
+                            ...(min !== null ? { min } : {}),
+                            ...(max !== null ? { max } : {}),
                           },
                         })
-                      }
+                      }}
                       className="min-h-9 rounded-control bg-surface-2 px-2.5 text-xs font-semibold text-accent hover:bg-accent-soft"
                     >
                       اعمال
@@ -197,6 +226,11 @@ export function AttributeFacets({
                           ...rows,
                           [attribute.slug]: { min: '', max: '' },
                         }))
+                        setNumericErrors((rows) => {
+                          const next = { ...rows }
+                          delete next[attribute.slug]
+                          return next
+                        })
                         const next = { ...selected }
                         delete next[attribute.slug]
                         commit(next)
@@ -206,6 +240,11 @@ export function AttributeFacets({
                       حذف
                     </button>
                   </div>
+                  {error ? (
+                    <p role="alert" className="mt-1 text-xs text-danger">
+                      {error}
+                    </p>
+                  ) : null}
                 </fieldset>
               )
             }

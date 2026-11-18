@@ -7,6 +7,7 @@ import {
   IsBoolean,
   IsEnum,
   IsInt,
+  IsISO8601,
   IsOptional,
   IsString,
   IsUUID,
@@ -308,10 +309,10 @@ export class BulkAttributeProductRefDto {
   @IsUUID('4', { message: 'شناسه محصول معتبر نیست.' })
   id!: string;
 
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  updatedAt?: string;
+  @ApiProperty({ description: 'Catalog-row optimistic concurrency token' })
+  @IsString({ message: 'زمان آخرین تغییر محصول معتبر نیست.' })
+  @IsISO8601({}, { message: 'زمان آخرین تغییر محصول معتبر نیست.' })
+  updatedAt!: string;
 }
 
 export class BulkAttributePreviewDto {

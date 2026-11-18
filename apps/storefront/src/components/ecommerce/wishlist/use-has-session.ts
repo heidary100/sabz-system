@@ -1,9 +1,14 @@
 import { useSyncExternalStore } from 'react';
+import { AUTH_STATE_EVENT } from '@/lib/auth-events';
 import { hasSession } from '@/lib/auth-client';
 
 function subscribe(callback: () => void): () => void {
   window.addEventListener('storage', callback);
-  return () => window.removeEventListener('storage', callback);
+  window.addEventListener(AUTH_STATE_EVENT, callback);
+  return () => {
+    window.removeEventListener('storage', callback);
+    window.removeEventListener(AUTH_STATE_EVENT, callback);
+  };
 }
 
 /**

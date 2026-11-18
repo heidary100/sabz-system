@@ -149,6 +149,7 @@ describe('buildProductJsonLd', () => {
     });
     expect(jsonLd.offers).toMatchObject({
       '@type': 'AggregateOffer',
+      priceCurrency: 'IRR',
       offerCount: 2,
       lowPrice: '1000000',
       highPrice: '2000000',

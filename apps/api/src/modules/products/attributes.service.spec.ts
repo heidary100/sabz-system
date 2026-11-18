@@ -1,4 +1,4 @@
-import { AttributeType, Prisma, ProductStatus } from '@prisma/client';
+import { AttributeType, AttributeValueType, Prisma, ProductStatus } from '@prisma/client';
 import { PrismaService } from '../../common/database/prisma.service';
 import { AttributesService } from './attributes.service';
 
@@ -131,6 +131,25 @@ describe('AttributesService (SS-202)', () => {
           name: 'رنگ',
           slug: 'color',
           type: AttributeType.SPEC,
+        }),
+      ).rejects.toMatchObject({ status: 409 });
+    });
+
+    it('rejects a valueType change while product values exist', async () => {
+      prisma.attribute.findUnique.mockResolvedValue({
+        id: 'attr-1',
+        type: AttributeType.SPEC,
+        valueType: AttributeValueType.NUMBER,
+        values: [],
+      });
+      prisma.productAttributeValue.count.mockResolvedValue(1);
+
+      await expect(
+        service.upsertAttribute({
+          name: 'وزن',
+          slug: 'weight',
+          type: AttributeType.SPEC,
+          valueType: AttributeValueType.TEXT,
         }),
       ).rejects.toMatchObject({ status: 409 });
     });

@@ -1,4 +1,5 @@
 import { API_BASE_URL, ApiError } from '@/lib/api';
+import { AUTH_STATE_EVENT } from '@/lib/auth-events';
 import { toEnglishDigits } from '@/lib/digits';
 
 export { toEnglishDigits };
@@ -49,11 +50,19 @@ function getStoredToken(): string | null {
   return window.localStorage.getItem(ACCESS_TOKEN_KEY);
 }
 
+function notifyAuthState(): void {
+  if (typeof window === 'undefined' || typeof window.dispatchEvent !== 'function') {
+    return;
+  }
+  window.dispatchEvent(new Event(AUTH_STATE_EVENT));
+}
+
 function setStoredToken(token: string): void {
   if (typeof window === 'undefined') {
     return;
   }
   window.localStorage.setItem(ACCESS_TOKEN_KEY, token);
+  notifyAuthState();
 }
 
 function clearStoredToken(): void {
@@ -61,6 +70,7 @@ function clearStoredToken(): void {
     return;
   }
   window.localStorage.removeItem(ACCESS_TOKEN_KEY);
+  notifyAuthState();
 }
 
 /** Read access for the authenticated WebSocket handshake (never logged). */

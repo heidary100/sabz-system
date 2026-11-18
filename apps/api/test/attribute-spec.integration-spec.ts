@@ -473,4 +473,42 @@ describe('Category-aware attributes + bulk editing (SS-900)', () => {
       attributes.applyBulk({ ...input, previewToken: 'stale' }, actorId),
     ).rejects.toMatchObject({ status: 409 });
   });
+
+  it('conflicts when applicable attributes change after the preview', async () => {
+    const category = await makeCategory('گروه هم‌زمانی');
+    const attribute = await attributes.createAttribute({
+      name: `گارانتی ${suffix()}`,
+      slug: `warranty-race-${suffix()}`,
+      type: AttributeType.SPEC,
+      valueType: 'TEXT',
+    });
+    attributeIds.push(attribute.id);
+    await attributes.setCategoryAttributes(
+      category.id,
+      [{ attributeId: attribute.id, isFilterable: true }],
+      actorId,
+    );
+    const product = await makeProduct(category.id);
+    const input = {
+      products: [{ id: product.id, updatedAt: product.updatedAt.toISOString() }],
+      operations: [
+        { kind: 'SET' as const, attributeId: attribute.id, valueText: '۱۸ ماه' },
+      ],
+    };
+    const preview = await attributes.previewBulk(input);
+
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    await attributes.setProductAttributes(
+      product.id,
+      { values: [{ attributeId: attribute.id, valueText: '۱۲ ماه' }] },
+      actorId,
+    );
+
+    const applied = await attributes.applyBulk(
+      { ...input, previewToken: preview.previewToken },
+      actorId,
+    );
+    expect(applied.failed).toBe(1);
+    expect(applied.outcomes[0]).toMatchObject({ status: 'CONFLICT' });
+  });
 });

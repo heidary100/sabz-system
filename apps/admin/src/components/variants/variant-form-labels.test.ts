@@ -3,12 +3,10 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 /**
- * SS-250 grep gate (issue #300 oracle): the admin money contract is Rial
- * everywhere. The variant form previously labeled its price fields
- * «تومان» — the exact UI that invites a 10x mispricing (audit 2026-10-24,
- * §A.6-2). These assertions read the source so a regression cannot merge:
- * no «تومان» money label may return to apps/admin, and both price labels
- * must carry «ریال» plus the Rial→Toman display hint.
+ * SS-250/SS-900 grep gate: the admin money contract is Rial everywhere.
+ * The variant form previously invited a 10x mispricing by labeling prices in
+ * Toman; the storefront now also displays Rial, so no Toman conversion hint
+ * may return to the admin variant form.
  */
 const FORM_SOURCE = readFileSync(
   join(import.meta.dirname, 'variant-form.tsx'),
@@ -17,9 +15,8 @@ const FORM_SOURCE = readFileSync(
 
 describe('variant form money labels (SS-250)', () => {
   it('never labels a price in تومان', () => {
-    // The parenthesized-unit pattern is the regression target; the display
-    // hint («به تومان (ریال ÷ ۱۰)») legitimately mentions Toman and must stay.
     expect(FORM_SOURCE.includes('(تومان)')).toBe(false)
+    expect(FORM_SOURCE.includes('ریال ÷ ۱۰')).toBe(false)
   })
 
   it('labels both price fields in ریال', () => {
@@ -27,9 +24,9 @@ describe('variant form money labels (SS-250)', () => {
     expect(FORM_SOURCE.includes('قیمت قبل از تخفیف (ریال)')).toBe(true)
   })
 
-  it('explains the Rial base and the Toman display conversion', () => {
+  it('explains the Rial base and display unit', () => {
     expect(FORM_SOURCE.includes('مبنا ریال است')).toBe(true)
-    expect(FORM_SOURCE.includes('ریال ÷ ۱۰')).toBe(true)
+    expect(FORM_SOURCE.includes('به ریال نمایش می‌دهد')).toBe(true)
   })
 
   it('folds Persian/Arabic digits on money inputs before validation', () => {

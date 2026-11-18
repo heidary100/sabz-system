@@ -243,6 +243,11 @@ describe('SS-900 realtime notifications + chat (e2e)', () => {
       ),
     ).toBe(true);
 
+    await request(app.getHttpServer())
+      .get('/api/v1/admin/chat/conversations?page=abc')
+      .set('Authorization', `Bearer ${operatorToken}`)
+      .expect(400);
+
     const reply = await request(app.getHttpServer())
       .post(`/api/v1/admin/chat/conversations/${conversationId}/messages`)
       .set('Authorization', `Bearer ${operatorToken}`)
@@ -252,6 +257,22 @@ describe('SS-900 realtime notifications + chat (e2e)', () => {
       body: 'سلام، در خدمتیم.',
       senderType: 'ADMIN',
     });
+
+    const customerSocket = connect(customerToken);
+    await waitForEvent(customerSocket, 'connected');
+    const replyEvent = waitForEvent<{ message: { body: string; senderType: string } }>(
+      customerSocket,
+      'chat:message',
+    );
+    await request(app.getHttpServer())
+      .post(`/api/v1/admin/chat/conversations/${conversationId}/messages`)
+      .set('Authorization', `Bearer ${operatorToken}`)
+      .send({ body: 'پیام دوم پشتیبانی.' })
+      .expect(201);
+    await expect(replyEvent).resolves.toMatchObject({
+      message: { body: 'پیام دوم پشتیبانی.', senderType: 'ADMIN' },
+    });
+    customerSocket.disconnect();
 
     const customerView = await request(app.getHttpServer())
       .get('/api/v1/chat/conversation')

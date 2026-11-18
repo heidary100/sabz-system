@@ -16,7 +16,7 @@ export function connectRealtime(): Socket {
   return io(`${realtimeOrigin()}/ws`, {
     path: '/socket.io',
     transports: ['websocket', 'polling'],
-    auth: { token: getAccessToken() },
+    auth: (cb) => cb({ token: getAccessToken() }),
     reconnection: true,
     reconnectionAttempts: Infinity,
     reconnectionDelay: 1_000,

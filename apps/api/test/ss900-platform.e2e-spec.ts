@@ -289,6 +289,14 @@ describe('SS-900 platform features (e2e)', () => {
       .expect(200);
     expect(page.body.total).toBe(1);
     expect(page.body.items[0].id).toBe(productAId);
+
+    await request(app.getHttpServer())
+      .get(
+        `/api/v1/catalog/products?category=${categorySlug}&attrs=${encodeURIComponent(
+          JSON.stringify({ [slug]: { min: null } }),
+        )}`,
+      )
+      .expect(400);
   });
 
   it('compares products using category-configured comparable attributes', async () => {

@@ -8,6 +8,7 @@ import {
   Patch,
   Post,
   Query,
+  StreamableFile,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -74,6 +75,25 @@ export class AdminOrdersController {
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
   ) {
     return this.checkoutService.adminDetail(id);
+  }
+
+  @Get(':id/invoice/pdf')
+  @ApiOperation({ summary: 'Download a print-ready PDF invoice for any order' })
+  @ApiParam({ name: 'id', description: 'Order id' })
+  @ApiResponse({ status: 200, description: 'Invoice PDF returned.' })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  @ApiResponse({ status: 404, description: 'Order not found.' })
+  @ApiResponse({ status: 503, description: 'PDF renderer unavailable.' })
+  async invoicePdfFile(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+  ): Promise<StreamableFile> {
+    const detail = await this.checkoutService.adminDetail(id);
+    const pdf = await this.invoicePdf.render(detail);
+    return new StreamableFile(pdf.buffer, {
+      type: 'application/pdf',
+      disposition: `attachment; filename="${pdf.filename}"`,
+    });
   }
 
   @Patch(':id/status')

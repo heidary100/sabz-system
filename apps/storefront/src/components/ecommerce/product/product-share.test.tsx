@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ProductShare } from './product-share';
 
 /**
@@ -76,6 +76,18 @@ describe('ProductShare', () => {
     it('renders the plain copy-link button', () => {
       renderRow();
       expect(screen.getByRole('button', { name: /کپی لینک/ })).toBeTruthy();
+    });
+
+    it('adds the native share action only when the client supports it', () => {
+      Object.defineProperty(navigator, 'share', {
+        configurable: true,
+        value: vi.fn(),
+      });
+      renderRow();
+      expect(
+        screen.getByRole('button', { name: 'اشتراک‌گذاری…' }),
+      ).toBeTruthy();
+      Reflect.deleteProperty(navigator, 'share');
     });
   });
 

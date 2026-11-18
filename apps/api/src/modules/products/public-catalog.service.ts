@@ -390,11 +390,25 @@ export class PublicCatalogService {
     // totals, pagination, sorting, and the category-subtree scope stay exact.
     // The rating facet (SS-236) joins the same mechanism; when both are
     // present the id sets intersect (a cheap well-rated variant cannot
-    // qualify an out-of-stock product, and vice versa).
-    if (query.inStockOnly || query.rating !== undefined) {
+    // qualify an out-of-stock product, and vice versa). Price uses the same
+    // product-id scope so the bound matches the customer-visible rounded
+    // amount rather than the raw stored Decimal.
+    const priceRange = normalizedPriceRange(query);
+    if (
+      query.inStockOnly ||
+      query.rating !== undefined ||
+      priceRange.from !== undefined ||
+      priceRange.to !== undefined
+    ) {
       let ids: Set<string> | null = null;
+      if (priceRange.from !== undefined || priceRange.to !== undefined) {
+        ids = new Set(
+          await this.roundedPriceProductIds(priceRange),
+        );
+      }
       if (query.inStockOnly) {
-        ids = new Set(await this.inStockProductIds(query));
+        const stock = new Set(await this.inStockProductIds(query));
+        ids = ids === null ? stock : new Set([...ids].filter((id) => stock.has(id)));
       }
       if (query.rating !== undefined) {
         const rated = new Set(await this.ratingProductIds(query.rating));
@@ -1483,7 +1497,6 @@ export class PublicCatalogService {
     const attributeWhere = await this.attributeFilterWhere(query);
     return {
       ...(await this.visibleProductWhere(query)),
-      ...priceVariantPredicate(normalizedPriceRange(query)),
       ...(attributeWhere ?? {}),
     };
   }
@@ -1517,6 +1530,45 @@ export class PublicCatalogService {
   }
 
   /**
+   * Product ids with at least one live PRICED variant whose customer-facing
+   * rounded Rial price satisfies the range. The storefront displays
+   * CEIL(price/100000)*100000, so filtering must use the same value.
+   */
+  private async roundedPriceProductIds(range: {
+    from?: Prisma.Decimal;
+    to?: Prisma.Decimal;
+  }): Promise<string[]> {
+    const rows = await this.prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+      SELECT DISTINCT pv."productId" AS "id"
+      FROM "ProductVariant" pv
+      JOIN "Product" p ON p."id" = pv."productId"
+      WHERE pv."deletedAt" IS NULL
+        AND pv."priceStatus" = 'PRICED'
+        AND p."deletedAt" IS NULL
+        AND p."status" = 'PUBLISHED'
+        ${range.from !== undefined ? Prisma.sql`AND CEIL(pv."price" / 100000) * 100000 >= ${range.from.toString()}::numeric` : Prisma.empty}
+        ${range.to !== undefined ? Prisma.sql`AND CEIL(pv."price" / 100000) * 100000 <= ${range.to.toString()}::numeric` : Prisma.empty}
+    `);
+    return rows.map((row) => row.id);
+  }
+
+  /** Variant ids satisfying the same customer-facing rounded range. */
+  private async roundedPriceVariantIds(range: {
+    from?: Prisma.Decimal;
+    to?: Prisma.Decimal;
+  }): Promise<string[]> {
+    const rows = await this.prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+      SELECT pv."id" AS "id"
+      FROM "ProductVariant" pv
+      WHERE pv."deletedAt" IS NULL
+        AND pv."priceStatus" = 'PRICED'
+        ${range.from !== undefined ? Prisma.sql`AND CEIL(pv."price" / 100000) * 100000 >= ${range.from.toString()}::numeric` : Prisma.empty}
+        ${range.to !== undefined ? Prisma.sql`AND CEIL(pv."price" / 100000) * 100000 <= ${range.to.toString()}::numeric` : Prisma.empty}
+    `);
+    return rows.map((row) => row.id);
+  }
+
+  /**
    * Product ids with at least one genuinely available variant (SS-213).
    *
    * Prisma cannot express `quantityOnHand − quantityReserved > 0` as a column
@@ -1534,17 +1586,18 @@ export class PublicCatalogService {
     query: ListCatalogProductsQueryDto,
   ): Promise<string[]> {
     const range = normalizedPriceRange(query);
+    const pricedVariantIds =
+      range.from !== undefined || range.to !== undefined
+        ? new Set(await this.roundedPriceVariantIds(range))
+        : null;
+    if (pricedVariantIds !== null && pricedVariantIds.size === 0) {
+      return [];
+    }
     const candidates = await this.prisma.productVariant.findMany({
       where: {
         deletedAt: null,
-        ...(range.from !== undefined || range.to !== undefined
-          ? {
-              priceStatus: PriceStatus.PRICED,
-              price: {
-                ...(range.from !== undefined ? { gte: range.from } : {}),
-                ...(range.to !== undefined ? { lte: range.to } : {}),
-              },
-            }
+        ...(pricedVariantIds !== null
+          ? { id: { in: [...pricedVariantIds] } }
           : {}),
         product: { is: await this.visibleProductWhere(query) },
       },
@@ -1898,7 +1951,10 @@ export function pickCardCompareAtPrice(
     if (variant.priceStatus !== 'PRICED' || variant.price === undefined) {
       continue;
     }
-    if (new Prisma.Decimal(variant.price).comparedTo(min) !== 0) {
+    // Cards display the rounded price. Match the variant against the same
+    // rounded value, not its raw stored price, otherwise a price such as
+    // 7,650,000 (displayed 7,700,000) never finds its compare-at row.
+    if (roundRialUp(variant.price).comparedTo(min) !== 0) {
       continue;
     }
     winner =
@@ -1939,32 +1995,6 @@ function normalizedPriceRange(query: {
     [from, to] = [to, from];
   }
   return { from, to };
-}
-
-/**
- * Product-level price predicate (SS-213): at least one PRICED, live variant
- * satisfies the range. CALL_FOR_PRICE placeholder prices never contribute
- * (SS-201). With both bounds the SAME variant must satisfy the range.
- */
-function priceVariantPredicate(range: {
-  from?: Prisma.Decimal;
-  to?: Prisma.Decimal;
-}): Prisma.ProductWhereInput {
-  if (range.from === undefined && range.to === undefined) {
-    return {};
-  }
-  return {
-    variants: {
-      some: {
-        deletedAt: null,
-        priceStatus: PriceStatus.PRICED,
-        price: {
-          ...(range.from !== undefined ? { gte: range.from } : {}),
-          ...(range.to !== undefined ? { lte: range.to } : {}),
-        },
-      },
-    },
-  };
 }
 
 /**
@@ -2036,6 +2066,9 @@ function parseNumericFilter(
     return Number.isFinite(raw) ? { min: raw, max: raw } : null;
   }
   if (typeof raw === 'string') {
+    if (raw.trim() === '') {
+      return null;
+    }
     const exact = Number(raw);
     return Number.isFinite(exact) ? { min: exact, max: exact } : null;
   }
@@ -2046,6 +2079,9 @@ function parseNumericFilter(
   let min: number | null = null;
   let max: number | null = null;
   if (value.min !== undefined) {
+    if (value.min === null || value.min === '') {
+      return null;
+    }
     const parsed = Number(value.min);
     if (!Number.isFinite(parsed)) {
       return null;
@@ -2053,6 +2089,9 @@ function parseNumericFilter(
     min = parsed;
   }
   if (value.max !== undefined) {
+    if (value.max === null || value.max === '') {
+      return null;
+    }
     const parsed = Number(value.max);
     if (!Number.isFinite(parsed)) {
       return null;

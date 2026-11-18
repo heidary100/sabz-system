@@ -25,6 +25,21 @@ describe('pickCardCompareAtPrice (SS-225)', () => {
     ).toBe('18000000');
   });
 
+  it('matches the rounded card price, not the raw variant price', () => {
+    expect(
+      pickCardCompareAtPrice(
+        [
+          {
+            price: '7650000',
+            compareAtPrice: '8500000',
+            priceStatus: 'PRICED',
+          },
+        ],
+        '7700000',
+      ),
+    ).toBe('8500000');
+  });
+
   it('returns null for a call-for-price product', () => {
     expect(
       pickCardCompareAtPrice(

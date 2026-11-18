@@ -1,8 +1,8 @@
 /**
  * Customer checkout + orders contract (SS-233).
  *
- * Money is Rial verbatim (SS-207 "O-1"), serialized as Decimal strings; the
- * storefront presents Toman via `lib/currency.ts`. Prices are always
+ * Money is Rial (SS-900), serialized as Decimal strings; the storefront
+ * displays the server-rounded Rial value verbatim. Prices are always
  * server-computed from live variant rows (CART-004) — the client sends only
  * `addressId` + `paymentMethod`, never money.
  *
@@ -204,8 +204,8 @@ export interface OrderDetailDto {
 /**
  * Admin order list row (SS-240A). Same row as the customer list plus the
  * owner reference and customer mobile so operators can triage without a
- * second lookup. Money stays Rial (Decimal strings); the admin UI labels
- * Toman like the variant form.
+ * second lookup. Money stays Rial (Decimal strings); the admin and storefront
+ * both display Rial after SS-900.
  */
 export interface AdminOrderListItemDto extends OrderListItemDto {
   userId: string;

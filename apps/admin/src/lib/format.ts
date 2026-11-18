@@ -47,8 +47,8 @@ const rialFormatter = new Intl.NumberFormat('fa-IR')
 
 /**
  * Formats a Rial Decimal string for the admin (SS-240A). The admin stays
- * Rial (master-plan standing decision) — the storefront alone converts to
- * Toman via its own currency helper.
+ * Rial (master-plan standing decision); the storefront also displays Rial
+ * after SS-900, using server-rounded values.
  */
 export function formatRial(rial: string | null | undefined): string {
   if (rial === null || rial === undefined || rial === '') {

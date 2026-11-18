@@ -256,7 +256,7 @@ export function VariantForm({
               disabled={submitting}
             />
             <Text className="text-xs text-muted">
-              مبنا ریال است؛ فروشگاه قیمت را به تومان (ریال ÷ ۱۰) نمایش میدهد.
+              مبنا ریال است؛ فروشگاه همان مبلغ را به ریال نمایش می‌دهد.
             </Text>
           </Field>
 

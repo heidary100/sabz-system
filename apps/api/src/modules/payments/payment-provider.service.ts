@@ -21,7 +21,7 @@ interface ProviderDefinition {
 const PROVIDERS: ProviderDefinition[] = [
   {
     code: 'SNAPPAY',
-    envPrefix: 'SNAPPPAY',
+    envPrefix: 'SNAPPAY',
     requiredKeys: ['ENABLED', 'CLIENT_ID', 'CLIENT_SECRET', 'BASE_URL', 'CALLBACK_URL'],
     supportsSandbox: true,
   },

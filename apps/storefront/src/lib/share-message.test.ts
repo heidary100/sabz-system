@@ -13,7 +13,7 @@ import {
 const URL = 'https://shop.example.com/products/some-slug';
 
 describe('buildShareMessage', () => {
-  it('composes title + brand + exact Toman price + URL for a single-variant product', () => {
+  it('composes title + brand + exact Rial price + URL for a single-variant product', () => {
     const message = buildShareMessage({
       title: 'ماوس گیمینگ پرووان مدل BOLT PMG55',
       brandName: 'proone',
