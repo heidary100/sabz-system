@@ -74,7 +74,7 @@ describe('Attribute/spec database integration (SS-202)', () => {
     prisma = new PrismaService();
     await prisma.$connect();
     attributes = new AttributesService(prisma);
-    catalog = new PublicCatalogService(prisma, new PricingService(prisma));
+    catalog = new PublicCatalogService(prisma, new PricingService(prisma), new AttributesService(prisma));
   });
 
   afterAll(async () => {
@@ -89,6 +89,9 @@ describe('Attribute/spec database integration (SS-202)', () => {
     });
     await prisma.product.deleteMany({
       where: { id: { in: createdProductIds } },
+    });
+    await prisma.categoryAttribute.deleteMany({
+      where: { categoryId: { in: createdCategoryIds } },
     });
     await prisma.attributeValue.deleteMany({
       where: { attributeId: { in: createdAttributeIds } },
@@ -295,5 +298,179 @@ describe('Attribute/spec database integration (SS-202)', () => {
       valueSlug: 'core-i7',
       sortOrder: 1,
     });
+  });
+});
+
+
+describe('Category-aware attributes + bulk editing (SS-900)', () => {
+  let prisma: PrismaService;
+  let attributes: AttributesService;
+  const actorId = '55555555-5555-4555-8555-555555555555';
+  const attributeIds: string[] = [];
+  const categoryIds: string[] = [];
+  const productIds: string[] = [];
+  const brandIds: string[] = [];
+
+  function suffix(): string {
+    return `${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
+  }
+
+  async function makeCategory(name: string, parentId: string | null = null) {
+    const row = await prisma.category.create({
+      data: { name: `${name} ${suffix()}`, slug: `cat-ss900-${suffix()}`, parentId },
+    });
+    categoryIds.push(row.id);
+    return row;
+  }
+
+  async function makeProduct(categoryId: string) {
+    const brand = await prisma.brand.create({
+      data: { name: `برند SS900 ${suffix()}`, slug: `brand-ss900-${suffix()}` },
+    });
+    brandIds.push(brand.id);
+    const row = await prisma.product.create({
+      data: {
+        name: `محصول SS900 ${suffix()}`,
+        slug: `product-ss900-${suffix()}`,
+        brandId: brand.id,
+        categoryId,
+        condition: ProductCondition.NEW,
+        status: ProductStatus.DRAFT,
+        createdBy: actorId,
+      },
+    });
+    productIds.push(row.id);
+    return row;
+  }
+
+  beforeAll(async () => {
+    prisma = new PrismaService();
+    await prisma.$connect();
+    attributes = new AttributesService(prisma);
+  });
+
+  afterAll(async () => {
+    await prisma.productAttributeValue.deleteMany({ where: { productId: { in: productIds } } });
+    await prisma.categoryAttribute.deleteMany({ where: { categoryId: { in: categoryIds } } });
+    await prisma.product.deleteMany({ where: { id: { in: productIds } } });
+    await prisma.brand.deleteMany({ where: { id: { in: brandIds } } });
+    await prisma.category.deleteMany({ where: { id: { in: categoryIds } } });
+    await prisma.attributeValue.deleteMany({ where: { attributeId: { in: attributeIds } } });
+    await prisma.attribute.deleteMany({ where: { id: { in: attributeIds } } });
+    await prisma.$disconnect();
+  });
+
+  it('resolves parent assignments with child overrides and validates typed values', async () => {
+    const parent = await makeCategory('والد');
+    const child = await makeCategory('فرزند', parent.id);
+    const ram = await attributes.createAttribute({
+      name: `حافظه ${suffix()}`,
+      slug: `ram-${suffix()}`,
+      type: AttributeType.SPEC,
+      valueType: 'SELECT',
+      isFilterable: true,
+    });
+    const screen = await attributes.createAttribute({
+      name: `اندازه صفحه ${suffix()}`,
+      slug: `screen-${suffix()}`,
+      type: AttributeType.SPEC,
+      valueType: 'NUMBER',
+      unit: 'اینچ',
+    });
+    attributeIds.push(ram.id, screen.id);
+    const ramValue = await attributes.createAttributeValue(ram.id, {
+      value: '16GB',
+      slug: `16gb-${suffix()}`,
+    });
+
+    await attributes.setCategoryAttributes(
+      parent.id,
+      [{ attributeId: ram.id, isRequired: true, isFilterable: true, isComparable: true }],
+      actorId,
+    );
+    await attributes.setCategoryAttributes(
+      child.id,
+      [{ attributeId: screen.id, isRequired: true, isComparable: true }],
+      actorId,
+    );
+
+    const resolved = await attributes.resolvedCategoryAttributes(child.id);
+    expect(resolved.map((row) => row.attribute.id).sort()).toEqual(
+      [ram.id, screen.id].sort(),
+    );
+    const inheritedRam = resolved.find((row) => row.attribute.id === ram.id)!;
+    expect(inheritedRam.inheritedFromCategoryId).toBe(parent.id);
+    expect(inheritedRam.isRequired).toBe(true);
+
+    const product = await makeProduct(child.id);
+    await expect(
+      attributes.setProductAttributes(
+        product.id,
+        { values: [] },
+        actorId,
+      ),
+    ).rejects.toMatchObject({ status: 400 });
+
+    const saved = await attributes.setProductAttributes(
+      product.id,
+      {
+        values: [
+          { attributeId: ram.id, optionId: ramValue.id },
+          { attributeId: screen.id, valueNumber: '15.6' },
+        ],
+      },
+      actorId,
+    );
+    expect(saved.values).toHaveLength(2);
+    expect(saved.values.find((row) => row.attribute.id === screen.id)).toMatchObject({
+      valueNumber: '15.6',
+      option: null,
+    });
+    await expect(
+      attributes.clearProductAttribute(product.id, ram.id),
+    ).rejects.toMatchObject({ status: 400 });
+  });
+
+  it('previews and applies bulk operations with a bound token and per-product outcomes', async () => {
+    const category = await makeCategory('گروه ویرایش');
+    const attribute = await attributes.createAttribute({
+      name: `گارانتی ${suffix()}`,
+      slug: `warranty-${suffix()}`,
+      type: AttributeType.SPEC,
+      valueType: 'TEXT',
+    });
+    attributeIds.push(attribute.id);
+    await attributes.setCategoryAttributes(
+      category.id,
+      [{ attributeId: attribute.id, isFilterable: true }],
+      actorId,
+    );
+    const first = await makeProduct(category.id);
+    const second = await makeProduct(category.id);
+    const input = {
+      products: [
+        { id: first.id, updatedAt: first.updatedAt.toISOString() },
+        { id: second.id, updatedAt: second.updatedAt.toISOString() },
+      ],
+      operations: [
+        { kind: 'SET' as const, attributeId: attribute.id, valueText: '۱۸ ماه' },
+      ],
+    };
+    const preview = await attributes.previewBulk(input);
+    expect(preview.affectedProducts).toBe(2);
+    expect(preview.previewToken).toMatch(/^[a-f0-9]{64}$/);
+
+    const applied = await attributes.applyBulk(
+      { ...input, previewToken: preview.previewToken },
+      actorId,
+    );
+    expect(applied.applied).toBe(2);
+    expect(applied.failed).toBe(0);
+    const after = await attributes.getProductAttributes(first.id);
+    expect(after.values[0]).toMatchObject({ valueText: '۱۸ ماه' });
+
+    await expect(
+      attributes.applyBulk({ ...input, previewToken: 'stale' }, actorId),
+    ).rejects.toMatchObject({ status: 409 });
   });
 });

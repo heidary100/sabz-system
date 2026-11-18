@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import type { AdminOrderTransition, ShipmentStatus } from '@sabz/types'
 import { useOrderDetail } from '../hooks/use-order-detail'
+import { downloadOrderInvoicePdf } from '../services/orders'
 import { translateApiError } from '../lib/error-messages'
 import { formatDateTime, formatRial } from '../lib/format'
 import {
@@ -18,7 +19,7 @@ import {
 } from '../lib/shipping-labels'
 import { OrderStatusBadge, PaymentStatusBadge } from '../components/orders/status-badge'
 import { ShipmentStatusBadge } from '../components/orders/shipment-badge'
-import { ShoppingCart } from 'lucide-react'
+import { FileDown, ShoppingCart } from 'lucide-react'
 import { Button } from '../components/catalyst/button'
 import { ErrorMessage, Field, Label } from '../components/catalyst/fieldset'
 import { RouteHelpSection } from '../components/ui/page-help'
@@ -267,6 +268,22 @@ export function OrderDetailPage() {
 
   const nextMoves = ORDER_NEXT_TRANSITIONS[order.status]
 
+  const handleDownloadInvoice = async (): Promise<void> => {
+    try {
+      const blob = await downloadOrderInvoicePdf(order.id)
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `sabz-invoice-${order.orderNumber}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(url)
+    } catch (downloadError) {
+      window.alert(translateApiError(downloadError))
+    }
+  }
+
   return (
     <div className="mx-auto max-w-6xl space-y-8">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -285,6 +302,10 @@ export function OrderDetailPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
+          <Button outline onClick={() => void handleDownloadInvoice()}>
+            <FileDown className="size-4" aria-hidden="true" />
+            فاکتور PDF
+          </Button>
           {nextMoves.map((next) =>
             next === 'CANCELLED' ? (
               <Button key={next} outline onClick={() => setPendingTransition(next)}>
@@ -335,6 +356,10 @@ export function OrderDetailPage() {
               <InfoItem label="نشانی" value={order.addressSnapshot.address} />
             </div>
             <InfoItem label="کد پستی" value={order.addressSnapshot.postalCode} />
+            <InfoItem label="کد ملی (پوشیده)" value={order.customerNationalIdMasked ?? '—'} />
+            <div className="sm:col-span-2">
+              <InfoItem label="یادداشت سفارش" value={order.note ?? '—'} />
+            </div>
           </dl>
         </section>
       </div>

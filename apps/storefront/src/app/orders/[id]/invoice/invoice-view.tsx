@@ -9,8 +9,8 @@ import { Card } from '@/components/ecommerce/ui/card';
 import { Skeleton } from '@/components/ecommerce/skeleton/skeleton';
 import { ApiError } from '@/lib/api';
 import { hasSession } from '@/lib/auth-client';
-import { fetchInvoice, orderStatusLabel, paymentMethodLabel, paymentStatusLabel } from '@/lib/orders';
-import { formatFaNumber, formatToman } from '@/lib/format';
+import { fetchInvoice, fetchInvoicePdf, orderStatusLabel, paymentMethodLabel, paymentStatusLabel } from '@/lib/orders';
+import { formatFaNumber, formatRial } from '@/lib/format';
 
 const LOAD_FAILED = 'دریافت فاکتور ناموفق بود؛ لطفاً دوباره تلاش کنید.';
 
@@ -26,6 +26,7 @@ export function InvoiceView({ id }: { id: string }) {
   const [status, setStatus] = useState<Status>('checking');
   const [invoice, setInvoice] = useState<InvoiceDto | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     // Session lives in localStorage (client only): the gate below must run
@@ -114,6 +115,36 @@ export function InvoiceView({ id }: { id: string }) {
         >
           چاپ فاکتور
         </button>
+        <button
+          type="button"
+          disabled={downloading}
+          onClick={async () => {
+            setDownloading(true);
+            setError(null);
+            try {
+              const blob = await fetchInvoicePdf(invoice.id);
+              const url = URL.createObjectURL(blob);
+              const link = document.createElement('a');
+              link.href = url;
+              link.download = `sabz-invoice-${invoice.orderNumber}.pdf`;
+              document.body.appendChild(link);
+              link.click();
+              link.remove();
+              URL.revokeObjectURL(url);
+            } catch (downloadError) {
+              setError(
+                downloadError instanceof ApiError
+                  ? (downloadError.payload?.message ?? 'دریافت PDF ناموفق بود.')
+                  : 'دریافت PDF ناموفق بود.',
+              );
+            } finally {
+              setDownloading(false);
+            }
+          }}
+          className={buttonVariants({ variant: 'outline' })}
+        >
+          {downloading ? 'در حال آماده‌سازی…' : 'دانلود PDF'}
+        </button>
         <Link href={`/orders/${invoice.id}`} className={buttonVariants({ variant: 'ghost' })}>
           بازگشت به سفارش
         </Link>
@@ -156,8 +187,8 @@ export function InvoiceView({ id }: { id: string }) {
                   <span className="block text-xs text-fg-muted">{item.sku}</span>
                 </td>
                 <td className="py-2">{formatFaNumber(item.quantity)}</td>
-                <td className="py-2">{formatToman(item.unitPrice)}</td>
-                <td className="py-2 font-semibold">{formatToman(item.lineTotal)}</td>
+                <td className="py-2">{formatRial(item.unitPrice)}</td>
+                <td className="py-2 font-semibold">{formatRial(item.lineTotal)}</td>
               </tr>
             ))}
           </tbody>
@@ -166,15 +197,15 @@ export function InvoiceView({ id }: { id: string }) {
         <dl className="mt-4 space-y-2 border-t border-border pt-4 text-sm">
           <div className="flex items-center justify-between gap-3">
             <dt className="text-fg-secondary">جمع اقلام</dt>
-            <dd className="font-semibold text-fg">{formatToman(invoice.subtotal)}</dd>
+            <dd className="font-semibold text-fg">{formatRial(invoice.subtotal)}</dd>
           </div>
           <div className="flex items-center justify-between gap-3">
             <dt className="text-fg-secondary">هزینه ارسال</dt>
-            <dd className="font-semibold text-fg">{formatToman(invoice.shippingFee)}</dd>
+            <dd className="font-semibold text-fg">{formatRial(invoice.shippingFee)}</dd>
           </div>
           <div className="flex items-center justify-between gap-3">
             <dt className="font-bold text-fg">جمع فاکتور</dt>
-            <dd className="text-lg font-bold text-accent-hover">{formatToman(invoice.total)}</dd>
+            <dd className="text-lg font-bold text-accent-hover">{formatRial(invoice.total)}</dd>
           </div>
         </dl>
 

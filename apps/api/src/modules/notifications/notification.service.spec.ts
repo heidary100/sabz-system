@@ -32,6 +32,11 @@ function makeService(
   } as unknown as ConfigService;
   return new NotificationService(
     prisma as unknown as PrismaService,
+    { emitToUser: jest.fn(), emitToRole: jest.fn() } as unknown as import('../realtime/realtime.service').RealtimeService,
+    {
+      config: () => ({ enabled: false, publicKey: null }),
+      sendToUser: jest.fn().mockResolvedValue(undefined),
+    } as unknown as import('./push.service').PushService,
     config,
   );
 }
@@ -44,6 +49,8 @@ const ROW = {
   body: 'سفارش 100001 با موفقیت ثبت شد.',
   entity: 'Order',
   entityId: 'order-1',
+  priority: 'NORMAL',
+  category: null,
   readAt: null,
   createdAt: new Date('2026-09-30T10:00:00.000Z'),
 };
@@ -71,8 +78,9 @@ describe('NotificationService (SS-243)', () => {
           body: 'b',
           entity: 'Order',
           entityId: 'order-1',
+          priority: 'NORMAL',
+          category: null,
         },
-        select: { id: true },
       });
       expect(prisma.user.findUnique).not.toHaveBeenCalled();
     });
@@ -93,7 +101,8 @@ describe('NotificationService (SS-243)', () => {
 
     it('resolves the mobile for the SMS stub when enabled', async () => {
       const prisma = makePrisma();
-      prisma.notification.create.mockResolvedValue({ id: 'notif-1' });
+      prisma.notification.create.mockResolvedValue(ROW);
+      prisma.notification.count.mockResolvedValue(1);
       prisma.user.findUnique.mockResolvedValue({ mobile: '+989121234567' });
       const service = makeService(prisma, true);
 
@@ -128,29 +137,26 @@ describe('NotificationService (SS-243)', () => {
       expect(prisma.user.findMany).toHaveBeenCalledWith({
         where: {
           deletedAt: null,
+          status: 'ACTIVE',
           roles: { some: { role: { name: { in: ['OPERATOR', 'ADMIN'] } } } },
         },
         select: { id: true },
       });
-      expect(prisma.notification.createMany).toHaveBeenCalledWith({
-        data: [
-          {
-            userId: 'op-1',
-            type: 'ORDER_PLACED',
-            title: 'سفارش جدید',
-            body: 'سفارش 100001 ثبت شد.',
-            entity: 'Order',
-            entityId: 'order-1',
-          },
-          {
-            userId: 'op-2',
-            type: 'ORDER_PLACED',
-            title: 'سفارش جدید',
-            body: 'سفارش 100001 ثبت شد.',
-            entity: 'Order',
-            entityId: 'order-1',
-          },
-        ],
+      expect(prisma.notification.create).toHaveBeenCalledTimes(2);
+      expect(prisma.notification.create).toHaveBeenNthCalledWith(1, {
+        data: {
+          userId: 'op-1',
+          type: 'ORDER_PLACED',
+          title: 'سفارش جدید',
+          body: 'سفارش 100001 ثبت شد.',
+          entity: 'Order',
+          entityId: 'order-1',
+          priority: 'HIGH',
+          category: 'OPERATIONS',
+        },
+      });
+      expect(prisma.notification.create).toHaveBeenNthCalledWith(2, {
+        data: expect.objectContaining({ userId: 'op-2' }),
       });
     });
 
@@ -198,6 +204,8 @@ describe('NotificationService (SS-243)', () => {
             body: 'سفارش 100001 با موفقیت ثبت شد.',
             entity: 'Order',
             entityId: 'order-1',
+            priority: 'NORMAL',
+            category: null,
             readAt: null,
             createdAt: '2026-09-30T10:00:00.000Z',
           },

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { NotificationsList } from './notifications-list';
+import { StoreNotificationSettings } from '@/components/ecommerce/notifications/notification-settings';
 
 export const metadata: Metadata = { title: 'اعلان‌ها' };
 
@@ -11,6 +12,7 @@ export default function NotificationsPage() {
       <div className="mt-6">
         <NotificationsList />
       </div>
+      <StoreNotificationSettings />
     </div>
   );
 }

@@ -1,11 +1,30 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsEnum, IsUUID } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
+import {
+  IsEnum,
+  IsOptional,
+  IsString,
+  MaxLength,
+  IsUUID,
+} from 'class-validator';
 import type { PaymentMethod } from '@sabz/types';
 
+function normalizeNote(value: unknown): unknown {
+  if (typeof value !== 'string') {
+    return value;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
 /**
- * Place-order input (SS-233). The client sends only the address reference
- * and payment choice — never money (CART-004): prices, totals and snapshots
- * are resolved server-side from live variant rows inside the checkout flow.
+ * Place-order input (SS-233, extended SS-900). The client sends only the
+ * address reference, payment choice, note and national ID — never money
+ * (CART-004): prices, totals and snapshots are resolved server-side.
+ *
+ * The national ID is accepted here so first-time buyers can complete the
+ * mandatory checkout requirement without visiting the profile first. It is
+ * validated with the same MOD-11 rule as the profile and never logged.
  */
 export class PlaceOrderDto {
   @ApiProperty({
@@ -19,7 +38,7 @@ export class PlaceOrderDto {
     enum: ['ONLINE', 'COD'],
     example: 'COD',
     description:
-      'COD marks cash on delivery (SS-234); ONLINE is disabled with 422 until the gateway ticket (SS-234B). Both create an unpaid (PENDING) order in v1.',
+      'COD marks cash on delivery (SS-234); ONLINE stays disabled with 422 until a provider is configured.',
   })
   @IsEnum(['ONLINE', 'COD'], {
     message: 'شیوه پرداخت معتبر نیست.',
@@ -36,4 +55,34 @@ export class PlaceOrderDto {
     message: 'شیوه ارسال معتبر نیست.',
   })
   shippingMethod!: string;
+
+  @ApiPropertyOptional({
+    description: 'Optional plain-text order note (max 1000 chars)',
+    maxLength: 1000,
+  })
+  @IsOptional()
+  @Transform(({ value }) => normalizeNote(value))
+  @IsString({ message: 'یادداشت سفارش باید متن باشد.' })
+  @MaxLength(1000, { message: 'یادداشت سفارش حداکثر ۱۰۰۰ کاراکتر است.' })
+  note?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Personal national ID (کد ملی). Required when the profile has none; 10 digits with a valid check digit.',
+    example: '0012345679',
+  })
+  @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
+  @IsString({ message: 'کد ملی باید متن باشد.' })
+  @MaxLength(20, { message: 'کد ملی معتبر نیست.' })
+  nationalId?: string;
+
+  @ApiPropertyOptional({ enum: ['SNAPPAY', 'DIGIPAY'] })
+  @IsOptional()
+  @IsEnum(['SNAPPAY', 'DIGIPAY'], {
+    message: 'درگاه پرداخت انتخاب‌شده معتبر نیست.',
+  })
+  paymentProvider?: 'SNAPPAY' | 'DIGIPAY';
 }

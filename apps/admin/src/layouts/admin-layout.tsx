@@ -3,6 +3,8 @@ import { Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/auth-provider'
 import { AppHeader } from '../components/layout/app-header'
 import { NAV_ITEMS, readSidebarPreference, Sidebar, writeSidebarPreference } from '../components/layout/sidebar'
+import { NotificationCenterProvider } from '../components/notifications/notification-center-provider'
+import { NotificationToaster } from '../components/notifications/notification-toaster'
 
 export function AdminLayout() {
   const { user } = useAuth()
@@ -28,7 +30,8 @@ export function AdminLayout() {
   const title = activeItem?.label ?? 'پیشخوان'
 
   return (
-    <div className="ambient flex min-h-svh">
+    <NotificationCenterProvider>
+      <div className="ambient flex min-h-svh">
       <Sidebar
         collapsed={collapsed}
         onToggleCollapsed={toggleCollapsed}
@@ -46,6 +49,8 @@ export function AdminLayout() {
           <Outlet />
         </main>
       </div>
-    </div>
+      </div>
+      <NotificationToaster />
+    </NotificationCenterProvider>
   )
 }

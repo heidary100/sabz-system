@@ -27,6 +27,7 @@ import { ErrorState } from '../components/ui/error-state'
 import { TablePagination } from '../components/ui/table-pagination'
 import { PageHeader } from '../components/ui/page-header'
 import { TableCard } from '../components/ui/table-card'
+import { HorizontalScroll } from '../components/ui/horizontal-scroll'
 
 export function OrdersPage() {
   const navigate = useNavigate()
@@ -103,7 +104,8 @@ export function OrdersPage() {
             disabled={loading}
             totalLabel="سفارش"
           />
-          <Table dense>
+          <HorizontalScroll>
+            <Table dense scrollContainer={false}>
             <TableHead>
               <TableRow>
                 <TableHeader>شماره سفارش</TableHeader>
@@ -146,7 +148,8 @@ export function OrdersPage() {
                 </TableRow>
               ))}
             </TableBody>
-          </Table>
+            </Table>
+          </HorizontalScroll>
 
           <TablePagination
             position="bottom"

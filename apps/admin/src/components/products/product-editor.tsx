@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { CategoryDetail, ProductDetail, VariantSummary } from '@sabz/types'
 import { Save, X } from 'lucide-react'
@@ -15,6 +15,10 @@ import { InlineError } from '../ui/inline-error'
 import { ProductStatusBadge } from './product-status-badge'
 import { ProductVariantsSection } from './product-variants-section'
 import { ProductMediaGrid } from './product-media-grid'
+import {
+  ProductAttributesSection,
+  type AttributeSectionState,
+} from './product-attributes-section'
 import { VariantForm } from '../variants/variant-form'
 import {
   PRODUCT_CONDITION_LABELS,
@@ -26,6 +30,7 @@ import { slugify } from '../../lib/slug'
 import { SlugField } from '../ui/slug-field'
 import { useProductSlugCollision } from '../../hooks/use-product-slug-collision'
 import { createProduct, updateProduct } from '../../services/products'
+import { setProductAttributes } from '../../services/attributes'
 import { deleteVariant } from '../../services/variants'
 import { BrandSection } from '../brands/brand-section'
 import { CategoryManager } from '../categories/category-manager'
@@ -136,6 +141,13 @@ export function ProductEditor({
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [slugConflict, setSlugConflict] = useState<string | null>(null)
+  const [attributeState, setAttributeState] = useState<AttributeSectionState>({
+    values: [],
+    clearIncompatible: false,
+    valid: true,
+  })
+  const [attributeDirty, setAttributeDirty] = useState(false)
+  const attributeInitialized = useRef(false)
   // The component mounts once per page with `product` already resolved, so
   // the initializer sees the persisted slug: edit mode starts manual (locked).
   const [slugMode, setSlugMode] = useState<'auto' | 'manual'>(
@@ -156,7 +168,22 @@ export function ProductEditor({
   const effectiveSlug = slugMode === 'auto' ? slugify(values.name) : values.slug
   const slugCollision = useProductSlugCollision(effectiveSlug, product?.id)
 
-  const dirty = !valuesEqual(values, initial)
+  const dirty = !valuesEqual(values, initial) || attributeDirty
+
+  const handleAttributeChange = useCallback((state: AttributeSectionState) => {
+    if (!attributeInitialized.current) {
+      attributeInitialized.current = true
+      setAttributeState(state)
+      return
+    }
+    setAttributeDirty(true)
+    setAttributeState((current) => {
+      if (JSON.stringify(current) === JSON.stringify(state)) {
+        return current
+      }
+      return state
+    })
+  }, [])
 
   const set = (key: keyof ProductFormValue, value: string): void => {
     setValues((prev) => ({ ...prev, [key]: value }))
@@ -201,6 +228,10 @@ export function ProductEditor({
       setError('انتخاب دسته بندی الزامی است.')
       return
     }
+    if (!attributeState.valid) {
+      setError('مقدار ویژگی‌های الزامی دسته را کامل کنید.')
+      return
+    }
     setSubmitting(true)
     setError(null)
     setSlugConflict(null)
@@ -221,6 +252,10 @@ export function ProductEditor({
           depthCm: values.depthCm.trim() || null,
           originCountry: values.originCountry.trim() || null,
         })
+        await setProductAttributes(product.id, {
+          values: attributeState.values,
+          clearIncompatible: attributeState.clearIncompatible,
+        })
         onSaved(updated)
       } else {
         const created = await createProduct({
@@ -238,6 +273,15 @@ export function ProductEditor({
           depthCm: values.depthCm.trim() || undefined,
           originCountry: values.originCountry.trim() || undefined,
         })
+        try {
+          await setProductAttributes(created.id, {
+            values: attributeState.values,
+            clearIncompatible: attributeState.clearIncompatible,
+          })
+        } catch {
+          // The product exists even if attributes failed; the edit page can
+          // retry them without creating a duplicate.
+        }
         onSaved(created)
       }
     } catch (submitError) {
@@ -434,6 +478,18 @@ export function ProductEditor({
               selectedId={values.categoryId || null}
               onSelect={(id) => set('categoryId', id)}
               onCreated={handleCategoryCreated}
+            />
+          </EditorSection>
+
+          <EditorSection
+            title="ویژگی‌های دسته"
+            description="ویژگی‌های تعریف‌شده برای دسته انتخاب‌شده؛ برای فیلتر و مقایسه فروشگاه استفاده می‌شوند."
+          >
+            <ProductAttributesSection
+              productId={product?.id}
+              categoryId={values.categoryId}
+              disabled={submitting}
+              onChange={handleAttributeChange}
             />
           </EditorSection>
 

@@ -33,3 +33,6 @@ backups/
 .vercel
 .env*
 !.env.example
+
+# Local background-removal model weights (provisioned, not committed)
+apps/api/assets/models/*.onnx

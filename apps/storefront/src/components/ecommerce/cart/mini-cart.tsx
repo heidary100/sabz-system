@@ -9,7 +9,7 @@ import { CartQtyStepper } from '@/components/ecommerce/cart/cart-qty-stepper';
 import { buttonVariants } from '@/components/ecommerce/ui/button';
 import { useTransitionMount } from '@/components/ecommerce/ui/use-transition-mount';
 import { mediaImageUrl } from '@/lib/catalog';
-import { formatFaNumber, formatToman } from '@/lib/format';
+import { formatFaNumber, formatRial } from '@/lib/format';
 import { CART_MAX_QUANTITY } from '@/lib/cart';
 
 /**
@@ -197,7 +197,7 @@ export function MiniCart() {
                           onChange={(quantity) => setQuantity(item.variantId, quantity)}
                         />
                         <p className="text-sm font-bold text-accent-hover">
-                          {formatToman(item.lineTotal)}
+                          {formatRial(item.lineTotal)}
                         </p>
                       </div>
                       <div className="mt-1 flex items-center justify-between gap-2">
@@ -267,7 +267,7 @@ export function MiniCart() {
                 جمع سبد ({formatFaNumber(totalQuantity)} قلم)
               </span>
               <span aria-live="polite" className="text-base font-bold text-accent-hover">
-                {formatToman(subtotal)}
+                {formatRial(subtotal)}
               </span>
             </div>
             <Link

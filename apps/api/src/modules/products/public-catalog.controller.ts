@@ -24,6 +24,10 @@ import {
   ListCatalogBrandsQueryDto,
   ListCatalogProductsQueryDto,
 } from './dto';
+import {
+  CatalogCompareQueryDto,
+  CatalogFacetsQueryDto,
+} from './dto/catalog-facets-query.dto';
 
 /** Public slugs are server-generated kebab strings; nothing else can match. */
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -93,6 +97,21 @@ export class PublicCatalogBrandsController {
 }
 
 @ApiTags('catalog')
+@Controller('catalog/facets')
+export class PublicCatalogFacetsController {
+  constructor(private readonly publicCatalogService: PublicCatalogService) {}
+
+  @Get()
+  @ApiOperation({
+    summary: 'Category-aware attribute and brand facets (SS-900)',
+  })
+  @ApiResponse({ status: 200, description: 'Facets returned.' })
+  async facets(@Query() query: CatalogFacetsQueryDto) {
+    return this.publicCatalogService.getFacets(query.category ?? null);
+  }
+}
+
+@ApiTags('catalog')
 @Controller('catalog/products')
 export class PublicCatalogProductsController {
   constructor(private readonly publicCatalogService: PublicCatalogService) {}
@@ -122,10 +141,40 @@ export class PublicCatalogProductsController {
     required: false,
     enum: ['1', '2', '3', '4', '5'],
   })
+  @ApiQuery({
+    name: 'attrs',
+    required: false,
+    type: String,
+    description: 'JSON attribute filters keyed by attribute slug (SS-900)',
+  })
   @ApiResponse({ status: 200, description: 'Paginated product cards returned.' })
   @ApiResponse({ status: 400, description: 'Invalid query parameters.' })
   async list(@Query() query: ListCatalogProductsQueryDto) {
     return this.publicCatalogService.listProducts(query);
+  }
+
+  @Get('compare')
+  @ApiOperation({
+    summary: 'Category-aware product comparison from the real catalog (SS-900)',
+  })
+  @ApiQuery({ name: 'slugs', required: true, type: String })
+  @ApiResponse({ status: 200, description: 'Comparison returned.' })
+  @ApiResponse({ status: 400, description: 'Invalid or too many slugs.' })
+  async compare(@Query() query: CatalogCompareQueryDto) {
+    const slugs = [
+      ...new Set(
+        query.slugs
+          .split(',')
+          .map((slug) => slug.trim())
+          .filter((slug) => slug.length > 0),
+      ),
+    ];
+    for (const slug of slugs) {
+      if (slug.length > 200 || !SLUG_PATTERN.test(slug)) {
+        throw new BadRequestException('شناسه محصول معتبر نیست.');
+      }
+    }
+    return this.publicCatalogService.compare(slugs);
   }
 
   @Get(':slug/price')

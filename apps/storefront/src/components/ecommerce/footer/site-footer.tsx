@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import type { CatalogCategoryNode } from '@sabz/types';
+import type { CatalogCategoryNode, FooterSettings } from '@sabz/types';
 import { homeConfig } from '@/config/home';
 import { BrandLockup } from '@/components/ecommerce/brand/brand-lockup';
 import { ScrollTopButton } from '@/components/ecommerce/ui/scroll-top-button';
@@ -16,7 +16,16 @@ import { contactChannels, filterValidFooterLinks, siteConfig } from '@/lib/site'
  * routes are never advertised — the footer links only to real customer
  * functionality.
  */
-export function SiteFooter({ categories }: { categories: CatalogCategoryNode[] }) {
+export function SiteFooter({
+  categories,
+  settings = null,
+}: {
+  categories: CatalogCategoryNode[];
+  settings?: FooterSettings | null;
+}) {
+  if (settings?.enabled === false) {
+    return null;
+  }
   // Same curation source as the home page — no second slicing policy. Falls
   // back to the deterministic tree order when nothing is curated.
   const featuredCategories = resolveFeaturedCategories(
@@ -24,13 +33,27 @@ export function SiteFooter({ categories }: { categories: CatalogCategoryNode[] }
     homeConfig.featuredCategorySlugs,
     homeConfig.maxCategoryTiles,
   );
-  const socials = filterValidFooterLinks(siteConfig.socials);
-  const legalLinks = filterValidFooterLinks(siteConfig.legalLinks);
+  const socials = settings
+    ? settings.socials.filter((link) => link.label && link.href)
+    : filterValidFooterLinks(siteConfig.socials);
+  const legalLinks = settings
+    ? settings.legalLinks.filter((link) => link.label && link.href)
+    : filterValidFooterLinks(siteConfig.legalLinks);
+  const contact = settings
+    ? settings.contact
+    : {
+        address: siteConfig.address,
+        phone: contactChannels.phones[0]?.display ?? null,
+        email: siteConfig.email,
+        hours: siteConfig.hours,
+      };
+  const blurb = settings ? settings.blurb : siteConfig.blurb;
+  const customColumns = settings?.columns ?? [];
   const hasContact =
-    siteConfig.address !== null ||
-    contactChannels.phones.length > 0 ||
-    siteConfig.hours !== null ||
-    siteConfig.email !== null;
+    Boolean(contact.address) ||
+    Boolean(contact.phone) ||
+    Boolean(contact.hours) ||
+    Boolean(contact.email);
 
   const shopLinks: Array<{ href: string; label: string; external?: boolean }> = [
     { href: '/products', label: 'همه محصولات' },
@@ -47,9 +70,9 @@ export function SiteFooter({ categories }: { categories: CatalogCategoryNode[] }
         <div className="grid grid-cols-1 gap-12 sm:grid-cols-2 lg:grid-cols-12">
           <div className="lg:col-span-4">
             <BrandLockup wordmarkClassName="text-lg font-bold text-on-stage" />
-            {siteConfig.blurb ? (
+            {blurb ? (
               <p className="mt-4 max-w-sm text-sm leading-7 text-on-stage-muted">
-                {siteConfig.blurb}
+                {blurb}
               </p>
             ) : null}
             {socials.length > 0 ? (
@@ -102,9 +125,11 @@ export function SiteFooter({ categories }: { categories: CatalogCategoryNode[] }
           </nav>
 
           <nav aria-label="فروشگاه" className="lg:col-span-2">
-            <p className="text-sm font-bold text-on-stage">فروشگاه</p>
-            <ul role="list" className="mt-5 space-y-3">
-              {shopLinks.map((link) => (
+            {(customColumns.length > 0 ? customColumns : [{ title: 'فروشگاه', links: shopLinks }]).map((column, index) => (
+              <div key={`${column.title}-${index}`} className={index > 0 ? 'mt-6' : ''}>
+                <p className="text-sm font-bold text-on-stage">{column.title}</p>
+                <ul role="list" className="mt-5 space-y-3">
+                {column.links.map((link) => (
                 <li key={link.href}>
                   {link.external ? (
                     <a
@@ -125,46 +150,41 @@ export function SiteFooter({ categories }: { categories: CatalogCategoryNode[] }
                     </Link>
                   )}
                 </li>
-              ))}
-            </ul>
+                ))}
+                </ul>
+              </div>
+            ))}
           </nav>
 
           {hasContact ? (
             <div className="lg:col-span-3">
               <p className="text-sm font-bold text-on-stage">تماس با ما</p>
               <ul role="list" className="mt-5 space-y-3 text-sm text-on-stage-muted">
-                {siteConfig.address ? (
-                  <li className="leading-7">
-                    {siteConfig.address}
-                    {contactChannels.postalCode ? (
-                      <span className="mt-0.5 block text-xs text-on-stage-muted">
-                        کدپستی: {contactChannels.postalCode}
-                      </span>
-                    ) : null}
-                  </li>
+                {contact.address ? (
+                  <li className="leading-7">{contact.address}</li>
                 ) : null}
-                {contactChannels.phones.map((phone) => (
-                  <li key={phone.tel}>
+                {contact.phone ? (
+                  <li>
                     <a
-                      href={`tel:${phone.tel}`}
+                      href={`tel:${contact.phone.replace(/[^\d+]/g, '')}`}
                       dir="ltr"
                       className="inline-block rounded-control transition-colors hover:text-accent-stage focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
                     >
-                      {phone.display}
+                      {contact.phone}
                     </a>
                   </li>
-                ))}
-                {siteConfig.hours ? (
-                  <li className="leading-7">{siteConfig.hours}</li>
                 ) : null}
-                {siteConfig.email ? (
+                {contact.hours ? (
+                  <li className="leading-7">{contact.hours}</li>
+                ) : null}
+                {contact.email ? (
                   <li>
                     <a
-                      href={`mailto:${siteConfig.email}`}
+                      href={`mailto:${contact.email}`}
                       dir="ltr"
                       className="rounded-control break-all transition-colors hover:text-accent-stage focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
                     >
-                      {siteConfig.email}
+                      {contact.email}
                     </a>
                   </li>
                 ) : null}
@@ -175,8 +195,9 @@ export function SiteFooter({ categories }: { categories: CatalogCategoryNode[] }
 
         <div className="mt-14 flex flex-col items-center justify-between gap-3 border-t border-on-stage/10 pt-6 sm:flex-row">
           <p className="text-xs leading-5 text-on-stage-muted">
-            © {formatFaNumber(new Date().getFullYear())} {brand.nameFa} — تمامی
-            حقوق محفوظ است.
+            {settings?.copyright
+              ? settings.copyright
+              : `© ${formatFaNumber(new Date().getFullYear())} ${brand.nameFa} — تمامی حقوق محفوظ است.`}
           </p>
           <p className="text-xs text-on-stage-secondary">{brand.nameEn}</p>
         </div>

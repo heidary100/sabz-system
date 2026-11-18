@@ -48,6 +48,10 @@ export type WatermarkThumbnailMode = 'smaller' | 'inherit';
 export interface WatermarkConfig {
   /** Master switch; when off, uploaded media is stored as-is (no branding). */
   enabled: boolean;
+  /** SS-900: logo-only transparent PNG mark (no accompanying text). */
+  logoOnly: boolean;
+  /** Alpha multiplier for the logo-only mark (0..1). */
+  logoOpacity: number;
   /** Displayed company name, e.g. «سبز سیستم». */
   companyName: string;
   /** Logo asset path (SVG or PNG). `null` renders the name-only lockup. */
@@ -136,6 +140,8 @@ export function resolveWatermarkConfig(): WatermarkConfig {
   const allowedThumbnailModes: WatermarkThumbnailMode[] = ['smaller', 'inherit'];
   return {
     enabled: env('WATERMARK_ENABLED', 'true') === 'true',
+    logoOnly: env('WATERMARK_LOGO_ONLY', 'true') === 'true',
+    logoOpacity: Math.min(1, Math.max(0.05, envNumber('WATERMARK_LOGO_OPACITY', 0.85))),
     companyName: env('WATERMARK_COMPANY_NAME', 'سبز سیستم'),
     logoPath: env('WATERMARK_LOGO_PATH', '') !== ''
       ? resolve(env('WATERMARK_LOGO_PATH', ''))

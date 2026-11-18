@@ -28,8 +28,8 @@ import {
   fetchShippingMethods,
   isShippingEnabled,
 } from '@/lib/checkout';
-import { rialToTomanString } from '@/lib/currency';
-import { formatFaNumber, formatToman } from '@/lib/format';
+import { rialMachineValue } from '@/lib/currency';
+import { formatFaNumber, formatRial } from '@/lib/format';
 import { acceptRfq, fetchRfqDetail, rfqStatusLabel } from '@/lib/rfq';
 
 const LOAD_FAILED = 'دریافت جزئیات استعلام ناموفق بود؛ لطفاً دوباره تلاش کنید.';
@@ -40,7 +40,7 @@ type Status = 'checking' | 'login' | 'loading' | 'ready' | 'error';
 /**
  * RFQ detail island (SS-235 B2): quotation state plus the owner accept
  * form (address + payment → POST accept → order page). Quoted rows show
- * the agreed Toman price and the acceptance countdown; accepted rows
+ * the agreed Rial price and the acceptance countdown; accepted rows
  * link to the order; terminal rows explain themselves in Persian.
  */
 export function RfqDetail({ id }: { id: string }) {
@@ -56,6 +56,8 @@ export function RfqDetail({ id }: { id: string }) {
   const [shippingMethod, setShippingMethod] = useState<ShippingMethodCode | null>(null);
   const [accepting, setAccepting] = useState(false);
   const [acceptError, setAcceptError] = useState<string | null>(null);
+  const [nationalId, setNationalId] = useState('');
+  const [note, setNote] = useState('');
 
   useEffect(() => {
     if (!hasSession()) {
@@ -117,7 +119,13 @@ export function RfqDetail({ id }: { id: string }) {
     setAccepting(true);
     setAcceptError(null);
     try {
-      const result = await acceptRfq(id, { addressId, paymentMethod, shippingMethod });
+      const result = await acceptRfq(id, {
+        addressId,
+        paymentMethod,
+        shippingMethod,
+        ...(nationalId.trim() ? { nationalId: nationalId.trim() } : {}),
+        ...(note.trim() ? { note: note.trim() } : {}),
+      });
       router.push(`/orders/${result.orderId}`);
     } catch (acceptFailure) {
       if (acceptFailure instanceof ApiError && acceptFailure.status === 401) {
@@ -180,13 +188,13 @@ export function RfqDetail({ id }: { id: string }) {
             <div className="flex items-center justify-between gap-3">
               <dt className="text-fg-secondary">قیمت توافقی هر عدد</dt>
               <dd className="font-bold text-accent-hover">
-                {formatToman(rialToTomanString(rfq.quotedUnitPrice ?? '0'))}
+                {formatRial(rialMachineValue(rfq.quotedUnitPrice ?? '0'))}
               </dd>
             </div>
             <div className="flex items-center justify-between gap-3">
               <dt className="text-fg-secondary">جمع توافق‌شده</dt>
               <dd className="font-bold text-accent-hover">
-                {formatToman(rialToTomanString(rfq.quotedLineTotal ?? '0'))}
+                {formatRial(rialMachineValue(rfq.quotedLineTotal ?? '0'))}
               </dd>
             </div>
             {rfq.status === 'QUOTED' ? (
@@ -250,7 +258,7 @@ export function RfqDetail({ id }: { id: string }) {
                     <span className="font-medium text-fg">{method.titleFa}</span>
                     <span className="text-xs text-fg-muted">
                       {isShippingEnabled(method)
-                        ? `هزینه ارسال: ${formatToman(method.fee)}`
+                        ? `هزینه ارسال: ${formatRial(method.fee)}`
                         : 'غیرفعال'}
                     </span>
                   </label>
@@ -280,6 +288,34 @@ export function RfqDetail({ id }: { id: string }) {
                 ))}
               </div>
             </fieldset>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label htmlFor="rfq-national-id" className="text-sm font-semibold text-fg">
+                  کد ملی (در صورت نبود در پروفایل)
+                </label>
+                <input
+                  id="rfq-national-id"
+                  inputMode="numeric"
+                  dir="ltr"
+                  maxLength={10}
+                  value={nationalId}
+                  onChange={(event) => setNationalId(event.target.value)}
+                  className="mt-1 h-11 w-full rounded-control border-0 bg-surface-2 px-3 text-sm text-fg ring-1 ring-inset ring-border-control focus-visible:ring-2 focus-visible:ring-focus"
+                />
+              </div>
+              <div>
+                <label htmlFor="rfq-note" className="text-sm font-semibold text-fg">
+                  یادداشت سفارش (اختیاری)
+                </label>
+                <input
+                  id="rfq-note"
+                  maxLength={1000}
+                  value={note}
+                  onChange={(event) => setNote(event.target.value)}
+                  className="mt-1 h-11 w-full rounded-control border-0 bg-surface-2 px-3 text-sm text-fg ring-1 ring-inset ring-border-control focus-visible:ring-2 focus-visible:ring-focus"
+                />
+              </div>
+            </div>
             <Button
               variant="primary"
               size="lg"

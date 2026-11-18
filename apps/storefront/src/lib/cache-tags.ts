@@ -9,6 +9,9 @@
  * accepts tags that this module recognizes.
  */
 
+/** Admin-managed storefront footer (SS-900). */
+export const SITE_FOOTER_TAG = 'site:footer';
+
 /** Category tree (navigation shell, category pages, filters). */
 export const CATALOG_TREE_TAG = 'catalog:tree';
 /** Brand facet list. */
@@ -53,6 +56,7 @@ export function isAllowedCatalogTag(tag: unknown): tag is string {
     (tag === CATALOG_TREE_TAG ||
       tag === CATALOG_BRANDS_TAG ||
       tag === CATALOG_PRODUCTS_TAG ||
+      tag === SITE_FOOTER_TAG ||
       tag === BLOG_POSTS_TAG ||
       tag === BLOG_CATEGORIES_TAG ||
       (tag.startsWith(PRODUCT_DETAIL_TAG_PREFIX) &&

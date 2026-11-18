@@ -42,6 +42,12 @@ import {
   SHIPPING_METHOD_FA,
 } from '@sabz/types';
 import { PrismaService } from '../../common/database/prisma.service';
+import {
+  PERSONAL_NATIONAL_ID_MESSAGES,
+  maskPersonalNationalId,
+  validatePersonalNationalId,
+} from '../../common/validation/personal-national-id';
+import { roundRialUp } from '../../common/money/rial';
 import { AuditService } from '../audit/audit.service';
 import { NotificationService } from '../notifications/notification.service';
 import {
@@ -102,7 +108,9 @@ function shippingFeeFor(code: ShippingMethodCode): Prisma.Decimal {
     if (!fee.isFinite() || fee.lessThan(0)) {
       return new Prisma.Decimal(0);
     }
-    return fee;
+    // SS-900: shipping is customer-facing Rial too; round it with the same
+    // shared rule so the order total is always an exact 100,000 multiple.
+    return roundRialUp(fee);
   } catch {
     return new Prisma.Decimal(0);
   }
@@ -264,6 +272,8 @@ export class CheckoutService {
         shippingFee: '0',
         total: '0',
         problems: [],
+        nationalId: await this.nationalIdState(userId),
+        noteMaxLength: 1000,
       };
     }
     return (await this.summarize(userId, lines, shippingFeeFor(method))).summary;
@@ -275,10 +285,21 @@ export class CheckoutService {
     paymentMethod: PaymentMethod,
     shippingMethod: string,
     ipAddress?: string,
+    options: {
+      note?: string;
+      nationalId?: string;
+      paymentProvider?: 'SNAPPAY' | 'DIGIPAY';
+    } = {},
   ): Promise<PlaceOrderResult> {
     this.assertPaymentEnabled(paymentMethod);
     const method = this.requireShippingMethod(shippingMethod);
     const address = await this.requireOwnAddress(userId, addressId);
+    const customerNationalId = await this.resolveCheckoutNationalId(
+      userId,
+      options.nationalId,
+      ipAddress,
+    );
+    const note = this.normalizeOrderNote(options.note);
     const lines = await this.cartLines(userId);
     if (lines.length === 0) {
       throw new BadRequestException('سبد خرید خالی است.');
@@ -322,6 +343,12 @@ export class CheckoutService {
             city: address.city,
             address: address.address,
             postalCode: address.postalCode,
+            note,
+            customerNationalId,
+            paymentProvider:
+              paymentMethod === PaymentMethod.ONLINE
+                ? (options.paymentProvider ?? null)
+                : null,
             shipment: {
               create: { method, status: ShipmentStatus.PENDING },
             },
@@ -409,6 +436,9 @@ export class CheckoutService {
       paymentMethod: PaymentMethod;
       shippingMethod: string;
       ipAddress?: string;
+      note?: string;
+      nationalId?: string;
+      paymentProvider?: 'SNAPPAY' | 'DIGIPAY';
     },
   ): Promise<PlaceOrderResult> {
     if (!Number.isInteger(input.quantity) || input.quantity < 1) {
@@ -424,6 +454,11 @@ export class CheckoutService {
     const method = this.requireShippingMethod(input.shippingMethod);
     const shippingFee = shippingFeeFor(method);
     const address = await this.requireOwnAddress(userId, input.addressId);
+    const customerNationalId = await this.resolveCheckoutNationalId(
+      userId,
+      input.nationalId,
+      input.ipAddress,
+    );
     const variant = await this.prisma.productVariant.findFirst({
       where: {
         id: input.variantId,
@@ -462,10 +497,11 @@ export class CheckoutService {
         product: { name: variant.product.name },
       },
     };
+    const agreedUnitPrice = roundRialUp(input.unitPrice);
     const slices = await this.reserveAll(
       userId,
       [line],
-      new Map([[input.variantId, input.unitPrice]]),
+      new Map([[input.variantId, agreedUnitPrice]]),
     );
     await this.consumeAll(slices, userId);
 
@@ -490,6 +526,12 @@ export class CheckoutService {
             city: address.city,
             address: address.address,
             postalCode: address.postalCode,
+            note: this.normalizeOrderNote(input.note),
+            customerNationalId,
+            paymentProvider:
+              input.paymentMethod === PaymentMethod.ONLINE
+                ? (input.paymentProvider ?? null)
+                : null,
             shipment: {
               create: { method, status: ShipmentStatus.PENDING },
             },
@@ -655,6 +697,8 @@ export class CheckoutService {
         city: true,
         address: true,
         postalCode: true,
+        note: true,
+        customerNationalId: true,
         createdAt: true,
         shipment: {
           select: {
@@ -847,6 +891,8 @@ export class CheckoutService {
         city: true,
         address: true,
         postalCode: true,
+        note: true,
+        customerNationalId: true,
         createdAt: true,
         userId: true,
         user: { select: { mobile: true } },
@@ -1214,9 +1260,90 @@ export class CheckoutService {
         shippingFee: shippingFee.toString(),
         total: subtotal.add(shippingFee).toString(),
         problems,
+        nationalId: await this.nationalIdState(userId),
+        noteMaxLength: 1000,
       },
       unitPrices,
     };
+  }
+
+  /** Checkout identity readiness — masked only; the full value never leaves the API. */
+  private async nationalIdState(userId: string): Promise<CheckoutSummaryDto['nationalId']> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { nationalId: true },
+    });
+    const valid = validatePersonalNationalId(user?.nationalId ?? '');
+    return {
+      required: true,
+      hasNationalId: valid.ok,
+      maskedNationalId: valid.ok ? maskPersonalNationalId(valid.value) : null,
+    };
+  }
+
+  /**
+   * Enforces the mandatory national ID at order submission. A newly supplied
+   * value is validated with the shared MOD-11 rule and persisted on the
+   * profile; the value is never logged or included in any DTO.
+   */
+  private async resolveCheckoutNationalId(
+    userId: string,
+    supplied: string | undefined,
+    ipAddress?: string,
+  ): Promise<string> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { nationalId: true },
+    });
+    if (!user) {
+      throw new NotFoundException('کاربر یافت نشد.');
+    }
+    const candidate =
+      supplied !== undefined && supplied.trim() !== ''
+        ? supplied
+        : user.nationalId;
+    const result = validatePersonalNationalId(candidate ?? '');
+    if (!result.ok) {
+      throw new UnprocessableEntityException(
+        candidate
+          ? PERSONAL_NATIONAL_ID_MESSAGES[result.error]
+          : 'برای ثبت سفارش، وارد کردن کد ملی الزامی است.',
+      );
+    }
+    if (user.nationalId !== result.value) {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { nationalId: result.value, updatedBy: userId },
+      });
+      await this.audit.log({
+        userId,
+        action: 'USER_NATIONAL_ID_UPDATED',
+        entity: 'User',
+        entityId: userId,
+        after: { nationalIdChanged: true, source: 'checkout' },
+        ipAddress,
+      });
+    }
+    return result.value;
+  }
+
+  /** Plain-text order note: trimmed, control chars removed, bounded. */
+  private normalizeOrderNote(note: string | undefined): string | null {
+    if (note === undefined) {
+      return null;
+    }
+    const cleaned = note
+      .replace(/\r\n/g, '\n')
+      // eslint-disable-next-line no-control-regex -- strip non-printable control characters from the order note
+      .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, '')
+      .trim();
+    if (cleaned.length === 0) {
+      return null;
+    }
+    if (cleaned.length > 1000) {
+      throw new BadRequestException('یادداشت سفارش حداکثر ۱۰۰۰ کاراکتر است.');
+    }
+    return cleaned;
   }
 
   private isBlocking(code: CheckoutProblemCode): boolean {
@@ -1730,6 +1857,8 @@ export class CheckoutService {
     city: string | null;
     address: string;
     postalCode: string | null;
+    note: string | null;
+    customerNationalId: string | null;
     createdAt: Date;
     shipment: {
       id: string;
@@ -1792,6 +1921,8 @@ export class CheckoutService {
       shipment: order.shipment ? this.toShipmentDto(order.shipment) : null,
       addressSnapshot,
       items,
+      note: order.note,
+      customerNationalIdMasked: maskPersonalNationalId(order.customerNationalId),
       createdAt: order.createdAt.toISOString(),
     };
   }

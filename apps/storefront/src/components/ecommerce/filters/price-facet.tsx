@@ -5,16 +5,16 @@ import { useRouter } from 'next/navigation';
 import { buildListingHref, type ListingState } from '@/lib/listing';
 import { sanitizePriceBound } from '@/lib/price-input';
 
-/** Quick ranges (Toman) — the scanning-friendly augmentation of the free inputs. */
+/** Quick ranges in Rial (SS-900) — the scanning-friendly augmentation of inputs. */
 const PRICE_PRESETS: Array<{ label: string; from: string; to: string }> = [
-  { label: 'تا ۱ میلیون', from: '', to: '1000000' },
-  { label: '۱ تا ۵ میلیون', from: '1000000', to: '5000000' },
-  { label: '۵ تا ۲۰ میلیون', from: '5000000', to: '20000000' },
-  { label: 'بالای ۲۰ میلیون', from: '20000000', to: '' },
+  { label: 'تا ۱۰ میلیون ریال', from: '', to: '10000000' },
+  { label: '۱۰ تا ۵۰ میلیون ریال', from: '10000000', to: '50000000' },
+  { label: '۵۰ تا ۲۰۰ میلیون ریال', from: '50000000', to: '200000000' },
+  { label: 'بالای ۲۰۰ میلیون ریال', from: '200000000', to: '' },
 ];
 
 /**
- * Price-range facet (SS-213, UI layer): two Toman inputs applied together on
+ * Price-range facet (SS-213, UI layer): two Rial inputs applied together on
  * submit — never a request per keystroke — plus quick-range preset chips
  * (SS-226). The server is authoritative; this component only sanitizes input
  * and navigates via the canonical `buildListingHref(basePath, …)`. Invalid
@@ -73,12 +73,12 @@ export function PriceFacet({
 
   return (
     <div className="mt-4 border-t border-border pt-4" aria-busy={pending}>
-      <p className="text-sm font-semibold text-fg">محدوده قیمت (تومان)</p>
+      <p className="text-sm font-semibold text-fg">محدوده قیمت (ریال)</p>
       <form id={formId} onSubmit={apply} className="mt-2">
         <div className="flex items-center gap-2">
           <div className="min-w-0 flex-1">
             <label htmlFor={fromId} className="sr-only">
-              حداقل قیمت به تومان
+              حداقل قیمت به ریال
             </label>
             <input
               id={fromId}
@@ -96,7 +96,7 @@ export function PriceFacet({
           </span>
           <div className="min-w-0 flex-1">
             <label htmlFor={toId} className="sr-only">
-              حداکثر قیمت به تومان
+              حداکثر قیمت به ریال
             </label>
             <input
               id={toId}

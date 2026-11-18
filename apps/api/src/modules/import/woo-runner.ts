@@ -817,6 +817,7 @@ export class WooRunner {
       await tx.productAttributeValue.create({
         data: {
           productId,
+          attributeId: attribute.id,
           attributeValueId: valueRow.id,
           sortOrder: order,
           source: spec.source === 'WOO_CUSTOM' ? ATTRIBUTE_SOURCE_WOO_CUSTOM : ATTRIBUTE_SOURCE_WOO_ATTR,

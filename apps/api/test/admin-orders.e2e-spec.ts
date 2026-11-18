@@ -33,8 +33,10 @@ const ADMIN_ORDER_DETAIL_KEYS = [
   'addressSnapshot',
   'createdAt',
   'customerMobile',
+  'customerNationalIdMasked',
   'id',
   'items',
+  'note',
   'orderNumber',
   'paymentMethod',
   'paymentStatus',
@@ -212,7 +214,7 @@ describe('Admin orders API (SS-240A) (e2e)', () => {
     const placed = await request(app.getHttpServer())
       .post(`${ORDERS_BASE}/checkout`)
       .set('Authorization', `Bearer ${customerToken}`)
-      .send({ addressId: address.body.id, paymentMethod: 'COD', shippingMethod: 'STORE_PICKUP' })
+      .send({ addressId: address.body.id, paymentMethod: 'COD', shippingMethod: 'STORE_PICKUP', nationalId: '1234567891' })
       .expect(201);
     orderIds.push(placed.body.orderId as string);
     return {
@@ -351,7 +353,7 @@ describe('Admin orders API (SS-240A) (e2e)', () => {
       status: 'PENDING',
       statusFa: 'در انتظار بررسی',
       itemCount: 1,
-      total: '10000',
+      total: '200000',
     });
 
     const filtered = await request(app.getHttpServer())

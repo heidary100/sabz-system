@@ -100,9 +100,9 @@ describe('buildProductJsonLd', () => {
     expect(jsonLd['@type']).toBe('Product');
     expect(jsonLd.offers).toMatchObject({
       '@type': 'Offer',
-      priceCurrency: 'IRT',
-      // Toman presentation price (SS-222): API Rial 1,000,000 ÷ 10.
-      price: '100000',
+      priceCurrency: 'IRR',
+      // SS-900: customer-facing Rial is the API value, rounded server-side.
+      price: '1000000',
       availability: 'https://schema.org/InStock',
     });
     expect(jsonLd.image).toEqual(['https://shop.example/img.jpg']);
@@ -150,8 +150,8 @@ describe('buildProductJsonLd', () => {
     expect(jsonLd.offers).toMatchObject({
       '@type': 'AggregateOffer',
       offerCount: 2,
-      lowPrice: '100000',
-      highPrice: '200000',
+      lowPrice: '1000000',
+      highPrice: '2000000',
     });
     expect(jsonLd).not.toHaveProperty('image');
   });

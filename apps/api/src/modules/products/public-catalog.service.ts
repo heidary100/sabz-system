@@ -10,6 +10,8 @@ import type {
   CatalogCategoryCoverDto,
   CatalogCategoryCrumb,
   CatalogCategoryNode,
+  CatalogCompareResponse,
+  CatalogFacetsResponse,
   CatalogPriceQuoteDto,
   CatalogPriceResponseDto,
   CatalogProductCardDto,
@@ -21,12 +23,14 @@ import type {
   PaginatedResult,
 } from '@sabz/types';
 import { PrismaService } from '../../common/database/prisma.service';
+import { roundRialUp, roundedCompareAt } from '../../common/money/rial';
 import {
   activeInventoryWhere,
   deriveAvailable,
 } from '../inventory/inventory-aggregate';
 import { PricingService } from '../pricing/pricing.service';
 import { roundRatingAverage } from '../reviews/reviews.service';
+import { AttributesService } from './attributes.service';
 import {
   ListCatalogBrandsQueryDto,
   ListCatalogProductsQueryDto,
@@ -66,6 +70,7 @@ export class PublicCatalogService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly pricing: PricingService,
+    private readonly attributes: AttributesService,
   ) {}
 
   /**
@@ -498,6 +503,36 @@ export class PublicCatalogService {
       }
       filters.ratingProductIds = ratingProductIds;
     }
+    // SS-900: attribute filters are resolved to a product-id scope so the
+    // SQL search path and the Prisma listing path share exact semantics.
+    const attributeWhere = await this.attributeFilterWhere(scopeQuery);
+    let scopedProductIds: Set<string> | null = null;
+    if (attributeWhere) {
+      const rows = await this.prisma.product.findMany({
+        where: {
+          ...(await this.visibleProductWhere(scopeQuery)),
+          ...attributeWhere,
+        },
+        select: { id: true },
+      });
+      if (rows.length === 0) {
+        return empty;
+      }
+      scopedProductIds = new Set(rows.map((row) => row.id));
+    }
+    if (filters.stockProductIds) {
+      const stock = new Set(filters.stockProductIds);
+      scopedProductIds =
+        scopedProductIds === null
+          ? stock
+          : new Set([...scopedProductIds].filter((id) => stock.has(id)));
+    }
+    if (scopedProductIds) {
+      if (scopedProductIds.size === 0) {
+        return empty;
+      }
+      filters.stockProductIds = [...scopedProductIds];
+    }
     if (query.brand) {
       filters.brandSlug = query.brand;
     }
@@ -605,12 +640,37 @@ export class PublicCatalogService {
         specs: {
           select: {
             sortOrder: true,
+            valueText: true,
+            valueNumber: true,
+            valueBoolean: true,
+            attribute: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                group: true,
+                unit: true,
+                valueType: true,
+                isFilterable: true,
+                isComparable: true,
+              },
+            },
             attributeValue: {
               select: {
                 value: true,
                 slug: true,
+                numericValue: true,
                 attribute: {
-                  select: { name: true, slug: true, group: true },
+                  select: {
+                    id: true,
+                    name: true,
+                    slug: true,
+                    group: true,
+                    unit: true,
+                    valueType: true,
+                    isFilterable: true,
+                    isComparable: true,
+                  },
                 },
               },
             },
@@ -651,9 +711,10 @@ export class PublicCatalogService {
       id: variant.id,
       sku: variant.sku,
       name: variant.name,
-      price: String(variant.price),
+      price: roundRialUp(variant.price).toString(),
       compareAtPrice:
-        variant.compareAtPrice === null ? null : String(variant.compareAtPrice),
+        roundedCompareAt(variant.price, variant.compareAtPrice)?.toString() ??
+        null,
       priceStatus: variant.priceStatus,
       inStock: (availableByVariant.get(variant.id) ?? 0) > 0,
       options: variant.options
@@ -683,14 +744,35 @@ export class PublicCatalogService {
       variantId: row.variantId,
     }));
 
-    const specs: CatalogProductSpecDto[] = product.specs.map((row) => ({
-      attributeName: row.attributeValue.attribute.name,
-      attributeSlug: row.attributeValue.attribute.slug,
-      attributeGroup: row.attributeValue.attribute.group,
-      value: row.attributeValue.value,
-      valueSlug: row.attributeValue.slug,
-      sortOrder: row.sortOrder,
-    }));
+    const specs: CatalogProductSpecDto[] = product.specs.map((row) => {
+      const attribute = row.attributeValue?.attribute ?? row.attribute;
+      const numeric = row.valueNumber ?? row.attributeValue?.numericValue ?? null;
+      const value =
+        row.attributeValue?.value ??
+        row.valueText ??
+        (numeric !== null
+          ? `${numeric.toString()}${attribute.unit ? ` ${attribute.unit}` : ''}`
+          : row.valueBoolean !== null
+            ? row.valueBoolean
+              ? 'بله'
+              : 'خیر'
+            : '');
+      return {
+        attributeId: attribute.id,
+        attributeName: attribute.name,
+        attributeSlug: attribute.slug,
+        attributeGroup: attribute.group,
+        value,
+        valueSlug: row.attributeValue?.slug ?? '',
+        sortOrder: row.sortOrder,
+        valueType: attribute.valueType,
+        unit: attribute.unit,
+        isFilterable: attribute.isFilterable,
+        isComparable: attribute.isComparable,
+        numericValue: numeric?.toString() ?? null,
+        booleanValue: row.valueBoolean,
+      };
+    });
 
     const tags: CatalogRefDto[] = product.tags.map((row) => row.tag);
 
@@ -814,7 +896,7 @@ export class PublicCatalogService {
         variantId: variant.id,
         sku: variant.sku,
         priceStatus: variant.priceStatus,
-        basePrice: String(variant.price),
+        basePrice: roundRialUp(variant.price).toString(),
         resolvedPrice: resolved.toString(),
         promotionEndsAt,
       };
@@ -995,12 +1077,414 @@ export class PublicCatalogService {
   }
 
   /** Visibility + public filters shared by count and page queries. */
+  // ---------------------------------------------------------------------
+  // Category-aware facets / attribute filters / comparison (SS-900)
+  // ---------------------------------------------------------------------
+
+  /**
+   * Facets are derived from the selected category's configured filterable
+   * attributes (with parent inheritance). Counts only include published,
+   * non-deleted products in the category subtree; brand options are scoped to
+   * the same product set, never the global brand table.
+   */
+  async getFacets(categorySlug: string | null): Promise<CatalogFacetsResponse> {
+    if (!categorySlug) {
+      return { categorySlug: null, attributes: [], brands: [] };
+    }
+    const category = await this.prisma.category.findFirst({
+      where: { slug: categorySlug, deletedAt: null, isVisible: true },
+      select: { id: true },
+    });
+    if (!category) {
+      return { categorySlug, attributes: [], brands: [] };
+    }
+    const subtreeIds = await this.categorySubtreeIds(categorySlug);
+    const products = await this.prisma.product.findMany({
+      where: {
+        deletedAt: null,
+        status: ProductStatus.PUBLISHED,
+        categoryId: { in: subtreeIds },
+      },
+      select: { id: true, brandId: true },
+    });
+    const productIds = products.map((row) => row.id);
+    const brandCounts = new Map<string, number>();
+    for (const product of products) {
+      if (product.brandId) {
+        brandCounts.set(
+          product.brandId,
+          (brandCounts.get(product.brandId) ?? 0) + 1,
+        );
+      }
+    }
+    const brandRows =
+      brandCounts.size > 0
+        ? await this.prisma.brand.findMany({
+            where: { id: { in: [...brandCounts.keys()] }, deletedAt: null },
+            select: { id: true, name: true, slug: true },
+            orderBy: [{ name: 'asc' }, { id: 'asc' }],
+          })
+        : [];
+    const brands: CatalogBrandDto[] = brandRows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      slug: row.slug,
+      productCount: brandCounts.get(row.id) ?? 0,
+    }));
+
+    const assignments = (
+      await this.attributes.resolvedCategoryAttributes(category.id)
+    ).filter((row) => row.isFilterable);
+    if (assignments.length === 0 || productIds.length === 0) {
+      return { categorySlug, attributes: [], brands };
+    }
+    const attributeIds = assignments.map((row) => row.attribute.id);
+    const rows = await this.prisma.productAttributeValue.findMany({
+      where: {
+        productId: { in: productIds },
+        attributeId: { in: attributeIds },
+      },
+      select: {
+        productId: true,
+        attributeId: true,
+        valueNumber: true,
+        valueBoolean: true,
+        valueText: true,
+        attributeValueId: true,
+      },
+    });
+    const byAttribute = new Map<string, typeof rows>();
+    for (const row of rows) {
+      const list = byAttribute.get(row.attributeId) ?? [];
+      list.push(row);
+      byAttribute.set(row.attributeId, list);
+    }
+    const attributes = assignments.map((assignment) => {
+      const attribute = assignment.attribute;
+      const attrRows = byAttribute.get(attribute.id) ?? [];
+      const optionCounts = new Map<string, Set<string>>();
+      const numbers: number[] = [];
+      for (const row of attrRows) {
+        if (row.attributeValueId) {
+          const set = optionCounts.get(row.attributeValueId) ?? new Set<string>();
+          set.add(row.productId);
+          optionCounts.set(row.attributeValueId, set);
+        }
+        if (row.valueNumber !== null) {
+          const numeric = Number(row.valueNumber.toString());
+          if (Number.isFinite(numeric)) {
+            numbers.push(numeric);
+          }
+        }
+      }
+      return {
+        attributeId: attribute.id,
+        name: attribute.name,
+        slug: attribute.slug,
+        unit: attribute.unit,
+        valueType: attribute.valueType,
+        isComparable: assignment.isComparable,
+        options: attribute.values
+          .filter((option) => option.isActive)
+          .map((option) => ({
+            id: option.id,
+            value: option.value,
+            slug: option.slug,
+            count: optionCounts.get(option.id)?.size ?? 0,
+          }))
+          .filter((option) => option.count > 0),
+        numericMin: numbers.length > 0 ? Math.min(...numbers) : null,
+        numericMax: numbers.length > 0 ? Math.max(...numbers) : null,
+      };
+    });
+    return { categorySlug, attributes, brands };
+  }
+
+  /**
+   * Category-aware comparison from the real catalog: only attributes
+   * configured as comparable for every selected product's category (or, when
+   * no category assignments exist, attributes marked comparable on the
+   * definition) are returned. Missing values are null, never fabricated.
+   */
+  async compare(slugs: string[]): Promise<CatalogCompareResponse> {
+    if (slugs.length === 0) {
+      return { attributes: [], products: [], categories: [] };
+    }
+    if (slugs.length > 4) {
+      throw new BadRequestException('حداکثر چهار محصول قابل مقایسه است.');
+    }
+    const rows = await this.prisma.product.findMany({
+      where: {
+        slug: { in: slugs },
+        deletedAt: null,
+        status: ProductStatus.PUBLISHED,
+      },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        category: { select: { id: true, name: true, slug: true } },
+        specs: {
+          select: {
+            attributeId: true,
+            valueText: true,
+            valueNumber: true,
+            valueBoolean: true,
+            attributeValue: { select: { value: true } },
+            attribute: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                unit: true,
+                valueType: true,
+                isComparable: true,
+              },
+            },
+          },
+          orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+        },
+      },
+    });
+    const bySlug = new Map(rows.map((row) => [row.slug, row]));
+    const ordered = slugs
+      .map((slug) => bySlug.get(slug))
+      .filter((row): row is (typeof rows)[number] => Boolean(row));
+    if (ordered.length === 0) {
+      return { attributes: [], products: [], categories: [] };
+    }
+
+    const assignmentCache = new Map<string, Set<string>>();
+    const comparableSets = await Promise.all(
+      ordered.map(async (product) => {
+        const cached = assignmentCache.get(product.category.id);
+        if (cached) {
+          return cached;
+        }
+        const assignments = await this.attributes.resolvedCategoryAttributes(
+          product.category.id,
+        );
+        const assignmentIds = new Set(assignments.map((row) => row.attribute.id));
+        const primary = new Set(
+          assignments
+            .filter((row) => row.isComparable)
+            .map((row) => row.attribute.id),
+        );
+        const fallback = new Set(
+          product.specs
+            .filter(
+              (spec) =>
+                !assignmentIds.has(spec.attributeId) &&
+                spec.attribute.isComparable,
+            )
+            .map((spec) => spec.attributeId),
+        );
+        const result = primary.size > 0 ? primary : fallback;
+        assignmentCache.set(product.category.id, result);
+        return result;
+      }),
+    );
+    const commonIds = [...comparableSets[0]!].filter((id) =>
+      comparableSets.every((set) => set.has(id)),
+    );
+    const categories = uniqueCategories(ordered);
+    if (commonIds.length === 0) {
+      return {
+        attributes: [],
+        products: ordered.map((product) => ({
+          id: product.id,
+          name: product.name,
+          slug: product.slug,
+          category: product.category,
+          values: {},
+        })),
+        categories,
+      };
+    }
+    const meta = new Map<
+      string,
+      (typeof ordered)[number]['specs'][number]['attribute']
+    >();
+    for (const product of ordered) {
+      for (const spec of product.specs) {
+        if (commonIds.includes(spec.attributeId) && !meta.has(spec.attributeId)) {
+          meta.set(spec.attributeId, spec.attribute);
+        }
+      }
+    }
+    const attributes = commonIds.flatMap((id) => {
+      const attribute = meta.get(id);
+      return attribute
+        ? [
+            {
+              attributeId: attribute.id,
+              name: attribute.name,
+              slug: attribute.slug,
+              unit: attribute.unit,
+              valueType: attribute.valueType,
+              isComparable: true,
+            },
+          ]
+        : [];
+    });
+    attributes.sort((a, b) => a.name.localeCompare(b.name, 'fa'));
+    return {
+      attributes,
+      products: ordered.map((product) => ({
+        id: product.id,
+        name: product.name,
+        slug: product.slug,
+        category: product.category,
+        values: Object.fromEntries(
+          commonIds.map((id) => [
+            id,
+            formatSpecValue(
+              product.specs.filter((spec) => spec.attributeId === id),
+              meta.get(id)?.unit ?? null,
+            ),
+          ]),
+        ),
+      })),
+      categories,
+    };
+  }
+
+  /**
+   * Parses the compact `attrs` JSON and produces an AND-of-`some` predicate.
+   * Only filterable attributes assigned to the selected category are honored;
+   * unknown attributes are a 400 (never a silent no-op). Numeric filters use
+   * valueNumber; booleans use valueBoolean; select filters match option slugs.
+   */
+  private async attributeFilterWhere(
+    query: ListCatalogProductsQueryDto,
+  ): Promise<Prisma.ProductWhereInput | null> {
+    if (query.attrs === undefined || query.attrs.trim() === '') {
+      return null;
+    }
+    if (!query.category) {
+      throw new BadRequestException(
+        'فیلتر ویژگی‌ها فقط همراه با انتخاب دسته‌بندی مجاز است.',
+      );
+    }
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(query.attrs);
+    } catch {
+      throw new BadRequestException('ساختار فیلتر ویژگی‌ها معتبر نیست.');
+    }
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new BadRequestException('ساختار فیلتر ویژگی‌ها معتبر نیست.');
+    }
+    const entries = Object.entries(parsed as Record<string, unknown>);
+    if (entries.length === 0) {
+      return null;
+    }
+    if (entries.length > 20) {
+      throw new BadRequestException('تعداد فیلترهای ویژگی بیش از حد مجاز است.');
+    }
+    const category = await this.prisma.category.findFirst({
+      where: { slug: query.category, deletedAt: null, isVisible: true },
+      select: { id: true },
+    });
+    if (!category) {
+      return { id: { in: [] } };
+    }
+    const assignments = await this.attributes.resolvedCategoryAttributes(
+      category.id,
+    );
+    const bySlug = new Map(
+      assignments
+        .filter((row) => row.isFilterable)
+        .map((row) => [row.attribute.slug, row.attribute]),
+    );
+    const conditions: Prisma.ProductWhereInput[] = [];
+    for (const [slug, rawValue] of entries) {
+      const attribute = bySlug.get(slug);
+      if (!attribute) {
+        throw new BadRequestException(
+          `ویژگی «${slug}» برای این دسته قابل فیلتر نیست.`,
+        );
+      }
+      if (
+        attribute.valueType === 'SELECT' ||
+        attribute.valueType === 'MULTI_SELECT'
+      ) {
+        const values = Array.isArray(rawValue) ? rawValue : [rawValue];
+        if (
+          values.length === 0 ||
+          values.some(
+            (value) => typeof value !== 'string' || value.length > 120,
+          )
+        ) {
+          throw new BadRequestException('مقدار فیلتر ویژگی معتبر نیست.');
+        }
+        const allowed = new Set(
+          attribute.values
+            .filter((option) => option.isActive)
+            .map((option) => option.slug),
+        );
+        const slugsToMatch = (values as string[]).filter((value) =>
+          allowed.has(value),
+        );
+        conditions.push({
+          specs: {
+            some: {
+              attributeId: attribute.id,
+              attributeValue: { slug: { in: slugsToMatch } },
+            },
+          },
+        });
+        continue;
+      }
+      if (attribute.valueType === 'BOOLEAN') {
+        if (typeof rawValue !== 'boolean') {
+          throw new BadRequestException('مقدار فیلتر ویژگی معتبر نیست.');
+        }
+        conditions.push({
+          specs: {
+            some: { attributeId: attribute.id, valueBoolean: rawValue },
+          },
+        });
+        continue;
+      }
+      if (attribute.valueType === 'NUMBER') {
+        const range = parseNumericFilter(rawValue);
+        if (range === null) {
+          throw new BadRequestException('مقدار فیلتر عددی معتبر نیست.');
+        }
+        conditions.push({
+          specs: {
+            some: {
+              attributeId: attribute.id,
+              valueNumber: {
+                ...(range.min !== null ? { gte: range.min } : {}),
+                ...(range.max !== null ? { lte: range.max } : {}),
+              },
+            },
+          },
+        });
+        continue;
+      }
+      if (typeof rawValue !== 'string' || rawValue.trim().length === 0) {
+        throw new BadRequestException('مقدار فیلتر ویژگی معتبر نیست.');
+      }
+      conditions.push({
+        specs: {
+          some: { attributeId: attribute.id, valueText: rawValue.trim() },
+        },
+      });
+    }
+    return conditions.length > 0 ? { AND: conditions } : null;
+  }
+
   private async productVisibilityWhere(
     query: ListCatalogProductsQueryDto,
   ): Promise<Prisma.ProductWhereInput> {
+    const attributeWhere = await this.attributeFilterWhere(query);
     return {
       ...(await this.visibleProductWhere(query)),
       ...priceVariantPredicate(normalizedPriceRange(query)),
+      ...(attributeWhere ?? {}),
     };
   }
 
@@ -1275,7 +1759,8 @@ export class PublicCatalogService {
         continue;
       }
       const minPrice = row.minPrice;
-      const priceFrom = minPrice == null ? null : String(minPrice);
+      const priceFrom =
+        minPrice == null ? null : roundRialUp(minPrice).toString();
       const rating = ratingsByProduct.get(row.id) ?? { average: null, count: 0 };
       cards.push({
         id: row.id,
@@ -1417,17 +1902,21 @@ export function pickCardCompareAtPrice(
       continue;
     }
     winner =
-      variant.compareAtPrice === null ? null : String(variant.compareAtPrice);
+      variant.compareAtPrice === null
+        ? null
+        : String(variant.compareAtPrice);
     break;
   }
-  // A reference price at or below the selling price is not a discount.
-  if (
-    winner !== null &&
-    new Prisma.Decimal(winner).comparedTo(new Prisma.Decimal(priceFrom)) <= 0
-  ) {
+  if (winner === null) {
     return null;
   }
-  return winner;
+  // SS-900: both sides are rounded UP before deciding whether a discount is
+  // real; a pair made equal by rounding never yields a misleading badge.
+  const roundedWinner = roundedCompareAt(
+    new Prisma.Decimal(priceFrom),
+    new Prisma.Decimal(winner),
+  );
+  return roundedWinner?.toString() ?? null;
 }
 
 /**
@@ -1492,4 +1981,89 @@ function publicMediaWhere(
     OR: [{ variantId: null }, { variant: { is: { deletedAt: null } } }],
     ...extra,
   };
+}
+
+/** Unique category refs in the order products were supplied. */
+function uniqueCategories(
+  products: Array<{ category: { id: string; name: string; slug: string } }>,
+): Array<{ id: string; name: string; slug: string }> {
+  const seen = new Set<string>();
+  const result: Array<{ id: string; name: string; slug: string }> = [];
+  for (const product of products) {
+    if (!seen.has(product.category.id)) {
+      seen.add(product.category.id);
+      result.push(product.category);
+    }
+  }
+  return result;
+}
+
+/** Display value for one attribute across the (possibly multi-row) specs. */
+function formatSpecValue(
+  specs: Array<{
+    valueText: string | null;
+    valueNumber: Prisma.Decimal | null;
+    valueBoolean: boolean | null;
+    attributeValue: { value: string } | null;
+  }>,
+  unit: string | null,
+): string | null {
+  if (specs.length === 0) {
+    return null;
+  }
+  const optionValues = specs
+    .map((spec) => spec.attributeValue?.value)
+    .filter((value): value is string => typeof value === 'string');
+  if (optionValues.length > 0) {
+    return [...new Set(optionValues)].join('، ');
+  }
+  const first = specs[0]!;
+  if (first.valueNumber !== null) {
+    const value = first.valueNumber.toString();
+    return unit ? `${value} ${unit}` : value;
+  }
+  if (first.valueBoolean !== null) {
+    return first.valueBoolean ? 'بله' : 'خیر';
+  }
+  return first.valueText;
+}
+
+/** Numeric filter accepts {min,max} or an exact number/string. */
+function parseNumericFilter(
+  raw: unknown,
+): { min: number | null; max: number | null } | null {
+  if (typeof raw === 'number') {
+    return Number.isFinite(raw) ? { min: raw, max: raw } : null;
+  }
+  if (typeof raw === 'string') {
+    const exact = Number(raw);
+    return Number.isFinite(exact) ? { min: exact, max: exact } : null;
+  }
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return null;
+  }
+  const value = raw as { min?: unknown; max?: unknown };
+  let min: number | null = null;
+  let max: number | null = null;
+  if (value.min !== undefined) {
+    const parsed = Number(value.min);
+    if (!Number.isFinite(parsed)) {
+      return null;
+    }
+    min = parsed;
+  }
+  if (value.max !== undefined) {
+    const parsed = Number(value.max);
+    if (!Number.isFinite(parsed)) {
+      return null;
+    }
+    max = parsed;
+  }
+  if (min === null && max === null) {
+    return null;
+  }
+  if (min !== null && max !== null && min > max) {
+    [min, max] = [max, min];
+  }
+  return { min, max };
 }

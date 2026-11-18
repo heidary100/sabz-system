@@ -10,7 +10,10 @@ import { CompareProvider } from '@/components/ecommerce/compare/compare-provider
 import { SiteHeader } from '@/components/ecommerce/header/site-header';
 import { SiteFooter } from '@/components/ecommerce/footer/site-footer';
 import { ThemeProvider } from '@/components/ecommerce/theme/theme-provider';
+import { StoreNotificationProvider } from '@/components/ecommerce/notifications/notification-provider';
+import { ChatWidget } from '@/components/ecommerce/chat/chat-widget';
 import { THEME_BOOT_SCRIPT } from '@/lib/theme';
+import { fetchFooterSettings } from '@/lib/settings';
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -57,7 +60,10 @@ export default async function RootLayout({
     .slice(0, 12)
     .map((category) => category.slug)
     .join(',');
-  const categoryCovers = await fetchCategoryCovers(coverSlugs);
+  const [categoryCovers, footerSettings] = await Promise.all([
+    fetchCategoryCovers(coverSlugs),
+    fetchFooterSettings(),
+  ]);
 
   return (
     <html lang="fa" dir="rtl" suppressHydrationWarning>
@@ -76,13 +82,16 @@ export default async function RootLayout({
         <ThemeProvider>
           <CartProvider>
             <CompareProvider>
-              <SiteHeader categories={categories} covers={categoryCovers} />
-              {/* scroll-mt keeps skip-link/anchor focus from landing under the
-                  sticky header (SS-218). */}
-              <main id="main" className="scroll-mt-32 flex-1">
-                {children}
-              </main>
-              <SiteFooter categories={categories} />
+              <StoreNotificationProvider>
+                <SiteHeader categories={categories} covers={categoryCovers} />
+                {/* scroll-mt keeps skip-link/anchor focus from landing under the
+                    sticky header (SS-218). */}
+                <main id="main" className="scroll-mt-32 flex-1">
+                  {children}
+                </main>
+                <SiteFooter categories={categories} settings={footerSettings} />
+                <ChatWidget />
+              </StoreNotificationProvider>
             </CompareProvider>
           </CartProvider>
         </ThemeProvider>

@@ -42,7 +42,6 @@ export function useTransitionMount(
       });
       return () => cancelAnimationFrame(raf);
     }
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setState('closed');
     timerRef.current = setTimeout(() => setShouldRender(false), exitMs);
     return () => {

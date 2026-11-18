@@ -12,12 +12,16 @@ import { RequireRole } from '../auth/require-role'
 import { AdminLayout } from '../layouts/admin-layout'
 import { MerchandisingLayout } from '../layouts/merchandising-layout'
 import { AccessDeniedPage } from '../pages/access-denied-page'
+import { AttributesPage } from '../pages/attributes-page'
 import { AuditPage } from '../pages/audit-page'
 import { BlogEditorPage } from '../pages/blog-editor-page'
 import { BlogPage } from '../pages/blog-page'
 import { BrandsPage } from '../pages/brands-page'
 import { CategoriesPage } from '../pages/categories-page'
+import { ChatPage } from '../pages/chat-page'
+import { CurrencyPage } from '../pages/currency-page'
 import { DashboardPage } from '../pages/dashboard-page'
+import { FooterSettingsPage } from '../pages/footer-settings-page'
 import { InventoryMovementsPage } from '../pages/inventory-movements-page'
 import { InventoryPage } from '../pages/inventory-page'
 import { InventoryReservationsPage } from '../pages/inventory-reservations-page'
@@ -133,6 +137,22 @@ function createAppRoutes() {
               }
             />
             <Route
+              path="currency"
+              element={
+                <RequireRole roles={ADMIN_ROLES}>
+                  <CurrencyPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="settings/footer"
+              element={
+                <RequireRole roles={ADMIN_ROLES}>
+                  <FooterSettingsPage />
+                </RequireRole>
+              }
+            />
+            <Route
               path="rfq"
               element={
                 <RequireRole roles={ADMIN_ROLES}>
@@ -161,6 +181,14 @@ function createAppRoutes() {
               element={
                 <RequireRole roles={ADMIN_ROLES}>
                   <NotificationsPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="chat"
+              element={
+                <RequireRole roles={ADMIN_ROLES}>
+                  <ChatPage />
                 </RequireRole>
               }
             />
@@ -289,6 +317,14 @@ function createAppRoutes() {
               element={
                 <RequireRole roles={ADMIN_ROLES}>
                   <CategoriesPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="attributes"
+              element={
+                <RequireRole roles={ADMIN_ROLES}>
+                  <AttributesPage />
                 </RequireRole>
               }
             />

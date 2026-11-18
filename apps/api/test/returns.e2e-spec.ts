@@ -190,7 +190,7 @@ describe('Returns API (SS-242) (e2e)', () => {
     const placed = await request(app.getHttpServer())
       .post(`${ORDERS_BASE}/checkout`)
       .set('Authorization', `Bearer ${customerToken}`)
-      .send({ addressId: address.body.id, paymentMethod: 'COD', shippingMethod: 'STORE_PICKUP' })
+      .send({ addressId: address.body.id, paymentMethod: 'COD', shippingMethod: 'STORE_PICKUP', nationalId: '1234567891' })
       .expect(201);
     const orderId = placed.body.orderId as string;
     orderIds.push(orderId);
@@ -405,7 +405,7 @@ describe('Returns API (SS-242) (e2e)', () => {
     const placed = await request(app.getHttpServer())
       .post(`${ORDERS_BASE}/checkout`)
       .set('Authorization', `Bearer ${customer.token}`)
-      .send({ addressId: address.body.id, paymentMethod: 'COD', shippingMethod: 'STORE_PICKUP' })
+      .send({ addressId: address.body.id, paymentMethod: 'COD', shippingMethod: 'STORE_PICKUP', nationalId: '1234567891' })
       .expect(201);
     const pendingOrderId = placed.body.orderId as string;
     orderIds.push(pendingOrderId);

@@ -36,61 +36,66 @@ describe('PricingService (SS-235)', () => {
 
   describe('resolveLine (pure math)', () => {
     it('passes retail through with no discounts', () => {
-      expect(PricingService.resolveLine(D(5000), 2, D(0), []).toString()).toBe('5000');
+      expect(PricingService.resolveLine(D(5000000), 2, D(0), []).toString()).toBe('5000000');
     });
 
     it('applies the partner tier percent', () => {
       // 5000 − 10% = 4500.
-      expect(PricingService.resolveLine(D(5000), 1, D(10), []).toString()).toBe('4500');
+      expect(PricingService.resolveLine(D(5000000), 1, D(10), []).toString()).toBe('4500000');
     });
 
     it('applies bulk after tier (PRICE-006)', () => {
       // 10000 − 10% tier = 9000; qty 10 → −3% bulk = 8730.
-      expect(PricingService.resolveLine(D(10000), 10, D(10), []).toString()).toBe('8730');
+      expect(PricingService.resolveLine(D(10000000), 10, D(10), []).toString()).toBe('8800000');
     });
 
     it('applies a percent promotion on the post-tier, post-bulk unit', () => {
       // 10000 − 20% = 8000; covered by minQuantity.
-      const result = PricingService.resolveLine(D(10000), 2, D(20), [promo()]);
-      expect(result.toString()).toBe('7200');
+      const result = PricingService.resolveLine(D(10000000), 2, D(20), [promo()]);
+      expect(result.toString()).toBe('7200000');
     });
 
     it('applies a fixed promotion as a Rial amount off', () => {
-      const result = PricingService.resolveLine(D(10000), 1, D(0), [
-        promo({ type: 'FIXED', value: D(1500) }),
+      const result = PricingService.resolveLine(D(10000000), 1, D(0), [
+        promo({ type: 'FIXED', value: D(1500000) }),
       ]);
-      expect(result.toString()).toBe('8500');
+      expect(result.toString()).toBe('8500000');
     });
 
     it('skips promotions below their minQuantity', () => {
-      const result = PricingService.resolveLine(D(10000), 1, D(0), [
+      const result = PricingService.resolveLine(D(10000000), 1, D(0), [
         promo({ minQuantity: 2 }),
       ]);
-      expect(result.toString()).toBe('10000');
+      expect(result.toString()).toBe('10000000');
     });
 
     it('picks the best promotion and ignores invalid rows', () => {
-      const result = PricingService.resolveLine(D(10000), 1, D(0), [
+      const result = PricingService.resolveLine(D(10000000), 1, D(0), [
         promo({ value: D(5) }),
-        promo({ type: 'FIXED', value: D(2000) }),
+        promo({ type: 'FIXED', value: D(2000000) }),
         promo({ value: D(150) }),
         promo({ type: 'FIXED', value: D(-100) }),
       ]);
-      // 5% → 9500; 2000 off → 8000 wins; invalid rows ignored.
-      expect(result.toString()).toBe('8000');
+      // 5% → 9.5m; 2m off → 8m wins; invalid rows ignored.
+      expect(result.toString()).toBe('8000000');
     });
 
     it('never returns a negative price (PRICE-005)', () => {
-      const result = PricingService.resolveLine(D(1000), 1, D(0), [
-        promo({ type: 'FIXED', value: D(5000) }),
+      const result = PricingService.resolveLine(D(1000000), 1, D(0), [
+        promo({ type: 'FIXED', value: D(5000000) }),
       ]);
       expect(result.toString()).toBe('0');
     });
 
-    it('rounds fractional Rial results to integers', () => {
-      // 1000 − 3% bulk (qty 10) = 970 exactly; tier 33% on 1000 = 670.
-      expect(PricingService.resolveLine(D(1000), 10, D(33), []).toString()).toBe(
-        '650',
+    it('rounds the customer-facing unit UP to 100,000 Rial', () => {
+      expect(PricingService.resolveLine(D(7_650_000), 1, D(0), []).toString()).toBe(
+        '7700000',
+      );
+      expect(PricingService.resolveLine(D(7_700_000), 1, D(0), []).toString()).toBe(
+        '7700000',
+      );
+      expect(PricingService.resolveLine(D(1_000_000), 10, D(33), []).toString()).toBe(
+        '700000',
       );
     });
   });
@@ -190,28 +195,28 @@ describe('PricingService (SS-235)', () => {
 
   describe('resolveLine with category rules and overrides (SS-235 B1)', () => {
     it('applies the category rule before tier (PRICE-004 chain)', () => {
-      // 10000 − 10% rule = 9000; − 10% tier = 8100.
-      const result = PricingService.resolveLine(D(10000), 1, D(10), [], {
+      // 10m − 10% rule = 9m; − 10% tier = 8.1m.
+      const result = PricingService.resolveLine(D(10000000), 1, D(10), [], {
         categoryRule: { type: 'PERCENT', value: D(10) },
       });
-      expect(result.toString()).toBe('8100');
+      expect(result.toString()).toBe('8100000');
     });
 
     it('applies the product override after the category rule', () => {
-      // 10000 − 10% rule = 9000; − 1000 override = 8000.
-      const result = PricingService.resolveLine(D(10000), 1, D(0), [], {
+      // 10m − 10% rule = 9m; − 1m override = 8m.
+      const result = PricingService.resolveLine(D(10000000), 1, D(0), [], {
         categoryRule: { type: 'PERCENT', value: D(10) },
-        override: { type: 'FIXED', value: D(1000) },
+        override: { type: 'FIXED', value: D(1000000) },
       });
-      expect(result.toString()).toBe('8000');
+      expect(result.toString()).toBe('8000000');
     });
 
     it('ignores invalid adjustments without failing', () => {
-      const result = PricingService.resolveLine(D(10000), 1, D(0), [], {
+      const result = PricingService.resolveLine(D(10000000), 1, D(0), [], {
         categoryRule: { type: 'PERCENT', value: D(150) },
         override: { type: 'FIXED', value: D(-50) },
       });
-      expect(result.toString()).toBe('10000');
+      expect(result.toString()).toBe('10000000');
     });
   });
 

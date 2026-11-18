@@ -353,7 +353,7 @@ describe('getActivePills', () => {
       'جستجو: ssd',
       'برند: ORICO',
       'وضعیت: نو',
-      'قیمت: ۱۰٬۰۰۰٬۰۰۰ تا ۲۰٬۰۰۰٬۰۰۰',
+      'قیمت: ۱۰٬۰۰۰٬۰۰۰ تا ۲۰٬۰۰۰٬۰۰۰ ریال',
       'فقط موجود',
     ]);
     expect(pills.map((pill) => pill.clear)).toEqual([
@@ -373,9 +373,9 @@ describe('getActivePills', () => {
   it('renders open-ended price ranges', () => {
     expect(
       getActivePills({ ...DEFAULT_LISTING_STATE, priceFrom: '5000' })[0]!.label,
-    ).toBe('قیمت: از ۵٬۰۰۰');
+    ).toBe('قیمت: از ۵٬۰۰۰ ریال');
     expect(getActivePills({ ...DEFAULT_LISTING_STATE, priceTo: '5000' })[0]!.label).toBe(
-      'قیمت: تا ۵٬۰۰۰',
+      'قیمت: تا ۵٬۰۰۰ ریال',
     );
   });
 });

@@ -63,6 +63,13 @@ export interface CatalogListQuery {
    * reviews never match a bucket.
    */
   rating?: string;
+  /**
+   * Attribute filter payload (SS-900), a compact JSON object keyed by
+   * attribute slug. Values: string / string[] for select, boolean for
+   * boolean, or {min,max} for numeric. Only filterable attributes assigned
+   * to the selected category are accepted.
+   */
+  attrs?: string;
 }
 
 /** Visible category with the published-product count of its whole subtree (SS-205 roll-up). */
@@ -199,8 +206,9 @@ export interface CatalogProductVariantDto {
   options: CatalogProductVariantOptionDto[];
 }
 
-/** Ordered display spec (SS-202): attribute/value pair with grouping. */
+/** Ordered display spec (SS-202/SS-900): typed attribute/value pair with grouping. */
 export interface CatalogProductSpecDto {
+  attributeId: string;
   attributeName: string;
   attributeSlug: string;
   /** Woo dotted-namespace group (e.g. مشخصات کلی); null when ungrouped. */
@@ -208,6 +216,12 @@ export interface CatalogProductSpecDto {
   value: string;
   valueSlug: string;
   sortOrder: number;
+  valueType: import('../product/attributes').AttributeValueType;
+  unit: string | null;
+  isFilterable: boolean;
+  isComparable: boolean;
+  numericValue: string | null;
+  booleanValue: boolean | null;
 }
 
 /** One hop of the category ancestry chain, root first. */

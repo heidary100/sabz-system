@@ -1,3 +1,10 @@
+const faNumberFormatter = new Intl.NumberFormat('fa-IR')
+
+/** Persian numerals for counts/badges (not money; `formatRial` adds ریال). */
+export function formatFaNumber(value: number): string {
+  return faNumberFormatter.format(value)
+}
+
 const dateFormatter = new Intl.DateTimeFormat('fa-IR', {
   calendar: 'persian',
   year: 'numeric',

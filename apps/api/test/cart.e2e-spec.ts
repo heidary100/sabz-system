@@ -137,7 +137,7 @@ describe('Cart API (SS-232) (e2e)', () => {
     const variant = await request(app.getHttpServer())
       .post(`/api/v1/admin/products/${product.body.id}/variants`)
       .set('Authorization', `Bearer ${operatorToken}`)
-      .send({ sku: `SKU-${suffix}`, price: '5000.00' })
+      .send({ sku: `SKU-${suffix}`, price: '5000000.00' })
       .expect(201);
     variantIds.push(variant.body.id);
 
@@ -252,9 +252,9 @@ describe('Cart API (SS-232) (e2e)', () => {
     expect(created.body).toMatchObject({
       variantId,
       quantity: 2,
-      unitPrice: '5000',
-      unitPriceAtAdd: '5000',
-      lineTotal: '10000',
+      unitPrice: '5000000',
+      unitPriceAtAdd: '5000000',
+      lineTotal: '10000000',
       priceChanged: false,
       priceStatus: 'PRICED',
       available: 10,
@@ -269,14 +269,14 @@ describe('Cart API (SS-232) (e2e)', () => {
       .send({ variantId, quantity: 1 })
       .expect(200);
     expect(merged.body.quantity).toBe(3);
-    expect(merged.body.unitPriceAtAdd).toBe('5000');
+    expect(merged.body.unitPriceAtAdd).toBe('5000000');
 
     const listed = await request(app.getHttpServer())
       .get(CART_BASE)
       .set('Authorization', `Bearer ${customer.token}`)
       .expect(200);
     expect(listed.body.totalQuantity).toBe(3);
-    expect(listed.body.subtotal).toBe('15000');
+    expect(listed.body.subtotal).toBe('15000000');
     expect(Object.keys(listed.body.items[0]).sort()).toEqual(CART_ITEM_KEYS);
 
     // PATCH sets the absolute quantity.
@@ -286,24 +286,24 @@ describe('Cart API (SS-232) (e2e)', () => {
       .send({ quantity: 2 })
       .expect(200);
     expect(updated.body.quantity).toBe(2);
-    expect(updated.body.lineTotal).toBe('10000');
+    expect(updated.body.lineTotal).toBe('10000000');
 
     // A catalog reprice flips the price-changed flag; the snapshot stays.
     await prisma.productVariant.update({
       where: { id: variantId },
-      data: { price: '6000' },
+      data: { price: '6000000' },
     });
     const repriced = await request(app.getHttpServer())
       .get(CART_BASE)
       .set('Authorization', `Bearer ${customer.token}`)
       .expect(200);
     expect(repriced.body.items[0]).toMatchObject({
-      unitPrice: '6000',
-      unitPriceAtAdd: '5000',
-      lineTotal: '12000',
+      unitPrice: '6000000',
+      unitPriceAtAdd: '5000000',
+      lineTotal: '12000000',
       priceChanged: true,
     });
-    expect(repriced.body.subtotal).toBe('12000');
+    expect(repriced.body.subtotal).toBe('12000000');
 
     const removed = await request(app.getHttpServer())
       .delete(`${CART_BASE}/items/${variantId}`)
@@ -516,7 +516,7 @@ describe('Cart API (SS-232) (e2e)', () => {
     const draftVariant = await request(app.getHttpServer())
       .post(`/api/v1/admin/products/${draft.body.id}/variants`)
       .set('Authorization', `Bearer ${operator.token}`)
-      .send({ sku: `SKU-${suffix}`, price: '5000.00' })
+      .send({ sku: `SKU-${suffix}`, price: '5000000.00' })
       .expect(201);
     variantIds.push(draftVariant.body.id);
 
@@ -602,8 +602,8 @@ describe('Cart API (SS-232) (e2e)', () => {
       .expect(201)
       .then((res) => {
         expect(Object.keys(res.body).sort()).toEqual(CART_ITEM_KEYS);
-        expect(res.body.unitPrice).toBe('5000');
-        expect(res.body.lineTotal).toBe('5000');
+        expect(res.body.unitPrice).toBe('5000000');
+        expect(res.body.lineTotal).toBe('5000000');
       });
 
     // Partner tier 10%: 5000 → 4500.
@@ -613,8 +613,8 @@ describe('Cart API (SS-232) (e2e)', () => {
       .send({ variantId, quantity: 1 })
       .expect(201)
       .then((res) => {
-        expect(res.body.unitPrice).toBe('4500');
-        expect(res.body.lineTotal).toBe('4500');
+        expect(res.body.unitPrice).toBe('4500000');
+        expect(res.body.lineTotal).toBe('4500000');
       });
 
     // Bulk at qty 10 (3% after tier): 4500 → 4365.
@@ -624,8 +624,8 @@ describe('Cart API (SS-232) (e2e)', () => {
       .send({ quantity: 10 })
       .expect(200)
       .then((res) => {
-        expect(res.body.unitPrice).toBe('4365');
-        expect(res.body.lineTotal).toBe('43650');
+        expect(res.body.unitPrice).toBe('4400000');
+        expect(res.body.lineTotal).toBe('44000000');
       });
 
     // Fixed product promotion (465 Rial off): partner 4365 → 3900,
@@ -635,7 +635,7 @@ describe('Cart API (SS-232) (e2e)', () => {
         code: `PROMO-${suffix}`,
         titleFa: 'فروش ویژه',
         type: 'FIXED',
-        value: 465,
+        value: 465000,
         startsAt: new Date(Date.now() - 3_600_000),
         endsAt: new Date(Date.now() + 86_400_000),
         isActive: true,
@@ -665,8 +665,8 @@ describe('Cart API (SS-232) (e2e)', () => {
       .expect(200)
       .then((res) => {
         expect(Object.keys(res.body.items[0]).sort()).toEqual(CART_ITEM_KEYS);
-        expect(res.body.items[0].unitPrice).toBe('3900');
-        expect(res.body.subtotal).toBe('39000');
+        expect(res.body.items[0].unitPrice).toBe('3900000');
+        expect(res.body.subtotal).toBe('39000000');
       });
 
     await request(app.getHttpServer())
@@ -674,8 +674,8 @@ describe('Cart API (SS-232) (e2e)', () => {
       .set('Authorization', `Bearer ${retailUser.token}`)
       .expect(200)
       .then((res) => {
-        expect(res.body.items[0].unitPrice).toBe('4535');
-        expect(res.body.subtotal).toBe('4535');
+        expect(res.body.items[0].unitPrice).toBe('4600000');
+        expect(res.body.subtotal).toBe('4600000');
       });
   });
 });

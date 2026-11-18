@@ -54,6 +54,9 @@ export function HorizontalScroll({
       })
     }
     measure()
+    if (typeof ResizeObserver === 'undefined') {
+      return
+    }
     const observer = new ResizeObserver(scheduleMeasure)
     observer.observe(content)
     observer.observe(body)

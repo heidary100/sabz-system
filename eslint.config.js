@@ -16,5 +16,12 @@ module.exports = tseslint.config(
       globals: globals.node,
     },
   },
+  {
+    // Browser service workers use the serviceworker global scope.
+    files: ['**/public/sw.js'],
+    languageOptions: {
+      globals: globals.serviceworker,
+    },
+  },
   eslintConfigPrettier,
 );

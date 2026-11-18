@@ -78,7 +78,7 @@ import { ProductCard } from './product-card';
 import { ProductCardWithWishlist } from '@/components/ecommerce/wishlist/product-card-wishlist';
 import {
   formatCardPrice,
-  formatToman,
+  formatRial,
   salePercentFrom,
 } from '@/lib/format';
 
@@ -145,7 +145,7 @@ describe('ProductCard rendering', () => {
       ),
     ).toBeTruthy();
     expect(
-      screen.getByText(formatToman(discounted.compareAtPrice!)),
+      screen.getByText(formatRial(discounted.compareAtPrice!)),
     ).toBeTruthy();
   });
 

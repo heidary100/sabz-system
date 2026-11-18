@@ -12,16 +12,21 @@ import { AuthModule } from './modules/auth/auth.module';
 import { BlogModule } from './modules/blog/blog.module';
 import { AddressesModule } from './modules/addresses/addresses.module';
 import { CartModule } from './modules/cart/cart.module';
+import { ChatModule } from './modules/chat/chat.module';
+import { CurrencyModule } from './modules/currency/currency.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
 import { MerchandisingModule } from './modules/merchandising/merchandising.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { PartnersModule } from './modules/partners/partners.module';
+import { PaymentsModule } from './modules/payments/payments.module';
 import { ProductsModule } from './modules/products/products.module';
+import { RealtimeModule } from './modules/realtime/realtime.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
 import { ReturnsModule } from './modules/returns/returns.module';
 import { RfqModule } from './modules/rfq/rfq.module';
+import { SettingsModule } from './modules/settings/settings.module';
 import { TorobModule } from './modules/torob/torob.module';
 import { UsersModule } from './modules/users/users.module';
 import { WishlistModule } from './modules/wishlist/wishlist.module';
@@ -56,16 +61,21 @@ import { WishlistModule } from './modules/wishlist/wishlist.module';
     AddressesModule,
     BlogModule,
     CartModule,
+    ChatModule,
     DashboardModule,
+    CurrencyModule,
     InventoryModule,
     MerchandisingModule,
     NotificationsModule,
     OrdersModule,
     PartnersModule,
+    PaymentsModule,
     ProductsModule,
+    RealtimeModule,
     ReviewsModule,
     ReturnsModule,
     RfqModule,
+    SettingsModule,
     TorobModule,
     UsersModule,
     WishlistModule,

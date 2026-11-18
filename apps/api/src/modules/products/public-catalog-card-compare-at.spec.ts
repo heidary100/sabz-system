@@ -5,12 +5,12 @@ describe('pickCardCompareAtPrice (SS-225)', () => {
     expect(
       pickCardCompareAtPrice(
         [
-          { price: '20000', compareAtPrice: '25000', priceStatus: 'PRICED' },
-          { price: '15000', compareAtPrice: '18000', priceStatus: 'PRICED' },
+          { price: '20000000', compareAtPrice: '25000000', priceStatus: 'PRICED' },
+          { price: '15000000', compareAtPrice: '18000000', priceStatus: 'PRICED' },
         ],
-        '15000',
+        '15000000',
       ),
-    ).toBe('18000');
+    ).toBe('18000000');
   });
 
   it('skips CALL_FOR_PRICE variants even at the minimum price', () => {
@@ -18,11 +18,11 @@ describe('pickCardCompareAtPrice (SS-225)', () => {
       pickCardCompareAtPrice(
         [
           { price: '0', compareAtPrice: null, priceStatus: 'CALL_FOR_PRICE' },
-          { price: '15000', compareAtPrice: '18000', priceStatus: 'PRICED' },
+          { price: '15000000', compareAtPrice: '18000000', priceStatus: 'PRICED' },
         ],
-        '15000',
+        '15000000',
       ),
-    ).toBe('18000');
+    ).toBe('18000000');
   });
 
   it('returns null for a call-for-price product', () => {
@@ -37,8 +37,8 @@ describe('pickCardCompareAtPrice (SS-225)', () => {
   it('returns null when the winning variant has no reference price', () => {
     expect(
       pickCardCompareAtPrice(
-        [{ price: '15000', compareAtPrice: null, priceStatus: 'PRICED' }],
-        '15000',
+        [{ price: '15000000', compareAtPrice: null, priceStatus: 'PRICED' }],
+        '15000000',
       ),
     ).toBeNull();
   });
@@ -47,10 +47,10 @@ describe('pickCardCompareAtPrice (SS-225)', () => {
     expect(
       pickCardCompareAtPrice(
         [
-          { price: '15000', compareAtPrice: '15000', priceStatus: 'PRICED' },
-          { price: '15000', compareAtPrice: '10000', priceStatus: 'PRICED' },
+          { price: '15000000', compareAtPrice: '15000000', priceStatus: 'PRICED' },
+          { price: '15000000', compareAtPrice: '10000000', priceStatus: 'PRICED' },
         ],
-        '15000',
+        '15000000',
       ),
     ).toBeNull();
   });
@@ -59,11 +59,11 @@ describe('pickCardCompareAtPrice (SS-225)', () => {
     expect(
       pickCardCompareAtPrice(
         [
-          { price: '15000', compareAtPrice: '16000', priceStatus: 'PRICED' },
-          { price: '15000', compareAtPrice: '20000', priceStatus: 'PRICED' },
+          { price: '15000000', compareAtPrice: '16000000', priceStatus: 'PRICED' },
+          { price: '15000000', compareAtPrice: '20000000', priceStatus: 'PRICED' },
         ],
-        '15000',
+        '15000000',
       ),
-    ).toBe('16000');
+    ).toBe('16000000');
   });
 });

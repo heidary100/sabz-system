@@ -18,6 +18,8 @@ export const NOTIFICATION_TYPE_LABELS: Record<NotificationType, string> = {
   PARTNER_SUBMITTED: 'ثبت درخواست همکاری',
   PARTNER_APPROVED: 'تأیید همکاری',
   PARTNER_REJECTED: 'رد همکاری',
+  CHAT_MESSAGE: 'پیام پشتیبانی',
+  CHAT_REPLY: 'پاسخ پشتیبانی',
 }
 
 export const NOTIFICATION_TYPE_ORDER: NotificationType[] = [
@@ -32,4 +34,6 @@ export const NOTIFICATION_TYPE_ORDER: NotificationType[] = [
   'PARTNER_SUBMITTED',
   'PARTNER_APPROVED',
   'PARTNER_REJECTED',
+  'CHAT_MESSAGE',
+  'CHAT_REPLY',
 ]

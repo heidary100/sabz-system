@@ -140,7 +140,7 @@ describe('WooCommerce writer integration (SS-207)', () => {
       expect(priced.category.name).toBe('هارد دیسک اکسترنال');
       expect(priced.brand?.name).toBe('FixtureBrand');
       expect(priced.tags.map((row) => row.tag.name)).toEqual(['هارد اکسترنال', 'فیکسچر']);
-      expect(priced.specs.some((row) => row.attributeValue.value === '1 ترابایت')).toBe(true);
+      expect(priced.specs.some((row) => row.attributeValue?.value === '1 ترابایت')).toBe(true);
       expect(priced.variants).toHaveLength(1);
       expect(priced.variants[0]).toMatchObject({
         sku: 'FIXTURE-HD1TB-BLK',

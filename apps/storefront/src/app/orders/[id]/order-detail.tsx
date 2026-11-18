@@ -11,7 +11,7 @@ import { Skeleton } from '@/components/ecommerce/skeleton/skeleton';
 import { ApiError } from '@/lib/api';
 import { hasSession } from '@/lib/auth-client';
 import { cancelOrder, fetchOrderDetail, orderStatusLabel, paymentMethodLabel, paymentStatusLabel, shipmentStatusLabel, shippingMethodLabel } from '@/lib/orders';
-import { formatFaNumber, formatToman } from '@/lib/format';
+import { formatFaNumber, formatRial } from '@/lib/format';
 import { OrderTimeline } from './order-timeline';
 import { TrackingNumberValue } from './tracking-number';
 
@@ -137,7 +137,7 @@ export function OrderDetail({ id }: { id: string }) {
               سفارش {formatFaNumber(order.orderNumber)}
             </h2>
             <p className="mt-1 text-xs text-fg-muted">
-              {paymentMethodLabel(order.paymentMethod)} — {paymentStatusLabel(order.paymentStatus)} — جمع {formatToman(order.total)}
+              {paymentMethodLabel(order.paymentMethod)} — {paymentStatusLabel(order.paymentStatus)} — جمع {formatRial(order.total)}
             </p>
           </div>
           <Badge variant={order.status === 'CANCELLED' ? 'outOfStock' : order.status === 'DELIVERED' ? 'success' : 'neutral'}>
@@ -162,7 +162,7 @@ export function OrderDetail({ id }: { id: string }) {
                 </span>
               </span>
               <span className="shrink-0 font-semibold text-fg">
-                {formatToman(item.lineTotal)}
+                {formatRial(item.lineTotal)}
               </span>
             </li>
           ))}
@@ -170,16 +170,36 @@ export function OrderDetail({ id }: { id: string }) {
         <dl className="mt-3 space-y-2 border-t border-border pt-3 text-sm">
           <div className="flex items-center justify-between gap-3">
             <dt className="text-fg-secondary">هزینه ارسال</dt>
-            <dd className="font-semibold text-fg">{formatToman(order.shippingFee)}</dd>
+            <dd className="font-semibold text-fg">{formatRial(order.shippingFee)}</dd>
           </div>
           <div className="flex items-center justify-between gap-3">
             <dt className="font-semibold text-fg">جمع سفارش</dt>
             <dd aria-live="polite" className="text-lg font-bold text-accent-hover">
-              {formatToman(order.total)}
+              {formatRial(order.total)}
             </dd>
           </div>
         </dl>
       </Card>
+
+      {(order.note !== null || order.customerNationalIdMasked !== null) ? (
+        <Card className="p-6">
+          <h2 className="text-sm font-bold text-fg">اطلاعات تکمیلی سفارش</h2>
+          <dl className="mt-3 space-y-2 text-sm">
+            {order.customerNationalIdMasked !== null ? (
+              <div className="flex items-center justify-between gap-3">
+                <dt className="text-fg-secondary">کد ملی</dt>
+                <dd dir="ltr" className="font-mono text-fg">{order.customerNationalIdMasked}</dd>
+              </div>
+            ) : null}
+            {order.note !== null ? (
+              <div>
+                <dt className="text-fg-secondary">یادداشت سفارش</dt>
+                <dd className="mt-1 whitespace-pre-line rounded-control bg-surface-2 px-3 py-2 leading-6 text-fg">{order.note}</dd>
+              </div>
+            ) : null}
+          </dl>
+        </Card>
+      ) : null}
 
       {order.shipment !== null ? (
         <Card className="p-6">

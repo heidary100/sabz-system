@@ -13,7 +13,8 @@ import { useCategoryOptions } from '../hooks/use-category-options'
 import { useBrandOptions } from '../hooks/use-brand-options'
 import { deleteVariant } from '../services/variants'
 import { translateApiError } from '../lib/error-messages'
-import { formatDate } from '../lib/format'
+import { formatDate, formatFaNumber } from '../lib/format'
+import { adminMediaUrl } from '../lib/media-url'
 import { groupMoneyDigits } from '../lib/money-input'
 import type { GridColumnKey } from '../lib/grid-columns'
 import {
@@ -56,6 +57,7 @@ import { UnsavedChangesBar } from '../components/catalog/unsaved-changes-bar'
 import { ColumnChips } from '../components/catalog/column-chips'
 import { HorizontalScroll } from '../components/ui/horizontal-scroll'
 import { RowConflictDialog } from '../components/catalog/row-conflict-dialog'
+import { BulkAttributesDialog } from '../components/products/bulk-attributes-dialog'
 
 const SEARCH_DEBOUNCE_MS = 300
 
@@ -159,6 +161,10 @@ export function ProductsPage() {
   // SS-268: the filter panel collapses below xl (chips row stays visible);
   // above xl the grid is always expanded via CSS.
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const [selectedProducts, setSelectedProducts] = useState<
+    Map<string, { id: string; name: string; updatedAt: string }>
+  >(new Map())
+  const [bulkAttributesOpen, setBulkAttributesOpen] = useState(false)
 
   // Guarded debounced server-side filters. On decline the local input
   // reverts to the committed URL value so it never lies about the query.
@@ -338,6 +344,48 @@ export function ProductsPage() {
     value: category.id,
     label: category.name,
   }))
+
+  const visibleProducts = Array.from(
+    new Map(grid.rows.map((row) => [row.productId, row])).values(),
+  )
+  const allVisibleSelected =
+    visibleProducts.length > 0 &&
+    visibleProducts.every((row) => selectedProducts.has(row.productId))
+
+  function toggleProductSelection(row: CatalogGridRow): void {
+    setSelectedProducts((current) => {
+      const next = new Map(current)
+      if (next.has(row.productId)) {
+        next.delete(row.productId)
+      } else {
+        next.set(row.productId, {
+          id: row.productId,
+          name: row.productName,
+          updatedAt: row.productUpdatedAt,
+        })
+      }
+      return next
+    })
+  }
+
+  function toggleAllVisible(): void {
+    setSelectedProducts((current) => {
+      if (allVisibleSelected) {
+        const next = new Map(current)
+        for (const row of visibleProducts) next.delete(row.productId)
+        return next
+      }
+      const next = new Map(current)
+      for (const row of visibleProducts) {
+        next.set(row.productId, {
+          id: row.productId,
+          name: row.productName,
+          updatedAt: row.productUpdatedAt,
+        })
+      }
+      return next
+    })
+  }
 
   const chips: FilterChip[] = []
   if (grid.filters.search.trim()) {
@@ -720,6 +768,22 @@ export function ProductsPage() {
       <FilterChips chips={chips} onClearAll={clearAllFilters} />
       <ColumnChips visible={visibleColumns} onToggle={toggleColumn} />
 
+      {selectedProducts.size > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-primary/30 bg-primary-subtle/40 px-4 py-3">
+          <p className="text-sm font-semibold text-foreground">
+            {formatFaNumber(selectedProducts.size)} محصول انتخاب شده است
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button outline onClick={() => setSelectedProducts(new Map())}>
+              پاک کردن انتخاب
+            </Button>
+            <Button onClick={() => setBulkAttributesOpen(true)}>
+              ویرایش گروهی ویژگی‌ها
+            </Button>
+          </div>
+        </div>
+      )}
+
       <UnsavedChangesBar
         dirtyCount={drafts.dirtyCount}
         saving={drafts.saving}
@@ -775,6 +839,15 @@ export function ProductsPage() {
               of zebra bands; the header sits on a raised band. */}
           <TableHead className="[&_th]:bg-surface-strong">
             <TableRow>
+                  <TableHeader className="w-10">
+                    <input
+                      type="checkbox"
+                      checked={allVisibleSelected}
+                      onChange={toggleAllVisible}
+                      aria-label="انتخاب همه محصولات این صفحه"
+                      className="size-4 accent-primary"
+                    />
+                  </TableHeader>
                   {showColumn('thumbnail') && <TableHeader>تصویر</TableHeader>}
                   <TableHeader>
                     <span className="inline-flex items-center gap-1.5">
@@ -864,11 +937,20 @@ export function ProductsPage() {
                   const status = drafts.statuses[row.variantId] ?? 'clean'
                   return (
                     <TableRow key={row.variantId} className="transition-colors hover:bg-primary-subtle/40">
+                      <TableCell>
+                        <input
+                          type="checkbox"
+                          checked={selectedProducts.has(row.productId)}
+                          onChange={() => toggleProductSelection(row)}
+                          aria-label={`انتخاب ${row.productName}`}
+                          className="size-4 accent-primary"
+                        />
+                      </TableCell>
                       {showColumn('thumbnail') && (
                         <TableCell>
                           {row.thumbnailUrl ? (
                             <img
-                              src={row.thumbnailUrl}
+                              src={adminMediaUrl(row.thumbnailUrl) ?? undefined}
                               alt=""
                               width={40}
                               height={40}
@@ -1020,6 +1102,16 @@ export function ProductsPage() {
           />
         </TableCard>
       )}
+
+      <BulkAttributesDialog
+        open={bulkAttributesOpen}
+        products={[...selectedProducts.values()]}
+        onClose={() => setBulkAttributesOpen(false)}
+        onApplied={() => {
+          void grid.refetch()
+          setSelectedProducts(new Map())
+        }}
+      />
 
       <DeleteConfirmDialog
         open={deleteTarget !== null}

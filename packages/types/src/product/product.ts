@@ -51,6 +51,7 @@ export interface ProductMediaSummary {
   variantId: string | null;
   mediaType: ProductMediaType;
   originalName: string;
+  /** Stored derivative MIME (image/png after local background removal). */
   mimeType: string;
   /** Size of the stored (watermarked/processed) asset. */
   sizeBytes: number;
@@ -61,6 +62,20 @@ export interface ProductMediaSummary {
   sortOrder: number;
   isPrimary: boolean;
   createdAt: string;
+  /** SS-900 processing/preview state. */
+  originalUrl: string | null;
+  originalMimeType: string | null;
+  originalSizeBytes: number | null;
+  originalWidth: number | null;
+  originalHeight: number | null;
+  width: number | null;
+  height: number | null;
+  processingStatus: 'NONE' | 'PENDING' | 'PROCESSED' | 'SKIPPED' | 'FAILED';
+  processingError: string | null;
+  processingModel: string | null;
+  processedAt: string | null;
+  backgroundRemoved: boolean;
+  canRestore: boolean;
 }
 
 export interface ProductSummary {

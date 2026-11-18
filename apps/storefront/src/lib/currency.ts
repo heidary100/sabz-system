@@ -1,49 +1,40 @@
 /**
- * Storefront currency conversion (SS-222, client decision 2026-09-25).
+ * Storefront currency contract (SS-900).
  *
- * The catalog API persists Rial verbatim (SS-207 "O-1"), while every
- * storefront surface presents Toman (milestone contract Decision 1). The
- * ÷10 / ×10 lives HERE and nowhere else: presentation helpers divide,
- * the query-bound serializer multiplies. The admin app keeps operating in
- * Rial; the storefront is the only Toman surface.
+ * Customers see Rial only. The API is the single authority for customer-facing
+ * Rial amounts: it rounds every chargeable/displayed price UP to the next
+ * 100,000 Rial inside the pricing pipeline. The storefront formats the
+ * server-provided value and never converts or rounds it.
+ *
+ * This module intentionally exposes no Toman/USD/AED conversion API.
  */
 
-export const RIAL_PER_TOMAN = 10;
+/** The only currency unit rendered to customers. */
+export const STOREFRONT_CURRENCY = 'IRR' as const;
+export const RIAL_LABEL = 'ریال';
 
-/** API Rial → presentation Toman (floored; retail prices are whole Tomans). */
-export function rialToToman(rial: number): number {
-  return Math.floor(rial / RIAL_PER_TOMAN);
+/** Parses a server Decimal-as-string without applying any rounding. */
+export function rialNumber(value: string | number | null | undefined): number {
+  if (value === null || value === undefined || value === '') {
+    return 0;
+  }
+  const number = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(number) ? number : 0;
 }
 
-/** Presentation Toman → API Rial bound. */
-export function tomanToRial(toman: number): number {
-  return toman * RIAL_PER_TOMAN;
+/** Machine-readable Rial string for JSON-LD/OG (no conversion). */
+export function rialMachineValue(value: string | number): string {
+  const number = rialNumber(value);
+  return Number.isInteger(number)
+    ? String(number)
+    : String(Number(number.toFixed(2)));
 }
 
 /**
- * API Decimal-as-string Rial → Toman string for JSON-LD/OG offers, so the
- * machine-readable price always equals the visible Toman price. Fractional
- * Tomans keep up to 2 decimals without float artifacts ('15500005' →
- * '1550000.5').
+ * URL price bounds are Rial and are forwarded unchanged. Invalid input becomes
+ * '0' at the API boundary (a value the API validates as an empty result).
  */
-export function rialToTomanString(rial: string): string {
-  const value = Number(rial);
-  if (!Number.isFinite(value)) {
-    return '0';
-  }
-  const toman = value / RIAL_PER_TOMAN;
-  return Number.isInteger(toman) ? String(toman) : String(Number(toman.toFixed(2)));
-}
-
-/**
- * Toman URL bound (`priceFrom`/`priceTo`) → Rial query bound. Returns a
- * Decimal-safe string; invalid input becomes '0' (callers never send
- * invalid bounds, but the API boundary must not emit NaN).
- */
-export function tomanToRialString(toman: string): string {
-  const value = Number(toman);
-  if (!Number.isFinite(value)) {
-    return '0';
-  }
-  return String(Number((value * RIAL_PER_TOMAN).toFixed(2)));
+export function rialBound(value: string): string {
+  const number = rialNumber(value);
+  return Number.isFinite(number) ? String(number) : '0';
 }

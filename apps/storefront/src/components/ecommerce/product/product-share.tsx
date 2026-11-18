@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { shareTextWithoutUrl } from '@/lib/share-message';
+import { shareTextWithoutUrl, type ProductSharePayload } from '@/lib/share-message';
 
 /**
  * Social share row (SS-227): parity with the live site's share links
@@ -19,20 +19,26 @@ import { shareTextWithoutUrl } from '@/lib/share-message';
 export function ProductShare({
   canonicalUrl,
   shareText,
+  sharePayload,
 }: {
   canonicalUrl: string;
   shareText?: string;
+  sharePayload?: ProductSharePayload;
 }) {
+  const text = sharePayload?.text ?? shareText;
+  const title = sharePayload?.title;
+  const imageUrl = sharePayload?.imageUrl ?? null;
   const [copied, setCopied] = useState<'link' | 'bale' | null>(null);
+  const [nativeState, setNativeState] = useState<'idle' | 'sharing' | 'unsupported'>('idle');
   const url = encodeURIComponent(canonicalUrl);
 
   // Telegram renders its `url` parameter as the shared link, so the text
   // parameter drops the trailing URL line to avoid duplication. WhatsApp has
   // a single text parameter, so the full message (URL included) goes there.
-  const telegramText = shareText
-    ? `&text=${encodeURIComponent(shareTextWithoutUrl(shareText, canonicalUrl))}`
+  const telegramText = text
+    ? `&text=${encodeURIComponent(shareTextWithoutUrl(text, canonicalUrl))}`
     : '';
-  const whatsappText = encodeURIComponent(shareText ?? canonicalUrl);
+  const whatsappText = encodeURIComponent(text ?? canonicalUrl);
 
   const links = [
     { label: 'تلگرام', href: `https://t.me/share/url?url=${url}${telegramText}` },
@@ -46,7 +52,7 @@ export function ProductShare({
   async function copy(target: 'link' | 'bale') {
     try {
       await navigator.clipboard.writeText(
-        target === 'bale' && shareText ? shareText : canonicalUrl,
+        target === 'bale' && text ? text : canonicalUrl,
       );
       setCopied(target);
       setTimeout(() => setCopied(null), 2000);
@@ -56,9 +62,56 @@ export function ProductShare({
     }
   }
 
+  async function nativeShare() {
+    if (typeof navigator === 'undefined' || typeof navigator.share !== 'function') {
+      setNativeState('unsupported')
+      return
+    }
+    setNativeState('sharing')
+    try {
+      const data: ShareData = {
+        title: title ?? undefined,
+        text: text ?? undefined,
+        url: canonicalUrl,
+      }
+      if (imageUrl) {
+        try {
+          const response = await fetch(imageUrl)
+          if (response.ok) {
+            const blob = await response.blob()
+            const extension = blob.type.includes('png') ? 'png' : 'jpg'
+            const file = new File([blob], `product.${extension}`, { type: blob.type })
+            if (navigator.canShare?.({ files: [file] })) {
+              data.files = [file]
+            }
+          }
+        } catch {
+          // Image fetch blocked: the text/url share still proceeds.
+        }
+      }
+      await navigator.share(data)
+      setNativeState('idle')
+    } catch (error) {
+      setNativeState('idle')
+      if (!(error instanceof DOMException && error.name === 'AbortError')) {
+        // Native share is an enhancement; anchors/copy remain available.
+      }
+    }
+  }
+
   return (
     <div className="flex flex-wrap items-center gap-2">
       <span className="text-xs font-semibold text-fg-muted">اشتراک‌گذاری:</span>
+      {nativeState !== 'unsupported' && typeof navigator !== 'undefined' && 'share' in navigator ? (
+        <button
+          type="button"
+          onClick={() => void nativeShare()}
+          disabled={nativeState === 'sharing'}
+          className="inline-flex min-h-9 items-center rounded-pill border border-accent bg-accent-soft px-3 text-xs font-medium text-accent transition-colors hover:border-accent hover:text-accent-hover disabled:opacity-60"
+        >
+          {nativeState === 'sharing' ? 'در حال اشتراک…' : 'اشتراک‌گذاری…'}
+        </button>
+      ) : null}
       {links.map((link) => (
         <a
           key={link.label}

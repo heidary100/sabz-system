@@ -17,7 +17,7 @@ describe('ProductShare', () => {
   const shareText = [
     'ماوس گیمینگ پرووان مدل BOLT PMG55',
     'proone',
-    'قیمت: ۱٬۶۰۰٬۰۰۰ تومان',
+    'قیمت: ۱٬۶۰۰٬۰۰۰ ریال',
     canonicalUrl,
   ].join('\n');
 

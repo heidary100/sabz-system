@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { ProductCondition } from '@prisma/client';
@@ -17,7 +18,16 @@ const ADDRESSES_BASE = '/api/v1/addresses';
 /** DTO key pins — any shape change must update these lists. */
 const SHIPPING_METHOD_KEYS = ['code', 'enabled', 'etaFa', 'fee', 'titleFa'];
 const PAYMENT_METHOD_KEYS = ['code', 'descFa', 'enabled', 'titleFa'];
-const CHECKOUT_SUMMARY_KEYS = ['items', 'problems', 'shippingFee', 'subtotal', 'total', 'valid'];
+const CHECKOUT_SUMMARY_KEYS = [
+  'items',
+  'nationalId',
+  'noteMaxLength',
+  'problems',
+  'shippingFee',
+  'subtotal',
+  'total',
+  'valid',
+];
 const CHECKOUT_LINE_KEYS = [
   'available',
   'inStock',
@@ -44,8 +54,10 @@ const ORDER_LIST_ITEM_KEYS = [
 const ORDER_DETAIL_KEYS = [
   'addressSnapshot',
   'createdAt',
+  'customerNationalIdMasked',
   'id',
   'items',
+  'note',
   'orderNumber',
   'paymentMethod',
   'paymentStatus',
@@ -289,7 +301,7 @@ describe('Orders + Checkout API (SS-233) (e2e)', () => {
     await request(app.getHttpServer()).post(`${CHECKOUT_BASE}/validate`).send({}).expect(401);
     await request(app.getHttpServer())
       .post(`${ORDERS_BASE}/checkout`)
-      .send({ addressId: id, paymentMethod: 'COD', shippingMethod: 'STORE_PICKUP' })
+      .send({ addressId: id, paymentMethod: 'COD', shippingMethod: 'STORE_PICKUP', nationalId: '1234567891' })
       .expect(401);
     await request(app.getHttpServer()).get(ORDERS_BASE).expect(401);
     await request(app.getHttpServer()).get(`${ORDERS_BASE}/${id}`).expect(401);
@@ -364,7 +376,7 @@ describe('Orders + Checkout API (SS-233) (e2e)', () => {
         .expect(200);
       expect(
         methods.body.items.find((item: { code: string }) => item.code === 'TIPAX'),
-      ).toMatchObject({ fee: '250000', enabled: true });
+      ).toMatchObject({ fee: '300000', enabled: true });
 
       // Missing shippingMethod is a 400 (fail-fast: the fee must be explicit).
       await request(app.getHttpServer())
@@ -381,18 +393,18 @@ describe('Orders + Checkout API (SS-233) (e2e)', () => {
         .expect(200);
       expect(preview.body).toMatchObject({
         valid: true,
-        subtotal: '10000',
-        shippingFee: '250000',
-        total: '260000',
+        subtotal: '200000',
+        shippingFee: '300000',
+        total: '500000',
       });
 
       // Placement persists method + fee and creates the PENDING shipment.
       const placed = await request(app.getHttpServer())
         .post(`${ORDERS_BASE}/checkout`)
         .set('Authorization', `Bearer ${customer.token}`)
-        .send({ addressId, paymentMethod: 'COD', shippingMethod: 'TIPAX' })
+        .send({ addressId, paymentMethod: 'COD', shippingMethod: 'TIPAX', nationalId: '1234567891' })
         .expect(201);
-      expect(placed.body).toMatchObject({ status: 'PENDING', total: '260000' });
+      expect(placed.body).toMatchObject({ status: 'PENDING', total: '500000' });
 
       const detail = await request(app.getHttpServer())
         .get(`${ORDERS_BASE}/${placed.body.orderId}`)
@@ -401,8 +413,8 @@ describe('Orders + Checkout API (SS-233) (e2e)', () => {
       expect(Object.keys(detail.body).sort()).toEqual(ORDER_DETAIL_KEYS);
       expect(detail.body).toMatchObject({
         shippingMethod: 'TIPAX',
-        shippingFee: '250000',
-        total: '260000',
+        shippingFee: '300000',
+        total: '500000',
       });
       expect(Object.keys(detail.body.shipment).sort()).toEqual(SHIPMENT_KEYS);
       expect(detail.body.shipment).toMatchObject({
@@ -478,8 +490,109 @@ describe('Orders + Checkout API (SS-233) (e2e)', () => {
     await request(app.getHttpServer())
       .post(`${ORDERS_BASE}/checkout`)
       .set('Authorization', `Bearer ${customer.token}`)
-      .send({ addressId, paymentMethod: 'COD', shippingMethod: 'STORE_PICKUP' })
+      .send({ addressId, paymentMethod: 'COD', shippingMethod: 'STORE_PICKUP', nationalId: '1234567891' })
       .expect(201);
+  });
+
+  it('requires a valid national ID, persists the note and serves a PDF invoice', async () => {
+    const operator = await createUserWithToken();
+    await prisma.role.findUniqueOrThrow({ where: { name: 'OPERATOR' } }).then((role) =>
+      prisma.userRole.create({
+        data: { userId: operator.userId, roleId: role.id, assignedBy: operator.userId },
+      }),
+    );
+    const customer = await createUserWithToken();
+    const other = await createUserWithToken();
+    const { variantId } = await seedPublishedVariant(
+      operator.token,
+      `کد ملی ${uniqueSuffix()}`,
+      5,
+    );
+    const addressId = await createAddress(customer.token);
+    await request(app.getHttpServer())
+      .post(`${CART_BASE}/items`)
+      .set('Authorization', `Bearer ${customer.token}`)
+      .send({ variantId, quantity: 1 })
+      .expect(201);
+
+    const preview = await request(app.getHttpServer())
+      .post(`${CHECKOUT_BASE}/validate`)
+      .set('Authorization', `Bearer ${customer.token}`)
+      .send({ addressId })
+      .expect(200);
+    expect(preview.body.nationalId).toEqual({
+      required: true,
+      hasNationalId: false,
+      maskedNationalId: null,
+    });
+    expect(preview.body.noteMaxLength).toBe(1000);
+
+    // Without a profile value or a supplied value, placement is refused.
+    await request(app.getHttpServer())
+      .post(`${ORDERS_BASE}/checkout`)
+      .set('Authorization', `Bearer ${customer.token}`)
+      .send({ addressId, paymentMethod: 'COD', shippingMethod: 'STORE_PICKUP' })
+      .expect(422);
+
+    // A malformed national ID is refused with a Persian validation message.
+    await request(app.getHttpServer())
+      .post(`${ORDERS_BASE}/checkout`)
+      .set('Authorization', `Bearer ${customer.token}`)
+      .send({
+        addressId,
+        paymentMethod: 'COD',
+        shippingMethod: 'STORE_PICKUP',
+        nationalId: '12345',
+      })
+      .expect(422);
+
+    const note = '  لطفاً پیش از ارسال تماس بگیرید.  ';
+    const placed = await request(app.getHttpServer())
+      .post(`${ORDERS_BASE}/checkout`)
+      .set('Authorization', `Bearer ${customer.token}`)
+      .send({
+        addressId,
+        paymentMethod: 'COD',
+        shippingMethod: 'STORE_PICKUP',
+        nationalId: '1234567891',
+        note,
+      })
+      .expect(201);
+
+    const detail = await request(app.getHttpServer())
+      .get(`${ORDERS_BASE}/${placed.body.orderId}`)
+      .set('Authorization', `Bearer ${customer.token}`)
+      .expect(200);
+    expect(detail.body.note).toBe(note.trim());
+    expect(detail.body.customerNationalIdMasked).toBe('****7891');
+
+    // The profile is now ready for later checkouts without re-entry.
+    const later = await request(app.getHttpServer())
+      .post(`${CHECKOUT_BASE}/validate`)
+      .set('Authorization', `Bearer ${customer.token}`)
+      .send({ addressId })
+      .expect(200);
+    expect(later.body.nationalId).toEqual({
+      required: true,
+      hasNationalId: true,
+      maskedNationalId: '****7891',
+    });
+
+    // PDF download is owner-scoped and returns a real PDF stream.
+    await request(app.getHttpServer())
+      .get(`${ORDERS_BASE}/${placed.body.orderId}/invoice/pdf`)
+      .set('Authorization', `Bearer ${other.token}`)
+      .expect(404);
+
+    if (['/usr/bin/chromium', '/usr/bin/google-chrome'].some((path) => existsSync(path))) {
+      const pdf = await request(app.getHttpServer())
+        .get(`${ORDERS_BASE}/${placed.body.orderId}/invoice/pdf`)
+        .set('Authorization', `Bearer ${customer.token}`)
+        .expect(200)
+        .expect('Content-Type', /application\/pdf/);
+      expect(pdf.body.subarray(0, 5).toString('ascii')).toBe('%PDF-');
+      expect(pdf.headers['content-disposition']).toContain('attachment');
+    }
   });
 
   it('places, lists, details, invoices and cancels with pinned DTO keys', async () => {
@@ -512,9 +625,9 @@ describe('Orders + Checkout API (SS-233) (e2e)', () => {
     expect(Object.keys(preview.body).sort()).toEqual(CHECKOUT_SUMMARY_KEYS);
     expect(preview.body).toMatchObject({
       valid: true,
-      subtotal: '10000',
+      subtotal: '200000',
       shippingFee: '0',
-      total: '10000',
+      total: '200000',
       problems: [],
     });
     expect(Object.keys(preview.body.items[0]).sort()).toEqual(CHECKOUT_LINE_KEYS);
@@ -523,10 +636,10 @@ describe('Orders + Checkout API (SS-233) (e2e)', () => {
     const placed = await request(app.getHttpServer())
       .post(`${ORDERS_BASE}/checkout`)
       .set('Authorization', `Bearer ${customer.token}`)
-      .send({ addressId, paymentMethod: 'COD', shippingMethod: 'STORE_PICKUP' })
+      .send({ addressId, paymentMethod: 'COD', shippingMethod: 'STORE_PICKUP', nationalId: '1234567891' })
       .expect(201);
     expect(Object.keys(placed.body).sort()).toEqual(PLACE_ORDER_KEYS);
-    expect(placed.body).toMatchObject({ status: 'PENDING', total: '10000' });
+    expect(placed.body).toMatchObject({ status: 'PENDING', total: '200000' });
     expect(typeof placed.body.orderNumber).toBe('number');
     expect(placed.body.orderNumber).toBeGreaterThanOrEqual(100001);
 
@@ -552,7 +665,7 @@ describe('Orders + Checkout API (SS-233) (e2e)', () => {
       status: 'PENDING',
       statusFa: expect.any(String),
       itemCount: 1,
-      total: '10000',
+      total: '200000',
     });
 
     // Detail carries the address snapshot and frozen line.
@@ -571,8 +684,8 @@ describe('Orders + Checkout API (SS-233) (e2e)', () => {
     expect(detail.body.items[0]).toMatchObject({
       variantId,
       quantity: 2,
-      unitPrice: '5000',
-      lineTotal: '10000',
+      unitPrice: '100000',
+      lineTotal: '200000',
     });
 
     // Invoice adds the customer mobile for the print header.
@@ -591,7 +704,7 @@ describe('Orders + Checkout API (SS-233) (e2e)', () => {
     const second = await request(app.getHttpServer())
       .post(`${ORDERS_BASE}/checkout`)
       .set('Authorization', `Bearer ${customer.token}`)
-      .send({ addressId, paymentMethod: 'COD', shippingMethod: 'STORE_PICKUP' })
+      .send({ addressId, paymentMethod: 'COD', shippingMethod: 'STORE_PICKUP', nationalId: '1234567891' })
       .expect(201);
     expect(second.body.orderNumber).toBe(placed.body.orderNumber + 1);
 
@@ -648,7 +761,7 @@ describe('Orders + Checkout API (SS-233) (e2e)', () => {
     await request(app.getHttpServer())
       .post(`${ORDERS_BASE}/checkout`)
       .set('Authorization', `Bearer ${first.token}`)
-      .send({ addressId: firstAddress, paymentMethod: 'COD', shippingMethod: 'STORE_PICKUP' })
+      .send({ addressId: firstAddress, paymentMethod: 'COD', shippingMethod: 'STORE_PICKUP', nationalId: '1234567891' })
       .expect(201);
 
     // The loser previews the shortage, then fails with the available count.
@@ -658,7 +771,10 @@ describe('Orders + Checkout API (SS-233) (e2e)', () => {
       .send({})
       .expect(200);
     expect(preview.body.valid).toBe(false);
-    expect(preview.body.problems[0]).toMatchObject({
+    const stockProblem = preview.body.problems.find(
+      (problem: { code: string }) => problem.code === 'OUT_OF_STOCK',
+    );
+    expect(stockProblem).toMatchObject({
       variantId,
       code: 'OUT_OF_STOCK',
       available: 0,
@@ -670,7 +786,7 @@ describe('Orders + Checkout API (SS-233) (e2e)', () => {
     await request(app.getHttpServer())
       .post(`${ORDERS_BASE}/checkout`)
       .set('Authorization', `Bearer ${second.token}`)
-      .send({ addressId: secondAddress, paymentMethod: 'COD', shippingMethod: 'STORE_PICKUP' })
+      .send({ addressId: secondAddress, paymentMethod: 'COD', shippingMethod: 'STORE_PICKUP', nationalId: '1234567891' })
       .expect(409)
       .then((res) => expect(res.body.available).toBe(0));
   });
@@ -684,14 +800,14 @@ describe('Orders + Checkout API (SS-233) (e2e)', () => {
     await request(app.getHttpServer())
       .post(`${ORDERS_BASE}/checkout`)
       .set('Authorization', `Bearer ${other.token}`)
-      .send({ addressId: otherAddressId, paymentMethod: 'COD', shippingMethod: 'STORE_PICKUP' })
+      .send({ addressId: otherAddressId, paymentMethod: 'COD', shippingMethod: 'STORE_PICKUP', nationalId: '1234567891' })
       .expect(400);
 
     // Foreign address ids are non-disclosure 404s.
     await request(app.getHttpServer())
       .post(`${ORDERS_BASE}/checkout`)
       .set('Authorization', `Bearer ${other.token}`)
-      .send({ addressId, paymentMethod: 'COD', shippingMethod: 'STORE_PICKUP' })
+      .send({ addressId, paymentMethod: 'COD', shippingMethod: 'STORE_PICKUP', nationalId: '1234567891' })
       .expect(404);
 
     await request(app.getHttpServer())
@@ -731,7 +847,7 @@ describe('Orders + Checkout API (SS-233) (e2e)', () => {
     const placed = await request(app.getHttpServer())
       .post(`${ORDERS_BASE}/checkout`)
       .set('Authorization', `Bearer ${owner.token}`)
-      .send({ addressId, paymentMethod: 'COD', shippingMethod: 'STORE_PICKUP' })
+      .send({ addressId, paymentMethod: 'COD', shippingMethod: 'STORE_PICKUP', nationalId: '1234567891' })
       .expect(201);
 
     await request(app.getHttpServer())
@@ -787,7 +903,7 @@ describe('Orders + Checkout API (SS-233) (e2e)', () => {
       .set('Authorization', `Bearer ${customer.token}`)
       .send({ variantId, quantity: 2 })
       .expect(201)
-      .then((res) => expect(res.body.unitPrice).toBe('4000'));
+      .then((res) => expect(res.body.unitPrice).toBe('100000'));
 
     // Validate previews the resolved price with pinned keys.
     await request(app.getHttpServer())
@@ -798,19 +914,19 @@ describe('Orders + Checkout API (SS-233) (e2e)', () => {
       .then((res) => {
         expect(Object.keys(res.body).sort()).toEqual(CHECKOUT_SUMMARY_KEYS);
         expect(Object.keys(res.body.items[0]).sort()).toEqual(CHECKOUT_LINE_KEYS);
-        expect(res.body.items[0].unitPrice).toBe('4000');
-        expect(res.body.subtotal).toBe('8000');
-        expect(res.body.total).toBe('8000');
+        expect(res.body.items[0].unitPrice).toBe('100000');
+        expect(res.body.subtotal).toBe('200000');
+        expect(res.body.total).toBe('200000');
       });
 
     // The order freezes the same resolved unit (CART-004).
     const placed = await request(app.getHttpServer())
       .post(`${ORDERS_BASE}/checkout`)
       .set('Authorization', `Bearer ${customer.token}`)
-      .send({ addressId, paymentMethod: 'COD', shippingMethod: 'STORE_PICKUP' })
+      .send({ addressId, paymentMethod: 'COD', shippingMethod: 'STORE_PICKUP', nationalId: '1234567891' })
       .expect(201);
     expect(Object.keys(placed.body).sort()).toEqual(PLACE_ORDER_KEYS);
-    expect(placed.body.total).toBe('8000');
+    expect(placed.body.total).toBe('200000');
 
     await request(app.getHttpServer())
       .get(`${ORDERS_BASE}/${placed.body.orderId}`)
@@ -819,9 +935,9 @@ describe('Orders + Checkout API (SS-233) (e2e)', () => {
       .then((res) => {
         expect(Object.keys(res.body).sort()).toEqual(ORDER_DETAIL_KEYS);
         expect(Object.keys(res.body.items[0]).sort()).toEqual(ORDER_ITEM_KEYS);
-        expect(res.body.items[0].unitPrice).toBe('4000');
-        expect(res.body.items[0].lineTotal).toBe('8000');
-        expect(res.body.total).toBe('8000');
+        expect(res.body.items[0].unitPrice).toBe('100000');
+        expect(res.body.items[0].lineTotal).toBe('200000');
+        expect(res.body.total).toBe('200000');
       });
   });
 });

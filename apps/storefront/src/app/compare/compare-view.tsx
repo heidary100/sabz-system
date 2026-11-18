@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import type { CatalogProductDetailDto } from '@sabz/types';
+import type { CatalogCompareResponse, CatalogProductDetailDto } from '@sabz/types';
 import { CompareTable } from '@/components/ecommerce/compare/compare-table';
 import { useCompare } from '@/components/ecommerce/compare/compare-provider';
 import { buttonVariants } from '@/components/ecommerce/ui/button';
@@ -13,6 +13,7 @@ interface CompareViewProps {
   urlSlugs: string[];
   urlEntries: CompareEntry[];
   products: CatalogProductDetailDto[];
+  comparison: CatalogCompareResponse | null;
 }
 
 /**
@@ -25,7 +26,7 @@ interface CompareViewProps {
  * - Bare `/compare` with a stored list: replaces the URL so the server
  *   renders the table (shareable) without any client-side catalog fetching.
  */
-export function CompareView({ urlSlugs, urlEntries, products }: CompareViewProps) {
+export function CompareView({ urlSlugs, urlEntries, products, comparison }: CompareViewProps) {
   const router = useRouter();
   const { ready, entries, replace, clear } = useCompare();
   const [synced, setSynced] = useState(false);
@@ -129,7 +130,7 @@ export function CompareView({ urlSlugs, urlEntries, products }: CompareViewProps
         {products.length.toLocaleString('fa-IR')} محصول
       </p>
       <div className="mt-6">
-        <CompareTable products={products} />
+        <CompareTable products={products} comparison={comparison} />
       </div>
     </div>
   );

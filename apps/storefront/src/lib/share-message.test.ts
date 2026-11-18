@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildShareMessage,
+  buildSharePayload,
   shareTextWithoutUrl,
 } from './share-message';
 
@@ -24,7 +25,7 @@ describe('buildShareMessage', () => {
     expect(lines).toHaveLength(4);
     expect(lines[0]).toBe('ماوس گیمینگ پرووان مدل BOLT PMG55');
     expect(lines[1]).toBe('proone');
-    expect(lines[2]).toMatch(/^قیمت: .+ تومان$/);
+    expect(lines[2]).toMatch(/^قیمت: .+ ریال$/);
     expect(lines[3]).toBe(URL);
   });
 
@@ -36,7 +37,7 @@ describe('buildShareMessage', () => {
       variantCount: 4,
       url: URL,
     });
-    expect(message.split('\n')[2]).toMatch(/^قیمت: از .+ تومان$/);
+    expect(message.split('\n')[2]).toMatch(/^قیمت: از .+ ریال$/);
   });
 
   it('quotes تماس بگیرید for a call-for-price product — never a fabricated price', () => {
@@ -94,5 +95,43 @@ describe('shareTextWithoutUrl', () => {
 
   it('is a no-op when the message does not end with the URL', () => {
     expect(shareTextWithoutUrl('plain text', URL)).toBe('plain text');
+  });
+});
+
+
+describe('buildSharePayload (SS-900)', () => {
+  it('includes short description, brand, selected variant, image and prices', () => {
+    const payload = buildSharePayload({
+      title: 'لپ‌تاپ ایسوس',
+      shortDescription: 'مدل گیمینگ ۱۶ اینچی',
+      brandName: 'ایسوس',
+      variantName: 'Core i7 / 16GB',
+      imageUrl: 'https://shop.example/media/a.png',
+      priceFromRial: '7700000',
+      compareAtPriceRial: '8100000',
+      variantCount: 1,
+      url: URL,
+    });
+    expect(payload.imageUrl).toBe('https://shop.example/media/a.png');
+    expect(payload.shortDescription).toBe('مدل گیمینگ ۱۶ اینچی');
+    expect(payload.variantName).toBe('Core i7 / 16GB');
+    expect(payload.priceRial).toBe('7700000');
+    expect(payload.compareAtPriceRial).toBe('8100000');
+    expect(payload.text).toContain('مدل گیمینگ ۱۶ اینچی');
+    expect(payload.text).toContain('مدل: Core i7 / 16GB');
+    expect(payload.text).toContain('قیمت: ۷٬۷۰۰٬۰۰۰ ریال');
+    expect(payload.text).toContain('قیمت پیش از تخفیف: ۸٬۱۰۰٬۰۰۰ ریال');
+    expect(payload.text).not.toContain('description');
+  });
+
+  it('never includes an invalid discount after rounding', () => {
+    const message = buildShareMessage({
+      title: 'X',
+      priceFromRial: '7700000',
+      compareAtPriceRial: '7700000',
+      variantCount: 1,
+      url: URL,
+    });
+    expect(message).not.toContain('قیمت پیش از تخفیف');
   });
 });

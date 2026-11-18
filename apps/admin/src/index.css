@@ -679,3 +679,35 @@
   height: 0;
   pointer-events: none;
 }
+/* Jalali date picker (SS-900): keep the shared admin type/color language. */
+.rmdp-wrapper {
+  font-family: var(--font-sans);
+  background: var(--sabz-surface);
+  border: 1px solid var(--sabz-border);
+  box-shadow: 0 12px 32px rgb(31 40 33 / 0.16);
+}
+.rmdp-day.rmdp-selected span:not(.highlight) {
+  background: var(--sabz-primary) !important;
+  color: var(--sabz-on-primary) !important;
+}
+.rmdp-day.rmdp-today span {
+  color: var(--sabz-primary) !important;
+  font-weight: 700;
+}
+.rmdp-week-day {
+  color: var(--sabz-primary) !important;
+}
+.rmdp-day span:hover {
+  background: var(--sabz-primary-subtle);
+}
+.rmdp-header-values,
+.rmdp-week-day {
+  color: var(--sabz-foreground);
+}
+.rmdp-arrow {
+  border-color: var(--sabz-primary);
+}
+.rmdp-time-picker div input {
+  color: var(--sabz-foreground);
+  background: var(--sabz-surface-2);
+}

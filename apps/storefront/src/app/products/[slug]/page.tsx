@@ -22,7 +22,7 @@ import { ProductShare } from '@/components/ecommerce/product/product-share';
 import { CompareToggle } from '@/components/ecommerce/compare/compare-toggle';
 import { ProductReviews } from '@/components/ecommerce/product/product-reviews';
 import { absoluteUrl } from '@/lib/site-url';
-import { buildShareMessage } from '@/lib/share-message';
+import { buildSharePayload } from '@/lib/share-message';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -103,17 +103,30 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
   // (call-for-price when nothing is priced, «از …» only for a real spread),
   // built from BASE variant values only; tier personalization never reaches
   // a share (guest price responses pin tierApplied=false in e2e).
-  const pricedVariantPrices = product.variants
-    .filter((variant) => variant.priceStatus === 'PRICED')
-    .map((variant) => Number(variant.price));
-  const shareText = buildShareMessage({
+  const pricedVariants = product.variants.filter(
+    (variant) => variant.priceStatus === 'PRICED',
+  );
+  const selectedVariant =
+    product.variants.find((variant) => variant.id === initialVariantId) ?? null;
+  const selectedPriced =
+    selectedVariant?.priceStatus === 'PRICED' ? selectedVariant : null;
+  const sharePayload = buildSharePayload({
     title: product.name,
+    shortDescription: product.shortDescription,
     brandName: product.brand?.name ?? null,
-    priceFromRial:
-      pricedVariantPrices.length > 0
-        ? String(Math.min(...pricedVariantPrices))
+    variantName: selectedVariant?.name ?? null,
+    imageUrl: mediaImageUrl(
+      product.media.find((item) => item.mediaType === 'IMAGE')?.thumbnailUrl ??
+        product.media.find((item) => item.mediaType === 'IMAGE')?.url ??
+        null,
+    ),
+    priceFromRial: selectedPriced
+      ? selectedPriced.price
+      : pricedVariants.length > 0
+        ? String(Math.min(...pricedVariants.map((variant) => Number(variant.price))))
         : null,
-    variantCount: product.variants.length,
+    compareAtPriceRial: selectedPriced?.compareAtPrice ?? null,
+    variantCount: pricedVariants.length,
     url: canonicalUrl,
   });
   const jsonLdImages = product.media
@@ -231,7 +244,7 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
           </div>
 
           <div className="mt-4">
-            <ProductShare canonicalUrl={canonicalUrl} shareText={shareText} />
+            <ProductShare canonicalUrl={canonicalUrl} sharePayload={sharePayload} />
           </div>
 
           <div className="mt-4 flex items-center gap-3 rounded-card border border-border bg-surface px-4 py-3">

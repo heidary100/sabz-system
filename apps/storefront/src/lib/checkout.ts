@@ -196,13 +196,20 @@ export async function placeOrder(
   addressId: string,
   paymentMethod: PaymentMethod,
   shippingMethod: ShippingMethodCode,
+  extras: { note?: string; nationalId?: string } = {},
 ): Promise<PlaceOrderResult> {
   const response = await authedJson(
     '/orders/checkout',
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ addressId, paymentMethod, shippingMethod }),
+      body: JSON.stringify({
+        addressId,
+        paymentMethod,
+        shippingMethod,
+        ...(extras.note ? { note: extras.note } : {}),
+        ...(extras.nationalId ? { nationalId: extras.nationalId } : {}),
+      }),
     },
     PLACE_FAILED,
   );

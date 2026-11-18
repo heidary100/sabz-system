@@ -30,6 +30,7 @@ import { Loading } from '../components/ui/loading'
 import { ErrorState } from '../components/ui/error-state'
 import { TablePagination } from '../components/ui/table-pagination'
 import { TableCard } from '../components/ui/table-card'
+import { HorizontalScroll } from '../components/ui/horizontal-scroll'
 import { ReservationStatusBadge } from '../components/inventory/reservation-status-badge'
 import { ReleaseReservationDialog } from '../components/inventory/release-reservation-dialog'
 import { ConsumeReservationDialog } from '../components/inventory/consume-reservation-dialog'
@@ -252,7 +253,8 @@ export function InventoryReservationsPage() {
             disabled={loading}
             totalLabel="رزرو"
           />
-          <Table dense>
+          <HorizontalScroll>
+            <Table dense scrollContainer={false}>
             <TableHead>
               <TableRow>
                 <TableHeader>SKU</TableHeader>
@@ -348,7 +350,8 @@ export function InventoryReservationsPage() {
                 )
               })}
             </TableBody>
-          </Table>
+            </Table>
+          </HorizontalScroll>
 
           <TablePagination
             position="bottom"

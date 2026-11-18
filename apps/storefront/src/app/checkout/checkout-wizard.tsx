@@ -31,7 +31,12 @@ import {
   validateCheckout,
   type CheckoutStep,
 } from '@/lib/checkout';
-import { formatToman } from '@/lib/format';
+import { formatRial } from '@/lib/format';
+import {
+  NATIONAL_ID_MESSAGES,
+  normalizeNationalId,
+  validateNationalId,
+} from '@/lib/national-id';
 import { AddressPicker } from '@/components/ecommerce/checkout/address-picker';
 import { CheckoutSteps } from '@/components/ecommerce/checkout/checkout-steps';
 import { MethodRadio } from '@/components/ecommerce/checkout/method-radio';
@@ -66,6 +71,9 @@ export function CheckoutWizard({ stepParam }: { stepParam: unknown }) {
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [placing, setPlacing] = useState(false);
   const [placeError, setPlaceError] = useState<string | null>(null);
+  const [nationalIdInput, setNationalIdInput] = useState('');
+  const [nationalIdError, setNationalIdError] = useState<string | null>(null);
+  const [note, setNote] = useState('');
 
   useEffect(() => {
     if (!cartReady) {
@@ -227,14 +235,40 @@ export function CheckoutWizard({ stepParam }: { stepParam: unknown }) {
   const order = ['cart', 'address', 'shipping', 'payment', 'review'] as const;
   const visibleStep = order.indexOf(step) <= order.indexOf(reachable) ? step : reachable;
 
+  const nationalIdReady =
+    summary?.nationalId.hasNationalId === true ||
+    validateNationalId(nationalIdInput).status === 'valid';
+
   async function handlePlace(): Promise<void> {
     if (selectedAddressId === null || payment === null || shippingCode === null) {
+      return;
+    }
+    if (!nationalIdReady) {
+      const validation = validateNationalId(nationalIdInput);
+      setNationalIdError(
+        validation.status === 'empty'
+          ? 'برای ثبت سفارش، کد ملی الزامی است.'
+          : validation.status === 'invalid_format'
+            ? NATIONAL_ID_MESSAGES.invalidFormat
+            : validation.status === 'leading_zero'
+              ? NATIONAL_ID_MESSAGES.leadingZero
+              : validation.status === 'invalid_checksum'
+                ? NATIONAL_ID_MESSAGES.invalidChecksum
+                : NATIONAL_ID_MESSAGES.placeholder,
+      );
       return;
     }
     setPlacing(true);
     setPlaceError(null);
     try {
-      const result = await placeOrder(selectedAddressId, payment, shippingCode);
+      const normalizedNationalId =
+        summary?.nationalId.hasNationalId === true
+          ? undefined
+          : normalizeNationalId(nationalIdInput);
+      const result = await placeOrder(selectedAddressId, payment, shippingCode, {
+        ...(note.trim() ? { note: note.trim() } : {}),
+        ...(normalizedNationalId ? { nationalId: normalizedNationalId } : {}),
+      });
       await refresh();
       router.push(`/orders/${result.orderId}`);
     } catch (placeFailure) {
@@ -283,7 +317,7 @@ export function CheckoutWizard({ stepParam }: { stepParam: unknown }) {
                       ) : null}
                     </span>
                     <span className="shrink-0 font-semibold text-fg">
-                      {formatToman(item.lineTotal)}
+                      {formatRial(item.lineTotal)}
                     </span>
                   </li>
                 ))}
@@ -343,7 +377,7 @@ export function CheckoutWizard({ stepParam }: { stepParam: unknown }) {
                     code: method.code,
                     title: `${method.titleFa} — ${method.etaFa}`,
                     desc: isShippingEnabled(method)
-                      ? `هزینه ارسال: ${formatToman(method.fee)}`
+                      ? `هزینه ارسال: ${formatRial(method.fee)}`
                       : 'این شیوه ارسال در حال حاضر فعال نیست',
                     disabled: !isShippingEnabled(method),
                   }))}
@@ -406,7 +440,69 @@ export function CheckoutWizard({ stepParam }: { stepParam: unknown }) {
           {visibleStep === 'review' ? (
             <Card className="p-6">
               <SectionHeader id="checkout-review" title="بازبینی و ثبت" subtitle="موجودی و قیمت لحظه ثبت دوباره بررسی می‌شود" />
-              <div className="mt-4">
+              <div className="mt-4 space-y-4">
+                <div className="rounded-control border border-border bg-surface-2/40 p-3">
+                  <p className="text-sm font-semibold text-fg">اطلاعات خریدار</p>
+                  {summary?.nationalId.hasNationalId ? (
+                    <p className="mt-1 text-xs text-fg-secondary">
+                      کد ملی ثبت‌شده: <span dir="ltr" className="font-mono">{summary.nationalId.maskedNationalId}</span>
+                    </p>
+                  ) : (
+                    <div className="mt-2">
+                      <label htmlFor="checkout-national-id" className="text-xs font-medium text-fg-secondary">
+                        کد ملی (الزامی)
+                      </label>
+                      <input
+                        id="checkout-national-id"
+                        inputMode="numeric"
+                        dir="ltr"
+                        value={nationalIdInput}
+                        onChange={(event) => {
+                          setNationalIdInput(event.target.value);
+                          setNationalIdError(null);
+                        }}
+                        onBlur={() => {
+                          if (!nationalIdInput.trim()) return;
+                          const validation = validateNationalId(nationalIdInput);
+                          if (validation.status !== 'valid') {
+                            setNationalIdError(
+                              validation.status === 'invalid_format'
+                                ? NATIONAL_ID_MESSAGES.invalidFormat
+                                : validation.status === 'leading_zero'
+                                  ? NATIONAL_ID_MESSAGES.leadingZero
+                                  : validation.status === 'invalid_checksum'
+                                    ? NATIONAL_ID_MESSAGES.invalidChecksum
+                                    : NATIONAL_ID_MESSAGES.placeholder,
+                            );
+                          }
+                        }}
+                        maxLength={10}
+                        placeholder="۱۰ رقم"
+                        aria-invalid={nationalIdError !== null}
+                        className="mt-1 h-10 w-full rounded-control border-0 bg-surface px-3 text-sm text-fg ring-1 ring-inset ring-border-control focus-visible:ring-2 focus-visible:ring-focus"
+                      />
+                      <p className="mt-1 text-[11px] text-fg-muted">{NATIONAL_ID_MESSAGES.disclaimer}</p>
+                    </div>
+                  )}
+                  {nationalIdError && (
+                    <p role="alert" className="mt-1 text-xs text-danger">{nationalIdError}</p>
+                  )}
+                </div>
+                <div>
+                  <label htmlFor="checkout-note" className="text-sm font-semibold text-fg">
+                    یادداشت سفارش (اختیاری)
+                  </label>
+                  <textarea
+                    id="checkout-note"
+                    value={note}
+                    onChange={(event) => setNote(event.target.value)}
+                    maxLength={1000}
+                    rows={3}
+                    placeholder="مثلاً ساعت تحویل یا توضیح بسته‌بندی"
+                    className="mt-1 w-full resize-none rounded-control border-0 bg-surface-2 px-3 py-2 text-sm text-fg ring-1 ring-inset ring-border-control placeholder:text-fg-muted focus-visible:ring-2 focus-visible:ring-focus"
+                  />
+                  <p className="mt-1 text-[11px] text-fg-muted">{note.length} / ۱۰۰۰</p>
+                </div>
                 {summaryError !== null ? (
                   <p role="alert" className="rounded-control bg-danger-soft px-3 py-2 text-sm text-danger">
                     {summaryError}
@@ -433,7 +529,7 @@ export function CheckoutWizard({ stepParam }: { stepParam: unknown }) {
                   <Button
                     variant="primary"
                     size="lg"
-                    disabled={placing || summary === null || !summary.valid}
+                    disabled={placing || summary === null || !summary.valid || !nationalIdReady}
                     onClick={() => void handlePlace()}
                   >
                     {placing ? 'در حال ثبت سفارش…' : 'ثبت سفارش'}

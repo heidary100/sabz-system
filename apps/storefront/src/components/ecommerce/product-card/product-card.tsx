@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import type { CatalogProductCardDto } from '@sabz/types';
 import { mediaImageUrl } from '@/lib/catalog';
 import { conditionLabel, CONDITION_LABELS } from '@/lib/condition';
-import { formatCardPrice, formatToman, salePercentFrom } from '@/lib/format';
+import { formatCardPrice, formatRial, salePercentFrom } from '@/lib/format';
 import { Badge } from '@/components/ecommerce/ui/badge';
 import { CountdownTimer } from '@/components/ecommerce/ui/countdown-timer';
 import { Rating } from '@/components/ecommerce/ui/rating';
@@ -168,7 +168,7 @@ export function ProductCard({
             {product.compareAtPrice && salePercent !== null ? (
               <s className="mt-1 block text-[11px] font-normal leading-5 text-fg-muted decoration-1 [font-variant-numeric:tabular-nums]">
                 <span className="sr-only">قیمت پیشین </span>
-                {formatToman(product.compareAtPrice)}
+                {formatRial(product.compareAtPrice)}
               </s>
             ) : null}
             {product.promotionEndsAt !== null && !product.callForPrice ? (

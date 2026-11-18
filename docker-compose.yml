@@ -126,6 +126,27 @@ services:
       WATERMARK_THUMBNAIL_MIN_SIZE_PX: ${WATERMARK_THUMBNAIL_MIN_SIZE_PX:-64}
       WATERMARK_THUMBNAIL_MAX_SIZE_PX: ${WATERMARK_THUMBNAIL_MAX_SIZE_PX:-140}
       FFMPEG_PATH: ${FFMPEG_PATH:-ffmpeg}
+      # Local background removal (SS-900). The model is host-provisioned into
+      # the mounted apps/api tree; absence is a clear "unavailable" path, not
+      # a failed upload. See apps/api/scripts/provision-background-model.mjs.
+      BACKGROUND_REMOVAL_ENABLED: ${BACKGROUND_REMOVAL_ENABLED:-true}
+      BACKGROUND_REMOVAL_MODEL_PATH: ${BACKGROUND_REMOVAL_MODEL_PATH:-assets/models/u2net.onnx}
+      # Print-ready invoice PDF (SS-900). Chromium is installed in the API
+      # image; the path can be overridden for non-Compose deployments.
+      CHROME_PATH: ${CHROME_PATH:-/usr/bin/chromium}
+      PDF_CHROME_NO_SANDBOX: ${PDF_CHROME_NO_SANDBOX:-true}
+      INVOICE_FONT_PATH: ${INVOICE_FONT_PATH:-assets/watermark/fonts/Vazirmatn-Regular.ttf}
+      INVOICE_LOGO_PATH: ${INVOICE_LOGO_PATH:-assets/brand/logo.png}
+      COMPANY_LEGAL_NAME: ${COMPANY_LEGAL_NAME:-سبز سیستم}
+      COMPANY_ADDRESS: ${COMPANY_ADDRESS:-}
+      COMPANY_PHONE: ${COMPANY_PHONE:-}
+      COMPANY_WEBSITE: ${COMPANY_WEBSITE:-}
+      # Browser Web Push (SS-900). Empty keys keep push disabled while in-app
+      # realtime notifications remain available.
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@example.com}
+      PREVIEW_TOKEN_SECRET: ${PREVIEW_TOKEN_SECRET:-}
       # Storefront cache invalidation (SS-217). The shared token must match
       # the storefront's REVALIDATE_TOKEN; override both from the root .env
       # with a long random string outside local development.

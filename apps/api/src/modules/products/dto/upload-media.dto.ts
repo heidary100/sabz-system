@@ -51,6 +51,20 @@ export class UploadMediaDto {
 
   @ApiPropertyOptional({
     description:
+      'Local background removal on upload (SS-900). Defaults to true for images; pass false for images where the authored background is intentional.',
+    default: true,
+  })
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (value === 'true' || value === true) return true;
+    if (value === 'false' || value === false) return false;
+    return value;
+  })
+  @IsBoolean({ message: 'backgroundRemoval باید مقدار بولی باشد.' })
+  backgroundRemoval?: boolean;
+
+  @ApiPropertyOptional({
+    description:
       'Origin URL the bytes were fetched from (SS-204, bulk importers). Unique per product: re-uploading the same URL is rejected.',
   })
   @IsOptional()

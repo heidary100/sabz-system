@@ -9,7 +9,7 @@ import { CartQtyStepper } from '@/components/ecommerce/cart/cart-qty-stepper';
 import { Button, buttonVariants } from '@/components/ecommerce/ui/button';
 import { mediaImageUrl } from '@/lib/catalog';
 import { CART_MAX_QUANTITY } from '@/lib/cart';
-import { formatFaNumber, formatToman } from '@/lib/format';
+import { formatFaNumber, formatRial } from '@/lib/format';
 
 /**
  * Cart page island (SS-232): per-user, never cached. Guests see an honest
@@ -148,12 +148,12 @@ export function CartPageContent() {
             <div className="flex items-center justify-between gap-3 border-t border-border pt-3">
               <dt className="font-semibold text-fg">جمع سبد</dt>
               <dd aria-live="polite" className="text-lg font-bold text-accent-hover">
-                {formatToman(subtotal)}
+                {formatRial(subtotal)}
               </dd>
             </div>
           </dl>
           <p className="mt-3 text-xs leading-5 text-fg-muted">
-            قیمت‌ها به تومان و بر اساس آخرین قیمت فروشگاه محاسبه شده است.
+            قیمت‌ها به ریال و بر اساس آخرین قیمت فروشگاه محاسبه شده است.
           </p>
           <Link href="/checkout" className={`${buttonVariants({ variant: 'primary', size: 'lg' })} mt-4 w-full`}>
             ادامه و تسویه حساب
@@ -238,11 +238,11 @@ function CartLineRow({
           {item.variantName ? <span className="ms-2" dir="ltr">{item.variantSku}</span> : null}
         </p>
         <p className="mt-1 text-xs text-fg-muted">
-          قیمت واحد: {formatToman(item.unitPrice)}
+          قیمت واحد: {formatRial(item.unitPrice)}
         </p>
         {item.priceChanged ? (
           <p className="mt-1 text-xs font-medium text-warning">
-            قیمت این کالا نسبت به زمان افزودن تغییر کرده است (افزودن: {formatToman(item.unitPriceAtAdd)}).
+            قیمت این کالا نسبت به زمان افزودن تغییر کرده است (افزودن: {formatRial(item.unitPriceAtAdd)}).
           </p>
         ) : null}
         {!item.inStock ? (
@@ -259,7 +259,7 @@ function CartLineRow({
             onChange={handleQuantity}
           />
           <p aria-live="polite" className="text-base font-bold text-accent-hover">
-            {formatToman(item.lineTotal)}
+            {formatRial(item.lineTotal)}
           </p>
         </div>
         {error ? (

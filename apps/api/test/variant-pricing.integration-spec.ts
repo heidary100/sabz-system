@@ -4,6 +4,7 @@ import { AuditService } from '../src/modules/audit/audit.service';
 import { recomputeProductMinPrice } from '../src/modules/products/min-price';
 import { PublicCatalogService } from '../src/modules/products/public-catalog.service';
 import { PricingService } from '../src/modules/pricing/pricing.service';
+import { AttributesService } from '../src/modules/products/attributes.service';
 import { VariantsService } from '../src/modules/products/variants.service';
 
 import { StorefrontCacheService } from '../src/common/storefront-cache/storefront-cache.service';
@@ -94,7 +95,7 @@ describe('Variant pricing database integration (SS-201)', () => {
     await prisma.$connect();
     const audit = new AuditService(prisma);
     variants = new VariantsService(prisma, audit, new StorefrontCacheService(new ConfigService()));
-    catalog = new PublicCatalogService(prisma, new PricingService(prisma));
+    catalog = new PublicCatalogService(prisma, new PricingService(prisma), new AttributesService(prisma));
   });
 
   afterAll(async () => {
@@ -167,7 +168,7 @@ describe('Variant pricing database integration (SS-201)', () => {
     const slug = (
       await prisma.product.findUniqueOrThrow({ where: { id }, select: { slug: true } })
     ).slug;
-    await addVariant(id, { price: '200.00', compareAtPrice: '250.00' });
+    await addVariant(id, { price: '2000000.00', compareAtPrice: '2500000.00' });
     await addVariant(id, {
       price: '0',
       priceStatus: PriceStatus.CALL_FOR_PRICE,
@@ -176,7 +177,7 @@ describe('Variant pricing database integration (SS-201)', () => {
     const page = await catalog.listProducts({ page: 1, limit: 50 });
     const card = page.items.find((item) => item.slug === slug);
     expect(card).toBeDefined();
-    expect(card!.priceFrom).toBe('200');
+    expect(card!.priceFrom).toBe('2000000');
     expect(card!.callForPrice).toBe(false);
     expect(card!.variantCount).toBe(2);
   });
@@ -202,11 +203,11 @@ describe('Variant pricing database integration (SS-201)', () => {
     const slug = (
       await prisma.product.findUniqueOrThrow({ where: { id }, select: { slug: true } })
     ).slug;
-    await addVariant(id, { price: '1500.00', compareAtPrice: '1800.00' });
+    await addVariant(id, { price: '1500000.00', compareAtPrice: '1800000.00' });
 
     const detail = await catalog.getProductBySlug(slug);
     expect(detail.variants).toHaveLength(1);
-    expect(detail.variants[0]!.compareAtPrice).toBe('1800');
+    expect(detail.variants[0]!.compareAtPrice).toBe('1800000');
     expect(detail.variants[0]!.priceStatus).toBe(PriceStatus.PRICED);
   });
 

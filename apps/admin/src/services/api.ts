@@ -20,6 +20,11 @@ export function setAccessToken(token: string | null): void {
   accessToken = token
 }
 
+/** Read access for the authenticated WebSocket handshake (never logged). */
+export function getAccessToken(): string | null {
+  return accessToken
+}
+
 export function onAuthStateChange(listener: AuthStateListener): () => void {
   authStateListeners.add(listener)
   return () => {

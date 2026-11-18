@@ -15,7 +15,7 @@ import { Button } from '../components/catalyst/button'
 import { Field, Label } from '../components/catalyst/fieldset'
 import { RouteHelpSection } from '../components/ui/page-help'
 import { Heading } from '../components/catalyst/heading'
-import { Input } from '../components/catalyst/input'
+import { JalaliDateTimeInput } from '../components/ui/jalali-datetime-input'
 import { Select } from '../components/catalyst/select'
 import {
   Table,
@@ -30,21 +30,8 @@ import { Loading } from '../components/ui/loading'
 import { ErrorState } from '../components/ui/error-state'
 import { TablePagination } from '../components/ui/table-pagination'
 import { TableCard } from '../components/ui/table-card'
+import { HorizontalScroll } from '../components/ui/horizontal-scroll'
 import { InventoryMovementTypeBadge } from '../components/inventory/inventory-movement-type-badge'
-
-function toIsoStartOfDay(date: string): string | undefined {
-  if (!date) {
-    return undefined
-  }
-  return new Date(`${date}T00:00:00`).toISOString()
-}
-
-function toIsoEndOfDay(date: string): string | undefined {
-  if (!date) {
-    return undefined
-  }
-  return new Date(`${date}T23:59:59.999`).toISOString()
-}
 
 export function InventoryMovementsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -79,7 +66,10 @@ export function InventoryMovementsPage() {
   const [fromInput, setFromInput] = useState(from)
   const [toInput, setToInput] = useState(to)
 
-  const invalidDateRange = fromInput !== '' && toInput !== '' && fromInput > toInput
+  const invalidDateRange =
+    fromInput !== '' &&
+    toInput !== '' &&
+    new Date(fromInput).getTime() > new Date(toInput).getTime()
   const hasActiveFilter =
     type !== '' || warehouseId !== '' || variantId !== '' || from !== '' || to !== ''
 
@@ -89,8 +79,8 @@ export function InventoryMovementsPage() {
     }
     setType(typeInput)
     setWarehouseId(warehouseInput)
-    setFrom(toIsoStartOfDay(fromInput) ?? '')
-    setTo(toIsoEndOfDay(toInput) ?? '')
+    setFrom(fromInput)
+    setTo(toInput)
   }
 
   const resetFilters = (): void => {
@@ -163,21 +153,23 @@ export function InventoryMovementsPage() {
           </Select>
         </Field>
         <Field>
-          <Label>از تاریخ</Label>
-          <Input
-            name="from"
-            type="date"
-            value={fromInput}
-            onChange={(event) => setFromInput(event.target.value)}
+          <Label htmlFor="movement-from">از تاریخ و ساعت</Label>
+          <JalaliDateTimeInput
+            id="movement-from"
+            value={fromInput || null}
+            onChange={(iso) => setFromInput(iso ?? '')}
+            withTime
+            ariaLabel="از تاریخ و ساعت"
           />
         </Field>
         <Field>
-          <Label>تا تاریخ</Label>
-          <Input
-            name="to"
-            type="date"
-            value={toInput}
-            onChange={(event) => setToInput(event.target.value)}
+          <Label htmlFor="movement-to">تا تاریخ و ساعت</Label>
+          <JalaliDateTimeInput
+            id="movement-to"
+            value={toInput || null}
+            onChange={(iso) => setToInput(iso ?? '')}
+            withTime
+            ariaLabel="تا تاریخ و ساعت"
           />
         </Field>
       </div>
@@ -242,7 +234,8 @@ export function InventoryMovementsPage() {
             disabled={loading}
             totalLabel="گردش"
           />
-          <Table dense>
+          <HorizontalScroll>
+            <Table dense scrollContainer={false}>
             <TableHead>
               <TableRow>
                 <TableHeader>تاریخ و ساعت</TableHeader>
@@ -297,7 +290,8 @@ export function InventoryMovementsPage() {
                 </TableRow>
               ))}
             </TableBody>
-          </Table>
+            </Table>
+          </HorizontalScroll>
 
           <TablePagination
             position="bottom"

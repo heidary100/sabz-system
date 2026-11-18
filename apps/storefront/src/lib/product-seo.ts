@@ -3,7 +3,7 @@ import type {
   CatalogProductMediaDto,
   CatalogProductVariantDto,
 } from '@sabz/types';
-import { rialToTomanString } from './currency';
+import { rialMachineValue } from './currency';
 import { seoDescriptionFromHtml } from './seo';
 
 /**
@@ -40,10 +40,10 @@ function offerOf(
 ): Record<string, unknown> {
   return {
     '@type': 'Offer',
-    priceCurrency: 'IRT',
-    // Toman (IRT) presentation price — the same value the customer sees
-    // (SS-222); the API's Rial value is never emitted raw.
-    price: rialToTomanString(variant.price),
+    priceCurrency: 'IRR',
+    // SS-900: the API value is customer-facing Rial, rounded server-side and
+    // emitted unchanged so machine and visible prices always agree.
+    price: rialMachineValue(variant.price),
     availability: variant.inStock
       ? 'https://schema.org/InStock'
       : 'https://schema.org/OutOfStock',
@@ -81,11 +81,11 @@ export function buildProductJsonLd({
       priceCurrency: 'IRT',
       offerCount: priced.length,
       // Toman bounds (SS-222) — min/max order is invariant under ÷10.
-      lowPrice: rialToTomanString(
+      lowPrice: rialMachineValue(
         priced.reduce((min, v) => (Number(v.price) < Number(min.price) ? v : min))
           .price,
       ),
-      highPrice: rialToTomanString(
+      highPrice: rialMachineValue(
         priced.reduce((max, v) => (Number(v.price) > Number(max.price) ? v : max))
           .price,
       ),

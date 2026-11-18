@@ -181,8 +181,10 @@ describe('MediaService (SS-105)', () => {
       expect(processing.process).toHaveBeenCalledTimes(1);
       expect(processing.process.mock.calls[0][0]).toBe(file.path);
       expect(processing.process.mock.calls[0][1]).toBe('image/jpeg');
-      expect(storage.putFile).toHaveBeenCalledTimes(1);
-      const [key, source] = storage.putFile.mock.calls[0] as [string, string];
+      expect(storage.putFile).toHaveBeenCalledTimes(2);
+      const [originalKey] = storage.putFile.mock.calls[0] as [string, string];
+      expect(originalKey).toMatch(new RegExp(`^products/${productId}/[0-9a-f-]{36}\\.original\\.jpg$`));
+      const [key, source] = storage.putFile.mock.calls[1] as [string, string];
       expect(key).toMatch(new RegExp(`^products/${productId}/[0-9a-f-]{36}\\.jpg$`));
       expect(source).toBe(processedPath);
       // sizeBytes reflects the processed asset, not the upload
@@ -317,8 +319,8 @@ describe('MediaService (SS-105)', () => {
       await expect(
         service.upload(productId, file, {}, actorId),
       ).rejects.toThrow('db failure');
-      expect(storage.putFile).toHaveBeenCalledTimes(1);
-      expect(storage.delete).toHaveBeenCalledTimes(1);
+      expect(storage.putFile).toHaveBeenCalledTimes(2);
+      expect(storage.delete).toHaveBeenCalledTimes(2);
     });
 
     it('cleans up temp files (input and processed output) after upload', async () => {

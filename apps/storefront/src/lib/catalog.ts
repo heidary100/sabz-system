@@ -3,6 +3,8 @@ import type {
   CatalogBrandDto,
   CatalogCategoryCoverDto,
   CatalogCategoryNode,
+  CatalogCompareResponse,
+  CatalogFacetsResponse,
   CatalogListQuery,
   CatalogProductCardDto,
   CatalogProductDetailDto,
@@ -13,7 +15,7 @@ import {
   resolveBrowserMediaUrl,
   resolveOptimizerMediaUrl,
 } from '@/lib/api-url';
-import { tomanToRialString } from '@/lib/currency';
+import { rialBound } from '@/lib/currency';
 import {
   CATALOG_BRANDS_TAG,
   CATALOG_PRODUCTS_TAG,
@@ -91,11 +93,11 @@ function toQueryString(query: CatalogListQuery): string {
   if (query.category) params.set('category', query.category);
   if (query.brand) params.set('brand', query.brand);
   if (query.condition) params.set('condition', query.condition);
-  // URL bounds are Toman (user-facing, shareable); the API persists Rial —
-  // convert at this single boundary (SS-222) so filter semantics match the
-  // ÷10 presentation layer.
-  if (query.priceFrom) params.set('priceFrom', tomanToRialString(query.priceFrom));
-  if (query.priceTo) params.set('priceTo', tomanToRialString(query.priceTo));
+  // SS-900: URL bounds and API bounds are both Rial. No conversion happens
+  // in the storefront; the server owns validation and rounding.
+  if (query.priceFrom) params.set('priceFrom', rialBound(query.priceFrom));
+  if (query.priceTo) params.set('priceTo', rialBound(query.priceTo));
+  if (query.attrs) params.set('attrs', query.attrs);
   if (query.inStockOnly) params.set('inStockOnly', 'true');
   if (query.rating) params.set('rating', query.rating);
   if (query.sort) params.set('sort', query.sort);
@@ -224,3 +226,35 @@ export const fetchProductBySlug = cache(async (
     throw error;
   }
 });
+
+
+/** Category-aware attribute/brand facets (SS-900). */
+export const fetchFacets = cache(
+  async (category: string): Promise<CatalogFacetsResponse> => {
+    try {
+      return await request<CatalogFacetsResponse>(
+        `/catalog/facets?category=${encodeURIComponent(category)}`,
+        cachedFetchInit({ revalidate: REVALIDATE.products, tags: [CATALOG_PRODUCTS_TAG] }),
+      );
+    } catch {
+      return { categorySlug: category, attributes: [], brands: [] };
+    }
+  },
+);
+
+/** Real API comparison projection (SS-900); stale slugs are ignored. */
+export const fetchComparison = cache(
+  async (slugs: string[]): Promise<CatalogCompareResponse | null> => {
+    if (slugs.length === 0) {
+      return null;
+    }
+    try {
+      return await request<CatalogCompareResponse>(
+        `/catalog/products/compare?slugs=${encodeURIComponent(slugs.join(','))}`,
+        cachedFetchInit({ revalidate: REVALIDATE.products, tags: [CATALOG_PRODUCTS_TAG] }),
+      );
+    } catch {
+      return null;
+    }
+  },
+);

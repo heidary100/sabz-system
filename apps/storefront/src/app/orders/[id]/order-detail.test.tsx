@@ -63,6 +63,8 @@ const ORDER: OrderDetailDto = {
   shippingMethod: 'TIPAX',
   shippingFee: '250000',
   total: '1250000',
+  note: null,
+  customerNationalIdMasked: null,
   shipment: {
     id: 'shipment-1',
     orderId: 'order-1',

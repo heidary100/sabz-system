@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PartnerApprovalStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/database/prisma.service';
+import { roundRialUp } from '../../common/money/rial';
 
 /**
  * Quantity thresholds for automatic bulk discounts (SS-235 Round A,
@@ -296,7 +297,10 @@ export class PricingService {
     if (price.isNegative()) {
       return new Prisma.Decimal(0);
     }
-    return price.toDecimalPlaces(0);
+    // SS-900: the single customer-facing Rial rounding point. Cart, checkout
+    // and order snapshots all call this resolver, so the displayed and
+    // charged amounts cannot diverge.
+    return roundRialUp(price.toDecimalPlaces(0));
   }
 }
 

@@ -63,6 +63,11 @@ function clearStoredToken(): void {
   window.localStorage.removeItem(ACCESS_TOKEN_KEY);
 }
 
+/** Read access for the authenticated WebSocket handshake (never logged). */
+export function getAccessToken(): string | null {
+  return getStoredToken();
+}
+
 /** True when an access token is stored (client only). */
 export function hasSession(): boolean {
   return getStoredToken() !== null;

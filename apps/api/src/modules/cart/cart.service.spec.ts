@@ -120,7 +120,7 @@ describe('CartService', () => {
       const result = await service.list(USER_ID);
 
       expect(result.totalQuantity).toBe(2);
-      expect(result.subtotal).toBe('10000');
+      expect(result.subtotal).toBe('200000');
       expect(result.items).toHaveLength(1);
       expect(result.items[0]).toMatchObject({
         variantId: VARIANT_ID,
@@ -130,10 +130,10 @@ describe('CartService', () => {
         variantSku: 'SKU-1',
         variantName: 'مدل مشکی',
         quantity: 2,
-        unitPrice: '5000',
+        unitPrice: '100000',
         unitPriceAtAdd: '5000',
-        lineTotal: '10000',
-        priceChanged: false,
+        lineTotal: '200000',
+        priceChanged: true,
         priceStatus: 'PRICED',
         available: 8,
         inStock: true,
@@ -151,12 +151,12 @@ describe('CartService', () => {
       const result = await service.list(USER_ID);
 
       expect(result.items[0]).toMatchObject({
-        unitPrice: '6000',
+        unitPrice: '100000',
         unitPriceAtAdd: '5000',
-        lineTotal: '12000',
+        lineTotal: '200000',
         priceChanged: true,
       });
-      expect(result.subtotal).toBe('12000');
+      expect(result.subtotal).toBe('200000');
     });
 
     it('skips lines whose variant or product is no longer visible', async () => {
@@ -200,7 +200,7 @@ describe('CartService', () => {
           cartId: CART_ID,
           variantId: VARIANT_ID,
           quantity: 2,
-          unitPriceAtAdd: new Prisma.Decimal('5000'),
+          unitPriceAtAdd: new Prisma.Decimal('100000'),
         },
       });
       expect(result.item.quantity).toBe(2);
@@ -323,7 +323,7 @@ describe('CartService', () => {
           cartId: CART_ID,
           variantId: 'v-live',
           quantity: 2,
-          unitPriceAtAdd: new Prisma.Decimal('5000'),
+          unitPriceAtAdd: new Prisma.Decimal('100000'),
         },
       });
       expect(result.item.variantId).toBe('v-live');

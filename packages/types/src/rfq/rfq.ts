@@ -41,6 +41,9 @@ export interface AcceptRfqInput {
   paymentMethod: 'ONLINE' | 'COD';
   /** Shipping method code (SS-241): fee resolves server-side. */
   shippingMethod: import('../orders/orders').ShippingMethodCode;
+  /** Required by the API when the profile has no personal national ID. */
+  nationalId?: string;
+  note?: string;
 }
 
 export interface RfqDto {

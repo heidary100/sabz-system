@@ -102,11 +102,19 @@ export interface CheckoutLineDto {
 export interface CheckoutSummaryDto {
   valid: boolean;
   items: CheckoutLineDto[];
-  /** Rial (Decimal string), server-computed. */
+  /** Rial (Decimal string), server-computed and rounded for payment. */
   subtotal: string;
   shippingFee: string;
   total: string;
   problems: CheckoutProblemDto[];
+  /** Checkout identity requirement (SS-900). Full value is never returned. */
+  nationalId: {
+    required: true;
+    hasNationalId: boolean;
+    maskedNationalId: string | null;
+  };
+  /** Customer note draft is accepted at placement, not here. */
+  noteMaxLength: number;
 }
 
 export interface PlaceOrderInput {
@@ -114,6 +122,16 @@ export interface PlaceOrderInput {
   paymentMethod: PaymentMethod;
   /** Shipping method code (SS-241): fee resolves server-side. */
   shippingMethod: ShippingMethodCode;
+  /** Optional plain-text order note (SS-900), max 1000 chars. */
+  note?: string;
+  /**
+   * Personal national ID (کد ملی) supplied at checkout. Required when the
+   * profile has none; validated server-side (10 digits + checksum) and never
+   * logged. The API stores a snapshot and updates the profile.
+   */
+  nationalId?: string;
+  /** Optional online provider selection; credentials stay server-side. */
+  paymentProvider?: 'SNAPPAY' | 'DIGIPAY';
 }
 
 export interface PlaceOrderResult {
@@ -176,6 +194,10 @@ export interface OrderDetailDto {
   shipment: import('../shipping/shipping').ShipmentDto | null;
   addressSnapshot: OrderAddressSnapshot;
   items: OrderItemDto[];
+  /** Customer order note (plain text); null when none submitted. */
+  note: string | null;
+  /** Masked national ID snapshot for display; the full value is ADMIN-only. */
+  customerNationalIdMasked: string | null;
   createdAt: string;
 }
 
@@ -223,6 +245,8 @@ export interface InvoiceDto {
   total: string;
   addressSnapshot: OrderAddressSnapshot;
   items: OrderItemDto[];
+  note: string | null;
+  customerNationalIdMasked: string | null;
   createdAt: string;
   customerMobile: string;
 }

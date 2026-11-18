@@ -1,7 +1,12 @@
 import type {
+  MarkAllNotificationsReadResponse,
   NotificationDto,
   NotificationListResponse,
+  NotificationPreferenceDto,
+  PushConfigResponse,
+  PushSubscriptionInput,
   UnreadCountResponse,
+  UpdateNotificationPreferenceInput,
 } from '@sabz/types'
 import { request } from './api'
 
@@ -41,5 +46,49 @@ export function markNotificationRead(
 ): Promise<NotificationDto> {
   return request<NotificationDto>(`/notifications/${notificationId}/read`, {
     method: 'PATCH',
+  })
+}
+
+export function markAllNotificationsRead(): Promise<MarkAllNotificationsReadResponse> {
+  return request<MarkAllNotificationsReadResponse>('/notifications/read-all', {
+    method: 'POST',
+  })
+}
+
+export function notificationPreferences(): Promise<NotificationPreferenceDto> {
+  return request<NotificationPreferenceDto>('/notifications/preferences')
+}
+
+export function updateNotificationPreferences(
+  input: UpdateNotificationPreferenceInput,
+): Promise<NotificationPreferenceDto> {
+  return request<NotificationPreferenceDto>('/notifications/preferences', {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+    headers: { 'Content-Type': 'application/json' },
+  })
+}
+
+export function pushConfig(): Promise<PushConfigResponse> {
+  return request<PushConfigResponse>('/notifications/push/config')
+}
+
+export function subscribePush(
+  input: PushSubscriptionInput,
+): Promise<{ subscribed: true }> {
+  return request<{ subscribed: true }>('/notifications/push/subscribe', {
+    method: 'POST',
+    body: JSON.stringify(input),
+    headers: { 'Content-Type': 'application/json' },
+  })
+}
+
+export function unsubscribePush(
+  endpoint: string,
+): Promise<{ removed: number }> {
+  return request<{ removed: number }>('/notifications/push/subscribe', {
+    method: 'DELETE',
+    body: JSON.stringify({ endpoint }),
+    headers: { 'Content-Type': 'application/json' },
   })
 }

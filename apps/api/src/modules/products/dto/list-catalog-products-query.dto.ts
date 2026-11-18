@@ -162,4 +162,15 @@ export class ListCatalogProductsQueryDto {
   @IsOptional()
   @IsIn(CATALOG_RATING_BUCKETS, { message: 'rating باید یکی از ۱ تا ۵ باشد.' })
   rating?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'JSON attribute filters keyed by attribute slug (SS-900). Select values are option slugs (string or string[]); numeric values use {min,max}; booleans use true/false. Only filterable attributes assigned to the selected category are accepted.',
+    example: '{"ram":["8gb","16gb"],"screen-size":{"min":6,"max":7}}',
+  })
+  @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsString({ message: 'attrs باید رشته JSON باشد.' })
+  @MaxLength(4000, { message: 'فیلتر ویژگی‌ها بیش از حد بزرگ است.' })
+  attrs?: string;
 }

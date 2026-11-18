@@ -12,6 +12,7 @@ import { PrismaService } from '../src/common/database/prisma.service';
 import { recomputeProductMinPrice } from '../src/modules/products/min-price';
 import { PublicCatalogService } from '../src/modules/products/public-catalog.service';
 import { PricingService } from '../src/modules/pricing/pricing.service';
+import { AttributesService } from '../src/modules/products/attributes.service';
 
 jest.setTimeout(60_000);
 
@@ -132,7 +133,7 @@ describe('Catalog search (SS-216)', () => {
   beforeAll(async () => {
     prisma = new PrismaService();
     await prisma.$connect();
-    catalog = new PublicCatalogService(prisma, new PricingService(prisma));
+    catalog = new PublicCatalogService(prisma, new PricingService(prisma), new AttributesService(prisma));
   });
 
   afterAll(async () => {

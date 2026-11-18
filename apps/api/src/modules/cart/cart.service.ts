@@ -13,6 +13,7 @@ import type {
   RemoveCartItemResponse,
 } from '@sabz/types';
 import { PrismaService } from '../../common/database/prisma.service';
+import { roundRialUp } from '../../common/money/rial';
 import {
   activeInventoryWhere,
   deriveAvailable,
@@ -121,7 +122,7 @@ export class CartService {
           cartId: cart.id,
           variantId,
           quantity,
-          unitPriceAtAdd: variant.price,
+          unitPriceAtAdd: roundRialUp(variant.price),
         },
       });
       return { item: await this.hydrateSingle(cart.id, variantId, userId), created: true };

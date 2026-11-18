@@ -10,7 +10,13 @@ export default defineConfig({
     // "does not provide an export named 'ApiError'", rendering a blank page.
     // @sabz/types also exposes runtime constants from CJS re-exports, so the
     // same interop issue would otherwise affect merchandising labels/limits.
-    include: ['@sabz/api-client', '@sabz/types'],
+    include: [
+      '@sabz/api-client',
+      '@sabz/types',
+      'react-multi-date-picker',
+      'react-date-object',
+      'react-multi-date-picker/plugins/time_picker',
+    ],
   },
   server: {
     proxy: {
@@ -20,6 +26,13 @@ export default defineConfig({
         // container and fail.
         target: process.env.API_PROXY_TARGET ?? 'http://localhost:3000',
         changeOrigin: true,
+      },
+      // Authenticated realtime gateway (SS-900). Socket.IO handshakes at
+      // /socket.io; the namespace (/ws) travels in the connect packet.
+      '/socket.io': {
+        target: process.env.API_PROXY_TARGET ?? 'http://localhost:3000',
+        changeOrigin: true,
+        ws: true,
       },
     },
   },

@@ -15,6 +15,11 @@ describe('NotificationsController (SS-243)', () => {
     service = { list: jest.fn(), unreadCount: jest.fn(), markRead: jest.fn() };
     controller = new NotificationsController(
       service as unknown as NotificationService,
+      {
+        config: () => ({ enabled: false, publicKey: null }),
+        subscribe: jest.fn(),
+        unsubscribe: jest.fn(),
+      } as unknown as import('./push.service').PushService,
     );
   });
 

@@ -1,15 +1,25 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import {
   NOTIFICATION_TYPE_FA,
+  type MarkAllNotificationsReadResponse,
   type NotificationDto,
   type NotificationListResponse,
+  type NotificationPreferenceDto,
   type NotificationType,
   type UnreadCountResponse,
+  type UpdateNotificationPreferenceInput,
 } from '@sabz/types';
 import { PrismaService } from '../../common/database/prisma.service';
+import { RealtimeService } from '../realtime/realtime.service';
 import { ListNotificationsQueryDto } from './dto';
+import { PushService } from './push.service';
 
 export interface NotifyInput {
   type: NotificationType;
@@ -17,6 +27,8 @@ export interface NotifyInput {
   body: string;
   entity?: string;
   entityId?: string;
+  priority?: 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
+  category?: string;
 }
 
 const DEFAULT_PAGE = 1;
@@ -25,16 +37,20 @@ const DEFAULT_LIMIT = 20;
 type NotificationRow = Prisma.NotificationGetPayload<Record<string, never>>;
 
 /**
- * In-app notification center (SS-243, master plan §6 Stage 3).
+ * In-app notification center (SS-243, extended SS-900).
  *
- * Emits are best-effort by contract: `notify`/`notifyOperators` never
- * reject, so business services stay one-line `await` calls with zero
- * status-logic coupling — a notification failure degrades to a warn log
- * and never breaks checkout/partner/return/RFQ mutations.
+ * Emits are best-effort by contract: `notify`/`notifyOperators` never reject,
+ * so business services stay one-line `await` calls with zero status-logic
+ * coupling — a notification failure degrades to a warn log and never breaks
+ * checkout/partner/return/RFQ mutations.
  *
- * SMS delivery is a log-only stub (no provider credentials in repo):
- * `NOTIFICATIONS_SMS_ENABLED=true` only enables the log line; the future
- * provider ticket replaces `sendSmsStub` without touching emitters.
+ * The database is the source of truth. After a successful row write the
+ * service pushes an authenticated WebSocket event to the recipient's room
+ * (and role rooms for operator alerts) and, when VAPID is configured, a
+ * browser push. Both extras are failure-isolated.
+ *
+ * SMS delivery remains a provider-neutral stub; no vendor has been selected
+ * and `NOTIFICATIONS_SMS_ENABLED=true` only enables a log line.
  */
 @Injectable()
 export class NotificationService {
@@ -43,6 +59,8 @@ export class NotificationService {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly realtime: RealtimeService,
+    private readonly push: PushService,
     configService: ConfigService,
   ) {
     this.smsEnabled =
@@ -52,7 +70,7 @@ export class NotificationService {
   /** Best-effort single-recipient emit. Never rejects. */
   async notify(userId: string, input: NotifyInput): Promise<void> {
     try {
-      await this.prisma.notification.create({
+      const row = await this.prisma.notification.create({
         data: {
           userId,
           type: input.type,
@@ -60,9 +78,17 @@ export class NotificationService {
           body: input.body,
           entity: input.entity ?? null,
           entityId: input.entityId ?? null,
+          priority: input.priority ?? 'NORMAL',
+          category: input.category ?? null,
         },
-        select: { id: true },
       });
+      const notification = this.toDto(row);
+      const unread = await this.countUnread(userId);
+      this.realtime.emitToUser(userId, 'notification:new', {
+        notification,
+        unread,
+      });
+      void this.push.sendToUser(userId, notification);
       await this.maybeSms(userId, input);
     } catch (error) {
       this.logger.warn(
@@ -81,23 +107,20 @@ export class NotificationService {
       const operators = await this.prisma.user.findMany({
         where: {
           deletedAt: null,
+          status: 'ACTIVE',
           roles: { some: { role: { name: { in: ['OPERATOR', 'ADMIN'] } } } },
         },
         select: { id: true },
       });
-      if (operators.length === 0) {
-        return;
+      for (const operator of operators) {
+        // Reuse the single-recipient path so unread counts, bridge delivery
+        // and push have exactly one implementation.
+        await this.notify(operator.id, {
+          ...input,
+          priority: input.priority ?? 'HIGH',
+          category: input.category ?? 'OPERATIONS',
+        });
       }
-      await this.prisma.notification.createMany({
-        data: operators.map((operator) => ({
-          userId: operator.id,
-          type: input.type,
-          title: input.title,
-          body: input.body,
-          entity: input.entity ?? null,
-          entityId: input.entityId ?? null,
-        })),
-      });
     } catch (error) {
       this.logger.warn(`Operator fan-out failed type=${input.type}: ${error}`);
     }
@@ -132,10 +155,7 @@ export class NotificationService {
   }
 
   async unreadCount(userId: string): Promise<UnreadCountResponse> {
-    const unread = await this.prisma.notification.count({
-      where: { userId, readAt: null },
-    });
-    return { unread };
+    return { unread: await this.countUnread(userId) };
   }
 
   /**
@@ -154,13 +174,75 @@ export class NotificationService {
             where: { id },
             data: { readAt: new Date() },
           });
+    const unread = await this.countUnread(userId);
+    this.realtime.emitToUser(userId, 'notification:read', {
+      id: updated.id,
+      unread,
+    });
     return this.toDto(updated);
+  }
+
+  /** Marks every owned unread row read and pushes the new count. */
+  async markAllRead(userId: string): Promise<MarkAllNotificationsReadResponse> {
+    const result = await this.prisma.notification.updateMany({
+      where: { userId, readAt: null },
+      data: { readAt: new Date() },
+    });
+    this.realtime.emitToUser(userId, 'notification:unread', { unread: 0 });
+    return { updated: result.count, unread: 0 };
+  }
+
+  async preferences(userId: string): Promise<NotificationPreferenceDto> {
+    const row = await this.prisma.notificationPreference.findUnique({
+      where: { userId },
+    });
+    return {
+      soundEnabled: row?.soundEnabled ?? true,
+      browserPushEnabled: row?.browserPushEnabled ?? false,
+    };
+  }
+
+  async updatePreferences(
+    userId: string,
+    input: UpdateNotificationPreferenceInput,
+  ): Promise<NotificationPreferenceDto> {
+    if (input.browserPushEnabled === true && !this.push.config().enabled) {
+      throw new BadRequestException(
+        'اعلان مرورگری در این سرور پیکربندی نشده است.',
+      );
+    }
+    const row = await this.prisma.notificationPreference.upsert({
+      where: { userId },
+      create: {
+        userId,
+        soundEnabled: input.soundEnabled ?? true,
+        browserPushEnabled: input.browserPushEnabled ?? false,
+      },
+      update: {
+        ...(input.soundEnabled !== undefined
+          ? { soundEnabled: input.soundEnabled }
+          : {}),
+        ...(input.browserPushEnabled !== undefined
+          ? { browserPushEnabled: input.browserPushEnabled }
+          : {}),
+      },
+    });
+    return {
+      soundEnabled: row.soundEnabled,
+      browserPushEnabled: row.browserPushEnabled,
+    };
+  }
+
+  private async countUnread(userId: string): Promise<number> {
+    return this.prisma.notification.count({
+      where: { userId, readAt: null },
+    });
   }
 
   /**
    * SMS stub (SS-243). Disabled by default; when enabled, resolves the
-   * recipient mobile and logs the would-be send. The provider ticket
-   * swaps this body for a real vendor call.
+   * recipient mobile and logs the would-be send. The future provider
+   * adapter replaces this body; no SMS delivery is claimed here.
    */
   private async maybeSms(userId: string, input: NotifyInput): Promise<void> {
     if (!this.smsEnabled) {
@@ -182,6 +264,8 @@ export class NotificationService {
       typeFa: NOTIFICATION_TYPE_FA[row.type as NotificationType],
       title: row.title,
       body: row.body,
+      priority: row.priority,
+      category: row.category,
       entity: row.entity,
       entityId: row.entityId,
       readAt: row.readAt?.toISOString() ?? null,

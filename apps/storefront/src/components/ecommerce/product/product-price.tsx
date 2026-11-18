@@ -1,5 +1,5 @@
 import type { CatalogProductVariantDto } from '@sabz/types';
-import { CALL_FOR_PRICE_LABEL, formatToman } from '@/lib/format';
+import { CALL_FOR_PRICE_LABEL, formatRial } from '@/lib/format';
 
 /**
  * Selected-variant price (SS-214). Single source for detail-page pricing:
@@ -18,11 +18,11 @@ export function ProductPrice({
   }
   return (
     <span className="flex flex-wrap items-baseline gap-x-3">
-      <span>{formatToman(variant.price)}</span>
+      <span>{formatRial(variant.price)}</span>
       {variant.compareAtPrice ? (
         <s className="text-sm font-normal text-fg-muted">
           <span className="sr-only">قیمت پیشین </span>
-          {formatToman(variant.compareAtPrice)}
+          {formatRial(variant.compareAtPrice)}
         </s>
       ) : null}
     </span>

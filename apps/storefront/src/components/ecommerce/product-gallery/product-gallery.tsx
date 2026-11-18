@@ -36,6 +36,7 @@ export function ProductGallery({
       return;
     }
     const previousOverflow = document.body.style.overflow;
+    const trigger = zoomTriggerRef.current;
     document.body.style.overflow = 'hidden';
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -46,7 +47,7 @@ export function ProductGallery({
     return () => {
       document.body.style.overflow = previousOverflow;
       document.removeEventListener('keydown', onKeyDown);
-      zoomTriggerRef.current?.focus();
+      trigger?.focus();
     };
   }, [zoomed]);
 

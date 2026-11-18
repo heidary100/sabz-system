@@ -38,17 +38,15 @@ export interface ListingState {
   category: string;
   brand: string;
   condition: string;
-  /**
-   * Toman bound bound from the URL (user-facing, shareable). `fetchProducts`
-   * converts ×10 to the API's Rial unit at the query boundary (SS-222).
-   * '' = absent.
-   */
+  /** Rial bound from the URL (user-facing, shareable). '' = absent. */
   priceFrom: string;
-  /** Toman bound from the URL; converted ×10 at the API boundary. '' = absent. */
+  /** Rial bound from the URL. '' = absent. */
   priceTo: string;
   inStockOnly: boolean;
   /** Star-bucket rating facet (SS-236). '' = absent. */
   rating: string;
+  /** JSON attribute filters keyed by attribute slug (SS-900). '' = absent. */
+  attrs: string;
   sort: CatalogProductSort;
   page: number;
   /** Storefront page size; translated to the API `limit` (max 50). */
@@ -64,6 +62,7 @@ export const DEFAULT_LISTING_STATE: ListingState = {
   priceTo: '',
   inStockOnly: false,
   rating: '',
+  attrs: '',
   sort: 'newest',
   page: 1,
   perPage: 24,
@@ -117,6 +116,7 @@ export function parseListingState(
   const stockRaw = first('inStockOnly').trim().toLowerCase();
 
   const ratingRaw = first('rating').trim();
+  const attrs = normalizeAttrs(first('attrs'));
 
   return {
     // Grapheme-aware 64-character cap (SS-216) — never splits surrogate
@@ -131,6 +131,7 @@ export function parseListingState(
     rating: (RATING_BUCKETS as readonly string[]).includes(ratingRaw)
       ? ratingRaw
       : '',
+    attrs,
     sort: CATALOG_SORTS.includes(sort) ? sort : 'newest',
     page: Number.isFinite(page) && page > 0 ? Math.min(page, 10_000) : 1,
     perPage: (LISTING_PER_PAGE_OPTIONS as readonly number[]).includes(perPage)
@@ -154,6 +155,7 @@ export function serializeListingSearch(state: ListingState): string {
   if (state.priceTo) params.set('priceTo', state.priceTo);
   if (state.inStockOnly) params.set('inStockOnly', 'true');
   if (state.rating) params.set('rating', state.rating);
+  if (state.attrs) params.set('attrs', state.attrs);
   if (state.sort !== DEFAULT_LISTING_STATE.sort) params.set('sort', state.sort);
   if (state.perPage !== LISTING_PER_PAGE_DEFAULT)
     params.set('perPage', String(state.perPage));
@@ -227,6 +229,7 @@ export function clearListingFilters(): Partial<ListingState> {
     priceTo: '',
     inStockOnly: false,
     rating: '',
+    attrs: '',
     page: 1,
   };
 }
@@ -240,11 +243,12 @@ export function isFiltering(state: ListingState): boolean {
     state.priceFrom !== '' ||
     state.priceTo !== '' ||
     state.inStockOnly ||
-    state.rating !== ''
+    state.rating !== '' ||
+    state.attrs !== ''
   );
 }
 
-export type ActivePillKey = 'q' | 'brand' | 'condition' | 'price' | 'inStock' | 'rating';
+export type ActivePillKey = 'q' | 'brand' | 'condition' | 'price' | 'inStock' | 'rating' | 'attrs';
 
 export interface ActivePill {
   key: ActivePillKey;
@@ -254,10 +258,8 @@ export interface ActivePill {
   clear: Partial<ListingState>;
 }
 
-function formatTomanFa(value: string): string {
-  // Whole Tomans, like formatToman (fractional parts are always zero in
-  // Toman retail prices and are dropped for display consistency).
-  return formatFaNumber(Math.floor(Number(value)));
+function formatRialFa(value: string): string {
+  return formatFaNumber(Number(value));
 }
 
 /**
@@ -292,8 +294,8 @@ export function getActivePills(
     });
   }
   if (state.priceFrom !== '' || state.priceTo !== '') {
-    const from = state.priceFrom !== '' ? formatTomanFa(state.priceFrom) : null;
-    const to = state.priceTo !== '' ? formatTomanFa(state.priceTo) : null;
+    const from = state.priceFrom !== '' ? formatRialFa(state.priceFrom) : null;
+    const to = state.priceTo !== '' ? formatRialFa(state.priceTo) : null;
     const range =
       from !== null && to !== null
         ? `${from} تا ${to}`
@@ -302,7 +304,7 @@ export function getActivePills(
           : `تا ${to}`;
     pills.push({
       key: 'price',
-      label: `قیمت: ${range}`,
+      label: `قیمت: ${range} ریال`,
       clear: { priceFrom: '', priceTo: '' },
     });
   }
@@ -316,5 +318,33 @@ export function getActivePills(
       clear: { rating: '' },
     });
   }
+  if (state.attrs) {
+    const count = Object.keys(parseAttrs(state.attrs) ?? {}).length;
+    pills.push({
+      key: 'attrs',
+      label: `ویژگی‌ها: ${formatFaNumber(count)} فیلتر`,
+      clear: { attrs: '' },
+    });
+  }
   return pills;
+}
+
+/** Validates a compact attribute-filter JSON object; invalid input is absent. */
+export function parseAttrs(raw: string): Record<string, unknown> | null {
+  if (!raw || raw.length > 4000) {
+    return null;
+  }
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function normalizeAttrs(raw: string): string {
+  const parsed = parseAttrs(raw.trim());
+  return parsed === null ? '' : JSON.stringify(parsed);
 }

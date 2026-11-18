@@ -24,6 +24,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
 import { CheckoutService } from './checkout.service';
+import { InvoicePdfService } from './invoice-pdf.service';
 import {
   AddTrackingEventDto,
   OrderListQueryDto,
@@ -43,7 +44,10 @@ import {
 @Roles(AppRole.OPERATOR, AppRole.ADMIN)
 @Controller('admin/orders')
 export class AdminOrdersController {
-  constructor(private readonly checkoutService: CheckoutService) {}
+  constructor(
+    private readonly checkoutService: CheckoutService,
+    private readonly invoicePdf: InvoicePdfService,
+  ) {}
 
   @Get()
   @ApiOperation({ summary: 'List all orders, newest first (operators)' })

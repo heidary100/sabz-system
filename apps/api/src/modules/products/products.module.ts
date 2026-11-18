@@ -11,6 +11,11 @@ import { CategoriesController } from './categories.controller';
 import { CategoriesService } from './categories.service';
 import { ProductsController } from './products.controller';
 import { ProductsService } from './products.service';
+import { AdminAttributesController } from './attributes-admin.controller';
+import {
+  AdminBulkAttributesController,
+  AdminProductAttributesController,
+} from './product-attributes.controller';
 import { AdminVariantsController, ProductVariantsController } from './variants.controller';
 import { VariantsService } from './variants.service';
 import { CatalogGridController } from './catalog-grid.controller';
@@ -25,6 +30,7 @@ import { PublicProductMediaController } from './public-media.controller';
 import {
   PublicCatalogBrandsController,
   PublicCatalogCategoriesController,
+  PublicCatalogFacetsController,
   PublicCatalogProductsController,
 } from './public-catalog.controller';
 import { PublicCatalogService } from './public-catalog.service';
@@ -48,6 +54,7 @@ import { WatermarkOverlayService } from './media-processing/watermark-overlay.se
 import { ImageProcessorService } from './media-processing/image-processor.service';
 import { VideoProcessorService } from './media-processing/video-processor.service';
 import { MediaProcessingService } from './media-processing/media-processing.service';
+import { BackgroundRemovalService } from './media-processing/background-removal.service';
 
 export const PRODUCT_MEDIA_TEMP_DIR = 'PRODUCT_MEDIA_TEMP_DIR';
 
@@ -64,6 +71,9 @@ export const PRODUCT_MEDIA_TEMP_DIR = 'PRODUCT_MEDIA_TEMP_DIR';
 @Module({
   imports: [AuthModule, AuditModule, InventoryModule, PricingModule],
   controllers: [
+    AdminBulkAttributesController,
+    AdminProductAttributesController,
+    AdminAttributesController,
     ProductsController,
     CategoriesController,
     BrandsController,
@@ -77,6 +87,7 @@ export const PRODUCT_MEDIA_TEMP_DIR = 'PRODUCT_MEDIA_TEMP_DIR';
     PublicProductMediaController,
     PublicCatalogCategoriesController,
     PublicCatalogBrandsController,
+    PublicCatalogFacetsController,
     PublicCatalogProductsController,
   ],
   providers: [
@@ -145,6 +156,7 @@ export const PRODUCT_MEDIA_TEMP_DIR = 'PRODUCT_MEDIA_TEMP_DIR';
       ) => new VideoProcessorService(overlay, ffmpeg, config, tempDir),
     },
     MediaProcessingService,
+    BackgroundRemovalService,
   ],
   exports: [
     AttributesService,

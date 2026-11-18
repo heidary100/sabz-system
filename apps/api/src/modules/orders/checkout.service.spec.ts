@@ -16,7 +16,7 @@ function makeLine(overrides: Record<string, unknown> = {}) {
     id: 'line-1',
     cartId: CART_ID,
     quantity: 2,
-    unitPriceAtAdd: new Prisma.Decimal('5000'),
+    unitPriceAtAdd: new Prisma.Decimal('100000'),
     variantId: VARIANT_ID,
     variant: {
       sku: 'SKU-1',
@@ -60,6 +60,7 @@ describe('CheckoutService', () => {
     };
     shipment: { findUnique: jest.Mock; create: jest.Mock; update: jest.Mock };
     trackingEvent: { create: jest.Mock };
+    user: { findUnique: jest.Mock; update: jest.Mock };
     $transaction: jest.Mock;
   };
 
@@ -77,6 +78,10 @@ describe('CheckoutService', () => {
       },
       shipment: { findUnique: jest.fn(), create: jest.fn(), update: jest.fn() },
       trackingEvent: { create: jest.fn() },
+      user: {
+        findUnique: jest.fn().mockResolvedValue({ nationalId: '1234567891' }),
+        update: jest.fn().mockResolvedValue({}),
+      },
       $transaction: jest.fn(),
     };
     const inventory = {} as unknown as InventoryService;
@@ -150,7 +155,7 @@ describe('CheckoutService', () => {
         ['IRAN_POST', 'LOCAL_DELIVERY', 'STORE_PICKUP', 'TIPAX'].sort(),
       );
       expect(methods.items.find((item) => item.code === 'TIPAX')).toMatchObject({
-        fee: '250000',
+        fee: '300000',
         enabled: false,
       });
       expect(
@@ -181,9 +186,9 @@ describe('CheckoutService', () => {
       const summary = await service.validate(USER_ID, undefined, 'TIPAX');
 
       expect(summary.valid).toBe(true);
-      expect(summary.subtotal).toBe('10000');
-      expect(summary.shippingFee).toBe('250000');
-      expect(summary.total).toBe('260000');
+      expect(summary.subtotal).toBe('200000');
+      expect(summary.shippingFee).toBe('300000');
+      expect(summary.total).toBe('500000');
     } finally {
       if (previousFee === undefined) {
         delete process.env.SHIPPING_TIPAX_FEE;
@@ -225,9 +230,24 @@ describe('CheckoutService', () => {
       shippingFee: '0',
       total: '0',
       problems: [],
+      nationalId: {
+        required: true,
+        hasNationalId: true,
+        maskedNationalId: '****7891',
+      },
+      noteMaxLength: 1000,
     });
     expect(Object.keys(summary).sort()).toEqual(
-      ['items', 'problems', 'shippingFee', 'subtotal', 'total', 'valid'].sort(),
+      [
+        'items',
+        'nationalId',
+        'noteMaxLength',
+        'problems',
+        'shippingFee',
+        'subtotal',
+        'total',
+        'valid',
+      ].sort(),
     );
   });
 
@@ -239,8 +259,8 @@ describe('CheckoutService', () => {
     const summary = await service.validate(USER_ID);
 
     expect(summary.valid).toBe(true);
-    expect(summary.subtotal).toBe('10000');
-    expect(summary.total).toBe('10000');
+    expect(summary.subtotal).toBe('200000');
+    expect(summary.total).toBe('200000');
     expect(summary.problems).toHaveLength(0);
     expect(Object.keys(summary.items[0]!).sort()).toEqual(
       [
@@ -296,7 +316,7 @@ describe('CheckoutService', () => {
 
   it('flags live-price drift as informational without blocking', async () => {
     const line = makeLine();
-    line.variant.price = new Prisma.Decimal('6000');
+    line.variant.price = new Prisma.Decimal('200000');
     prisma.cart.findUnique.mockResolvedValue({ id: CART_ID });
     prisma.cartItem.findMany.mockResolvedValue([line]);
     prisma.inventoryItem.findMany.mockResolvedValue([stockRow(5)]);
@@ -304,7 +324,7 @@ describe('CheckoutService', () => {
     const summary = await service.validate(USER_ID);
 
     expect(summary.valid).toBe(true);
-    expect(summary.subtotal).toBe('12000');
+    expect(summary.subtotal).toBe('400000');
     expect(summary.problems[0]).toMatchObject({
       code: 'PRICE_CHANGED',
       available: 5,
@@ -349,6 +369,7 @@ describe('CheckoutService', () => {
       address: { findFirst: jest.Mock };
       productVariant: { findFirst: jest.Mock };
       inventoryItem: { findMany: jest.Mock };
+      user: { findUnique: jest.Mock; update: jest.Mock };
       $queryRaw: jest.Mock;
       $transaction: jest.Mock;
     };
@@ -380,6 +401,10 @@ describe('CheckoutService', () => {
         address: { findFirst: jest.fn() },
         productVariant: { findFirst: jest.fn() },
         inventoryItem: { findMany: jest.fn() },
+        user: {
+          findUnique: jest.fn().mockResolvedValue({ nationalId: '1234567891' }),
+          update: jest.fn().mockResolvedValue({}),
+        },
         $queryRaw: jest.fn(),
         $transaction: jest.fn(),
       };
@@ -434,16 +459,16 @@ describe('CheckoutService', () => {
         orderId: 'order-1',
         orderNumber: 100002,
         status: 'PENDING',
-        total: '4500',
+        total: '500000',
       });
       const created = tx.order.create.mock.calls[0][0].data;
       expect(created.items.create).toHaveLength(1);
       expect(created.items.create[0]).toMatchObject({
         variantId: VARIANT_ID,
         quantity: 5,
-        unitPrice: new Prisma.Decimal('900'),
+        unitPrice: new Prisma.Decimal('100000'),
       });
-      expect(created.items.create[0].lineTotal.toString()).toBe('4500');
+      expect(created.items.create[0].lineTotal.toString()).toBe('500000');
       expect(tx.rfq.update).toHaveBeenCalledWith({
         where: { id: RFQ_ID, status: 'QUOTED' },
         data: expect.objectContaining({
@@ -547,6 +572,8 @@ describe('CheckoutService', () => {
         city: 'ساری',
         address: 'ساری',
         postalCode: null,
+        note: null,
+        customerNationalId: null,
         createdAt: new Date('2026-09-29T00:00:00.000Z'),
         userId: USER_ID,
         user: { mobile: '+989170000001' },
@@ -593,6 +620,8 @@ describe('CheckoutService', () => {
         city: null,
         address: 'ساری',
         postalCode: null,
+        note: null,
+        customerNationalId: null,
         createdAt: new Date('2026-09-29T00:00:00.000Z'),
         shippingMethod: 'STORE_PICKUP',
         shipment: null,
@@ -906,6 +935,8 @@ describe('CheckoutService', () => {
         city: null,
         address: 'ساری',
         postalCode: null,
+        note: null,
+        customerNationalId: null,
         createdAt: new Date('2026-09-29T00:00:00.000Z'),
         shipment: null,
         userId: USER_ID,
@@ -924,8 +955,10 @@ describe('CheckoutService', () => {
           'addressSnapshot',
           'createdAt',
           'customerMobile',
+          'customerNationalIdMasked',
           'id',
           'items',
+          'note',
           'orderNumber',
           'paymentMethod',
           'paymentStatus',
@@ -958,7 +991,7 @@ describe('CheckoutService', () => {
             id: 'order-winner',
             orderNumber: 100007,
             status: 'PENDING',
-            total: new Prisma.Decimal('4500'),
+            total: new Prisma.Decimal('500000'),
           },
         }),
       };
@@ -969,7 +1002,7 @@ describe('CheckoutService', () => {
         orderId: 'order-winner',
         orderNumber: 100007,
         status: 'PENDING',
-        total: '4500',
+        total: '500000',
       });
       // Consumed stock re-entered availability before the replay.
       expect(ledger.receive).toHaveBeenCalledWith(

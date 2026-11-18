@@ -12,8 +12,9 @@ import type { ProductMediaSummary } from '@sabz/types';
 import { randomUUID } from 'crypto';
 import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
-import { mkdir, readdir, rm, stat } from 'fs/promises';
+import { mkdir, readFile, readdir, rm, stat, writeFile } from 'fs/promises';
 import { join } from 'path';
+import sharp from 'sharp';
 import type { Readable } from 'stream';
 import { PrismaService } from '../../common/database/prisma.service';
 import { StorefrontCacheService } from '../../common/storefront-cache/storefront-cache.service';
@@ -111,9 +112,17 @@ export class MediaService implements OnModuleInit {
       sizeBytes: number;
       thumbnailPath?: string;
       thumbnailSizeBytes?: number;
+      mimeType?: string;
+      backgroundRemoved?: boolean;
+      processingStatus?: 'NONE' | 'PENDING' | 'PROCESSED' | 'SKIPPED' | 'FAILED';
+      processingError?: string;
+      processingModel?: string;
+      width?: number;
+      height?: number;
     } | null = null;
     let storedKey: string | null = null;
     let thumbnailKey: string | null = null;
+    let originalKey: string | null = null;
     try {
       const header = await readFileHeader(file.path, MEDIA_HEADER_READ_BYTES);
       const totalSizeBytes = (await stat(file.path)).size;
@@ -127,36 +136,59 @@ export class MediaService implements OnModuleInit {
       }
 
       const mediaId = randomUUID();
-      const extension = extensionForMediaMime(detectedMime);
-      const storageKey = `products/${productId}/${mediaId}.${extension}`;
+      const sourceExtension = extensionForMediaMime(detectedMime);
+      const originalStorageKey = `products/${productId}/${mediaId}.original.${sourceExtension}`;
       const originalName = sanitizeMediaDisplayName(file.originalname);
+      // A corrupt image is rejected by the real processor with a Persian 400.
+      // Metadata here is best-effort so the processor remains the single
+      // authority for decodability (and upload-flow tests can use fixtures).
+      const imageMetadata =
+        mediaType === 'IMAGE'
+          ? await sharp(file.path)
+              .metadata()
+              .catch(() => null)
+          : null;
 
       // Content hash over the received source bytes (SS-204, dedup). Always
       // server-computed so importer skip-checks and stored rows agree; it
       // identifies source bytes, not the watermarked derivative.
       const contentHash = await hashFileSha256(file.path);
 
-      // Server-side watermark/processing. Both the input and output are temp
-      // files on disk; only the processed asset is persisted below. Images
-      // also get a watermarked WEBP thumbnail derivative (SS-129).
+      // SS-900: retain the immutable source before any derivative exists.
+      // Reprocessing/restore can then be explicit and reversible; the public
+      // storefront only ever receives the processed derivative.
+      await this.storage.putFile(originalStorageKey, file.path);
+      originalKey = originalStorageKey;
+
+      // Server-side background removal + watermark/processing. Both the input
+      // and output are temp files on disk; only the processed asset is
+      // persisted below. Images also get a watermarked WEBP thumbnail.
       processed = await this.mediaProcessing.process(
         file.path,
         detectedMime,
         this.tempDir,
+        {
+          backgroundRemoval:
+            mediaType === 'IMAGE' ? dto.backgroundRemoval !== false : false,
+        },
       );
-      const sizeBytes = processed.sizeBytes;
-      const thumbnailSizeBytes = processed.thumbnailSizeBytes ?? null;
+      const processedAsset = processed;
+      const processedMime = (processedAsset.mimeType ?? detectedMime) as typeof detectedMime;
+      const extension = extensionForMediaMime(processedMime);
+      const storageKey = `products/${productId}/${mediaId}.${extension}`;
+      const sizeBytes = processedAsset.sizeBytes;
+      const thumbnailSizeBytes = processedAsset.thumbnailSizeBytes ?? null;
       thumbnailKey =
-        processed.thumbnailPath !== undefined
+        processedAsset.thumbnailPath !== undefined
           ? `products/${productId}/${mediaId}.thumb.webp`
           : null;
 
       // Binary first: the database state is authoritative; if the DB write
       // fails afterwards the new binaries are cleaned up best-effort below.
-      await this.storage.putFile(storageKey, processed.outputPath);
+      await this.storage.putFile(storageKey, processedAsset.outputPath);
       storedKey = storageKey;
-      if (thumbnailKey !== null && processed.thumbnailPath !== undefined) {
-        await this.storage.putFile(thumbnailKey, processed.thumbnailPath);
+      if (thumbnailKey !== null && processedAsset.thumbnailPath !== undefined) {
+        await this.storage.putFile(thumbnailKey, processedAsset.thumbnailPath);
       }
 
       let productSlug: string | null = null;
@@ -209,13 +241,29 @@ export class MediaService implements OnModuleInit {
             variantId: dto.variantId ?? null,
             mediaType,
             originalName,
-            mimeType: detectedMime,
+            mimeType: processedMime,
             sizeBytes,
             storageKey,
             sourceUrl: dto.sourceUrl ?? null,
             contentHash,
             thumbnailKey,
             thumbnailSizeBytes,
+            originalStorageKey,
+            originalSizeBytes: totalSizeBytes,
+            originalMimeType: detectedMime,
+            originalWidth: imageMetadata?.width ?? null,
+            originalHeight: imageMetadata?.height ?? null,
+            width: processedAsset.width ?? null,
+            height: processedAsset.height ?? null,
+            processingStatus: processedAsset.processingStatus ?? 'NONE',
+            processingError: processedAsset.processingError ?? null,
+            processingModel: processedAsset.processingModel ?? null,
+            processedAt:
+              processedAsset.processingStatus === 'PROCESSED' ||
+              processedAsset.processingStatus === 'SKIPPED'
+                ? new Date()
+                : null,
+            backgroundRemoved: processedAsset.backgroundRemoved ?? false,
             sortOrder,
             isPrimary,
             createdBy: actorId,
@@ -258,7 +306,7 @@ export class MediaService implements OnModuleInit {
       // The database write failed after the binaries were persisted:
       // best-effort remove the orphaned binaries so no file survives without
       // a metadata row.
-      for (const orphanKey of [storedKey, thumbnailKey]) {
+      for (const orphanKey of [storedKey, thumbnailKey, originalKey]) {
         if (orphanKey === null) {
           continue;
         }
@@ -452,6 +500,236 @@ export class MediaService implements OnModuleInit {
     return { stream, sizeBytes: media.thumbnailSizeBytes ?? 0 };
   }
 
+  // ---------------------------------------------------------------------
+  // SS-900: original preservation, previewable reprocessing, and restore
+  // ---------------------------------------------------------------------
+
+  /** Admin-only access to the retained source bytes (never public). */
+  async getOriginalBinary(
+    productId: string,
+    mediaId: string,
+  ): Promise<{ buffer: Buffer; summary: ProductMediaSummary }> {
+    const media = await this.findActive(productId, mediaId);
+    if (!media.originalStorageKey) {
+      throw new NotFoundException(
+        'نسخه اصلی برای این رسانه نگه‌داری نشده است (رسانه قدیمی).',
+      );
+    }
+    try {
+      const buffer = await this.storage.get(media.originalStorageKey);
+      return { buffer, summary: this.toSummary(media) };
+    } catch (error) {
+      if (error instanceof MediaNotFoundError) {
+        throw new NotFoundException('نسخه اصلی رسانه یافت نشد.');
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Generates a preview from the retained original without touching the live
+   * derivative or database. Returns the PNG bytes and the processing result.
+   */
+  async previewReprocess(
+    productId: string,
+    mediaId: string,
+  ): Promise<{ buffer: Buffer; mimeType: string; backgroundRemoved: boolean; status: string }> {
+    const media = await this.findActive(productId, mediaId);
+    if (media.mediaType !== 'IMAGE' || !media.originalStorageKey) {
+      throw new BadRequestException(
+        'پردازش مجدد فقط برای تصاویر دارای نسخه اصلی ممکن است.',
+      );
+    }
+    const source = await this.storage.get(media.originalStorageKey);
+    const sourcePath = join(this.tempDir, `reprocess-${randomUUID()}.source`);
+    const originalMime = (media.originalMimeType ?? media.mimeType) as Parameters<
+      MediaProcessingService['process']
+    >[1];
+    try {
+      await writeFile(sourcePath, source);
+      const processed = await this.mediaProcessing.process(
+        sourcePath,
+        originalMime,
+        this.tempDir,
+        { backgroundRemoval: true },
+      );
+      const buffer = await readFile(processed.outputPath);
+      return {
+        buffer,
+        mimeType: processed.mimeType ?? originalMime,
+        backgroundRemoved: processed.backgroundRemoved ?? false,
+        status:
+          processed.processingStatus === 'FAILED'
+            ? 'FAILED'
+            : processed.processingStatus ?? 'NONE',
+      };
+    } finally {
+      await rm(sourcePath, { force: true }).catch(() => undefined);
+    }
+  }
+
+  /**
+   * Explicitly applies background removal/watermarking to one existing image
+   * from its retained original. The previous derivative is retained for
+   * rollback; the original remains untouched.
+   */
+  async reprocess(
+    productId: string,
+    mediaId: string,
+    actorId: string,
+    ipAddress?: string,
+  ): Promise<ProductMediaSummary> {
+    const media = await this.findActive(productId, mediaId);
+    if (media.mediaType !== 'IMAGE' || !media.originalStorageKey) {
+      throw new BadRequestException(
+        'پردازش مجدد فقط برای تصاویر دارای نسخه اصلی ممکن است.',
+      );
+    }
+    const source = await this.storage.get(media.originalStorageKey);
+    const sourcePath = join(this.tempDir, `reprocess-${randomUUID()}.source`);
+    const originalMime = (media.originalMimeType ?? media.mimeType) as Parameters<
+      MediaProcessingService['process']
+    >[1];
+    let processed:
+      | Awaited<ReturnType<MediaProcessingService['process']>>
+      | null = null;
+    let newKey: string | null = null;
+    let newThumbKey: string | null = null;
+    try {
+      await writeFile(sourcePath, source);
+      processed = await this.mediaProcessing.process(
+        sourcePath,
+        originalMime,
+        this.tempDir,
+        { backgroundRemoval: true },
+      );
+      if (processed.processingStatus === 'FAILED') {
+        throw new BadRequestException(
+          'کنترل کیفیت پردازش مجدد ناموفق بود؛ نسخه فعلی حفظ شد.',
+        );
+      }
+      const processedMime = (processed.mimeType ?? originalMime) as typeof originalMime;
+      const extension = extensionForMediaMime(processedMime);
+      newKey = `products/${productId}/${mediaId}.r${Date.now()}.${extension}`;
+      await this.storage.putFile(newKey, processed.outputPath);
+      if (processed.thumbnailPath) {
+        newThumbKey = `products/${productId}/${mediaId}.r${Date.now()}.thumb.webp`;
+        await this.storage.putFile(newThumbKey, processed.thumbnailPath);
+      }
+      const updated = await this.prisma.$transaction(async (tx) => {
+        await this.assertProductForMutation(tx, productId);
+        return tx.productMedia.update({
+          where: { id: mediaId },
+          data: {
+            previousStorageKey: media.storageKey,
+            previousThumbnailKey: media.thumbnailKey,
+            storageKey: newKey!,
+            thumbnailKey: newThumbKey,
+            thumbnailSizeBytes: processed!.thumbnailSizeBytes ?? null,
+            sizeBytes: processed!.sizeBytes,
+            mimeType: processedMime,
+            width: processed!.width ?? null,
+            height: processed!.height ?? null,
+            processingStatus: processed!.processingStatus ?? 'PROCESSED',
+            processingError: processed!.processingError ?? null,
+            processingModel: processed!.processingModel ?? null,
+            processedAt: new Date(),
+            backgroundRemoved: processed!.backgroundRemoved ?? false,
+            updatedBy: actorId,
+          },
+        });
+      });
+      await this.auditService.log({
+        userId: actorId,
+        action: 'PRODUCT_MEDIA_REPROCESSED',
+        entity: MEDIA_ENTITY,
+        entityId: mediaId,
+        before: { storageKey: media.storageKey, mimeType: media.mimeType },
+        after: {
+          storageKey: newKey,
+          mimeType: processedMime,
+          backgroundRemoved: processed.backgroundRemoved ?? false,
+        },
+        ipAddress,
+      });
+      return this.toSummary(updated);
+    } catch (error) {
+      for (const key of [newKey, newThumbKey]) {
+        if (key) {
+          await this.storage.delete(key).catch(() => undefined);
+        }
+      }
+      throw error;
+    } finally {
+      await rm(sourcePath, { force: true }).catch(() => undefined);
+      if (processed?.outputPath) {
+        await rm(processed.outputPath, { force: true }).catch(() => undefined);
+      }
+      if (processed?.thumbnailPath) {
+        await rm(processed.thumbnailPath, { force: true }).catch(() => undefined);
+      }
+    }
+  }
+
+  /** Restores the derivative that was active before the last reprocess. */
+  async restoreDerivative(
+    productId: string,
+    mediaId: string,
+    actorId: string,
+    ipAddress?: string,
+  ): Promise<ProductMediaSummary> {
+    const media = await this.findActive(productId, mediaId);
+    if (!media.previousStorageKey) {
+      throw new BadRequestException('نسخه قبلی برای بازگردانی وجود ندارد.');
+    }
+    const previousStorageKey = media.previousStorageKey;
+    const previousBuffer = await this.storage.get(previousStorageKey);
+    const previousMetadata = await sharp(previousBuffer)
+      .metadata()
+      .catch(() => null);
+    const previousMime =
+      previousMetadata?.format !== undefined
+        ? `image/${previousMetadata.format}`
+        : previousStorageKey.endsWith('.png')
+          ? 'image/png'
+          : media.originalMimeType ?? media.mimeType;
+    const previousThumbnailSize =
+      media.previousThumbnailKey !== null
+        ? (await this.storage.get(media.previousThumbnailKey)).length
+        : null;
+    const updated = await this.prisma.$transaction(async (tx) => {
+      await this.assertProductForMutation(tx, productId);
+      return tx.productMedia.update({
+        where: { id: mediaId },
+        data: {
+          storageKey: previousStorageKey,
+          thumbnailKey: media.previousThumbnailKey,
+          thumbnailSizeBytes: previousThumbnailSize,
+          sizeBytes: previousBuffer.length,
+          width: previousMetadata?.width ?? null,
+          height: previousMetadata?.height ?? null,
+          mimeType: previousMime,
+          previousStorageKey: null,
+          previousThumbnailKey: null,
+          processingStatus: 'NONE',
+          backgroundRemoved: false,
+          processingError: null,
+          updatedBy: actorId,
+        },
+      });
+    });
+    await this.auditService.log({
+      userId: actorId,
+      action: 'PRODUCT_MEDIA_RESTORED',
+      entity: MEDIA_ENTITY,
+      entityId: mediaId,
+      before: { storageKey: media.storageKey },
+      after: { storageKey: previousStorageKey },
+      ipAddress,
+    });
+    return this.toSummary(updated);
+  }
+
   private async findActive(
     productId: string,
     mediaId: string,
@@ -538,6 +816,9 @@ export class MediaService implements OnModuleInit {
         sortOrder: true,
         storageKey: true,
         thumbnailKey: true,
+        originalStorageKey: true,
+        previousStorageKey: true,
+        previousThumbnailKey: true,
       },
     });
     if (!target) {
@@ -600,7 +881,13 @@ export class MediaService implements OnModuleInit {
     });
 
     // Post-commit binary removal; failures are logged, not rolled back.
-    for (const binaryKey of [target.storageKey, target.thumbnailKey]) {
+    for (const binaryKey of [
+      target.storageKey,
+      target.thumbnailKey,
+      target.originalStorageKey,
+      target.previousStorageKey,
+      target.previousThumbnailKey,
+    ]) {
       if (binaryKey === null) {
         continue;
       }
@@ -630,6 +917,22 @@ export class MediaService implements OnModuleInit {
       sortOrder: row.sortOrder,
       isPrimary: row.isPrimary,
       createdAt: row.createdAt.toISOString(),
+      originalUrl:
+        row.originalStorageKey !== null && row.mediaType === 'IMAGE'
+          ? `/admin/products/${row.productId}/media/${row.id}/original`
+          : null,
+      originalMimeType: row.originalMimeType,
+      originalSizeBytes: row.originalSizeBytes,
+      originalWidth: row.originalWidth,
+      originalHeight: row.originalHeight,
+      width: row.width,
+      height: row.height,
+      processingStatus: row.processingStatus,
+      processingError: row.processingError,
+      processingModel: row.processingModel,
+      processedAt: row.processedAt?.toISOString() ?? null,
+      backgroundRemoved: row.backgroundRemoved,
+      canRestore: row.previousStorageKey !== null,
     };
   }
 

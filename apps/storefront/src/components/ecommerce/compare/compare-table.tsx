@@ -1,4 +1,4 @@
-import type { CatalogProductDetailDto } from '@sabz/types';
+import type { CatalogCompareResponse, CatalogProductDetailDto } from '@sabz/types';
 import Image from 'next/image';
 import Link from 'next/link';
 import { AddToCartButton } from '@/components/ecommerce/cart/add-to-cart-button';
@@ -8,40 +8,8 @@ import { CountdownTimer } from '@/components/ecommerce/ui/countdown-timer';
 import { Rating } from '@/components/ecommerce/ui/rating';
 import { mediaImageUrl } from '@/lib/catalog';
 import { conditionLabel } from '@/lib/condition';
-import { formatFaNumber, formatPriceFrom, formatToman } from '@/lib/format';
-import {
-  groupSpecs,
-  physicalSpecRows,
-  specLabelFa,
-} from '@/lib/specs';
-
-interface SpecColumn {
-  rows: Map<string, string>;
-}
-
-function specColumnOf(product: CatalogProductDetailDto): SpecColumn {
-  const rows = new Map<string, string>();
-  for (const group of groupSpecs(product.specs)) {
-    for (const row of group.rows) {
-      if (!rows.has(row.key)) {
-        rows.set(row.key, row.value);
-      }
-    }
-  }
-  for (const row of physicalSpecRows({
-    weightKg: product.weightKg,
-    widthCm: product.widthCm,
-    heightCm: product.heightCm,
-    depthCm: product.depthCm,
-    warranty: product.warranty,
-    originCountry: product.originCountry,
-  })) {
-    if (!rows.has(row.key)) {
-      rows.set(row.key, row.value);
-    }
-  }
-  return { rows };
-}
+import { formatFaNumber, formatPriceFrom, formatRial } from '@/lib/format';
+import { physicalSpecRows } from '@/lib/specs';
 
 function minPricedVariant(product: CatalogProductDetailDto): {
   price: string;
@@ -69,7 +37,7 @@ function PriceCell({ product }: { product: CatalogProductDetailDto }) {
   ).length;
   return (
     <span className="text-sm font-bold text-accent-hover">
-      {pricedCount > 1 ? formatPriceFrom(best.price) : formatToman(best.price)}
+      {pricedCount > 1 ? formatPriceFrom(best.price) : formatRial(best.price)}
     </span>
   );
 }
@@ -103,22 +71,26 @@ function MissingCell() {
  */
 export function CompareTable({
   products,
+  comparison,
 }: {
   products: CatalogProductDetailDto[];
+  comparison: CatalogCompareResponse | null;
 }) {
   const columns = products.map((product) => ({
     product,
-    specs: specColumnOf(product),
+    physical: physicalSpecRows({
+      weightKg: product.weightKg,
+      widthCm: product.widthCm,
+      heightCm: product.heightCm,
+      depthCm: product.depthCm,
+      warranty: product.warranty,
+      originCountry: product.originCountry,
+    }),
   }));
-
-  const specKeys: string[] = [];
-  for (const column of columns) {
-    for (const key of column.specs.rows.keys()) {
-      if (!specKeys.includes(key)) {
-        specKeys.push(key);
-      }
-    }
-  }
+  const compareRows = comparison?.attributes ?? [];
+  const compareProducts = new Map(
+    (comparison?.products ?? []).map((product) => [product.id, product]),
+  );
 
   return (
     <div className="overflow-x-auto rounded-card border border-border bg-surface">
@@ -246,19 +218,51 @@ export function CompareTable({
               ),
             )}
           </tr>
-          {specKeys.map((key) => (
-            <tr key={key} className="border-b border-border last:border-0">
-              <RowLabel>{specLabelFa(key)}</RowLabel>
-              {columns.map(({ product, specs }) => {
-                const value = specs.rows.get(key);
+          {compareRows.length === 0 ? (
+            <tr className="border-b border-border">
+              <RowLabel>مشخصات فنی</RowLabel>
+              <td
+                colSpan={columns.length}
+                className="px-3 py-4 text-center text-sm text-fg-muted"
+              >
+                {comparison
+                  ? 'برای این محصولات ویژگی مشترک قابل مقایسه‌ای تنظیم نشده است.'
+                  : 'دریافت مشخصات مقایسه از سرور ممکن نشد.'}
+              </td>
+            </tr>
+          ) : (
+            compareRows.map((attribute) => (
+              <tr key={attribute.attributeId} className="border-b border-border">
+                <RowLabel>
+                  {attribute.name}
+                  {attribute.unit ? ` (${attribute.unit})` : ''}
+                </RowLabel>
+                {columns.map(({ product }) => {
+                  const value = compareProducts.get(product.id)?.values[attribute.attributeId];
+                  return value === null || value === undefined || value === '' ? (
+                    <MissingCell key={product.id} />
+                  ) : (
+                    <td
+                      key={product.id}
+                      dir="auto"
+                      className="max-w-64 px-3 py-3 text-center text-fg"
+                    >
+                      {value}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))
+          )}
+          {columns[0]?.physical.map((row) => (
+            <tr key={`physical-${row.key}`} className="border-b border-border last:border-0">
+              <RowLabel>{row.key}</RowLabel>
+              {columns.map(({ product, physical }) => {
+                const value = physical.find((entry) => entry.key === row.key)?.value;
                 return value === undefined ? (
                   <MissingCell key={product.id} />
                 ) : (
-                  <td
-                    key={product.id}
-                    dir="auto"
-                    className="max-w-64 px-3 py-3 text-center text-fg"
-                  >
+                  <td key={product.id} dir="auto" className="max-w-64 px-3 py-3 text-center text-fg">
                     {value}
                   </td>
                 );

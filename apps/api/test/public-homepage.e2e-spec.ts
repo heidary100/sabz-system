@@ -809,7 +809,7 @@ describe('Public homepage resolver API (Task 05.5) (e2e)', () => {
     ).find((section) => section.key === 'offer') as {
       products: Array<{ id: string; priceFrom: string; inStock: boolean }>;
     };
-    expect(refreshedOffer.products[0]!.priceFrom).toBe('120000');
+    expect(refreshedOffer.products[0]!.priceFrom).toBe('200000');
     expect(refreshedOffer.products[0]!.inStock).toBe(true);
 
     const inventory = await prisma.inventoryItem.findFirstOrThrow({

@@ -25,7 +25,7 @@ export function Hero() {
         </h1>
         <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-fg-secondary">
           موبایل، لوازم جانبی، رایانه و گجت‌های هوشمند را از میان
-          دسته‌بندی‌های فروشگاه پیدا کنید. قیمت‌ها به تومان و برای خرید
+          دسته‌بندی‌های فروشگاه پیدا کنید. قیمت‌ها به ریال و برای خرید
           خرد نمایش داده می‌شود.
         </p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">

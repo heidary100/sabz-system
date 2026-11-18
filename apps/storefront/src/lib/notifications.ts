@@ -106,3 +106,67 @@ export async function markNotificationRead(
   );
   return (await response.json()) as NotificationDto;
 }
+
+/** Mark every owned notification read (SS-900). */
+export async function markAllNotificationsRead(): Promise<{ updated: number; unread: 0 }> {
+  const response = await authedJson('/notifications/read-all', { method: 'POST' }, READ_FAILED);
+  return (await response.json()) as { updated: number; unread: 0 };
+}
+
+export async function fetchNotificationPreferences(): Promise<{
+  soundEnabled: boolean;
+  browserPushEnabled: boolean;
+}> {
+  const response = await authedJson('/notifications/preferences', {}, 'دریافت تنظیمات اعلان ناموفق بود.');
+  return (await response.json()) as { soundEnabled: boolean; browserPushEnabled: boolean };
+}
+
+export async function updateNotificationPreferences(input: {
+  soundEnabled?: boolean;
+  browserPushEnabled?: boolean;
+}): Promise<{ soundEnabled: boolean; browserPushEnabled: boolean }> {
+  const response = await authedJson(
+    '/notifications/preferences',
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    },
+    'ذخیره تنظیمات اعلان ناموفق بود.',
+  );
+  return (await response.json()) as { soundEnabled: boolean; browserPushEnabled: boolean };
+}
+
+export async function fetchPushConfig(): Promise<{ enabled: boolean; publicKey: string | null }> {
+  const response = await authedJson('/notifications/push/config', {}, 'دریافت تنظیمات اعلان مرورگری ناموفق بود.');
+  return (await response.json()) as { enabled: boolean; publicKey: string | null };
+}
+
+export async function subscribePush(input: {
+  endpoint: string;
+  keys: { p256dh: string; auth: string };
+}): Promise<{ subscribed: true }> {
+  const response = await authedJson(
+    '/notifications/push/subscribe',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    },
+    'ثبت اشتراک اعلان مرورگری ناموفق بود.',
+  );
+  return (await response.json()) as { subscribed: true };
+}
+
+export async function unsubscribePush(endpoint: string): Promise<{ removed: number }> {
+  const response = await authedJson(
+    '/notifications/push/subscribe',
+    {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ endpoint }),
+    },
+    'حذف اشتراک اعلان مرورگری ناموفق بود.',
+  );
+  return (await response.json()) as { removed: number };
+}

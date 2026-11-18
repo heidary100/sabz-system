@@ -1,6 +1,6 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { randomUUID } from 'crypto';
-import { stat } from 'fs/promises';
+import { stat, writeFile } from 'fs/promises';
 import { join } from 'path';
 import {
   extensionForMediaMime,
@@ -9,6 +9,11 @@ import {
 } from '../media-validation';
 import { ImageProcessorService, ProcessedAsset } from './image-processor.service';
 import { VideoProcessorService } from './video-processor.service';
+import {
+  BackgroundRemovalQualityError,
+  BackgroundRemovalService,
+  BackgroundRemovalUnavailableError,
+} from './background-removal.service';
 import { WATERMARK_CONFIG, WatermarkConfig } from './watermark-config';
 
 /**
@@ -27,13 +32,14 @@ export class MediaProcessingService {
     private readonly imageProcessor: ImageProcessorService,
     private readonly videoProcessor: VideoProcessorService,
     @Inject(WATERMARK_CONFIG) private readonly config: WatermarkConfig,
+    @Optional() private readonly backgroundRemoval?: BackgroundRemovalService,
   ) {}
 
   async process(
     inputPath: string,
     detectedMime: AllowedMediaMimeType,
     outputDir: string,
-    options: { watermark?: boolean } = {},
+    options: { watermark?: boolean; backgroundRemoval?: boolean } = {},
   ): Promise<ProcessedAsset> {
     if (!this.config.enabled && options.watermark !== false) {
       // Watermarking disabled (local tests/dev): the original is stored
@@ -43,9 +49,51 @@ export class MediaProcessingService {
       return { outputPath: inputPath, sizeBytes: info.size };
     }
 
-    const extension = extensionForMediaMime(detectedMime);
-    const outputPath = join(outputDir, `${randomUUID()}.${extension}`);
     if (isImageMime(detectedMime)) {
+      let basePath = inputPath;
+      let removal:
+        | {
+            backgroundRemoved: boolean;
+            processingStatus: 'PROCESSED' | 'SKIPPED' | 'FAILED';
+            processingModel?: string;
+            processingError?: string;
+          }
+        | undefined;
+      if (options.backgroundRemoval === true && this.backgroundRemoval) {
+        try {
+          const result = await this.backgroundRemoval.remove(inputPath);
+          basePath = join(outputDir, `${randomUUID()}.removed.png`);
+          await writeFile(basePath, result.buffer);
+          removal = {
+            backgroundRemoved: result.backgroundRemoved,
+            processingStatus: result.skippedReason
+              ? 'SKIPPED'
+              : 'PROCESSED',
+            processingModel: result.model,
+          };
+        } catch (error) {
+          // Safe failure path: retain the original and record the reason.
+          // A background-removal failure never publishes a damaged crop or a
+          // silent half-processed derivative.
+          const unavailable =
+            error instanceof BackgroundRemovalUnavailableError;
+          const quality = error instanceof BackgroundRemovalQualityError;
+          removal = {
+            backgroundRemoved: false,
+            processingStatus: unavailable ? 'SKIPPED' : 'FAILED',
+            processingError: unavailable
+              ? 'مدل حذف پس‌زمینه در سرور در دسترس نیست.'
+              : quality
+                ? 'کنترل کیفیت حذف پس‌زمینه ناموفق بود.'
+                : 'پردازش حذف پس‌زمینه ناموفق بود.',
+          };
+        }
+      }
+      const extension =
+        removal?.processingStatus === 'PROCESSED'
+          ? 'png'
+          : extensionForMediaMime(detectedMime);
+      const outputPath = join(outputDir, `${randomUUID()}.${extension}`);
       const processingOptions =
         options.watermark === undefined
           ? undefined
@@ -53,12 +101,12 @@ export class MediaProcessingService {
       const processed =
         processingOptions === undefined
           ? await this.imageProcessor.process(
-              inputPath,
+              basePath,
               detectedMime,
               outputPath,
             )
           : await this.imageProcessor.process(
-              inputPath,
+              basePath,
               detectedMime,
               outputPath,
               processingOptions,
@@ -73,18 +121,29 @@ export class MediaProcessingService {
       const thumbnail =
         processingOptions === undefined
           ? await this.imageProcessor.generateThumbnail(
-              inputPath,
+              basePath,
               thumbnailPath,
               processed.outputPath,
             )
           : await this.imageProcessor.generateThumbnail(
-              inputPath,
+              basePath,
               thumbnailPath,
               processed.outputPath,
               processingOptions,
             );
-      return { ...processed, ...thumbnail };
+      return {
+        ...processed,
+        ...thumbnail,
+        ...(removal ?? {}),
+        ...(removal?.processingStatus === 'PROCESSED'
+          ? { mimeType: 'image/png' as const }
+          : {}),
+      };
     }
-    return this.videoProcessor.process(inputPath, outputPath);
+    const videoOutputPath = join(
+      outputDir,
+      `${randomUUID()}.${extensionForMediaMime(detectedMime)}`,
+    );
+    return this.videoProcessor.process(inputPath, videoOutputPath);
   }
 }

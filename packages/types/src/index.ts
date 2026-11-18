@@ -124,9 +124,33 @@ export {
 } from './product/catalog-grid';
 
 export {
+  ATTRIBUTE_VALUE_TYPE_FA,
   AttributeDto,
   AttributeValueDto,
+  AttributeValueType,
+  AttributeWithValuesDto,
+  BulkAttributeApplyInput,
+  BulkAttributeApplyResponse,
+  BulkAttributeChange,
+  BulkAttributeOperation,
+  BulkAttributePreviewInput,
+  BulkAttributePreviewResponse,
+  BulkAttributeProductOutcome,
+  BulkAttributeProductRef,
+  CatalogAttributeFacetDto,
+  CatalogAttributeOptionFacet,
+  CatalogCompareAttributeDto,
+  CatalogCompareProductDto,
+  CatalogCompareResponse,
+  CatalogFacetsResponse,
+  CategoryAttributeDto,
+  CategoryAttributeInput,
+  CategoryAttributesResponse,
+  ProductAttributeValueDto,
+  ProductAttributeValueInput,
+  ProductAttributesResponse,
   ProductSpecDto,
+  SetProductAttributesInput,
 } from './product/attributes';
 
 export { TagDto } from './product/tags';
@@ -185,12 +209,68 @@ export {
 } from './shipping/shipping';
 
 export {
+  NOTIFICATION_PRIORITY_FA,
   NOTIFICATION_TYPE_FA,
+  ChatSocketMessageEvent,
+  MarkAllNotificationsReadResponse,
   NotificationDto,
   NotificationListResponse,
+  NotificationPreferenceDto,
+  NotificationPriority,
+  NotificationSocketEvent,
   NotificationType,
+  NotificationUnreadEvent,
+  PushConfigResponse,
+  PushSubscriptionInput,
   UnreadCountResponse,
+  UpdateNotificationPreferenceInput,
 } from './notifications/notifications';
+
+export {
+  CHAT_STATUS_FA,
+  AdminChatConversationDto,
+  AdminChatConversationListItemDto,
+  AdminChatConversationListResponse,
+  ChatConversationListQuery,
+  ChatConversationStatus,
+  ChatMessageDto,
+  ChatReadResponse,
+  ChatSenderType,
+  CustomerChatConversationDto,
+  CustomerChatStateDto,
+  OpenChatConversationInput,
+  SendChatMessageInput,
+  UpdateChatConversationInput,
+} from './chat/chat';
+
+export {
+  CURRENCY_FA,
+  CURRENCY_UNIT_FA,
+  CreateCurrencyRateInput,
+  CurrencyCode,
+  CurrencyConversionResponse,
+  CurrencyRateDto,
+  CurrencyRateListResponse,
+} from './currency/currency';
+
+export {
+  FooterColumn,
+  FooterLink,
+  FooterSettings,
+  FooterSettingsResponse,
+  UpdateFooterSettingsInput,
+} from './settings/footer';
+
+export {
+  InitiatePaymentInput,
+  InitiatePaymentResult,
+  PAYMENT_PROVIDER_FA,
+  PaymentAttemptDto,
+  PaymentProviderCode,
+  PaymentProviderState,
+  PaymentProviderStatusDto,
+  PaymentProvidersResponse,
+} from './payments/payments';
 
 export {
   AddCartItemInput,

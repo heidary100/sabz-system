@@ -1,6 +1,7 @@
 import { PriceStatus, ProductStatus } from '@prisma/client';
 import { PrismaService } from '../../common/database/prisma.service';
 import { PricingService } from '../pricing/pricing.service';
+import { AttributesService } from './attributes.service';
 import { PublicCatalogService } from './public-catalog.service';
 
 /**
@@ -42,6 +43,7 @@ describe('PublicCatalogService listing facets', () => {
         promotionEndsAtByProduct: jest.fn().mockResolvedValue(new Map()),
         activePromotionsFor: jest.fn().mockResolvedValue([]),
       } as unknown as PricingService,
+      {} as unknown as AttributesService,
     );
   });
 

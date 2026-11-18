@@ -25,7 +25,8 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "test:integration": "jest --config ./test/jest-integration.json",
     "test:integration:demo-seed": "jest --config ./test/jest-demo-seed-integration.json",
-    "test:integration:demo-seed-storage": "jest --config ./test/jest-demo-seed-storage.json"
+    "test:integration:demo-seed-storage": "jest --config ./test/jest-demo-seed-storage.json",
+    "model:provision": "node scripts/provision-background-model.mjs"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.28",
@@ -34,8 +35,10 @@
     "@nestjs/jwt": "^11.0.2",
     "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-express": "^11.1.28",
+    "@nestjs/platform-socket.io": "^11.2.10",
     "@nestjs/swagger": "^11.4.6",
     "@nestjs/throttler": "^6.5.0",
+    "@nestjs/websockets": "^11.2.10",
     "@prisma/client": "^6.19.3",
     "@sabz/search": "workspace:*",
     "@sabz/types": "workspace:*",
@@ -46,12 +49,15 @@
     "helmet": "^8.3.0",
     "ioredis": "^6.0.0",
     "multer": "^2.2.0",
+    "onnxruntime-node": "^1.31.1",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
     "sharp": "^0.35.4",
+    "socket.io": "^4.8.4",
     "swagger-ui-express": "^5.0.1",
+    "web-push": "^3.6.7",
     "xss": "^1.0.15"
   },
   "devDependencies": {
@@ -64,9 +70,11 @@
     "@types/node": "^22.10.2",
     "@types/passport-jwt": "^4.0.1",
     "@types/supertest": "^6.0.2",
+    "@types/web-push": "3.6.4",
     "eslint": "^9.18.0",
     "jest": "^29.7.0",
     "prisma": "^6.19.3",
+    "socket.io-client": "^4.8.4",
     "supertest": "^7.2.2",
     "ts-jest": "^29.2.5",
     "tsx": "^4.23.12",
