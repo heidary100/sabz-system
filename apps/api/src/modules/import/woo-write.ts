@@ -62,7 +62,7 @@ export interface ProductPlan {
   priceStatus: PlanPriceStatus;
   /** Rial, verbatim per O-1. '0' for CALL_FOR_PRICE rows. */
   price: string;
-  compareAtPrice: string | null;
+  discountedPrice: string | null;
   sku: string | null;
   barcode: string | null;
   stockQty: number;
@@ -204,18 +204,16 @@ export function buildProductPlan(
   const sale = parseWooPrice(get('قیمت فروش ویژه'));
   const priced = verdict.priceStatus === 'PRICED';
   // WooCommerce sale semantics: قیمت فروش ویژه is the discounted price, so a
-  // live sale (0 < sale < regular) writes price=sale + compareAt=regular.
-  // Any other combination keeps price=regular (compareAt dropped when it
-  // cannot satisfy the compareAt>price invariant); priceless rows become
-  // visible CALL_FOR_PRICE with price '0' (Q1, O-1 Rial verbatim).
+  // live sale (0 < sale < regular) writes price=regular + discountedPrice=sale.
+  // Any other combination keeps price=regular (discount dropped when it cannot
+  // satisfy the discounted<regular invariant); priceless rows become visible
+  // CALL_FOR_PRICE with price '0' (Q1, O-1 Rial verbatim).
   let price = '0';
-  let compareAtPrice: string | null = null;
+  let discountedPrice: string | null = null;
   if (priced && regular !== null) {
+    price = String(regular);
     if (sale !== null && sale < regular) {
-      price = String(sale);
-      compareAtPrice = String(regular);
-    } else {
-      price = String(regular);
+      discountedPrice = String(sale);
     }
   }
 
@@ -317,7 +315,7 @@ export function buildProductPlan(
     status: verdict.status,
     priceStatus: verdict.priceStatus === 'PRICED' ? 'PRICED' : 'CALL_FOR_PRICE',
     price,
-    compareAtPrice,
+    discountedPrice,
     sku: verdict.sku,
     barcode: cell(record, 'GTIN، UPC، EAN یا ISBN') || null,
     stockQty,

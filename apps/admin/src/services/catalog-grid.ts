@@ -1,6 +1,7 @@
 import type {
   CatalogGridBatchInput,
   CatalogGridBatchResponse,
+  CatalogGridIdsResponse,
   CatalogGridListQuery,
   CatalogGridListResponse,
 } from '@sabz/types'
@@ -84,4 +85,12 @@ export function batchUpdateCatalogGrid(
     method: 'POST',
     body: JSON.stringify(input),
   })
+}
+
+export function listCatalogGridIds(
+  query: CatalogGridListQuery,
+): Promise<CatalogGridIdsResponse> {
+  return request<CatalogGridIdsResponse>(
+    buildListQuery(query).replace('/admin/catalog-grid?', '/admin/catalog-grid/ids?'),
+  )
 }

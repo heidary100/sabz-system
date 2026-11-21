@@ -32,6 +32,8 @@ const response: AdminOrderListResponse = {
       customerMobile: '+989121000001',
       paymentMethod: 'COD',
       paymentStatus: 'PENDING',
+      note: null,
+      shipment: null,
     },
     {
       id: 'o2',
@@ -45,6 +47,8 @@ const response: AdminOrderListResponse = {
       customerMobile: '+989121000002',
       paymentMethod: 'ONLINE',
       paymentStatus: 'PAID',
+      note: null,
+      shipment: null,
     },
   ],
   total: 45,

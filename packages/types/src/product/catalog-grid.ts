@@ -3,17 +3,12 @@ import type { PriceStatus, ProductCondition, ProductStatus } from './type';
 
 /**
  * SS-257 admin catalog grid. One editable row = one ProductVariant.
- * Price/compareAtPrice/priceStatus/sku/barcode/name live on the variant;
- * `stock` is the aggregate quantityOnHand across qualifying warehouses
- * (never persisted — same derivation as the inventory read API).
- * `expectedUpdatedAt` is the optimistic-concurrency token the admin echoes
- * back on batch save. Product-level fields (productName/productStatus/
- * condition/createdAt/brand/category) are display-only: they are edited via
- * the row action (edit page), never inline, because a product can span
- * several variant rows. SS-270: productName/brand/category became inline
- * editable through the batch API — the row carries `productUpdatedAt` (the
- * product-level concurrency token) and the batch accepts optional product
- * fields keyed by the row's variant.
+ * Price/discountedPrice/priceStatus/sku/barcode/name live on the variant;
+ * `regularPrice` is the alias of `price` used by the pricing UI to avoid
+ * confusing the regular and sale amounts. `stock` is the aggregate
+ * quantityOnHand across qualifying warehouses (never persisted — same
+ * derivation as the inventory read API). `expectedUpdatedAt` is the
+ * optimistic-concurrency token the admin echoes back on batch save.
  */
 export interface CatalogGridRow {
   variantId: string;
@@ -34,8 +29,34 @@ export interface CatalogGridRow {
   categoryName: string;
   thumbnailUrl: string | null;
   priceStatus: PriceStatus;
-  price: string;
-  compareAtPrice: string | null;
+  /** Regular/base price in Rial (alias of the stored `price`). */
+  regularPrice: string;
+  /** Promotional selling price in Rial; null when no sale. */
+  discountedPrice: string | null;
+  discountStartsAt: string | null;
+  discountEndsAt: string | null;
+  /** B2B partner price in Rial; null when not set. */
+  partnerPrice: string | null;
+  /** Server-computed customer-facing price (active sale/category/override). */
+  effectivePrice: string | null;
+  /** Human-readable active price source (regular/sale/category/override). */
+  priceSource: 'REGULAR' | 'SALE' | 'CATEGORY_RULE' | 'OVERRIDE' | 'PARTNER_TIER' | null;
+  /** Last price/rate calculation timestamp. */
+  priceUpdatedAt: string | null;
+  priceSourceCurrency: 'RIAL' | 'USD' | 'AED';
+  /** Derived admin-only amounts using the current manual rates. */
+  aedPrice: string | null;
+  usdPrice: string | null;
+  /** Active product override summary, when one exists. */
+  override: {
+    id: string;
+    type: 'PERCENT' | 'FIXED' | null;
+    value: string | null;
+    overridePrice: string | null;
+    isActive: boolean;
+    startsAt: string | null;
+    endsAt: string | null;
+  } | null;
   stock: number;
   /** Inline stock editing allowed only when exactly one qualifying warehouse holds the variant. */
   stockEditable: boolean;
@@ -73,19 +94,37 @@ export type CatalogGridSortField =
   | 'name'
   | 'sku'
   | 'price'
-  | 'compareAtPrice'
+  | 'discountedPrice'
   | 'createdAt'
   | 'stock';
 
 export type CatalogGridListResponse = PaginatedResult<CatalogGridRow>;
 
+/** Distinct product ids matching the current grid filters (select-all scope). */
+export interface CatalogGridIdsResponse {
+  productIds: string[];
+  productCount: number;
+  variantCount: number;
+  /** True when the server capped the result (never silently partial). */
+  truncated: boolean;
+}
+
 export interface CatalogGridBatchRowInput {
   variantId: string;
   /** ISO datetime the admin loaded the row with; the write is conditional on it. */
   expectedUpdatedAt: string;
-  price?: string;
-  /** Pass null to clear the sale price. */
-  compareAtPrice?: string | null;
+  /** Regular/base price in Rial. */
+  regularPrice?: string;
+  /** Promotional selling price; null clears it. */
+  discountedPrice?: string | null;
+  discountStartsAt?: string | null;
+  discountEndsAt?: string | null;
+  /** B2B partner price; null clears it. */
+  partnerPrice?: string | null;
+  /** Admin-only AED regular price; converted with the current manual rate. */
+  aedPrice?: string | null;
+  /** Admin-only USD regular price; converted with the current manual rate. */
+  usdPrice?: string | null;
   priceStatus?: PriceStatus;
   /** Absolute desired quantityOnHand in the variant's single qualifying warehouse. */
   stock?: number;
@@ -132,8 +171,13 @@ export interface CatalogGridRowResult {
   fieldErrors?: Record<string, string>;
   /** Authoritative values on SUCCESS — the admin reconciles its drafts from these. */
   updatedAt?: string;
-  price?: string;
-  compareAtPrice?: string | null;
+  regularPrice?: string;
+  discountedPrice?: string | null;
+  discountStartsAt?: string | null;
+  discountEndsAt?: string | null;
+  partnerPrice?: string | null;
+  effectivePrice?: string | null;
+  priceUpdatedAt?: string | null;
   stock?: number;
   sku?: string;
   barcode?: string | null;

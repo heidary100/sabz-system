@@ -23,6 +23,7 @@ import { CompareToggle } from '@/components/ecommerce/compare/compare-toggle';
 import { ProductReviews } from '@/components/ecommerce/product/product-reviews';
 import { absoluteUrl } from '@/lib/site-url';
 import { buildSharePayload } from '@/lib/share-message';
+import { formatToman } from '@/lib/format';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -46,13 +47,28 @@ export async function generateMetadata({
     seoDescriptionFromHtml(product.description);
   const canonical = `/products/${product.slug}`;
   const ogImageUrl = publicMediaUrl(selectOgImage(product.media)?.url);
+  // Public social card price: base/retail values only — never a partner price.
+  // The API detail projection has already rounded Rial and contains no B2B
+  // fields, so this is safe to cache and share.
+  const pricedVariants = product.variants.filter(
+    (variant) => variant.priceStatus === 'PRICED',
+  );
+  const lowest = pricedVariants.reduce<typeof pricedVariants[number] | null>(
+    (min, variant) =>
+      min === null || Number(variant.price) < Number(min.price) ? variant : min,
+    null,
+  );
+  const priceLabel = lowest
+    ? `${pricedVariants.length > 1 ? 'از ' : ''}${formatToman(lowest.price)}`
+    : null;
+  const socialDescription = [description, priceLabel].filter(Boolean).join(' — ');
   return {
     title,
     description: description || undefined,
     alternates: { canonical },
     openGraph: {
       title,
-      description: description || undefined,
+      description: socialDescription || undefined,
       url: canonical,
       siteName: brand.nameFa,
       locale: 'fa_IR',
@@ -64,7 +80,7 @@ export async function generateMetadata({
     twitter: {
       card: 'summary_large_image',
       title,
-      description: description || undefined,
+      description: socialDescription || undefined,
       ...(ogImageUrl ? { images: [ogImageUrl] } : {}),
     },
   };
@@ -141,7 +157,7 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
       : pricedVariants.length > 0
         ? String(Math.min(...pricedVariants.map((variant) => Number(variant.price))))
         : null,
-    compareAtPriceRial: selectedPriced?.compareAtPrice ?? null,
+    regularPriceRial: selectedPriced?.regularPrice ?? null,
     variantCount: pricedVariants.length,
     url: canonicalUrl,
   });

@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {
+  IsDateString,
   IsEnum,
   IsNotEmpty,
   IsOptional,
@@ -72,20 +73,42 @@ export class CreateVariantDto {
   @ApiPropertyOptional({
     example: '1800.00',
     description:
-      'Pre-discount reference price (SS-201). Requires PRICED status and must exceed price.',
+      'Promotional selling price (pricing-grid spec §2.5). Requires PRICED status and must be strictly below price.',
   })
   @IsOptional()
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
-  @IsString({ message: 'compareAtPrice باید رشته باشد.' })
+  @IsString({ message: 'discountedPrice باید رشته باشد.' })
   @Matches(PRICE_12_2_PATTERN, {
-    message: 'compareAtPrice باید عدد اعشاری معتبر با حداکثر ۲ رقم اعشار باشد.',
+    message: 'discountedPrice باید عدد اعشاری معتبر با حداکثر ۲ رقم اعشار باشد.',
   })
-  compareAtPrice?: string;
+  discountedPrice?: string;
+
+  @ApiPropertyOptional({ description: 'Sale window start (ISO 8601).' })
+  @IsOptional()
+  @IsDateString({}, { message: 'discountStartsAt باید زمان ISO معتبر باشد.' })
+  discountStartsAt?: string;
+
+  @ApiPropertyOptional({ description: 'Sale window end (ISO 8601).' })
+  @IsOptional()
+  @IsDateString({}, { message: 'discountEndsAt باید زمان ISO معتبر باشد.' })
+  discountEndsAt?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'B2B partner price in Rial. Admin-only; must be positive and below the regular price.',
+  })
+  @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsString({ message: 'partnerPrice باید رشته باشد.' })
+  @Matches(PRICE_12_2_PATTERN, {
+    message: 'partnerPrice باید عدد اعشاری معتبر با حداکثر ۲ رقم اعشار باشد.',
+  })
+  partnerPrice?: string;
 
   @ApiPropertyOptional({
     enum: PriceSourceCurrency,
     description:
-      'Source currency for `price`/`compareAtPrice` (SS-900 Part II). USD/AED values are converted with the current manual rate and the Rial result is stored authoritatively.',
+      'Source currency for `price`/`discountedPrice` (SS-900 Part II). USD/AED values are converted with the current manual rate and the Rial result is stored authoritatively.',
   })
   @IsOptional()
   @IsEnum(PriceSourceCurrency, { message: 'واحد پول قیمت معتبر نیست.' })

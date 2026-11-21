@@ -212,6 +212,13 @@ export interface AdminOrderListItemDto extends OrderListItemDto {
   customerMobile: string;
   paymentMethod: PaymentMethod;
   paymentStatus: PaymentStatus;
+  /** Customer checkout note, shown directly in the operator queue. */
+  note: string | null;
+  /** Latest shipment tracking state for inline tracking-code entry. */
+  shipment: {
+    status: string;
+    trackingNumber: string | null;
+  } | null;
 }
 
 export interface AdminOrderListResponse {

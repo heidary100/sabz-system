@@ -130,17 +130,17 @@ export interface CatalogProductCardDto {
   priceFrom: string;
   /**
    * Reference (pre-discount) price of the minimum-priced PRICED variant, in
-   * Rial (SS-225); null when that variant has no compareAtPrice or the
+   * Rial (SS-225); null when that variant has no regularPrice or the
    * product is call-for-price. Lets listing cards show a truthful discount
    * badge without extra requests.
    */
-  compareAtPrice: string | null;
+  regularPrice: string | null;
   /** True when no live variant is PRICED: show call-for-price, never a price. */
   callForPrice: boolean;
   /**
    * Earliest `endsAt` (ISO) among currently-active Promotion rows scoped to
    * this product (SS-235 B1): drives the real sale countdown on cards.
-   * Null when no promotion applies. Independent of `compareAtPrice` — a
+   * Null when no promotion applies. Independent of `regularPrice` — a
    * FIXED-amount promotion with no reference price still yields a countdown
    * and a generic sale badge.
    */
@@ -195,7 +195,7 @@ export interface CatalogProductVariantDto {
   /** Customer-facing Rial price (rounded server-side, Decimal string). */
   price: string;
   /** Pre-discount reference price (SS-201); null when no sale. */
-  compareAtPrice: string | null;
+  regularPrice: string | null;
   priceStatus: PriceStatus;
   /** Available stock for this variant across active warehouses. */
   inStock: boolean;

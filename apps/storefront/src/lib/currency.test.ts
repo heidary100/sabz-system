@@ -1,14 +1,23 @@
 import { describe, expect, it } from 'vitest';
 import {
-  RIAL_LABEL,
+  TOMAN_LABEL,
+  tomanNumber,
   rialBound,
   rialMachineValue,
   rialNumber,
 } from './currency';
 
-describe('RIAL_LABEL', () => {
+describe('TOMAN_LABEL', () => {
   it('is the customer-facing unit', () => {
-    expect(RIAL_LABEL).toBe('ریال');
+    expect(TOMAN_LABEL).toBe('تومان');
+  });
+});
+
+describe('tomanNumber', () => {
+  it('divides Rial by 10 exactly once', () => {
+    expect(tomanNumber('7700000')).toBe(770_000);
+    expect(tomanNumber('7650000')).toBe(765_000);
+    expect(tomanNumber(null)).toBe(0);
   });
 });
 

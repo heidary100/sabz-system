@@ -122,7 +122,7 @@ describe('ProductShare', () => {
             brandName: 'برند',
             variantName: 'مدل',
             priceRial: '100000',
-            compareAtPriceRial: null,
+            regularPriceRial: null,
           }}
         />,
       );

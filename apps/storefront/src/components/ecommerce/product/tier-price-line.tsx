@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import type { CatalogPriceResponseDto } from '@sabz/types';
 import { authFetch } from '@/lib/auth-client';
-import { formatRial } from '@/lib/format';
+import { formatToman } from '@/lib/format';
 import { useHasSession } from '@/components/ecommerce/wishlist/use-has-session';
 
 /**
@@ -74,7 +74,7 @@ export function TierPriceLine({
   }
   return (
     <p className="mt-2 text-sm font-semibold text-accent">
-      قیمت همکار: {formatRial(resolved)}
+      قیمت همکار: {formatToman(resolved)}
     </p>
   );
 }

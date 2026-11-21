@@ -21,8 +21,10 @@ import type { AuthUser } from '../auth/interfaces/auth-user.interface';
 import { AppRole } from '../auth/enums/app-role.enum';
 import { CurrencyService } from './currency.service';
 import {
+  ApplyCurrencyRecalculationDto,
   ConvertCurrencyQueryDto,
   CreateCurrencyRateDto,
+  CurrencyRecalculationDto,
   ListCurrencyRatesQueryDto,
 } from './dto/currency.dto';
 
@@ -64,5 +66,28 @@ export class CurrencyController {
   @ApiResponse({ status: 404, description: 'No rate recorded.' })
   async convert(@Query() query: ConvertCurrencyQueryDto) {
     return this.currencyService.convert(query.currency, query.amount);
+  }
+
+  @Post('recalculate/preview')
+  @ApiOperation({
+    summary: 'Preview a manual-rate change across source-currency products',
+  })
+  @ApiResponse({ status: 200, description: 'Per-product conversion preview.' })
+  async previewRecalculation(@Body() dto: CurrencyRecalculationDto) {
+    return this.currencyService.previewRecalculation(dto);
+  }
+
+  @Post('recalculate')
+  @ApiOperation({
+    summary: 'Append the rate and atomically recalculate affected products',
+  })
+  @ApiResponse({ status: 201, description: 'Rate applied and prices updated.' })
+  @ApiResponse({ status: 409, description: 'Stale preview / concurrent edit.' })
+  async recalculate(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: ApplyCurrencyRecalculationDto,
+    @Ip() ipAddress?: string,
+  ) {
+    return this.currencyService.applyRecalculation(dto, user.userId, ipAddress);
   }
 }

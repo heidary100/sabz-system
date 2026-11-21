@@ -1,17 +1,21 @@
 /**
- * Storefront currency contract (SS-900).
+ * Storefront currency contract (pricing-grid spec §3).
  *
- * Customers see Rial only. The API is the single authority for customer-facing
- * Rial amounts: it rounds every chargeable/displayed price UP to the next
- * 100,000 Rial inside the pricing pipeline. The storefront formats the
- * server-provided value and never converts or rounds it.
+ * Backend accounting is integer Rial. The API is the single authority for
+ * customer-facing amounts: it rounds every chargeable/displayed price UP to
+ * the next 100,000 Rial inside the pricing pipeline. Customers are shown
+ * Toman only (10 Rial = 1 Toman), after that authoritative rounding.
  *
- * This module intentionally exposes no Toman/USD/AED conversion API.
+ * This module exposes no USD/AED conversion. `rialMachineValue` keeps the
+ * Rial value for JSON-LD/structured data, while the display helpers divide
+ * by 10 exactly once at the render boundary.
  */
 
-/** The only currency unit rendered to customers. */
+/** Machine/accounting currency used by the API. */
 export const STOREFRONT_CURRENCY = 'IRR' as const;
-export const RIAL_LABEL = 'ریال';
+/** Customers see Toman only. */
+export const TOMAN_LABEL = 'تومان';
+export const RIAL_PER_TOMAN = 10;
 
 /** Parses a server Decimal-as-string without applying any rounding. */
 export function rialNumber(value: string | number | null | undefined): number {
@@ -20,6 +24,14 @@ export function rialNumber(value: string | number | null | undefined): number {
   }
   const number = typeof value === 'number' ? value : Number(value);
   return Number.isFinite(number) ? number : 0;
+}
+
+/**
+ * Rial → Toman at the display boundary. The server already rounded UP in
+ * Rial, so this never rounds: 7,700,000 Rial → 770,000 Toman.
+ */
+export function tomanNumber(value: string | number | null | undefined): number {
+  return rialNumber(value) / RIAL_PER_TOMAN;
 }
 
 /** Machine-readable Rial string for JSON-LD/OG (no conversion). */

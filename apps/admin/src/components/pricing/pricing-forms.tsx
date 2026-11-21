@@ -31,6 +31,7 @@ import { Text } from '../catalyst/text'
 import { JalaliDateTimeInput } from '../ui/jalali-datetime-input'
 import { useCategoryOptions } from '../../hooks/use-category-options'
 import { translateApiError } from '../../lib/error-messages'
+import { formatFaNumber } from '../../lib/format'
 import {
   applyMoneyInput,
   groupMoneyDigits,
@@ -41,6 +42,7 @@ import { listBrands } from '../../services/brands'
 import {
   createCategoryRule,
   createProductOverride,
+  previewCategoryRule,
   createPromotion,
   updateCategoryRule,
   updateProductOverride,
@@ -50,7 +52,7 @@ import {
   createPartnerTier,
   updatePartnerTier,
 } from '../../services/partner-tiers'
-import { getProduct } from '../../services/products'
+import { getProduct, listProducts } from '../../services/products'
 
 function useBrandOptions() {
   const [brands, setBrands] = useState<BrandSummary[]>([])
@@ -204,50 +206,102 @@ function ProductIdField({
   disabled: boolean
   required: boolean
 }) {
-  const [productName, setProductName] = useState<string | null>(null)
-  const [notFound, setNotFound] = useState(false)
-  const [checking, setChecking] = useState(false)
+  const [query, setQuery] = useState('')
+  const [options, setOptions] = useState<Array<{ id: string; name: string }>>([])
+  const [chosenName, setChosenName] = useState<string | null>(null)
+  const [searching, setSearching] = useState(false)
 
-  const lookup = async (id: string): Promise<void> => {
-    const trimmed = id.trim()
-    if (!trimmed) {
-      setProductName(null)
-      setNotFound(false)
+  useEffect(() => {
+    if (!query.trim()) {
+      setOptions([])
       return
     }
-    setChecking(true)
-    try {
-      const product = await getProduct(trimmed)
-      setProductName(product.name)
-      setNotFound(false)
-    } catch {
-      setProductName(null)
-      setNotFound(true)
-    } finally {
-      setChecking(false)
+    let cancelled = false
+    const timer = setTimeout(() => {
+      setSearching(true)
+      void listProducts({ search: query.trim(), page: 1, limit: 20 })
+        .then((result) => {
+          if (!cancelled) {
+            setOptions(result.items.map((item) => ({ id: item.id, name: item.name })))
+          }
+        })
+        .catch(() => {
+          if (!cancelled) setOptions([])
+        })
+        .finally(() => {
+          if (!cancelled) setSearching(false)
+        })
+    }, 250)
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
     }
-  }
+  }, [query])
+
+  useEffect(() => {
+    if (!value) {
+      setChosenName(null)
+      return
+    }
+    let cancelled = false
+    void getProduct(value)
+      .then((product) => {
+        if (!cancelled) setChosenName(product.name)
+      })
+      .catch(() => {
+        if (!cancelled) setChosenName(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [value])
 
   return (
     <Field>
-      <Label>شناسه محصول{required ? '' : ' (اختیاری)'}</Label>
+      <Label>محصول{required ? '' : ' (اختیاری)'}</Label>
       <Input
-        name="productId"
-        dir="ltr"
-        placeholder="UUID محصول"
-        value={value}
-        onChange={(event) => {
-          onChange(event.target.value)
-          setProductName(null)
-          setNotFound(false)
-        }}
-        onBlur={(event) => void lookup(event.target.value)}
+        name="productSearch"
+        placeholder="جستجوی نام محصول…"
+        value={query}
+        onChange={(event) => setQuery(event.target.value)}
         disabled={disabled}
+        autoComplete="off"
       />
-      <Text className="text-xs text-muted">
-        {checking
-          ? 'در حال بررسی…'
-          : productName ?? (notFound ? 'محصولی با این شناسه یافت نشد.' : 'شناسه را وارد کنید تا نام محصول نمایش داده شود.')}
+      <div className="mt-2 max-h-40 overflow-auto rounded-control border border-border">
+        {searching ? (
+          <p className="px-3 py-2 text-xs text-muted">در حال جستجو…</p>
+        ) : options.length === 0 ? (
+          <p className="px-3 py-2 text-xs text-muted">
+            {query.trim() ? 'محصولی یافت نشد.' : 'نام محصول را جستجو کنید؛ نیازی به UUID نیست.'}
+          </p>
+        ) : (
+          <ul role="list">
+            {options.map((option) => (
+              <li key={option.id}>
+                <button
+                  type="button"
+                  className={
+                    option.id === value
+                      ? 'block w-full bg-primary-subtle px-3 py-2 text-start text-sm text-primary'
+                      : 'block w-full px-3 py-2 text-start text-sm hover:bg-surface-strong'
+                  }
+                  onClick={() => {
+                    onChange(option.id)
+                    setChosenName(option.name)
+                    setQuery(option.name)
+                    setOptions([])
+                  }}
+                  disabled={disabled}
+                >
+                  {option.name}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+      <Text className="mt-1 text-xs text-muted">
+        {chosenName ? `انتخاب‌شده: ${chosenName}` : 'محصول را از نتایج جستجو انتخاب کنید.'}
       </Text>
     </Field>
   )
@@ -271,10 +325,15 @@ export function CategoryRuleForm({
   const [type, setType] = useState<PromotionType>('PERCENT')
   const [value, setValue] = useState('')
   const [priority, setPriority] = useState('0')
+  const [includeDescendants, setIncludeDescendants] = useState(false)
   const [startsAt, setStartsAt] = useState('')
   const [endsAt, setEndsAt] = useState('')
   const [isActive, setIsActive] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+  const [preview, setPreview] = useState<
+    import('@sabz/types').CategoryRulePreviewResponse | null
+  >(null)
+  const [previewing, setPreviewing] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -283,9 +342,11 @@ export function CategoryRuleForm({
       setType(rule?.type ?? 'PERCENT')
       setValue(rule?.value ?? '')
       setPriority(String(rule?.priority ?? 0))
+      setIncludeDescendants(rule?.includeDescendants ?? false)
       setStartsAt(rule?.startsAt ?? '')
       setEndsAt(rule?.endsAt ?? '')
       setIsActive(rule?.isActive ?? true)
+      setPreview(null)
       setError(null)
     }
   }, [open, rule])
@@ -305,6 +366,10 @@ export function CategoryRuleForm({
       setError(windowError)
       return
     }
+    if (preview === null) {
+      setError('ابتدا پیش‌نمایش تأثیر قانون را بگیرید.')
+      return
+    }
     setSubmitting(true)
     setError(null)
     try {
@@ -317,6 +382,7 @@ export function CategoryRuleForm({
           isActive,
           startsAt: startsAt || null,
           endsAt: endsAt || null,
+          includeDescendants,
           priority: Number.isFinite(priorityNum) ? Math.trunc(priorityNum) : 0,
         }
         await updateCategoryRule(rule.id, input)
@@ -326,6 +392,7 @@ export function CategoryRuleForm({
           type,
           value: value.trim(),
           isActive,
+          includeDescendants,
           priority: Number.isFinite(priorityNum) ? Math.trunc(priorityNum) : 0,
           ...(startsAt ? { startsAt } : {}),
           ...(endsAt ? { endsAt } : {}),
@@ -382,6 +449,22 @@ export function CategoryRuleForm({
           </Field>
 
           <Field>
+            <Label>دامنه اعمال</Label>
+            <label className="flex min-h-11 items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={includeDescendants}
+                onChange={(event) => setIncludeDescendants(event.target.checked)}
+                disabled={submitting}
+              />
+              این دسته‌بندی و همه زیردسته‌ها
+            </label>
+            <Text className="text-xs text-muted">
+              بدون انتخاب، فقط محصولات مستقیم همین دسته‌بندی مشمول می‌شوند.
+            </Text>
+          </Field>
+
+          <Field>
             <Label>شروع بازه (اختیاری)</Label>
             <JalaliDateTimeInput
               businessTimeZone
@@ -409,12 +492,59 @@ export function CategoryRuleForm({
 
           <ActiveField value={isActive} onChange={setIsActive} disabled={submitting} />
 
+          {preview && (
+            <div className="rounded-control border border-border p-3 text-sm" role="status">
+              <p>
+                {formatFaNumber(preview.productCount)} محصول، {formatFaNumber(preview.affected)} ردیف
+                قابل اعمال، {formatFaNumber(preview.skipped)} ردیف ردشده، {formatFaNumber(preview.failed)} خطا.
+              </p>
+              {preview.warnings.map((warning) => (
+                <p key={warning} className="mt-1 text-xs text-amber-700">{warning}</p>
+              ))}
+              {preview.conflicts.length > 0 && (
+                <p className="mt-1 text-xs text-amber-700">
+                  {formatFaNumber(preview.conflicts.length)} قانون فعال/زمان‌بندی‌شده دیگر روی این دامنه وجود دارد؛
+                  قانون با اولویت کمتر برنده می‌شود.
+                </p>
+              )}
+            </div>
+          )}
           {error && <ErrorMessage>{error}</ErrorMessage>}
         </div>
       </AlertBody>
       <AlertActions>
         <Button outline onClick={onClose} disabled={submitting}>
           انصراف
+        </Button>
+        <Button
+          outline
+          disabled={submitting || previewing}
+          onClick={() => {
+            if (!categoryId) {
+              setError('انتخاب دسته‌بندی الزامی است.')
+              return
+            }
+            const valueError = validateValue(type, value)
+            if (valueError) {
+              setError(valueError)
+              return
+            }
+            setPreviewing(true)
+            setError(null)
+            void previewCategoryRule({
+              categoryId,
+              includeDescendants,
+              type,
+              value: value.trim(),
+              startsAt: startsAt || null,
+              endsAt: endsAt || null,
+            })
+              .then(setPreview)
+              .catch((caught) => setError(translateApiError(caught)))
+              .finally(() => setPreviewing(false))
+          }}
+        >
+          {previewing ? 'در حال پیش‌نمایش…' : 'پیش‌نمایش تأثیر'}
         </Button>
         <Button color="primary" onClick={() => void handleSubmit()} disabled={submitting}>
           {submitting ? 'در حال ذخیره…' : isEdit ? 'ذخیره تغییرات' : 'افزودن'}
@@ -438,8 +568,10 @@ export function ProductOverrideForm({
   const isEdit = override !== null
 
   const [productId, setProductId] = useState('')
+  const [kind, setKind] = useState<'ABSOLUTE' | 'ADJUSTMENT'>('ABSOLUTE')
   const [type, setType] = useState<PromotionType>('FIXED')
   const [value, setValue] = useState('')
+  const [overridePrice, setOverridePrice] = useState('')
   const [startsAt, setStartsAt] = useState('')
   const [endsAt, setEndsAt] = useState('')
   const [isActive, setIsActive] = useState(true)
@@ -449,8 +581,10 @@ export function ProductOverrideForm({
   useEffect(() => {
     if (open) {
       setProductId(override?.productId ?? '')
+      setKind(override?.overridePrice !== null && override?.overridePrice !== undefined ? 'ABSOLUTE' : 'ADJUSTMENT')
       setType(override?.type ?? 'FIXED')
       setValue(override?.value ?? '')
+      setOverridePrice(override?.overridePrice ?? '')
       setStartsAt(override?.startsAt ?? '')
       setEndsAt(override?.endsAt ?? '')
       setIsActive(override?.isActive ?? true)
@@ -463,10 +597,16 @@ export function ProductOverrideForm({
       setError('شناسه محصول الزامی است.')
       return
     }
-    const valueError = validateValue(type, value)
-    if (valueError) {
-      setError(valueError)
+    if (kind === 'ABSOLUTE' && (!overridePrice.trim() || Number(overridePrice) <= 0)) {
+      setError('قیمت نهایی اورراید باید بزرگ‌تر از صفر باشد.')
       return
+    }
+    if (kind === 'ADJUSTMENT') {
+      const valueError = validateValue(type, value)
+      if (valueError) {
+        setError(valueError)
+        return
+      }
     }
     const windowError = validateWindow(startsAt, endsAt, false)
     if (windowError) {
@@ -477,19 +617,31 @@ export function ProductOverrideForm({
     setError(null)
     try {
       if (isEdit) {
-        const input: UpdateProductPriceOverrideInput = {
-          type,
-          value: value.trim(),
-          isActive,
-          startsAt: startsAt || null,
-          endsAt: endsAt || null,
-        }
+        const input: UpdateProductPriceOverrideInput =
+          kind === 'ABSOLUTE'
+            ? {
+                type: null,
+                value: null,
+                overridePrice: overridePrice.trim(),
+                isActive,
+                startsAt: startsAt || null,
+                endsAt: endsAt || null,
+              }
+            : {
+                type,
+                value: value.trim(),
+                overridePrice: null,
+                isActive,
+                startsAt: startsAt || null,
+                endsAt: endsAt || null,
+              }
         await updateProductOverride(override.id, input)
       } else {
         const input: CreateProductPriceOverrideInput = {
           productId: productId.trim(),
-          type,
-          value: value.trim(),
+          ...(kind === 'ABSOLUTE'
+            ? { overridePrice: overridePrice.trim() }
+            : { type, value: value.trim() }),
           isActive,
           ...(startsAt ? { startsAt } : {}),
           ...(endsAt ? { endsAt } : {}),
@@ -521,8 +673,36 @@ export function ProductOverrideForm({
             <ProductIdField value={productId} onChange={setProductId} disabled={submitting} required />
           )}
 
-          <TypeField value={type} onChange={setType} disabled={submitting} />
-          <ValueField type={type} value={value} onChange={setValue} disabled={submitting} />
+          <Field>
+            <Label>شکل اورراید</Label>
+            <Select
+              value={kind}
+              onChange={(event) => setKind(event.target.value as 'ABSOLUTE' | 'ADJUSTMENT')}
+              disabled={submitting}
+            >
+              <option value="ABSOLUTE">قیمت نهایی مطلق (ریال)</option>
+              <option value="ADJUSTMENT">تخفیف درصدی/مبلغی از قیمت جاری</option>
+            </Select>
+          </Field>
+          {kind === 'ABSOLUTE' ? (
+            <Field>
+              <Label>قیمت نهایی (ریال)</Label>
+              <Input
+                dir="ltr"
+                inputMode="decimal"
+                value={groupMoneyDigits(overridePrice)}
+                onChange={(event) =>
+                  setOverridePrice(event.target.value.replace(/[^\d.]/g, ''))
+                }
+                disabled={submitting}
+              />
+            </Field>
+          ) : (
+            <>
+              <TypeField value={type} onChange={setType} disabled={submitting} />
+              <ValueField type={type} value={value} onChange={setValue} disabled={submitting} />
+            </>
+          )}
 
           <Field>
             <Label>شروع بازه (اختیاری)</Label>

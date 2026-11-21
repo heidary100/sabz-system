@@ -48,16 +48,16 @@ describe('FiltersSheet typed price commit (#289)', () => {
     renderSheet();
     await openSheet();
 
-    fireEvent.change(screen.getByLabelText('حداقل قیمت به ریال'), {
+    fireEvent.change(screen.getByLabelText('حداقل قیمت به تومان'), {
       target: { value: '1000000' },
     });
-    fireEvent.change(screen.getByLabelText('حداکثر قیمت به ریال'), {
+    fireEvent.change(screen.getByLabelText('حداکثر قیمت به تومان'), {
       target: { value: '5000000' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'نمایش نتایج' }));
 
     expect(router.push).toHaveBeenCalledWith(
-      expect.stringContaining('priceFrom=1000000&priceTo=5000000'),
+      expect.stringContaining('priceFrom=10000000&priceTo=50000000'),
     );
   });
 
@@ -65,16 +65,16 @@ describe('FiltersSheet typed price commit (#289)', () => {
     renderSheet();
     await openSheet();
 
-    fireEvent.change(screen.getByLabelText('حداقل قیمت به ریال'), {
+    fireEvent.change(screen.getByLabelText('حداقل قیمت به تومان'), {
       target: { value: '۱۰۰۰۰۰۰' },
     });
-    fireEvent.change(screen.getByLabelText('حداکثر قیمت به ریال'), {
+    fireEvent.change(screen.getByLabelText('حداکثر قیمت به تومان'), {
       target: { value: '۵۰۰۰۰۰۰' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'نمایش نتایج' }));
 
     expect(router.push).toHaveBeenCalledWith(
-      expect.stringContaining('priceFrom=1000000&priceTo=5000000'),
+      expect.stringContaining('priceFrom=10000000&priceTo=50000000'),
     );
   });
 
@@ -82,7 +82,7 @@ describe('FiltersSheet typed price commit (#289)', () => {
     renderSheet();
     await openSheet();
 
-    fireEvent.change(screen.getByLabelText('حداکثر قیمت به ریال'), {
+    fireEvent.change(screen.getByLabelText('حداکثر قیمت به تومان'), {
       target: { value: '20000000' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'نمایش نتایج' }));
@@ -96,7 +96,7 @@ describe('FiltersSheet typed price commit (#289)', () => {
     renderSheet();
     await openSheet();
 
-    fireEvent.change(screen.getByLabelText('حداقل قیمت به ریال'), {
+    fireEvent.change(screen.getByLabelText('حداقل قیمت به تومان'), {
       target: { value: 'abc' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'نمایش نتایج' }));

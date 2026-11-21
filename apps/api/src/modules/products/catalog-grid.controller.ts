@@ -45,6 +45,14 @@ export class CatalogGridController {
     return this.catalogGridService.list(query);
   }
 
+  @Get('ids')
+  @ApiOperation({
+    summary: 'Distinct product ids matching the grid filters (select-all scope)',
+  })
+  async listIds(@Query() query: ListCatalogGridQueryDto) {
+    return this.catalogGridService.listIds(query);
+  }
+
   @Post('batch')
   // A batch save is an update sweep, not a resource creation: 200 even with
   // failed rows (per-row outcomes carry the 409/422 semantics).

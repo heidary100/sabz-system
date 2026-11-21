@@ -26,11 +26,15 @@ const variantSelect = {
   barcode: true,
   name: true,
   price: true,
-  compareAtPrice: true,
+  discountedPrice: true,
+  discountStartsAt: true,
+  discountEndsAt: true,
+  partnerPrice: true,
+  priceUpdatedAt: true,
   priceStatus: true,
   priceSourceCurrency: true,
   priceSourceAmount: true,
-  compareAtSourceAmount: true,
+  discountSourceAmount: true,
   priceSourceRate: true,
   priceSourceRateAt: true,
   priceSourceRateId: true,
@@ -92,8 +96,11 @@ export class VariantsService {
     const pricing = await this.resolveCreatePricing(dto);
     this.validatePricing({
       price: pricing.price,
-      compareAtPrice: pricing.compareAtPrice,
+      discountedPrice: pricing.discountedPrice,
       priceStatus: dto.priceStatus ?? PriceStatus.PRICED,
+      discountStartsAt: dto.discountStartsAt ? new Date(dto.discountStartsAt) : null,
+      discountEndsAt: dto.discountEndsAt ? new Date(dto.discountEndsAt) : null,
+      partnerPrice: dto.partnerPrice ?? null,
     });
     try {
       let productSlug: string | null = null;
@@ -107,7 +114,11 @@ export class VariantsService {
             barcode: dto.barcode ?? null,
             name: dto.name ?? null,
             price: pricing.price,
-            compareAtPrice: pricing.compareAtPrice,
+            discountedPrice: pricing.discountedPrice,
+            discountStartsAt: dto.discountStartsAt ? new Date(dto.discountStartsAt) : null,
+            discountEndsAt: dto.discountEndsAt ? new Date(dto.discountEndsAt) : null,
+            partnerPrice: dto.partnerPrice ?? null,
+            priceUpdatedAt: new Date(),
             priceStatus: dto.priceStatus ?? PriceStatus.PRICED,
             ...this.pricingColumns(pricing),
             createdBy: actorId,
@@ -127,7 +138,7 @@ export class VariantsService {
               barcode: row.barcode,
               name: row.name,
               price: row.price.toString(),
-              compareAtPrice: row.compareAtPrice?.toString() ?? null,
+              discountedPrice: row.discountedPrice?.toString() ?? null,
               priceStatus: row.priceStatus,
             },
             ipAddress,
@@ -167,19 +178,45 @@ export class VariantsService {
           ...(pricing
             ? {
                 price: pricing.price,
-                compareAtPrice: pricing.compareAtPrice,
+                discountedPrice: pricing.discountedPrice,
                 ...this.pricingColumns(pricing),
               }
+            : {}),
+          ...(dto.discountStartsAt !== undefined
+            ? {
+                discountStartsAt:
+                  dto.discountStartsAt === null ? null : new Date(dto.discountStartsAt),
+              }
+            : {}),
+          ...(dto.discountEndsAt !== undefined
+            ? {
+                discountEndsAt:
+                  dto.discountEndsAt === null ? null : new Date(dto.discountEndsAt),
+              }
+            : {}),
+          ...(dto.partnerPrice !== undefined ? { partnerPrice: dto.partnerPrice } : {}),
+          ...(pricing || dto.discountStartsAt !== undefined || dto.discountEndsAt !== undefined
+            ? { priceUpdatedAt: new Date() }
             : {}),
         };
 
         this.validatePricing({
           price: pricing?.price ?? target.price.toString(),
-          compareAtPrice:
+          discountedPrice:
             pricing !== null
-              ? pricing.compareAtPrice
-              : (target.compareAtPrice?.toString() ?? null),
+              ? pricing.discountedPrice
+              : (target.discountedPrice?.toString() ?? null),
           priceStatus: data.priceStatus ?? target.priceStatus,
+          discountStartsAt:
+            data.discountStartsAt !== undefined
+              ? data.discountStartsAt
+              : target.discountStartsAt,
+          discountEndsAt:
+            data.discountEndsAt !== undefined ? data.discountEndsAt : target.discountEndsAt,
+          partnerPrice:
+            data.partnerPrice !== undefined
+              ? (data.partnerPrice as string | null)
+              : (target.partnerPrice?.toString() ?? null),
         });
 
         const before = this.businessDelta(target, data, 'before');
@@ -290,13 +327,17 @@ export class VariantsService {
       barcode: row.barcode,
       name: row.name,
       price: row.price.toString(),
-      compareAtPrice: row.compareAtPrice?.toString() ?? null,
+      discountedPrice: row.discountedPrice?.toString() ?? null,
+      discountStartsAt: row.discountStartsAt?.toISOString() ?? null,
+      discountEndsAt: row.discountEndsAt?.toISOString() ?? null,
+      partnerPrice: row.partnerPrice?.toString() ?? null,
+      priceUpdatedAt: row.priceUpdatedAt?.toISOString() ?? null,
       priceStatus: row.priceStatus,
       priceSourceCurrency: row.priceSourceCurrency ?? PriceSourceCurrency.RIAL,
       priceSourceAmount: row.priceSourceAmount?.toString() ?? row.price.toString(),
-      compareAtSourceAmount:
-        row.compareAtSourceAmount?.toString() ??
-        row.compareAtPrice?.toString() ??
+      discountSourceAmount:
+        row.discountSourceAmount?.toString() ??
+        row.discountedPrice?.toString() ??
         null,
       priceSourceRate: row.priceSourceRate?.toString() ?? null,
       priceSourceRateAt: row.priceSourceRateAt?.toISOString() ?? null,
@@ -307,7 +348,7 @@ export class VariantsService {
     return {
       priceSourceCurrency: pricing.priceSourceCurrency,
       priceSourceAmount: pricing.priceSourceAmount,
-      compareAtSourceAmount: pricing.compareAtSourceAmount,
+      discountSourceAmount: pricing.discountSourceAmount,
       priceSourceRate: pricing.priceSourceRate,
       priceSourceRateAt: pricing.priceSourceRateAt,
       priceSourceRateId: pricing.priceSourceRateId,
@@ -320,7 +361,7 @@ export class VariantsService {
     return this.resolvePricing(
       dto.priceSourceCurrency ?? PriceSourceCurrency.RIAL,
       dto.price,
-      dto.compareAtPrice ?? null,
+      dto.discountedPrice ?? null,
     );
   }
 
@@ -330,7 +371,7 @@ export class VariantsService {
   ): Promise<ResolvedVariantPricing | null> {
     const pricingTouched =
       dto.price !== undefined ||
-      dto.compareAtPrice !== undefined ||
+      dto.discountedPrice !== undefined ||
       dto.priceSourceCurrency !== undefined;
     if (!pricingTouched) {
       return null;
@@ -357,12 +398,12 @@ export class VariantsService {
         ? target.price.toString()
         : (target.priceSourceAmount?.toString() ?? target.price.toString()));
     const sourceCompare =
-      dto.compareAtPrice !== undefined
-        ? dto.compareAtPrice
+      dto.discountedPrice !== undefined
+        ? dto.discountedPrice
         : currency === PriceSourceCurrency.RIAL
-          ? (target.compareAtPrice?.toString() ?? null)
-          : (target.compareAtSourceAmount?.toString() ??
-            target.compareAtPrice?.toString() ??
+          ? (target.discountedPrice?.toString() ?? null)
+          : (target.discountSourceAmount?.toString() ??
+            target.discountedPrice?.toString() ??
             null);
     return this.resolvePricing(currency, sourcePrice, sourceCompare);
   }
@@ -370,18 +411,18 @@ export class VariantsService {
   private async resolvePricing(
     currency: PriceSourceCurrency,
     sourcePrice: string,
-    sourceCompare: string | null,
+    sourceDiscount: string | null,
   ): Promise<ResolvedVariantPricing> {
     const source = parseMoney(sourcePrice, 'قیمت');
-    const sourceCompareAt =
-      sourceCompare === null ? null : parseMoney(sourceCompare, 'قیمت قبل از تخفیف');
+    const sourceDiscounted =
+      sourceDiscount === null ? null : parseMoney(sourceDiscount, 'قیمت فروش ویژه');
     if (currency === PriceSourceCurrency.RIAL) {
       return {
         price: source.toFixed(2),
-        compareAtPrice: sourceCompareAt?.toFixed(2) ?? null,
+        discountedPrice: sourceDiscounted?.toFixed(2) ?? null,
         priceSourceCurrency: currency,
         priceSourceAmount: source.toFixed(2),
-        compareAtSourceAmount: sourceCompareAt?.toFixed(2) ?? null,
+        discountSourceAmount: sourceDiscounted?.toFixed(2) ?? null,
         priceSourceRate: null,
         priceSourceRateAt: null,
         priceSourceRateId: null,
@@ -400,14 +441,14 @@ export class VariantsService {
     }
     const rateValue = new Prisma.Decimal(rate.rialPerUnit);
     const rialPrice = roundRialUp(source.mul(rateValue));
-    const rialCompare =
-      sourceCompareAt === null ? null : roundRialUp(sourceCompareAt.mul(rateValue));
+    const rialDiscount =
+      sourceDiscounted === null ? null : roundRialUp(sourceDiscounted.mul(rateValue));
     return {
       price: rialPrice.toString(),
-      compareAtPrice: rialCompare?.toString() ?? null,
+      discountedPrice: rialDiscount?.toString() ?? null,
       priceSourceCurrency: currency,
       priceSourceAmount: source.toFixed(2),
-      compareAtSourceAmount: sourceCompareAt?.toFixed(2) ?? null,
+      discountSourceAmount: sourceDiscounted?.toFixed(2) ?? null,
       priceSourceRate: rateValue.toString(),
       priceSourceRateAt: new Date(rate.effectiveAt),
       priceSourceRateId: rate.id,
@@ -415,35 +456,76 @@ export class VariantsService {
   }
 
   /**
-   * Cross-field pricing rules (SS-201). Runs on effective values (DTO overlaid
-   * on the stored row) so partial updates cannot sneak past the invariants:
-   * - compareAtPrice requires PRICED status (a call-for-price row has no
-   *   meaningful reference price).
-   * - compareAtPrice must strictly exceed price (it is the pre-discount mark).
+   * Cross-field pricing rules (pricing-grid spec §2.5). Runs on effective
+   * values (DTO overlaid on the stored row) so partial updates cannot sneak
+   * past the invariants:
+   * - discountedPrice requires PRICED status and must be strictly positive
+   *   and strictly below the regular price.
+   * - both window bounds must be supplied together and start < end.
+   * - partnerPrice must be positive and strictly below the regular price.
    *
-   * Public so the SS-257 catalog-grid batch path enforces the same SS-251
-   * invariant instead of a second implementation.
+   * Public so the catalog-grid batch path and bulk pricing service enforce
+   * the same rule instead of a second implementation.
    */
   validatePricing(effective: {
     price: string;
-    compareAtPrice: string | null;
+    discountedPrice: string | null;
     priceStatus: PriceStatus;
+    discountStartsAt?: Date | string | null;
+    discountEndsAt?: Date | string | null;
+    partnerPrice?: string | null;
   }): void {
-    if (effective.compareAtPrice === null) {
-      return;
+    const price = parseMoney(effective.price, 'قیمت');
+    if (effective.priceStatus === PriceStatus.PRICED && price.lessThanOrEqualTo(0)) {
+      throw new BadRequestException('قیمت عادی باید بزرگ‌تر از صفر باشد.');
     }
-    if (effective.priceStatus !== PriceStatus.PRICED) {
-      throw new BadRequestException(
-        'قیمت قبل از تخفیف فقط برای نوع قیمت‌دار مجاز است.',
+    if (effective.discountedPrice !== null) {
+      if (effective.priceStatus !== PriceStatus.PRICED) {
+        throw new BadRequestException(
+          'قیمت فروش ویژه فقط برای نوع قیمت‌دار مجاز است.',
+        );
+      }
+      const discounted = this.parsePositiveMoney(
+        effective.discountedPrice,
+        'قیمت فروش ویژه',
       );
+      if (discounted.greaterThanOrEqualTo(price)) {
+        throw new BadRequestException(
+          'قیمت فروش ویژه باید کمتر از قیمت عادی باشد.',
+        );
+      }
     }
-    const compareAt = new Prisma.Decimal(effective.compareAtPrice);
-    const price = new Prisma.Decimal(effective.price);
-    if (compareAt.comparedTo(price) <= 0) {
-      throw new BadRequestException(
-        'قیمت قبل از تخفیف باید بیشتر از قیمت فروش باشد.',
+    const startsAt = effective.discountStartsAt ?? null;
+    const endsAt = effective.discountEndsAt ?? null;
+    if (startsAt !== null && endsAt !== null) {
+      const start = new Date(startsAt).getTime();
+      const end = new Date(endsAt).getTime();
+      if (Number.isNaN(start) || Number.isNaN(end)) {
+        throw new BadRequestException('بازه زمانی فروش ویژه معتبر نیست.');
+      }
+      if (end <= start) {
+        throw new BadRequestException(
+          'پایان بازه فروش ویژه باید بعد از شروع آن باشد.',
+        );
+      }
+    }
+    if (effective.partnerPrice !== undefined && effective.partnerPrice !== null) {
+      const partnerPrice = this.parsePositiveMoney(
+        effective.partnerPrice,
+        'قیمت همکار',
       );
+      if (partnerPrice.greaterThanOrEqualTo(price)) {
+        throw new BadRequestException('قیمت همکار باید کمتر از قیمت عادی باشد.');
+      }
     }
+  }
+
+  private parsePositiveMoney(value: string, label: string): Prisma.Decimal {
+    const amount = parseMoney(value, label);
+    if (amount.lessThanOrEqualTo(0)) {
+      throw new BadRequestException(`${label} باید بزرگ‌تر از صفر باشد.`);
+    }
+    return amount;
   }
 
   /**
@@ -553,11 +635,31 @@ export class VariantsService {
     if (changed('price'))
       delta.price =
         side === 'before' ? target.price.toString() : (data.price as string);
-    if (changed('compareAtPrice'))
-      delta.compareAtPrice =
+    if (changed('discountedPrice'))
+      delta.discountedPrice =
         side === 'before'
-          ? (target.compareAtPrice?.toString() ?? null)
-          : (data.compareAtPrice as string | null);
+          ? (target.discountedPrice?.toString() ?? null)
+          : (data.discountedPrice as string | null);
+    if (changed('discountStartsAt'))
+      delta.discountStartsAt =
+        side === 'before'
+          ? (target.discountStartsAt?.toISOString() ?? null)
+          : ((data.discountStartsAt as Date | null)?.toISOString() ?? null);
+    if (changed('discountEndsAt'))
+      delta.discountEndsAt =
+        side === 'before'
+          ? (target.discountEndsAt?.toISOString() ?? null)
+          : ((data.discountEndsAt as Date | null)?.toISOString() ?? null);
+    if (changed('partnerPrice'))
+      delta.partnerPrice =
+        side === 'before'
+          ? (target.partnerPrice?.toString() ?? null)
+          : (data.partnerPrice as string | null);
+    if (changed('priceUpdatedAt'))
+      delta.priceUpdatedAt =
+        side === 'before'
+          ? (target.priceUpdatedAt?.toISOString() ?? null)
+          : ((data.priceUpdatedAt as Date | null)?.toISOString() ?? null);
     if (changed('priceStatus'))
       delta.priceStatus =
         side === 'before' ? target.priceStatus : (data.priceStatus as PriceStatus);
@@ -571,11 +673,11 @@ export class VariantsService {
         side === 'before'
           ? target.priceSourceAmount?.toString() ?? null
           : (data.priceSourceAmount as string | null);
-    if (changed('compareAtSourceAmount'))
-      delta.compareAtSourceAmount =
+    if (changed('discountSourceAmount'))
+      delta.discountSourceAmount =
         side === 'before'
-          ? target.compareAtSourceAmount?.toString() ?? null
-          : (data.compareAtSourceAmount as string | null);
+          ? target.discountSourceAmount?.toString() ?? null
+          : (data.discountSourceAmount as string | null);
 
     return delta;
   }
@@ -594,11 +696,15 @@ interface VariantUpdateData {
   barcode?: string | null;
   name?: string | null;
   price?: string;
-  compareAtPrice?: string | null;
+  discountedPrice?: string | null;
+  discountStartsAt?: Date | null;
+  discountEndsAt?: Date | null;
+  partnerPrice?: string | null;
+  priceUpdatedAt?: Date | null;
   priceStatus?: PriceStatus;
   priceSourceCurrency?: PriceSourceCurrency;
   priceSourceAmount?: string | null;
-  compareAtSourceAmount?: string | null;
+  discountSourceAmount?: string | null;
   priceSourceRate?: string | null;
   priceSourceRateAt?: Date | null;
   priceSourceRateId?: string | null;
@@ -606,10 +712,10 @@ interface VariantUpdateData {
 
 interface ResolvedVariantPricing {
   price: string;
-  compareAtPrice: string | null;
+  discountedPrice: string | null;
   priceSourceCurrency: PriceSourceCurrency;
   priceSourceAmount: string | null;
-  compareAtSourceAmount: string | null;
+  discountSourceAmount: string | null;
   priceSourceRate: string | null;
   priceSourceRateAt: Date | null;
   priceSourceRateId: string | null;

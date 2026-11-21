@@ -78,7 +78,7 @@ import { ProductCard } from './product-card';
 import { ProductCardWithWishlist } from '@/components/ecommerce/wishlist/product-card-wishlist';
 import {
   formatCardPrice,
-  formatRial,
+  formatToman,
   salePercentFrom,
 } from '@/lib/format';
 
@@ -93,7 +93,7 @@ function product(
     brand: { name: 'proone', slug: 'proone' },
     category: { name: 'کیبورد و ماوس', slug: 'keyboards-mice' },
     priceFrom: '16000000',
-    compareAtPrice: null,
+    regularPrice: null,
     callForPrice: false,
     promotionEndsAt: null,
     variantCount: 1,
@@ -132,12 +132,12 @@ describe('ProductCard rendering', () => {
   it('renders a discount badge, price and compare-at reference', () => {
     const discounted = product({
       priceFrom: '16000000',
-      compareAtPrice: '20000000',
+      regularPrice: '20000000',
     });
     render(<ProductCard product={discounted} />);
     const percent = salePercentFrom(
       discounted.priceFrom,
-      discounted.compareAtPrice,
+      discounted.regularPrice,
     );
     expect(
       screen.getByText(
@@ -145,7 +145,7 @@ describe('ProductCard rendering', () => {
       ),
     ).toBeTruthy();
     expect(
-      screen.getByText(formatRial(discounted.compareAtPrice!)),
+      screen.getByText(formatToman(discounted.regularPrice!)),
     ).toBeTruthy();
   });
 

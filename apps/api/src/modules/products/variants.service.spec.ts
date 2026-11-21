@@ -16,11 +16,15 @@ function makeVariantRow(overrides: Record<string, unknown> = {}) {
     barcode: null,
     name: null,
     price: { toString: () => '1500.00' },
-    compareAtPrice: null,
+    discountedPrice: null,
+    discountStartsAt: null,
+    discountEndsAt: null,
+    partnerPrice: null,
+    priceUpdatedAt: null,
     priceStatus: 'PRICED',
     priceSourceCurrency: 'RIAL',
     priceSourceAmount: null,
-    compareAtSourceAmount: null,
+    discountSourceAmount: null,
     priceSourceRate: null,
     priceSourceRateAt: null,
     priceSourceRateId: null,
@@ -75,7 +79,7 @@ describe('VariantsService', () => {
       product: { findUnique: jest.fn(), update: jest.fn().mockResolvedValue({}) },
       productVariant: {
         findUnique: jest.fn(),
-        findMany: jest.fn(),
+        findMany: jest.fn().mockResolvedValue([]),
         create: jest.fn(),
         updateMany: jest.fn(),
         aggregate: jest.fn().mockResolvedValue({ _min: { price: null } }),
@@ -158,7 +162,7 @@ describe('VariantsService', () => {
           barcode: null,
           name: null,
           price: '1500.00',
-          compareAtPrice: null,
+          discountedPrice: null,
           priceStatus: 'PRICED',
           priceSourceCurrency: 'RIAL',
         }),
@@ -250,12 +254,12 @@ describe('VariantsService', () => {
       ).rejects.toMatchObject({ status: 409 });
     });
 
-    it('persists compareAtPrice and priceStatus on create', async () => {
+    it('persists discountedPrice and priceStatus on create', async () => {
       tx.product.findUnique.mockResolvedValue(makeProductRow());
       tx.productVariant.create.mockResolvedValue(
         makeVariantRow({
-          price: { toString: () => '1500.00' },
-          compareAtPrice: { toString: () => '1800.00' },
+          price: { toString: () => '1800.00' },
+          discountedPrice: { toString: () => '1500.00' },
           priceStatus: 'PRICED',
         }),
       );
@@ -263,15 +267,15 @@ describe('VariantsService', () => {
 
       const result = await service.create(
         'prod-1',
-        { sku: 'SALE', price: '1500.00', compareAtPrice: '1800.00' },
+        { sku: 'SALE', price: '1800.00', discountedPrice: '1500.00' },
         'actor-1',
       );
 
-      expect(result.compareAtPrice).toBe('1800.00');
+      expect(result.discountedPrice).toBe('1500.00');
       expect(tx.productVariant.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
-            compareAtPrice: '1800.00',
+            discountedPrice: '1500.00',
             priceStatus: 'PRICED',
           }),
         }),
@@ -297,12 +301,12 @@ describe('VariantsService', () => {
       tx.productVariant.create.mockImplementation((args: { data: Record<string, unknown> }) =>
         makeVariantRow({
           price: { toString: () => String(args.data.price) },
-          compareAtPrice: args.data.compareAtPrice
-            ? { toString: () => String(args.data.compareAtPrice) }
+          discountedPrice: args.data.discountedPrice
+            ? { toString: () => String(args.data.discountedPrice) }
             : null,
           priceSourceCurrency: args.data.priceSourceCurrency,
           priceSourceAmount: args.data.priceSourceAmount,
-          compareAtSourceAmount: args.data.compareAtSourceAmount,
+          discountSourceAmount: args.data.discountSourceAmount,
           priceSourceRate: args.data.priceSourceRate,
           priceSourceRateAt: new Date('2026-11-19T00:00:00.000Z'),
           priceSourceRateId: args.data.priceSourceRateId,
@@ -314,8 +318,8 @@ describe('VariantsService', () => {
         'prod-1',
         {
           sku: 'USD-1',
-          price: '50',
-          compareAtPrice: '60',
+          price: '60',
+          discountedPrice: '50',
           priceSourceCurrency: PriceSourceCurrency.USD,
         },
         'actor-1',
@@ -325,11 +329,11 @@ describe('VariantsService', () => {
       expect(tx.productVariant.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
-            price: '46300000',
-            compareAtPrice: '55500000',
+            price: '55500000',
+            discountedPrice: '46300000',
             priceSourceCurrency: PriceSourceCurrency.USD,
-            priceSourceAmount: '50.00',
-            compareAtSourceAmount: '60.00',
+            priceSourceAmount: '60.00',
+            discountSourceAmount: '50.00',
             priceSourceRate: '925000',
             priceSourceRateId: 'rate-usd-1',
           }),
@@ -358,7 +362,7 @@ describe('VariantsService', () => {
           price: { toString: () => '46300000.00' },
           priceSourceCurrency: 'USD',
           priceSourceAmount: { toString: () => '50.00' },
-          compareAtSourceAmount: null,
+          discountSourceAmount: null,
           priceSourceRate: { toString: () => '925000.000000' },
           priceSourceRateId: 'rate-usd-1',
           priceSourceRateAt: new Date('2026-11-18T00:00:00.000Z'),
@@ -387,32 +391,32 @@ describe('VariantsService', () => {
       );
     });
 
-    it('rejects compareAtPrice at or below price on create', async () => {
+    it('rejects discountedPrice at or below price on create', async () => {
       await expect(
         service.create(
           'prod-1',
-          { sku: 'S', price: '1500.00', compareAtPrice: '1500.00' },
+          { sku: 'S', price: '1500.00', discountedPrice: '1500.00' },
           'actor-1',
         ),
       ).rejects.toMatchObject({ status: 400 });
       await expect(
         service.create(
           'prod-1',
-          { sku: 'S', price: '1500.00', compareAtPrice: '1400.00' },
+          { sku: 'S', price: '1500.00', discountedPrice: '1600.00' },
           'actor-1',
         ),
       ).rejects.toMatchObject({ status: 400 });
       expect(prisma.$transaction).not.toHaveBeenCalled();
     });
 
-    it('rejects compareAtPrice on a CALL_FOR_PRICE create', async () => {
+    it('rejects discountedPrice on a CALL_FOR_PRICE create', async () => {
       await expect(
         service.create(
           'prod-1',
           {
             sku: 'S',
             price: '0',
-            compareAtPrice: '1800.00',
+            discountedPrice: '1800.00',
             priceStatus: PriceStatus.CALL_FOR_PRICE,
           },
           'actor-1',
@@ -478,60 +482,60 @@ describe('VariantsService', () => {
 
     // SS-251: the invariant is validated on EFFECTIVE values (DTO overlaid on
     // the stored row), so a partial update cannot sneak past it — dropping
-    // the price under an existing compareAtPrice, or raising compareAtPrice
+    // the price under an existing discountedPrice, or raising discountedPrice
     // over the stored price, must both be rejected.
-    it('rejects a price dropped to/below the stored compareAtPrice on update', async () => {
+    it('rejects a price dropped to/below the stored discountedPrice on update', async () => {
       tx.product.findUnique.mockResolvedValue(makeProductRow());
       tx.productVariant.findUnique.mockResolvedValue(
         makeVariantRow({
-          price: { toString: () => '1500.00' },
-          compareAtPrice: { toString: () => '1800.00' },
+          price: { toString: () => '1800.00' },
+          discountedPrice: { toString: () => '1500.00' },
           priceStatus: 'PRICED',
         }),
       );
 
       await expect(
-        service.update('var-1', { price: '1800.00' }, 'actor-1'),
+        service.update('var-1', { price: '1500.00' }, 'actor-1'),
       ).rejects.toMatchObject({ status: 400 });
       await expect(
-        service.update('var-1', { price: '1900.00' }, 'actor-1'),
+        service.update('var-1', { price: '1400.00' }, 'actor-1'),
       ).rejects.toMatchObject({ status: 400 });
       expect(tx.productVariant.updateMany).not.toHaveBeenCalled();
     });
 
-    it('rejects compareAtPrice raised to/below the stored price on update', async () => {
+    it('rejects discountedPrice raised to/below the stored price on update', async () => {
       tx.product.findUnique.mockResolvedValue(makeProductRow());
       tx.productVariant.findUnique.mockResolvedValue(
         makeVariantRow({ price: { toString: () => '1500.00' } }),
       );
 
       await expect(
-        service.update('var-1', { compareAtPrice: '1500.00' }, 'actor-1'),
+        service.update('var-1', { discountedPrice: '1500.00' }, 'actor-1'),
       ).rejects.toMatchObject({ status: 400 });
       await expect(
-        service.update('var-1', { compareAtPrice: '1200.00' }, 'actor-1'),
+        service.update('var-1', { discountedPrice: '1600.00' }, 'actor-1'),
       ).rejects.toMatchObject({ status: 400 });
       expect(tx.productVariant.updateMany).not.toHaveBeenCalled();
     });
 
-    it('allows a valid compareAtPrice update above the stored price', async () => {
+    it('allows a valid discountedPrice update below the stored price', async () => {
       tx.product.findUnique.mockResolvedValue(makeProductRow());
       tx.productVariant.findUnique
         .mockResolvedValueOnce(makeVariantRow({ price: { toString: () => '1500.00' } }))
         .mockResolvedValueOnce(
           makeVariantRow({
             price: { toString: () => '1500.00' },
-            compareAtPrice: { toString: () => '1800.00' },
+            discountedPrice: { toString: () => '1200.00' },
           }),
         );
       tx.productVariant.updateMany.mockResolvedValue({ count: 1 });
 
       const result = await service.update(
         'var-1',
-        { compareAtPrice: '1800.00' },
+        { discountedPrice: '1200.00' },
         'actor-1',
       );
-      expect(result.compareAtPrice).toBe('1800.00');
+      expect(result.discountedPrice).toBe('1200.00');
     });
 
     it('throws 409 for a duplicate SKU on update', async () => {
@@ -554,45 +558,45 @@ describe('VariantsService', () => {
       ).rejects.toMatchObject({ status: 409 });
     });
 
-    it('rejects lowering price at or below the stored compareAtPrice', async () => {
+    it('rejects lowering price at or below the stored discountedPrice', async () => {
       tx.product.findUnique.mockResolvedValue(makeProductRow());
       tx.productVariant.findUnique.mockResolvedValue(
         makeVariantRow({
-          price: { toString: () => '1500.00' },
-          compareAtPrice: { toString: () => '1800.00' },
+          price: { toString: () => '1800.00' },
+          discountedPrice: { toString: () => '1500.00' },
           priceStatus: 'PRICED',
         }),
       );
 
       await expect(
-        service.update('var-1', { price: '1800.00' }, 'actor-1'),
+        service.update('var-1', { price: '1500.00' }, 'actor-1'),
       ).rejects.toMatchObject({ status: 400 });
       expect(tx.productVariant.updateMany).not.toHaveBeenCalled();
     });
 
-    it('rejects adding compareAtPrice to a CALL_FOR_PRICE variant', async () => {
+    it('rejects adding discountedPrice to a CALL_FOR_PRICE variant', async () => {
       tx.product.findUnique.mockResolvedValue(makeProductRow());
       tx.productVariant.findUnique.mockResolvedValue(
         makeVariantRow({ priceStatus: 'CALL_FOR_PRICE' }),
       );
 
       await expect(
-        service.update('var-1', { compareAtPrice: '2000.00' }, 'actor-1'),
+        service.update('var-1', { discountedPrice: '2000.00' }, 'actor-1'),
       ).rejects.toMatchObject({ status: 400 });
     });
 
-    it('clears compareAtPrice and flips status in one update with audit deltas', async () => {
+    it('clears discountedPrice and flips status in one update with audit deltas', async () => {
       tx.product.findUnique.mockResolvedValue(makeProductRow());
       tx.productVariant.findUnique
         .mockResolvedValueOnce(
           makeVariantRow({
-            compareAtPrice: { toString: () => '1800.00' },
+            discountedPrice: { toString: () => '1200.00' },
             priceStatus: 'PRICED',
           }),
         ) // target
         .mockResolvedValueOnce(
           makeVariantRow({
-            compareAtPrice: null,
+            discountedPrice: null,
             priceStatus: 'CALL_FOR_PRICE',
           }),
         ); // current
@@ -600,7 +604,7 @@ describe('VariantsService', () => {
 
       const result = await service.update(
         'var-1',
-        { compareAtPrice: null, priceStatus: PriceStatus.CALL_FOR_PRICE },
+        { discountedPrice: null, priceStatus: PriceStatus.CALL_FOR_PRICE },
         'actor-1',
       );
 
@@ -608,8 +612,8 @@ describe('VariantsService', () => {
       expect(audit.log).toHaveBeenCalledWith(
         expect.objectContaining({
           action: 'PRODUCT_VARIANT_UPDATED',
-          before: expect.objectContaining({ compareAtPrice: '1800.00', priceStatus: 'PRICED' }),
-          after: expect.objectContaining({ compareAtPrice: null, priceStatus: 'CALL_FOR_PRICE' }),
+          before: expect.objectContaining({ discountedPrice: '1200.00', priceStatus: 'PRICED' }),
+          after: expect.objectContaining({ discountedPrice: null, priceStatus: 'CALL_FOR_PRICE' }),
         }),
         tx,
       );

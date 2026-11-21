@@ -37,17 +37,17 @@ export class CatalogGridBatchRowDto {
   expectedUpdatedAt!: string;
 
   @ApiPropertyOptional({
-    description: 'Retail/base price (Decimal(12,2), serialized as string).',
+    description: 'Regular/base price in Rial (Decimal(12,2), serialized as string).',
   })
   @IsOptional()
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @Matches(PRICE_12_2_PATTERN, {
-    message: 'price باید عدد اعشاری معتبر با حداکثر ۲ رقم اعشار باشد.',
+    message: 'regularPrice باید عدد اعشاری معتبر با حداکثر ۲ رقم اعشار باشد.',
   })
-  price?: string;
+  regularPrice?: string;
 
   @ApiPropertyOptional({
-    description: 'Pre-discount reference price. Pass null to clear.',
+    description: 'Promotional selling price in Rial. Pass null to clear.',
   })
   @IsOptional()
   @Transform(({ value }) => {
@@ -60,11 +60,63 @@ export class CatalogGridBatchRowDto {
     }
     return value;
   })
-  @IsString({ message: 'compareAtPrice باید رشته باشد.' })
+  @IsString({ message: 'discountedPrice باید رشته باشد.' })
   @Matches(PRICE_12_2_PATTERN, {
-    message: 'compareAtPrice باید عدد اعشاری معتبر با حداکثر ۲ رقم اعشار باشد.',
+    message: 'discountedPrice باید عدد اعشاری معتبر با حداکثر ۲ رقم اعشار باشد.',
   })
-  compareAtPrice?: string | null;
+  discountedPrice?: string | null;
+
+  @ApiPropertyOptional({ nullable: true, description: 'Sale window start.' })
+  @IsOptional()
+  @Transform(({ value }) => (value === null ? null : value))
+  @IsDateString({}, { message: 'discountStartsAt باید زمان ISO معتبر باشد.' })
+  discountStartsAt?: string | null;
+
+  @ApiPropertyOptional({ nullable: true, description: 'Sale window end.' })
+  @IsOptional()
+  @Transform(({ value }) => (value === null ? null : value))
+  @IsDateString({}, { message: 'discountEndsAt باید زمان ISO معتبر باشد.' })
+  discountEndsAt?: string | null;
+
+  @ApiPropertyOptional({ description: 'B2B partner price in Rial. Pass null to clear.' })
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (value === null) {
+      return null;
+    }
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      return trimmed.length > 0 ? trimmed : undefined;
+    }
+    return value;
+  })
+  @IsString({ message: 'partnerPrice باید رشته باشد.' })
+  @Matches(PRICE_12_2_PATTERN, {
+    message: 'partnerPrice باید عدد اعشاری معتبر با حداکثر ۲ رقم اعشار باشد.',
+  })
+  partnerPrice?: string | null;
+
+  @ApiPropertyOptional({
+    description:
+      'Admin-only AED regular price. Converted to Rial with the current manual rate; mutually exclusive with regularPrice/usdPrice.',
+  })
+  @IsOptional()
+  @IsString({ message: 'aedPrice باید رشته باشد.' })
+  @Matches(PRICE_12_2_PATTERN, {
+    message: 'aedPrice باید عدد اعشاری معتبر با حداکثر ۲ رقم اعشار باشد.',
+  })
+  aedPrice?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Admin-only USD regular price. Converted to Rial with the current manual rate; mutually exclusive with regularPrice/aedPrice.',
+  })
+  @IsOptional()
+  @IsString({ message: 'usdPrice باید رشته باشد.' })
+  @Matches(PRICE_12_2_PATTERN, {
+    message: 'usdPrice باید عدد اعشاری معتبر با حداکثر ۲ رقم اعشار باشد.',
+  })
+  usdPrice?: string;
 
   @ApiPropertyOptional({ enum: PriceStatus })
   @IsOptional()

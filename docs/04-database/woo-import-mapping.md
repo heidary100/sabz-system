@@ -72,7 +72,7 @@ fallback (spec-enforced on a committed full-header fixture).
 | قابل مشاهده در کاتالوگ | visibility gate | All rows `visible`; anything else → SKIP (loud). |
 | توضیح کوتاه / توضیحات | shortDescription / description | Sanitized HTML; multiline cells preserved; inline `<img>` takes the description-image path. |
 | قیمت عادی | Variant.price | Missing/zero on published rows → CALL_FOR_PRICE (Q1). |
-| قیمت فروش ویژه | Variant.compareAtPrice | 12 rows; sale-without-regular drops compareAt + flags. |
+| قیمت فروش ویژه | Variant.discountedPrice | Sale price; sale ≥ regular is dropped (regular stored in `price`). |
 | در انبار؟ / انبار | ledger receipt | One `INITIAL_STOCK` per variant on DEFAULT (SS-207). |
 | وزن (گرم) / درازا / پهنا / بلندا | weightKg / depthCm / widthCm / heightCm | Zero rows populated; grams÷1000; mapping ready. |
 | دسته‌ها | Product.categoryId | Deepest chain; 58 empty + 6 bucket → SKIP + review list. |

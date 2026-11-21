@@ -115,6 +115,15 @@ export class CreateCategoryPriceRuleDto {
   @Type(() => Number)
   @IsInt({ message: 'priority باید عدد صحیح باشد.' })
   priority?: number;
+
+  @ApiPropertyOptional({
+    default: false,
+    description: 'Apply the rule to the category and all live descendants.',
+  })
+  @IsOptional()
+  @Transform(({ value }) => toBoolean(value))
+  @IsBoolean({ message: 'includeDescendants باید بولین باشد.' })
+  includeDescendants?: boolean;
 }
 
 export class UpdateCategoryPriceRuleDto {
@@ -158,6 +167,12 @@ export class UpdateCategoryPriceRuleDto {
   @Type(() => Number)
   @IsInt({ message: 'priority باید عدد صحیح باشد.' })
   priority?: number;
+
+  @ApiPropertyOptional({ description: 'Apply to the category and descendants.' })
+  @IsOptional()
+  @Transform(({ value }) => toBoolean(value))
+  @IsBoolean({ message: 'includeDescendants باید بولین باشد.' })
+  includeDescendants?: boolean;
 }
 
 export class CreateProductPriceOverrideDto {
@@ -165,18 +180,33 @@ export class CreateProductPriceOverrideDto {
   @IsUUID('4', { message: `productId ${UUID_MESSAGE}` })
   productId!: string;
 
-  @ApiProperty({ enum: PromotionType, example: PromotionType.FIXED })
+  @ApiPropertyOptional({ enum: PromotionType, example: PromotionType.FIXED })
+  @IsOptional()
   @IsEnum(PromotionType, { message: TYPE_MESSAGE })
-  type!: PromotionType;
+  type?: PromotionType;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     example: '5000.00',
     description: 'PERCENT: 0–100. FIXED: Rial amount off. Decimal(12,2) string.',
   })
+  @IsOptional()
   @IsString({ message: 'value باید رشته باشد.' })
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @Matches(PRICE_12_2_PATTERN, { message: VALUE_MESSAGE })
-  value!: string;
+  value?: string;
+
+  @ApiPropertyOptional({
+    example: '7500000',
+    description:
+      'Absolute final retail price in Rial. Mutually exclusive with type/value.',
+  })
+  @IsOptional()
+  @IsString({ message: 'overridePrice باید رشته باشد.' })
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @Matches(PRICE_12_2_PATTERN, {
+    message: 'overridePrice باید عدد اعشاری معتبر با حداکثر ۲ رقم اعشار باشد.',
+  })
+  overridePrice?: string;
 
   @ApiPropertyOptional({ default: true })
   @IsOptional()
@@ -198,17 +228,26 @@ export class CreateProductPriceOverrideDto {
 }
 
 export class UpdateProductPriceOverrideDto {
-  @ApiPropertyOptional({ enum: PromotionType })
+  @ApiPropertyOptional({ enum: PromotionType, nullable: true })
   @IsOptional()
   @IsEnum(PromotionType, { message: TYPE_MESSAGE })
-  type?: PromotionType;
+  type?: PromotionType | null;
 
-  @ApiPropertyOptional({ example: '5000.00' })
+  @ApiPropertyOptional({ example: '5000.00', nullable: true })
   @IsOptional()
   @IsString({ message: 'value باید رشته باشد.' })
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @Matches(PRICE_12_2_PATTERN, { message: VALUE_MESSAGE })
-  value?: string;
+  value?: string | null;
+
+  @ApiPropertyOptional({ example: '7500000', nullable: true })
+  @IsOptional()
+  @IsString({ message: 'overridePrice باید رشته باشد.' })
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @Matches(PRICE_12_2_PATTERN, {
+    message: 'overridePrice باید عدد اعشاری معتبر با حداکثر ۲ رقم اعشار باشد.',
+  })
+  overridePrice?: string | null;
 
   @ApiPropertyOptional()
   @IsOptional()

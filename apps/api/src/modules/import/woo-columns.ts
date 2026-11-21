@@ -71,7 +71,7 @@ const EXPLICIT: Record<string, Omit<WooColumnRule, 'via'>> = {
   'بلندا (سانتیمتر)': mapped('Product.heightCm', 'Zero rows populated, mapping ready.'),
   'آیا به مشتری اجازه نوشتن نقد داده شود؟': ignored('Near-constant review toggle; no review domain. Export shows reviews off.'),
   'یادداشت خرید': ignored('Zero rows populated.'),
-  'قیمت فروش ویژه': mapped('Variant.compareAtPrice', '12 rows; sale without regular is an edge (priceless + flagged).'),
+  'قیمت فروش ویژه': mapped('Variant.discountedPrice', '12 rows; sale without regular is an edge (priceless + flagged).'),
   'قیمت عادی': mapped('Variant.price', 'Missing on 818 published rows → CALL_FOR_PRICE (Q1); zero treated as missing.'),
   // Taxonomy + merchandising.
   'دسته‌ها': mapped('Product.categoryId', 'Deepest path wins; ancestor chain is redundant; uncategorized skipped.'),

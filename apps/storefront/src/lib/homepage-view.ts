@@ -115,7 +115,7 @@ export function isProductCard(value: unknown): value is CatalogProductCardDto {
     (value.brand === null || isCatalogRef(value.brand)) &&
     isCatalogRef(value.category) &&
     typeof value.priceFrom === 'string' &&
-    isNullableString(value.compareAtPrice) &&
+    isNullableString(value.regularPrice) &&
     typeof value.callForPrice === 'boolean' &&
     isNullableString(value.promotionEndsAt) &&
     typeof value.variantCount === 'number' &&

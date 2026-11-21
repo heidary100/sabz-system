@@ -116,6 +116,7 @@ export {
   CatalogGridSortField,
   CatalogGridBatchResponse,
   CatalogGridBatchRowInput,
+  CatalogGridIdsResponse,
   CatalogGridListQuery,
   CatalogGridListResponse,
   CatalogGridRow,
@@ -337,6 +338,26 @@ export {
   UpdateProductPriceOverrideInput,
   UpdatePromotionInput,
 } from './pricing/pricing';
+
+export type {
+  BulkDiscountMode,
+  BulkPriceApplyRequest,
+  BulkPriceApplyResponse,
+  BulkPriceApplyResultRow,
+  BulkPriceOperation,
+  BulkPricePreviewRequest,
+  BulkPricePreviewResponse,
+  BulkPriceRowPreview,
+  BulkRowOutcome,
+  CategoryRulePreviewRequest,
+  CategoryRulePreviewResponse,
+  CategoryRulePreviewRow,
+  CurrencyRecalculationApplyRequest,
+  CurrencyRecalculationPreviewRequest,
+  CurrencyRecalculationPreviewResponse,
+  CurrencyRecalculationRow,
+  PricingScope,
+} from './pricing/bulk';
 
 export {
   AdminReviewListItemDto,

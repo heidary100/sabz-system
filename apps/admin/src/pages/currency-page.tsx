@@ -7,9 +7,11 @@ import type {
   CurrencyRateListResponse,
 } from '@sabz/types'
 import {
+  applyCurrencyRecalculation,
   convertCurrency,
   createCurrencyRate,
   listCurrencyRates,
+  previewCurrencyRecalculation,
 } from '../services/currency'
 import { translateApiError } from '../lib/error-messages'
 import { formatFaNumber, formatRial } from '../lib/format'
@@ -63,6 +65,14 @@ export function CurrencyPage() {
   const [convertAmount, setConvertAmount] = useState('100')
   const [conversion, setConversion] = useState<CurrencyConversionResponse | null>(null)
   const [conversionError, setConversionError] = useState<string | null>(null)
+  const [recalcCurrency, setRecalcCurrency] = useState<CurrencyCode>('USD')
+  const [recalcRate, setRecalcRate] = useState('')
+  const [recalcPreview, setRecalcPreview] = useState<
+    import('@sabz/types').CurrencyRecalculationPreviewResponse | null
+  >(null)
+  const [recalcError, setRecalcError] = useState<string | null>(null)
+  const [recalcMessage, setRecalcMessage] = useState<string | null>(null)
+  const [recalcBusy, setRecalcBusy] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -251,13 +261,150 @@ export function CurrencyPage() {
               </form>
             </section>
 
+            <section className="rounded-card border border-border bg-surface p-5 lg:col-span-2">
+              <h2 className="text-sm font-bold text-foreground">بازمحاسبه قیمت‌های ارزی</h2>
+              <p className="mt-1 text-xs leading-5 text-muted">
+                قبل از ثبت نرخ جدید، محصولات دارای منبع دلاری/درهمی و قیمت ریالی حاصل
+                را ببینید. بازمحاسبه اتمیک است و فقط ردیف‌هایی با منبع ارزی مشخص
+                تغییر می‌کنند؛ ردیف‌های مبهم رد می‌شوند.
+              </p>
+              {recalcError && <div className="mt-3"><InlineError message={recalcError} /></div>}
+              {recalcMessage && (
+                <p className="mt-3 rounded-control bg-success/10 px-3 py-2 text-sm text-success" role="status">
+                  {recalcMessage}
+                </p>
+              )}
+              <form
+                className="mt-4 grid gap-4 sm:grid-cols-3"
+                onSubmit={(event) => {
+                  event.preventDefault()
+                  setRecalcError(null)
+                  setRecalcMessage(null)
+                  setRecalcBusy(true)
+                  const normalized = recalcRate.replace(/[,\s]/g, '')
+                  void previewCurrencyRecalculation({
+                    currency: recalcCurrency,
+                    rialPerUnit: normalized,
+                  })
+                    .then(setRecalcPreview)
+                    .catch((caught) => {
+                      setRecalcPreview(null)
+                      setRecalcError(translateApiError(caught))
+                    })
+                    .finally(() => setRecalcBusy(false))
+                }}
+              >
+                <Field>
+                  <Label htmlFor="recalc-currency">واحد پول</Label>
+                  <Select
+                    id="recalc-currency"
+                    value={recalcCurrency}
+                    onChange={(event) => {
+                      setRecalcCurrency(event.target.value as CurrencyCode)
+                      setRecalcPreview(null)
+                    }}
+                  >
+                    {CURRENCIES.map((code) => (
+                      <option key={code} value={code}>{CURRENCY_FA[code]}</option>
+                    ))}
+                  </Select>
+                </Field>
+                <Field>
+                  <Label htmlFor="recalc-rate">نرخ جدید (ریال)</Label>
+                  <Input
+                    id="recalc-rate"
+                    dir="ltr"
+                    inputMode="decimal"
+                    value={recalcRate}
+                    onChange={(event) => {
+                      setRecalcRate(event.target.value)
+                      setRecalcPreview(null)
+                    }}
+                    placeholder="925000"
+                    required
+                  />
+                </Field>
+                <div className="flex items-end">
+                  <Button type="submit" outline disabled={recalcBusy}>
+                    {recalcBusy ? 'در حال محاسبه…' : 'پیش‌نمایش تأثیر'}
+                  </Button>
+                </div>
+              </form>
+              {recalcPreview && (
+                <div className="mt-4 space-y-3" role="status">
+                  <div className="flex flex-wrap gap-4 text-sm">
+                    <span>کل: {formatFaNumber(recalcPreview.total)}</span>
+                    <span className="text-primary">
+                      قابل اعمال: {formatFaNumber(recalcPreview.affected)}
+                    </span>
+                    <span className="text-muted">
+                      ردشده: {formatFaNumber(recalcPreview.skipped)}
+                    </span>
+                  </div>
+                  {recalcPreview.warnings.map((warning) => (
+                    <p key={warning} className="text-xs text-amber-700">{warning}</p>
+                  ))}
+                  <div className="max-h-64 overflow-auto rounded border border-border">
+                    <table className="w-full text-xs">
+                      <thead className="bg-surface-strong">
+                        <tr>
+                          <th className="p-1.5 text-start">SKU</th>
+                          <th className="p-1.5 text-start">مبلغ منبع</th>
+                          <th className="p-1.5 text-start">قیمت فعلی</th>
+                          <th className="p-1.5 text-start">قیمت پیشنهادی</th>
+                          <th className="p-1.5 text-start">نتیجه</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {recalcPreview.rows.slice(0, 50).map((row) => (
+                          <tr key={row.variantId} className="border-t border-border">
+                            <td className="p-1.5 font-mono" dir="ltr">{row.sku}</td>
+                            <td className="p-1.5" dir="ltr">{row.sourceAmount}</td>
+                            <td className="p-1.5" dir="ltr">{formatRial(row.currentRegularPrice)}</td>
+                            <td className="p-1.5" dir="ltr">{formatRial(row.proposedRegularPrice)}</td>
+                            <td className="p-1.5">{row.outcome === 'AFFECTED' ? 'اعمال می‌شود' : row.reason}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <Button
+                    color="primary"
+                    disabled={recalcBusy || recalcPreview.affected === 0}
+                    onClick={() => {
+                      setRecalcBusy(true)
+                      setRecalcError(null)
+                      void applyCurrencyRecalculation({
+                        currency: recalcCurrency,
+                        rialPerUnit: recalcPreview.rialPerUnit,
+                        effectiveAt: recalcPreview.effectiveAt,
+                        previewToken: recalcPreview.previewToken,
+                      })
+                        .then((result) => {
+                          setRecalcPreview(result)
+                          setRecalcMessage(
+                            `${formatFaNumber(result.affected)} محصول بازمحاسبه و نرخ جدید ثبت شد.`,
+                          )
+                          setRecalcRate('')
+                          return load()
+                        })
+                        .catch((caught) => setRecalcError(translateApiError(caught)))
+                        .finally(() => setRecalcBusy(false))
+                    }}
+                  >
+                    ثبت نرخ و بازمحاسبه
+                  </Button>
+                </div>
+              )}
+            </section>
+
             <section className="rounded-card border border-border bg-surface p-5">
               <h2 className="flex items-center gap-2 text-sm font-bold text-foreground">
                 <ArrowLeftRight className="size-4 text-primary" aria-hidden="true" />
                 تبدیل مدیریتی
               </h2>
               <p className="mt-1 text-xs leading-5 text-muted">
-                فقط برای کارهای داخلی؛ فروشگاه تنها ریال نمایش می‌دهد.
+                فقط برای کارهای داخلی؛ فروشگاه تنها تومان نمایش می‌دهد.
               </p>
               {conversionError && <div className="mt-3"><InlineError message={conversionError} /></div>}
               <form onSubmit={runConversion} className="mt-4 space-y-4">

@@ -8,6 +8,8 @@ import { StorefrontCacheService } from '../src/common/storefront-cache/storefron
 import { InventoryService } from '../src/modules/inventory/inventory.service';
 import { CatalogGridService } from '../src/modules/products/catalog-grid.service';
 import { ProductsService } from '../src/modules/products/products.service'
+import { PricingService } from '../src/modules/pricing/pricing.service'
+import { CurrencyService } from '../src/modules/currency/currency.service'
 import { VariantsService } from '../src/modules/products/variants.service';
 
 jest.setTimeout(60_000);
@@ -49,6 +51,8 @@ describe('Admin catalog grid batch database integration (SS-257)', () => {
       inventoryService,
       productsService,
       new ConfigService({ LOCK_TIMEOUT_MS: '500' }),
+      new PricingService(prisma),
+      new CurrencyService(prisma, audit, cache),
     );
     lockHolderClient = new PrismaService();
   });
@@ -152,12 +156,12 @@ describe('Admin catalog grid batch database integration (SS-257)', () => {
           {
             variantId: lockedVariant.id,
             expectedUpdatedAt: lockedVariant.updatedAt.toISOString(),
-            price: '555000.00',
+            regularPrice: '555000.00',
           },
           {
             variantId: freeVariant.id,
             expectedUpdatedAt: freeVariant.updatedAt.toISOString(),
-            price: '666000.00',
+            regularPrice: '666000.00',
           },
         ],
       },
@@ -197,8 +201,8 @@ describe('Admin catalog grid batch database integration (SS-257)', () => {
           {
             variantId: variant.id,
             expectedUpdatedAt: variant.updatedAt.toISOString(),
-            price: '80000.00',
-            compareAtPrice: '95000.00',
+            regularPrice: '95000.00',
+            discountedPrice: '80000.00',
             stock: 12,
           },
         ],
@@ -301,7 +305,7 @@ describe('Admin catalog grid batch database integration (SS-257)', () => {
           {
             variantId: variant.id,
             expectedUpdatedAt: variant.updatedAt.toISOString(),
-            price: '47000000',
+            regularPrice: '47000000',
           },
         ],
       },

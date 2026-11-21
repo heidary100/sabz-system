@@ -47,6 +47,7 @@ describe('CartService', () => {
   let service: CartService;
   let pricing: {
     tierDiscountForUser: jest.Mock;
+    partnerPricingForUser: jest.Mock;
     activePromotionsFor: jest.Mock;
     categoryRuleFor: jest.Mock;
     productOverrideFor: jest.Mock;
@@ -91,6 +92,10 @@ describe('CartService', () => {
     // assertions keep proving the base-price path.
     pricing = {
       tierDiscountForUser: jest.fn().mockResolvedValue(new Prisma.Decimal(0)),
+      partnerPricingForUser: jest.fn().mockResolvedValue({
+        tierPercent: new Prisma.Decimal(0),
+        eligible: false,
+      }),
       activePromotionsFor: jest.fn().mockResolvedValue([]),
       categoryRuleFor: jest.fn().mockResolvedValue(null),
       productOverrideFor: jest.fn().mockResolvedValue(null),

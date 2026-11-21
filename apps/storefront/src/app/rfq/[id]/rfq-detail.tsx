@@ -29,7 +29,7 @@ import {
   isShippingEnabled,
 } from '@/lib/checkout';
 import { rialMachineValue } from '@/lib/currency';
-import { formatFaNumber, formatRial } from '@/lib/format';
+import { formatFaNumber, formatToman } from '@/lib/format';
 import { acceptRfq, fetchRfqDetail, rfqStatusLabel } from '@/lib/rfq';
 
 const LOAD_FAILED = 'دریافت جزئیات استعلام ناموفق بود؛ لطفاً دوباره تلاش کنید.';
@@ -188,13 +188,13 @@ export function RfqDetail({ id }: { id: string }) {
             <div className="flex items-center justify-between gap-3">
               <dt className="text-fg-secondary">قیمت توافقی هر عدد</dt>
               <dd className="font-bold text-accent-hover">
-                {formatRial(rialMachineValue(rfq.quotedUnitPrice ?? '0'))}
+                {formatToman(rialMachineValue(rfq.quotedUnitPrice ?? '0'))}
               </dd>
             </div>
             <div className="flex items-center justify-between gap-3">
               <dt className="text-fg-secondary">جمع توافق‌شده</dt>
               <dd className="font-bold text-accent-hover">
-                {formatRial(rialMachineValue(rfq.quotedLineTotal ?? '0'))}
+                {formatToman(rialMachineValue(rfq.quotedLineTotal ?? '0'))}
               </dd>
             </div>
             {rfq.status === 'QUOTED' ? (
@@ -258,7 +258,7 @@ export function RfqDetail({ id }: { id: string }) {
                     <span className="font-medium text-fg">{method.titleFa}</span>
                     <span className="text-xs text-fg-muted">
                       {isShippingEnabled(method)
-                        ? `هزینه ارسال: ${formatRial(method.fee)}`
+                        ? `هزینه ارسال: ${formatToman(method.fee)}`
                         : 'غیرفعال'}
                     </span>
                   </label>

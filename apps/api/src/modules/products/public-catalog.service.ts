@@ -23,7 +23,8 @@ import type {
   PaginatedResult,
 } from '@sabz/types';
 import { PrismaService } from '../../common/database/prisma.service';
-import { roundRialUp, roundedCompareAt } from '../../common/money/rial';
+import { customerPricePair } from '../../common/money/discount';
+import { roundRialUp } from '../../common/money/rial';
 import {
   activeInventoryWhere,
   deriveAvailable,
@@ -643,7 +644,9 @@ export class PublicCatalogService {
             sku: true,
             name: true,
             price: true,
-            compareAtPrice: true,
+            discountedPrice: true,
+            discountStartsAt: true,
+            discountEndsAt: true,
             priceStatus: true,
             options: {
               select: {
@@ -745,29 +748,35 @@ export class PublicCatalogService {
             Math.min(...detailPromotions.map((promo) => promo.endsAt.getTime())),
           ).toISOString();
 
-    const variants: CatalogProductVariantDto[] = product.variants.map((variant) => ({
-      id: variant.id,
-      sku: variant.sku,
-      name: variant.name,
-      price: roundRialUp(variant.price).toString(),
-      compareAtPrice:
-        roundedCompareAt(variant.price, variant.compareAtPrice)?.toString() ??
-        null,
-      priceStatus: variant.priceStatus,
-      inStock: (availableByVariant.get(variant.id) ?? 0) > 0,
-      options: variant.options
-        .map((option) => ({
-          attributeName: option.attributeValue.attribute.name,
-          attributeSlug: option.attributeValue.attribute.slug,
-          value: option.attributeValue.value,
-          valueSlug: option.attributeValue.slug,
-        }))
-        .sort(
-          (a, b) =>
-            a.attributeName.localeCompare(b.attributeName) ||
-            a.value.localeCompare(b.value),
-        ),
-    }));
+    const variants: CatalogProductVariantDto[] = product.variants.map((variant) => {
+      const pair = customerPricePair({
+        price: variant.price,
+        discountedPrice: variant.discountedPrice,
+        discountStartsAt: variant.discountStartsAt,
+        discountEndsAt: variant.discountEndsAt,
+      });
+      return {
+        id: variant.id,
+        sku: variant.sku,
+        name: variant.name,
+        price: pair.selling.toString(),
+        regularPrice: pair.regular?.toString() ?? null,
+        priceStatus: variant.priceStatus,
+        inStock: (availableByVariant.get(variant.id) ?? 0) > 0,
+        options: variant.options
+          .map((option) => ({
+            attributeName: option.attributeValue.attribute.name,
+            attributeSlug: option.attributeValue.attribute.slug,
+            value: option.attributeValue.value,
+            valueSlug: option.attributeValue.slug,
+          }))
+          .sort(
+            (a, b) =>
+              a.attributeName.localeCompare(b.attributeName) ||
+              a.value.localeCompare(b.value),
+          ),
+      };
+    });
 
     const media: CatalogProductMediaDto[] = product.media.map((row) => ({
       id: row.id,
@@ -885,7 +894,16 @@ export class PublicCatalogService {
         brandId: true,
         variants: {
           where: { deletedAt: null },
-          select: { id: true, sku: true, price: true, priceStatus: true },
+          select: {
+            id: true,
+            sku: true,
+            price: true,
+            discountedPrice: true,
+            discountStartsAt: true,
+            discountEndsAt: true,
+            partnerPrice: true,
+            priceStatus: true,
+          },
           orderBy: [{ createdAt: 'asc' as const }, { id: 'asc' as const }],
         },
       },
@@ -898,14 +916,18 @@ export class PublicCatalogService {
       categoryId: product.categoryId,
       brandId: product.brandId,
     };
-    const [promotions, categoryRule, override, tierPct] = await Promise.all([
+    const [promotions, categoryRule, override, partner] = await Promise.all([
       this.pricing.activePromotionsFor(scope),
       this.pricing.categoryRuleFor(scope.categoryId),
       this.pricing.productOverrideFor(scope.productId),
       userId
-        ? this.pricing.tierDiscountForUser(userId)
-        : Promise.resolve(new Prisma.Decimal(0)),
+        ? this.pricing.partnerPricingForUser(userId)
+        : Promise.resolve({
+            tierPercent: new Prisma.Decimal(0),
+            eligible: false,
+          }),
     ]);
+    const tierPct = partner.tierPercent;
     const promotionEndsAt =
       promotions.length === 0
         ? null
@@ -929,6 +951,14 @@ export class PublicCatalogService {
         tierPct,
         promotions,
         { categoryRule, override },
+        {
+          regularPrice: variant.price,
+          discountedPrice: variant.discountedPrice,
+          discountStartsAt: variant.discountStartsAt,
+          discountEndsAt: variant.discountEndsAt,
+          partnerPrice: variant.partnerPrice,
+          partnerEligible: partner.eligible,
+        },
       );
       return {
         variantId: variant.id,
@@ -943,7 +973,7 @@ export class PublicCatalogService {
       slug: product.slug,
       productId: product.id,
       quantity,
-      tierApplied: tierPct.greaterThan(0),
+      tierApplied: partner.eligible,
       quotes,
     };
   }
@@ -1794,7 +1824,9 @@ export class PublicCatalogService {
           select: {
             id: true,
             price: true,
-            compareAtPrice: true,
+            discountedPrice: true,
+            discountStartsAt: true,
+            discountEndsAt: true,
             priceStatus: true,
           },
           orderBy: [{ createdAt: 'asc' as const }, { id: 'asc' as const }],
@@ -1830,14 +1862,32 @@ export class PublicCatalogService {
 
     const rowsById = new Map(rows.map((row) => [row.id, row]));
     const cards: CatalogProductCardDto[] = [];
+    const now = new Date();
     for (const id of pageIds) {
       const row = rowsById.get(id);
       if (!row) {
         continue;
       }
-      const minPrice = row.minPrice;
-      const priceFrom =
-        minPrice == null ? null : roundRialUp(minPrice).toString();
+      const priced = row.variants
+        .filter((variant) => variant.priceStatus === PriceStatus.PRICED)
+        .map((variant) => ({
+          variant,
+          pair: customerPricePair(
+            {
+              price: variant.price,
+              discountedPrice: variant.discountedPrice,
+              discountStartsAt: variant.discountStartsAt,
+              discountEndsAt: variant.discountEndsAt,
+            },
+            now,
+          ),
+        }));
+      const winner =
+        priced.length === 0
+          ? null
+          : priced.reduce((min, candidate) =>
+              candidate.pair.selling.lessThan(min.pair.selling) ? candidate : min,
+            );
       const rating = ratingsByProduct.get(row.id) ?? { average: null, count: 0 };
       cards.push({
         id: row.id,
@@ -1846,9 +1896,9 @@ export class PublicCatalogService {
         condition: row.condition,
         brand: row.brand,
         category: row.category,
-        priceFrom: priceFrom ?? '',
-        compareAtPrice: pickCardCompareAtPrice(row.variants, priceFrom),
-        callForPrice: minPrice == null,
+        priceFrom: winner?.pair.selling.toString() ?? '',
+        regularPrice: winner?.pair.regular?.toString() ?? null,
+        callForPrice: winner === null,
         promotionEndsAt: promotionEndsAtByProduct.get(row.id) ?? null,
         variantCount: row.variants.length,
         inStock: row.variants.some(
@@ -1947,57 +1997,6 @@ const RATING_BUCKET_RANGES: Record<string, { min: number; max?: number }> = {
   '2': { min: 1.5, max: 2.5 },
   '1': { min: 0, max: 1.5 },
 };
-
-/**
- * The compareAtPrice shown on a listing card (SS-225): that of the
- * minimum-priced PRICED variant — the same variant whose price becomes
- * `priceFrom` via the denormalized minPrice. Ties resolve to the first
- * variant in the load order, mirroring the card's price semantics. Null
- * when the product is call-for-price or the winning variant has no
- * reference price, so a discount badge can never invent a discount.
- */
-export function pickCardCompareAtPrice(
-  variants: ReadonlyArray<{
-    price?: Prisma.Decimal | string;
-    compareAtPrice: Prisma.Decimal | string | null;
-    priceStatus: string;
-  }>,
-  priceFrom: string | null | undefined,
-): string | null {
-  // `priceFrom` comes from the denormalized column; defensive over `undefined`
-  // keeps partial test projections harmless.
-  if (priceFrom === null || priceFrom === undefined) {
-    return null;
-  }
-  const min = new Prisma.Decimal(priceFrom);
-  let winner: string | null = null;
-  for (const variant of variants) {
-    if (variant.priceStatus !== 'PRICED' || variant.price === undefined) {
-      continue;
-    }
-    // Cards display the rounded price. Match the variant against the same
-    // rounded value, not its raw stored price, otherwise a price such as
-    // 7,650,000 (displayed 7,700,000) never finds its compare-at row.
-    if (roundRialUp(variant.price).comparedTo(min) !== 0) {
-      continue;
-    }
-    winner =
-      variant.compareAtPrice === null
-        ? null
-        : String(variant.compareAtPrice);
-    break;
-  }
-  if (winner === null) {
-    return null;
-  }
-  // SS-900: both sides are rounded UP before deciding whether a discount is
-  // real; a pair made equal by rounding never yields a misleading badge.
-  const roundedWinner = roundedCompareAt(
-    new Prisma.Decimal(priceFrom),
-    new Prisma.Decimal(winner),
-  );
-  return roundedWinner?.toString() ?? null;
-}
 
 /**
  * Normalizes the SS-213 price bounds to Decimals. An inverted range is

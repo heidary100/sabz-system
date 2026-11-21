@@ -146,8 +146,8 @@ describe('WooCommerce writer integration (SS-207)', () => {
         sku: 'FIXTURE-HD1TB-BLK',
         priceStatus: PriceStatus.PRICED,
       });
-      expect(priced.variants[0]!.price.toString()).toBe('15000000');
-      expect(priced.variants[0]!.compareAtPrice?.toString()).toBe('18000000');
+      expect(priced.variants[0]!.price.toString()).toBe('18000000');
+      expect(priced.variants[0]!.discountedPrice?.toString()).toBe('15000000');
       const item = await prisma.inventoryItem.findFirstOrThrow({
         where: { variantId: priced.variants[0]!.id },
         include: { movements: true },
@@ -221,8 +221,8 @@ describe('WooCommerce writer integration (SS-207)', () => {
       expect(rerun.exitCode).toBe(0);
       expect((await productBySource('9006')).status).toBe(ProductStatus.PUBLISHED);
       const repriced = await productBySource('9001');
-      expect(repriced.variants[0]!.compareAtPrice?.toString()).toBe('19000000');
-      expect(repriced.variants[0]!.price.toString()).toBe('15000000');
+      expect(repriced.variants[0]!.discountedPrice?.toString()).toBe('15000000');
+      expect(repriced.variants[0]!.price.toString()).toBe('19000000');
       const updatedRecords = await prisma.importRecord.count({
         where: { runId: rerun.report.runId, status: 'UPDATED' },
       });

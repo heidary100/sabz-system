@@ -10,7 +10,7 @@ import { Skeleton } from '@/components/ecommerce/skeleton/skeleton';
 import { ApiError } from '@/lib/api';
 import { hasSession } from '@/lib/auth-client';
 import { fetchOrders, orderStatusLabel } from '@/lib/orders';
-import { formatFaDate, formatFaNumber, formatRial } from '@/lib/format';
+import { formatFaDate, formatFaNumber, formatToman } from '@/lib/format';
 
 const LOAD_FAILED = 'دریافت سفارش‌ها ناموفق بود؛ لطفاً دوباره تلاش کنید.';
 
@@ -162,7 +162,7 @@ export function OrdersList() {
               <p className="text-sm text-fg-secondary">
                 <span className="font-bold text-fg">{formatFaNumber(order.itemCount)}</span> قلم
                 <span className="mx-2 text-border" aria-hidden="true">|</span>
-                جمع: <span className="font-extrabold text-accent-hover">{formatRial(order.total)}</span>
+                جمع: <span className="font-extrabold text-accent-hover">{formatToman(order.total)}</span>
               </p>
               <Link
                 href={`/orders/${order.id}`}

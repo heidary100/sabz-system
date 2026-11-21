@@ -258,8 +258,8 @@ export interface ActivePill {
   clear: Partial<ListingState>;
 }
 
-function formatRialFa(value: string): string {
-  return formatFaNumber(Number(value));
+function formatTomanFa(value: string): string {
+  return formatFaNumber(Number(value) / 10);
 }
 
 /**
@@ -294,8 +294,8 @@ export function getActivePills(
     });
   }
   if (state.priceFrom !== '' || state.priceTo !== '') {
-    const from = state.priceFrom !== '' ? formatRialFa(state.priceFrom) : null;
-    const to = state.priceTo !== '' ? formatRialFa(state.priceTo) : null;
+    const from = state.priceFrom !== '' ? formatTomanFa(state.priceFrom) : null;
+    const to = state.priceTo !== '' ? formatTomanFa(state.priceTo) : null;
     const range =
       from !== null && to !== null
         ? `${from} تا ${to}`
@@ -304,7 +304,7 @@ export function getActivePills(
           : `تا ${to}`;
     pills.push({
       key: 'price',
-      label: `قیمت: ${range} ریال`,
+      label: `قیمت: ${range} تومان`,
       clear: { priceFrom: '', priceTo: '' },
     });
   }

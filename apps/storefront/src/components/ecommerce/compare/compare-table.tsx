@@ -8,20 +8,20 @@ import { CountdownTimer } from '@/components/ecommerce/ui/countdown-timer';
 import { Rating } from '@/components/ecommerce/ui/rating';
 import { mediaImageUrl } from '@/lib/catalog';
 import { conditionLabel } from '@/lib/condition';
-import { formatFaNumber, formatPriceFrom, formatRial } from '@/lib/format';
+import { formatFaNumber, formatPriceFrom, formatToman } from '@/lib/format';
 import { physicalSpecRows } from '@/lib/specs';
 
 function minPricedVariant(product: CatalogProductDetailDto): {
   price: string;
-  compareAtPrice: string | null;
+  regularPrice: string | null;
 } | null {
-  let best: { price: string; compareAtPrice: string | null } | null = null;
+  let best: { price: string; regularPrice: string | null } | null = null;
   for (const variant of product.variants) {
     if (variant.priceStatus !== 'PRICED') {
       continue;
     }
     if (best === null || Number(variant.price) < Number(best.price)) {
-      best = { price: variant.price, compareAtPrice: variant.compareAtPrice };
+      best = { price: variant.price, regularPrice: variant.regularPrice };
     }
   }
   return best;
@@ -37,7 +37,7 @@ function PriceCell({ product }: { product: CatalogProductDetailDto }) {
   ).length;
   return (
     <span className="text-sm font-bold text-accent-hover">
-      {pricedCount > 1 ? formatPriceFrom(best.price) : formatRial(best.price)}
+      {pricedCount > 1 ? formatPriceFrom(best.price) : formatToman(best.price)}
     </span>
   );
 }

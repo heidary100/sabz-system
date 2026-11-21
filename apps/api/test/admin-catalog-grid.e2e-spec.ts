@@ -185,7 +185,7 @@ describe('Admin catalog grid API (SS-257) (e2e)', () => {
     productId: string,
     overrides: {
       price?: string;
-      compareAtPrice?: string | null;
+      discountedPrice?: string | null;
       priceStatus?: PriceStatus;
       sku?: string;
     } = {},
@@ -196,7 +196,7 @@ describe('Admin catalog grid API (SS-257) (e2e)', () => {
         sku:
           overrides.sku ?? `GRID-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         price: overrides.price ?? '100000.00',
-        compareAtPrice: overrides.compareAtPrice ?? null,
+        discountedPrice: overrides.discountedPrice ?? null,
         priceStatus: overrides.priceStatus ?? PriceStatus.PRICED,
       },
     });
@@ -267,8 +267,8 @@ describe('Admin catalog grid API (SS-257) (e2e)', () => {
       const productId = await createProduct();
       const variant = await createVariant(productId, {
         sku: `GRID-FILTER-${Date.now()}`,
-        price: '150000.00',
-        compareAtPrice: '180000.00',
+        price: '180000.00',
+        discountedPrice: '150000.00',
       });
 
       const operator = await createUser('OPERATOR');
@@ -282,8 +282,8 @@ describe('Admin catalog grid API (SS-257) (e2e)', () => {
       expect(row.variantId).toBe(variant.id);
       expect(row.productId).toBe(productId);
       expect(row.sku).toBe(variant.sku);
-      expect(row.price).toBe('150000');
-      expect(row.compareAtPrice).toBe('180000');
+      expect(row.regularPrice).toBe('180000');
+      expect(row.discountedPrice).toBe('150000');
       expect(row.priceStatus).toBe(PriceStatus.PRICED);
       expect(row.brandName).not.toBeNull();
       expect(row.categoryName).not.toBeNull();
@@ -412,7 +412,7 @@ describe('Admin catalog grid API (SS-257) (e2e)', () => {
             {
               variantId: variant.id,
               expectedUpdatedAt: variant.updatedAt.toISOString(),
-              price: '12.345',
+              regularPrice: '12.345',
             },
           ],
         })
@@ -448,8 +448,8 @@ describe('Admin catalog grid API (SS-257) (e2e)', () => {
             {
               variantId: variant.id,
               expectedUpdatedAt: variant.updatedAt.toISOString(),
-              price: '120000.00',
-              compareAtPrice: '150000.00',
+              regularPrice: '150000.00',
+              discountedPrice: '120000.00',
               stock: 9,
             },
           ],
@@ -458,8 +458,8 @@ describe('Admin catalog grid API (SS-257) (e2e)', () => {
       expect(res.body.summary).toEqual({ succeeded: 1, failed: 0 });
       const result = res.body.results[0];
       expect(result.outcome).toBe('SUCCESS');
-      expect(result.price).toBe('120000');
-      expect(result.compareAtPrice).toBe('150000');
+      expect(result.regularPrice).toBe('150000');
+      expect(result.discountedPrice).toBe('120000');
       expect(result.stock).toBe(9);
       expect(new Date(result.updatedAt).toISOString()).toBe(result.updatedAt);
       expect(result.updatedAt).not.toBe(variant.updatedAt.toISOString());
@@ -467,8 +467,8 @@ describe('Admin catalog grid API (SS-257) (e2e)', () => {
       const after = await prisma.productVariant.findUnique({
         where: { id: variant.id },
       });
-      expect(after!.price.toString()).toBe('120000');
-      expect(after!.compareAtPrice!.toString()).toBe('150000');
+      expect(after!.price.toString()).toBe('150000');
+      expect(after!.discountedPrice!.toString()).toBe('120000');
       expect(after!.updatedBy).toBe(operator.userId);
 
       const itemAfter = await prisma.inventoryItem.findUnique({
@@ -516,7 +516,7 @@ describe('Admin catalog grid API (SS-257) (e2e)', () => {
             {
               variantId: variant.id,
               expectedUpdatedAt: variant.updatedAt.toISOString(),
-              compareAtPrice: '90000.00',
+              discountedPrice: '120000.00',
               stock: 42,
             },
           ],
@@ -524,13 +524,13 @@ describe('Admin catalog grid API (SS-257) (e2e)', () => {
         .expect(200);
       expect(res.body.summary).toEqual({ succeeded: 0, failed: 1 });
       expect(res.body.results[0].outcome).toBe('VALIDATION_ERROR');
-      expect(res.body.results[0].fieldErrors.compareAtPrice).toBeTruthy();
+      expect(res.body.results[0].fieldErrors.discountedPrice).toBeTruthy();
 
       const after = await prisma.productVariant.findUnique({
         where: { id: variant.id },
       });
       expect(after!.price.toString()).toBe('100000');
-      expect(after!.compareAtPrice).toBeNull();
+      expect(after!.discountedPrice).toBeNull();
       const itemAfter = await prisma.inventoryItem.findUnique({
         where: { id: item.id },
       });
@@ -548,8 +548,8 @@ describe('Admin catalog grid API (SS-257) (e2e)', () => {
         price: '0.00',
       });
       const sale = await createVariant(productId, {
-        price: '100000.00',
-        compareAtPrice: '120000.00',
+        price: '120000.00',
+        discountedPrice: '100000.00',
       });
 
       const res = await request(app.getHttpServer())
@@ -560,24 +560,24 @@ describe('Admin catalog grid API (SS-257) (e2e)', () => {
             {
               variantId: callForPrice.id,
               expectedUpdatedAt: callForPrice.updatedAt.toISOString(),
-              compareAtPrice: '50000.00',
+              discountedPrice: '50000.00',
             },
             {
               variantId: sale.id,
               expectedUpdatedAt: sale.updatedAt.toISOString(),
-              compareAtPrice: null,
+              discountedPrice: null,
             },
           ],
         })
         .expect(200);
       expect(res.body.results[0].outcome).toBe('VALIDATION_ERROR');
       expect(res.body.results[1].outcome).toBe('SUCCESS');
-      expect(res.body.results[1].compareAtPrice).toBeNull();
+      expect(res.body.results[1].discountedPrice).toBeNull();
 
       const saleAfter = await prisma.productVariant.findUnique({
         where: { id: sale.id },
       });
-      expect(saleAfter!.compareAtPrice).toBeNull();
+      expect(saleAfter!.discountedPrice).toBeNull();
     });
 
     it('reports partial success: an unknown row does not abort a valid row', async () => {
@@ -595,7 +595,7 @@ describe('Admin catalog grid API (SS-257) (e2e)', () => {
             {
               variantId: variant.id,
               expectedUpdatedAt: variant.updatedAt.toISOString(),
-              price: '111000.00',
+              regularPrice: '111000.00',
             },
           ],
         })
@@ -631,7 +631,7 @@ describe('Admin catalog grid API (SS-257) (e2e)', () => {
             {
               variantId: variant.id,
               expectedUpdatedAt: staleToken,
-              price: '123000.00',
+              regularPrice: '123000.00',
             },
           ],
         })
@@ -672,7 +672,7 @@ describe('Admin catalog grid API (SS-257) (e2e)', () => {
         .set('Authorization', `Bearer ${sessionA.accessToken}`)
         .send({
           rows: [
-            { variantId: variant.id, expectedUpdatedAt: viewA.expectedUpdatedAt, price: '222000.00' },
+            { variantId: variant.id, expectedUpdatedAt: viewA.expectedUpdatedAt, regularPrice: '222000.00' },
           ],
         })
         .expect(200);
@@ -684,7 +684,7 @@ describe('Admin catalog grid API (SS-257) (e2e)', () => {
         .set('Authorization', `Bearer ${sessionB.accessToken}`)
         .send({
           rows: [
-            { variantId: variant.id, expectedUpdatedAt: viewB.expectedUpdatedAt, price: '333000.00' },
+            { variantId: variant.id, expectedUpdatedAt: viewB.expectedUpdatedAt, regularPrice: '333000.00' },
           ],
         })
         .expect(200);
@@ -701,7 +701,7 @@ describe('Admin catalog grid API (SS-257) (e2e)', () => {
         .query({ sku: variant.sku })
         .set('Authorization', `Bearer ${sessionB.accessToken}`)
         .expect(200);
-      expect(refetchB.body.items[0].price).toBe('222000');
+      expect(refetchB.body.items[0].regularPrice).toBe('222000');
       expect(refetchB.body.items[0].expectedUpdatedAt).not.toBe(
         viewB.expectedUpdatedAt,
       );
@@ -775,7 +775,7 @@ describe('Admin catalog grid API (SS-257) (e2e)', () => {
             {
               variantId: priceRow.id,
               expectedUpdatedAt: priceRow.updatedAt.toISOString(),
-              price: '777000.00',
+              regularPrice: '777000.00',
             },
           ],
         })
@@ -949,8 +949,8 @@ describe('Admin catalog grid API (SS-257) (e2e)', () => {
       const high = await createVariant(productId, { sku: `SO-B-${Date.now()}`, price: '900000.00' });
       const sale = await createVariant(productId, {
         sku: `SO-C-${Date.now()}`,
-        price: '200000.00',
-        compareAtPrice: '250000.00',
+        price: '250000.00',
+        discountedPrice: '200000.00',
       });
       const noSale = await createVariant(productId, { sku: `SO-D-${Date.now()}`, price: '300000.00' });
       void low;
@@ -961,9 +961,9 @@ describe('Admin catalog grid API (SS-257) (e2e)', () => {
         sortBy: 'price',
         sortDir: 'asc',
       });
-      expect(byPrice.items.map((row) => row.price)).toEqual([
+      expect(byPrice.items.map((row) => row.regularPrice)).toEqual([
         '100000',
-        '200000',
+        '250000',
         '300000',
         '900000',
       ]);
@@ -978,7 +978,7 @@ describe('Admin catalog grid API (SS-257) (e2e)', () => {
 
       const byCompareAt = await listGrid(operator.accessToken, {
         brandId,
-        sortBy: 'compareAtPrice',
+        sortBy: 'discountedPrice',
         sortDir: 'asc',
       });
       expect(byCompareAt.items[0]!.sku).toBe(sale.sku);
@@ -1012,8 +1012,8 @@ describe('Admin catalog grid API (SS-257) (e2e)', () => {
               sku: newSku,
               barcode: 'BC-12345',
               variantName: 'نام نوع شبکه',
-              price: '120000.00',
-              compareAtPrice: '150000.00',
+              regularPrice: '150000.00',
+              discountedPrice: '120000.00',
               stock: 8,
             },
           ],
@@ -1028,7 +1028,8 @@ describe('Admin catalog grid API (SS-257) (e2e)', () => {
       expect(after!.sku).toBe(newSku);
       expect(after!.barcode).toBe('BC-12345');
       expect(after!.name).toBe('نام نوع شبکه');
-      expect(after!.price.toString()).toBe('120000');
+      expect(after!.price.toString()).toBe('150000');
+      expect(after!.discountedPrice!.toString()).toBe('120000');
 
       const audit = await prisma.auditLog.findFirstOrThrow({
         where: { entityId: variant.id, action: 'PRODUCT_VARIANT_UPDATED' },
@@ -1186,7 +1187,7 @@ describe('Admin catalog grid API (SS-257) (e2e)', () => {
               variantId: variant.id,
               expectedUpdatedAt: variant.updatedAt.toISOString(),
               expectedProductUpdatedAt: product.updatedAt.toISOString(),
-              price: '150000.00',
+              regularPrice: '150000.00',
               productName: 'نام دوگانه',
               categoryId: category.id,
             },
@@ -1195,7 +1196,7 @@ describe('Admin catalog grid API (SS-257) (e2e)', () => {
       expect(response.status).toBe(200);
       const row = response.body.results[0];
       expect(row.outcome).toBe('SUCCESS');
-      expect(row.price).toBe('150000');
+      expect(row.regularPrice).toBe('150000');
       expect(row.product.name).toBe('نام دوگانه');
 
       const audits = await prisma.auditLog.findMany({

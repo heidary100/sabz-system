@@ -230,8 +230,8 @@ export class InvoicePdfService {
       <th class="num">ردیف</th>
       <th class="desc">شرح کالا</th>
       <th class="num">تعداد</th>
-      <th class="num">مبلغ واحد (ریال)</th>
-      <th class="num">مبلغ کل (ریال)</th>
+      <th class="num">مبلغ واحد (تومان)</th>
+      <th class="num">مبلغ کل (تومان)</th>
     </tr></thead>
     <tbody>${rows}</tbody>
   </table>
@@ -277,7 +277,8 @@ function mergeInvoiceItems(items: OrderItemDto[]): OrderItemDto[] {
 
 function formatRial(value: string): string {
   const number = Number(value);
-  return `${faNumber.format(Number.isFinite(number) ? number : 0)} ریال`;
+  // Backend/accounting is Rial; the customer-facing invoice shows Toman.
+  return `${faNumber.format(Number.isFinite(number) ? number / 10 : 0)} تومان`;
 }
 
 function escapeHtml(value: string): string {

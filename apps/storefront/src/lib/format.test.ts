@@ -4,7 +4,7 @@ import {
   formatCardPrice,
   formatFaNumber,
   formatPriceFrom,
-  formatRial,
+  formatToman,
   normalizeFa,
   salePercentFrom,
 } from './format';
@@ -16,25 +16,25 @@ describe('formatFaNumber', () => {
   });
 });
 
-describe('formatRial', () => {
-  it('formats server Rial strings without conversion', () => {
-    expect(formatRial('750.5')).toBe('۷۵۰٫۵ ریال');
-    expect(formatRial('155000000')).toBe('۱۵۵٬۰۰۰٬۰۰۰ ریال');
-    expect(formatRial('7700000')).toBe('۷٬۷۰۰٬۰۰۰ ریال');
+describe('formatToman', () => {
+  it('converts server Rial to Toman at the display boundary', () => {
+    expect(formatToman('750.5')).toBe('۷۵٫۰۵ تومان');
+    expect(formatToman('155000000')).toBe('۱۵٬۵۰۰٬۰۰۰ تومان');
+    expect(formatToman('7700000')).toBe('۷۷۰٬۰۰۰ تومان');
   });
 
   it('accepts Rial numbers directly', () => {
-    expect(formatRial(250000)).toBe('۲۵۰٬۰۰۰ ریال');
+    expect(formatToman(250000)).toBe('۲۵٬۰۰۰ تومان');
   });
 
   it('falls back to zero for invalid input', () => {
-    expect(formatRial('not-a-number')).toBe('۰ ریال');
+    expect(formatToman('not-a-number')).toBe('۰ تومان');
   });
 });
 
 describe('formatPriceFrom', () => {
   it('prefixes the range marker', () => {
-    expect(formatPriceFrom('5000')).toBe('از ۵٬۰۰۰ ریال');
+    expect(formatPriceFrom('5000')).toBe('از ۵۰۰ تومان');
   });
 });
 
@@ -45,11 +45,11 @@ describe('formatCardPrice', () => {
   });
 
   it('shows the exact price for a single priced variant', () => {
-    expect(formatCardPrice('1500', 1, false)).toBe('۱٬۵۰۰ ریال');
+    expect(formatCardPrice('1500', 1, false)).toBe('۱۵۰ تومان');
   });
 
   it('prefixes the range marker only for multi-variant spreads', () => {
-    expect(formatCardPrice('1500', 2, false)).toBe('از ۱٬۵۰۰ ریال');
+    expect(formatCardPrice('1500', 2, false)).toBe('از ۱۵۰ تومان');
   });
 });
 

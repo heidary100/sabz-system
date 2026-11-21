@@ -89,6 +89,10 @@ describe('CheckoutService', () => {
     // keep proving the base-price path.
     const pricing = {
       tierDiscountForUser: jest.fn().mockResolvedValue(new Prisma.Decimal(0)),
+      partnerPricingForUser: jest.fn().mockResolvedValue({
+        tierPercent: new Prisma.Decimal(0),
+        eligible: false,
+      }),
       activePromotionsFor: jest.fn().mockResolvedValue([]),
       categoryRuleFor: jest.fn().mockResolvedValue(null),
       productOverrideFor: jest.fn().mockResolvedValue(null),
@@ -909,9 +913,11 @@ describe('CheckoutService', () => {
           'customerMobile',
           'id',
           'itemCount',
+          'note',
           'orderNumber',
           'paymentMethod',
           'paymentStatus',
+          'shipment',
           'status',
           'statusFa',
           'total',

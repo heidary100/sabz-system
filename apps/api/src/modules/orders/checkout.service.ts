@@ -174,6 +174,10 @@ const LINE_WITH_VARIANT = {
       sku: true,
       name: true,
       price: true,
+      discountedPrice: true,
+      discountStartsAt: true,
+      discountEndsAt: true,
+      partnerPrice: true,
       priceStatus: true,
       priceSourceCurrency: true,
       priceSourceAmount: true,
@@ -881,7 +885,9 @@ export class CheckoutService {
           userId: true,
           paymentMethod: true,
           paymentStatus: true,
+          note: true,
           user: { select: { mobile: true } },
+          shipment: { select: { status: true, trackingNumber: true } },
           _count: { select: { items: true } },
         },
         orderBy: [{ createdAt: 'desc' as const }, { id: 'desc' as const }],
@@ -901,6 +907,13 @@ export class CheckoutService {
       customerMobile: row.user.mobile,
       paymentMethod: row.paymentMethod as AdminOrderListItemDto['paymentMethod'],
       paymentStatus: row.paymentStatus as AdminOrderListItemDto['paymentStatus'],
+      note: row.note,
+      shipment: row.shipment
+        ? {
+            status: row.shipment.status,
+            trackingNumber: row.shipment.trackingNumber,
+          }
+        : null,
     }));
     return { items, total };
   }
@@ -1197,7 +1210,7 @@ export class CheckoutService {
     // SS-235: one tier lookup per summary; promotions resolve per line.
     // Resolved units are returned alongside so placeOrder freezes the same
     // priced unit it validated (never the raw variant price).
-    const tierPct = await this.pricing.tierDiscountForUser(userId);
+    const partner = await this.pricing.partnerPricingForUser(userId);
     const unitPrices = new Map<string, Prisma.Decimal>();
     for (const line of visible) {
       if (line.variant.priceStatus !== PriceStatus.PRICED) {
@@ -1215,10 +1228,21 @@ export class CheckoutService {
       ]);
       unitPrices.set(
         line.variantId,
-        PricingService.resolveLine(line.variant.price, line.quantity, tierPct, promotions, {
-          categoryRule,
-          override,
-        }),
+        PricingService.resolveLine(
+          line.variant.price,
+          line.quantity,
+          partner.tierPercent,
+          promotions,
+          { categoryRule, override },
+          {
+            regularPrice: line.variant.price,
+            discountedPrice: line.variant.discountedPrice,
+            discountStartsAt: line.variant.discountStartsAt,
+            discountEndsAt: line.variant.discountEndsAt,
+            partnerPrice: line.variant.partnerPrice,
+            partnerEligible: partner.eligible,
+          },
+        ),
       );
     }
 

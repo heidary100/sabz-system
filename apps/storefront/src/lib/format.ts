@@ -1,9 +1,12 @@
-import { RIAL_LABEL, rialNumber } from './currency';
+import { TOMAN_LABEL, rialNumber, tomanNumber } from './currency';
 
 /**
- * Persian display formatting (SS-900). Customer prices are Rial verbatim from
- * the server (already rounded UP to 100,000 Rial in the pricing pipeline);
- * this module only adds Persian digits/separators and the ریال unit.
+ * Persian display formatting (pricing-grid spec §3).
+ *
+ * Customer prices arrive from the server as Rial, already rounded UP to
+ * 100,000 Rial. The storefront divides by 10 and renders Toman; it never
+ * applies its own rounding. Example: 7,650,000 Rial → server rounds to
+ * 7,700,000 Rial → this module shows ۷۷۰٬۰۰۰ تومان.
  */
 
 const faIrNumber = new Intl.NumberFormat('fa-IR', {
@@ -15,14 +18,14 @@ export function formatFaNumber(value: number): string {
   return faIrNumber.format(value);
 }
 
-/** Formats a server Rial amount with Persian numerals + the ریال unit. */
-export function formatRial(value: string | number): string {
-  return `${faIrNumber.format(rialNumber(value))} ${RIAL_LABEL}`;
+/** Formats a server Rial amount as customer-facing Toman. */
+export function formatToman(value: string | number): string {
+  return `${faIrNumber.format(tomanNumber(value))} ${TOMAN_LABEL}`;
 }
 
-/** «از ۲۵۰٬۰۰۰ ریال» — used on listing cards with multiple variants. */
+/** «از ۲۵۰٬۰۰۰ تومان» — used on listing cards with multiple variants. */
 export function formatPriceFrom(value: string | number): string {
-  return `از ${formatRial(value)}`;
+  return `از ${formatToman(value)}`;
 }
 
 /** Call-for-price label (SS-201, Q1): published but non-purchasable rows. */
@@ -56,24 +59,24 @@ export function formatCardPrice(
   if (callForPrice || priceFrom === '') {
     return CALL_FOR_PRICE_LABEL;
   }
-  return variantCount > 1 ? formatPriceFrom(priceFrom) : formatRial(priceFrom);
+  return variantCount > 1 ? formatPriceFrom(priceFrom) : formatToman(priceFrom);
 }
 
 /**
  * Truthful card discount percent (SS-225/SS-900): the drop between the
- * server-rounded reference and selling prices. Null when the pair does not
- * describe a real discount — a badge must never invent one, and rounding that
- * makes the values equal removes the badge.
+ * server-rounded regular reference and selling prices. Null when the pair
+ * does not describe a real discount — a badge must never invent one, and
+ * rounding that makes the values equal removes the badge.
  */
 export function salePercentFrom(
   priceFrom: string,
-  compareAtPrice: string | null,
+  regularPrice: string | null,
 ): number | null {
-  if (!compareAtPrice) {
+  if (!regularPrice) {
     return null;
   }
   const price = rialNumber(priceFrom);
-  const reference = rialNumber(compareAtPrice);
+  const reference = rialNumber(regularPrice);
   if (
     !Number.isFinite(price) ||
     !Number.isFinite(reference) ||

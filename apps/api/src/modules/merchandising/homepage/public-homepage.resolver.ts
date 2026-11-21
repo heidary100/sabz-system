@@ -683,7 +683,7 @@ function isOfferEligible(
   }
   const price = Number(product.priceFrom);
   const compareAt =
-    product.compareAtPrice === null ? Number.NaN : Number(product.compareAtPrice);
+    product.regularPrice === null ? Number.NaN : Number(product.regularPrice);
   const hasDiscount =
     Number.isFinite(price) && Number.isFinite(compareAt) && compareAt > price;
   const hasLivePromotion =

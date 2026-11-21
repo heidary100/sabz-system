@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { ExternalLink, Eye, Pencil, Trash2 } from 'lucide-react'
+import { Coins, ExternalLink, Eye, Pencil, Trash2 } from 'lucide-react'
 import { storefrontProductUrl } from '../../lib/storefront-url'
 
 /**
@@ -14,6 +14,7 @@ export interface RowActionsProps {
   productStatus: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
   sku: string
   onDelete: () => void
+  onOverride?: () => void
 }
 
 export function RowActions({
@@ -23,9 +24,21 @@ export function RowActions({
   productStatus,
   sku,
   onDelete,
+  onOverride,
 }: RowActionsProps) {
   return (
     <div className="flex items-center gap-0.5">
+      {onOverride ? (
+        <button
+          type="button"
+          aria-label={`تنظیم اورراید قیمت ${productName}`}
+          title="تنظیم اورراید قیمت"
+          className="rounded-lg p-1.5 text-muted transition hover:bg-primary-subtle hover:text-primary focus-ring"
+          onClick={onOverride}
+        >
+          <Coins className="size-4" aria-hidden />
+        </button>
+      ) : null}
       <Link
         to={`/products/${productId}`}
         aria-label={`مشاهده ${productName}`}

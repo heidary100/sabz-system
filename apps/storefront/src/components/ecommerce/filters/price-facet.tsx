@@ -7,10 +7,10 @@ import { sanitizePriceBound } from '@/lib/price-input';
 
 /** Quick ranges in Rial (SS-900) — the scanning-friendly augmentation of inputs. */
 const PRICE_PRESETS: Array<{ label: string; from: string; to: string }> = [
-  { label: 'تا ۱۰ میلیون ریال', from: '', to: '10000000' },
-  { label: '۱۰ تا ۵۰ میلیون ریال', from: '10000000', to: '50000000' },
-  { label: '۵۰ تا ۲۰۰ میلیون ریال', from: '50000000', to: '200000000' },
-  { label: 'بالای ۲۰۰ میلیون ریال', from: '200000000', to: '' },
+  { label: 'تا ۱ میلیون تومان', from: '', to: '10000000' },
+  { label: '۱ تا ۵ میلیون تومان', from: '10000000', to: '50000000' },
+  { label: '۵ تا ۲۰ میلیون تومان', from: '50000000', to: '200000000' },
+  { label: 'بالای ۲۰ میلیون تومان', from: '200000000', to: '' },
 ];
 
 /**
@@ -37,16 +37,24 @@ export function PriceFacet({
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [from, setFrom] = useState(state.priceFrom);
-  const [to, setTo] = useState(state.priceTo);
+  const [from, setFrom] = useState(
+    state.priceFrom ? String(Number(state.priceFrom) / 10) : '',
+  );
+  const [to, setTo] = useState(
+    state.priceTo ? String(Number(state.priceTo) / 10) : '',
+  );
   const [error, setError] = useState('');
   const fromId = useId();
   const toId = useId();
 
   function apply(event: React.FormEvent) {
     event.preventDefault();
-    const nextFrom = sanitizePriceBound(from);
-    const nextTo = sanitizePriceBound(to);
+    const fromToman = sanitizePriceBound(from);
+    const toToman = sanitizePriceBound(to);
+    // The URL/API contract stays Rial; the customer types Toman.
+    const nextFrom =
+      fromToman === null ? null : String(Number(fromToman) * 10);
+    const nextTo = toToman === null ? null : String(Number(toToman) * 10);
     if (nextFrom === null || nextTo === null) {
       setError('مبلغ واردشده معتبر نیست.');
       return;
@@ -73,12 +81,12 @@ export function PriceFacet({
 
   return (
     <div className="mt-4 border-t border-border pt-4" aria-busy={pending}>
-      <p className="text-sm font-semibold text-fg">محدوده قیمت (ریال)</p>
+      <p className="text-sm font-semibold text-fg">محدوده قیمت (تومان)</p>
       <form id={formId} onSubmit={apply} className="mt-2">
         <div className="flex items-center gap-2">
           <div className="min-w-0 flex-1">
             <label htmlFor={fromId} className="sr-only">
-              حداقل قیمت به ریال
+              حداقل قیمت به تومان
             </label>
             <input
               id={fromId}
@@ -96,7 +104,7 @@ export function PriceFacet({
           </span>
           <div className="min-w-0 flex-1">
             <label htmlFor={toId} className="sr-only">
-              حداکثر قیمت به ریال
+              حداکثر قیمت به تومان
             </label>
             <input
               id={toId}

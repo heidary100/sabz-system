@@ -112,6 +112,7 @@ export class AdminPricingService {
         isActive: dto.isActive ?? true,
         startsAt,
         endsAt,
+        includeDescendants: dto.includeDescendants ?? false,
         priority: dto.priority ?? 0,
         createdBy: operatorId,
       },
@@ -168,6 +169,9 @@ export class AdminPricingService {
         ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
         ...('startsAt' in dto ? { startsAt } : {}),
         ...('endsAt' in dto ? { endsAt } : {}),
+        ...(dto.includeDescendants !== undefined
+          ? { includeDescendants: dto.includeDescendants }
+          : {}),
         ...(dto.priority !== undefined ? { priority: dto.priority } : {}),
         updatedBy: operatorId,
       },
@@ -266,7 +270,7 @@ export class AdminPricingService {
     if (duplicate) {
       throw new ConflictException('برای این محصول قبلاً اورراید قیمت ثبت شده است.');
     }
-    this.assertValidValue(dto.type, dto.value);
+    const shape = this.resolveOverrideShape(dto);
     const { startsAt, endsAt } = this.parseWindow(dto.startsAt, dto.endsAt);
     this.assertValidWindow(startsAt, endsAt);
     let row: OverrideRow;
@@ -274,8 +278,9 @@ export class AdminPricingService {
       row = await this.prisma.productPriceOverride.create({
         data: {
           productId: dto.productId,
-          type: dto.type,
-          value: new Prisma.Decimal(dto.value),
+          type: shape.type,
+          value: shape.value,
+          overridePrice: shape.overridePrice,
           isActive: dto.isActive ?? true,
           startsAt,
           endsAt,
@@ -316,9 +321,30 @@ export class AdminPricingService {
       throw new NotFoundException('اورراید قیمت یافت نشد.');
     }
     const before = this.toOverrideDto(existing);
-    const type = dto.type ?? existing.type;
-    const value = dto.value ?? existing.value.toString();
-    this.assertValidValue(type, value);
+    const switchingToAbsolute = dto.overridePrice !== undefined && dto.overridePrice !== null;
+    const switchingToAdjustment =
+      (dto.type !== undefined && dto.type !== null) ||
+      (dto.value !== undefined && dto.value !== null);
+    const mergedType = switchingToAbsolute
+      ? null
+      : dto.type !== undefined
+        ? dto.type
+        : existing.type;
+    const mergedValue = switchingToAbsolute
+      ? null
+      : dto.value !== undefined
+        ? dto.value
+        : (existing.value?.toString() ?? null);
+    const mergedOverridePrice = switchingToAdjustment
+      ? null
+      : dto.overridePrice !== undefined
+        ? dto.overridePrice
+        : (existing.overridePrice?.toString() ?? null);
+    const shape = this.resolveOverrideShape({
+      type: mergedType ?? undefined,
+      value: mergedValue ?? undefined,
+      overridePrice: mergedOverridePrice ?? undefined,
+    });
     const { startsAt, endsAt } = this.parseNullableWindow(
       dto.startsAt,
       dto.endsAt,
@@ -331,8 +357,9 @@ export class AdminPricingService {
     const row = await this.prisma.productPriceOverride.update({
       where: { id },
       data: {
-        ...(dto.type !== undefined ? { type: dto.type } : {}),
-        ...(dto.value !== undefined ? { value: new Prisma.Decimal(dto.value) } : {}),
+        type: shape.type,
+        value: shape.value,
+        overridePrice: shape.overridePrice,
         ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
         ...('startsAt' in dto ? { startsAt } : {}),
         ...('endsAt' in dto ? { endsAt } : {}),
@@ -616,6 +643,53 @@ export class AdminPricingService {
     }
   }
 
+  /**
+   * Resolve and validate the one-of override shape:
+   * - absolute: `overridePrice` only (positive Rial final price);
+   * - adjustment: `type` + `value` (PERCENT 0–100 or FIXED positive Rial off).
+   */
+  private resolveOverrideShape(input: {
+    type?: PromotionType;
+    value?: string;
+    overridePrice?: string;
+  }): {
+    type: PromotionType | null;
+    value: Prisma.Decimal | null;
+    overridePrice: Prisma.Decimal | null;
+  } {
+    const hasAbsolute =
+      input.overridePrice !== undefined && input.overridePrice !== null;
+    const hasAdjustment = input.type !== undefined || input.value !== undefined;
+    if (hasAbsolute && hasAdjustment) {
+      throw new BadRequestException(
+        'اورراید مطلق و تخفیف درصدی/مبلغی هم‌زمان مجاز نیستند.',
+      );
+    }
+    if (hasAbsolute) {
+      let parsed: Prisma.Decimal;
+      try {
+        parsed = new Prisma.Decimal(input.overridePrice as string);
+      } catch {
+        throw new BadRequestException('قیمت اورراید معتبر نیست.');
+      }
+      if (!parsed.isFinite() || parsed.lessThanOrEqualTo(0)) {
+        throw new BadRequestException('قیمت اورراید باید بزرگ‌تر از صفر باشد.');
+      }
+      return { type: null, value: null, overridePrice: parsed };
+    }
+    if (input.type === undefined || input.value === undefined) {
+      throw new BadRequestException(
+        'نوع و مقدار تخفیف یا قیمت مطلق اورراید الزامی است.',
+      );
+    }
+    this.assertValidValue(input.type, input.value);
+    return {
+      type: input.type,
+      value: new Prisma.Decimal(input.value),
+      overridePrice: null,
+    };
+  }
+
   private parseWindow(
     startsAt: string | undefined,
     endsAt: string | undefined,
@@ -675,7 +749,9 @@ export class AdminPricingService {
       isActive: row.isActive,
       startsAt: row.startsAt?.toISOString() ?? null,
       endsAt: row.endsAt?.toISOString() ?? null,
+      includeDescendants: row.includeDescendants,
       priority: row.priority,
+      status: this.ruleStatus(row.isActive, row.startsAt, row.endsAt),
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
     };
@@ -687,13 +763,33 @@ export class AdminPricingService {
       productId: row.productId,
       productName: row.product.name,
       type: row.type as ProductPriceOverrideDto['type'],
-      value: row.value.toString(),
+      value: row.value?.toString() ?? null,
+      overridePrice: row.overridePrice?.toString() ?? null,
       isActive: row.isActive,
       startsAt: row.startsAt?.toISOString() ?? null,
       endsAt: row.endsAt?.toISOString() ?? null,
+      status: this.ruleStatus(row.isActive, row.startsAt, row.endsAt),
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
     };
+  }
+
+  private ruleStatus(
+    isActive: boolean,
+    startsAt: Date | null,
+    endsAt: Date | null,
+  ): 'ACTIVE' | 'SCHEDULED' | 'EXPIRED' | 'INACTIVE' {
+    if (!isActive) {
+      return 'INACTIVE';
+    }
+    const now = Date.now();
+    if (startsAt !== null && startsAt.getTime() > now) {
+      return 'SCHEDULED';
+    }
+    if (endsAt !== null && endsAt.getTime() < now) {
+      return 'EXPIRED';
+    }
+    return 'ACTIVE';
   }
 
   private toPromotionDto(row: PromotionRow): PromotionDto {

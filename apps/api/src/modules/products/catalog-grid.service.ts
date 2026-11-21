@@ -10,6 +10,7 @@ import {
 import type {
   CatalogGridBatchRowInput,
   CatalogGridBatchResponse,
+  CatalogGridIdsResponse,
   CatalogGridListResponse,
   CatalogGridRow,
   CatalogGridRowResult,
@@ -20,12 +21,17 @@ import {
   CATALOG_PRODUCTS_TAG,
   productDetailTag,
 } from '../../common/storefront-cache/catalog-tags';
+import { customerPricePair, isDateWindowActive } from '../../common/money/discount';
+import { roundRialUp } from '../../common/money/rial';
 import { AuditService } from '../audit/audit.service';
+import { CurrencyService } from '../currency/currency.service';
 import {
   activeInventoryWhere,
   aggregateVariantStock,
 } from '../inventory/inventory-aggregate';
 import { InventoryService } from '../inventory/inventory.service';
+import { PricingService } from '../pricing/pricing.service';
+import type { ProductOverride } from '../pricing/pricing.service';
 import { recomputeProductMinPrice } from './min-price';
 import { PUBLIC_MEDIA_URL_PREFIX } from './public-catalog.service';
 import { ProductsService } from './products.service'
@@ -51,8 +57,17 @@ const GRID_ROW_SELECT = {
   barcode: true,
   name: true,
   price: true,
-  compareAtPrice: true,
+  discountedPrice: true,
+  discountStartsAt: true,
+  discountEndsAt: true,
+  partnerPrice: true,
+  priceUpdatedAt: true,
   priceStatus: true,
+  priceSourceCurrency: true,
+  priceSourceAmount: true,
+  discountSourceAmount: true,
+  priceSourceRate: true,
+  priceSourceRateAt: true,
   updatedAt: true,
   product: {
     select: {
@@ -65,6 +80,17 @@ const GRID_ROW_SELECT = {
       updatedAt: true,
       brandId: true,
       categoryId: true,
+      priceOverride: {
+        select: {
+          id: true,
+          type: true,
+          value: true,
+          overridePrice: true,
+          isActive: true,
+          startsAt: true,
+          endsAt: true,
+        },
+      },
       brand: { select: { name: true } },
       category: { select: { name: true } },
       media: {
@@ -84,7 +110,16 @@ type GridVariantData = {
   barcode?: string | null;
   name?: string | null;
   price?: string;
-  compareAtPrice?: string | null;
+  discountedPrice?: string | null;
+  discountStartsAt?: Date | null;
+  discountEndsAt?: Date | null;
+  partnerPrice?: string | null;
+  priceUpdatedAt?: Date;
+  priceSourceCurrency?: PriceSourceCurrency;
+  priceSourceAmount?: string | null;
+  priceSourceRate?: string | null;
+  priceSourceRateAt?: Date | null;
+  priceSourceRateId?: string | null;
   priceStatus?: PriceStatus;
 };
 
@@ -130,14 +165,15 @@ export class CatalogGridService {
     private readonly inventoryService: InventoryService,
     private readonly productsService: ProductsService,
     private readonly configService: ConfigService,
+    private readonly pricingService: PricingService,
+    private readonly currencyService: CurrencyService,
   ) {}
 
   // ---------------------------------------------------------------------------
   // Read API
   // ---------------------------------------------------------------------------
 
-  async list(query: ListCatalogGridQueryDto): Promise<CatalogGridListResponse> {
-    const page = query.page ?? DEFAULT_PAGE;
+  async list(query: ListCatalogGridQueryDto): Promise<CatalogGridListResponse> {    const page = query.page ?? DEFAULT_PAGE;
     const limit = query.limit ?? DEFAULT_LIMIT;
     const skip = (page - 1) * limit;
     const baseWhere = this.buildVariantWhere(query);
@@ -166,6 +202,33 @@ export class CatalogGridService {
       total,
       page,
       limit,
+    };
+  }
+
+  /**
+   * Select-all-filtered scope: distinct product ids matching the same
+   * server-side filters as `list`, capped so an enormous catalog cannot
+   * produce an unbounded response. The UI must surface `truncated` instead of
+   * pretending it selected everything.
+   */
+  async listIds(
+    query: ListCatalogGridQueryDto,
+  ): Promise<CatalogGridIdsResponse> {
+    const where = this.buildVariantWhere(query);
+    const cap = 10_000;
+    const rows = await this.prisma.productVariant.findMany({
+      where,
+      select: { productId: true },
+      take: cap + 1,
+    });
+    const allIds = [...new Set(rows.map((row) => row.productId))];
+    const truncated = rows.length > cap;
+    const productIds = truncated ? allIds.slice(0, cap) : allIds;
+    return {
+      productIds,
+      productCount: productIds.length,
+      variantCount: Math.min(rows.length, cap),
+      truncated,
     };
   }
 
@@ -262,8 +325,8 @@ export class CatalogGridService {
         return [{ sku: dir }, { id: 'desc' }];
       case 'price':
         return [{ price: dir }, { id: 'desc' }];
-      case 'compareAtPrice':
-        return [{ compareAtPrice: { sort: dir, nulls: 'last' } }, { id: 'desc' }];
+      case 'discountedPrice':
+        return [{ discountedPrice: { sort: dir, nulls: 'last' } }, { id: 'desc' }];
       case 'createdAt':
         return [{ product: { createdAt: dir } }, { id: 'desc' }];
       default:
@@ -364,23 +427,110 @@ export class CatalogGridService {
 
   private async toGridRows(rows: GridRowPayload[]): Promise<CatalogGridRow[]> {
     const variantIds = rows.map((row) => row.id);
-    const [stockTotals, itemCounts] = await Promise.all([
+    const [stockTotals, itemCounts, rates, categoryRules] = await Promise.all([
       aggregateVariantStock(this.prisma, variantIds),
       this.countQualifyingWarehouses(variantIds),
+      this.currentRates(),
+      this.categoryRulesForRows(rows),
     ]);
-    return rows.map((row) => this.toGridRow(row, stockTotals, itemCounts));
+    return rows.map((row) =>
+      this.toGridRow(row, stockTotals, itemCounts, rates, categoryRules),
+    );
+  }
+
+  /** Current manual rates; a missing rate simply hides the derived column. */
+  private async currentRates(): Promise<{
+    usd: Prisma.Decimal | null;
+    aed: Prisma.Decimal | null;
+  }> {
+    const [usd, aed] = await Promise.all([
+      this.currencyService.current('USD').catch(() => null),
+      this.currencyService.current('AED').catch(() => null),
+    ]);
+    return {
+      usd: usd ? new Prisma.Decimal(usd.rialPerUnit) : null,
+      aed: aed ? new Prisma.Decimal(aed.rialPerUnit) : null,
+    };
+  }
+
+  /** Category rule lookup once per distinct category on the page. */
+  private async categoryRulesForRows(
+    rows: GridRowPayload[],
+  ): Promise<Map<string, Awaited<ReturnType<PricingService['categoryRuleFor']>>>> {
+    const categoryIds = [...new Set(rows.map((row) => row.product.categoryId))];
+    const entries = await Promise.all(
+      categoryIds.map(async (categoryId) => {
+        const rule = await this.pricingService.categoryRuleFor(categoryId);
+        return [categoryId, rule] as const;
+      }),
+    );
+    return new Map(entries);
   }
 
   private toGridRow(
     row: GridRowPayload,
     stockTotals: Map<string, number>,
     itemCounts: Map<string, number>,
+    rates: { usd: Prisma.Decimal | null; aed: Prisma.Decimal | null },
+    categoryRules: Map<
+      string,
+      Awaited<ReturnType<PricingService['categoryRuleFor']>>
+    >,
   ): CatalogGridRow {
     const thumbnail = row.product.media.find(
       (media) =>
         media.mediaType === ProductMediaType.IMAGE &&
         media.thumbnailKey !== null,
     );
+    const pair = customerPricePair({
+      price: row.price,
+      discountedPrice: row.discountedPrice,
+      discountStartsAt: row.discountStartsAt,
+      discountEndsAt: row.discountEndsAt,
+    });
+    const categoryRule = categoryRules.get(row.product.categoryId) ?? null;
+    const override = row.product.priceOverride;
+    const overrideInput: ProductOverride | null =
+      override &&
+      override.isActive &&
+      isDateWindowActive(override.startsAt, override.endsAt)
+        ? override.overridePrice !== null
+          ? {
+              type: null,
+              value: null,
+              overridePrice: new Prisma.Decimal(override.overridePrice.toString()),
+            }
+          : override.type !== null && override.value !== null
+            ? {
+                type: override.type,
+                value: override.value,
+                overridePrice: null,
+              }
+            : null
+        : null;
+    const effective = PricingService.resolveLine(
+      row.price,
+      1,
+      new Prisma.Decimal(0),
+      [],
+      { categoryRule, override: overrideInput },
+      {
+        regularPrice: row.price,
+        discountedPrice: row.discountedPrice,
+        discountStartsAt: row.discountStartsAt,
+        discountEndsAt: row.discountEndsAt,
+      },
+    );
+    const priceSource: CatalogGridRow['priceSource'] =
+      row.priceStatus !== PriceStatus.PRICED
+        ? null
+        : pair.regular !== null
+          ? 'SALE'
+          : overrideInput !== null
+            ? 'OVERRIDE'
+            : categoryRule !== null
+              ? 'CATEGORY_RULE'
+              : 'REGULAR';
     return {
       variantId: row.id,
       productId: row.product.id,
@@ -401,8 +551,36 @@ export class CatalogGridService {
           ? `${PUBLIC_MEDIA_URL_PREFIX}/${thumbnail.id}/thumbnail`
           : null,
       priceStatus: row.priceStatus,
-      price: row.price.toString(),
-      compareAtPrice: row.compareAtPrice?.toString() ?? null,
+      regularPrice: row.price.toString(),
+      discountedPrice: row.discountedPrice?.toString() ?? null,
+      discountStartsAt: row.discountStartsAt?.toISOString() ?? null,
+      discountEndsAt: row.discountEndsAt?.toISOString() ?? null,
+      partnerPrice: row.partnerPrice?.toString() ?? null,
+      effectivePrice:
+        row.priceStatus === PriceStatus.PRICED ? effective.toString() : null,
+      priceSource,
+      priceUpdatedAt: row.priceUpdatedAt?.toISOString() ?? null,
+      priceSourceCurrency: row.priceSourceCurrency,
+      aedPrice:
+        rates.aed !== null && row.priceStatus === PriceStatus.PRICED
+          ? row.price.div(rates.aed).toDecimalPlaces(2).toString()
+          : null,
+      usdPrice:
+        rates.usd !== null && row.priceStatus === PriceStatus.PRICED
+          ? row.price.div(rates.usd).toDecimalPlaces(2).toString()
+          : null,
+      override:
+        override !== null
+          ? {
+              id: override.id,
+              type: override.type,
+              value: override.value?.toString() ?? null,
+              overridePrice: override.overridePrice?.toString() ?? null,
+              isActive: override.isActive,
+              startsAt: override.startsAt?.toISOString() ?? null,
+              endsAt: override.endsAt?.toISOString() ?? null,
+            }
+          : null,
       stock: stockTotals.get(row.id) ?? 0,
       stockEditable: (itemCounts.get(row.id) ?? 0) === 1,
       expectedUpdatedAt: row.updatedAt.toISOString(),
@@ -499,9 +677,16 @@ export class CatalogGridService {
             barcode: true,
             name: true,
             price: true,
-            compareAtPrice: true,
+            discountedPrice: true,
+            discountStartsAt: true,
+            discountEndsAt: true,
+            partnerPrice: true,
             priceStatus: true,
             priceSourceCurrency: true,
+            priceSourceAmount: true,
+            priceSourceRate: true,
+            priceSourceRateAt: true,
+            priceSourceRateId: true,
             updatedAt: true,
             product: {
               select: {
@@ -544,12 +729,29 @@ export class CatalogGridService {
 
         const expected = new Date(row.expectedUpdatedAt);
 
-        // The grid edits Rial only. A source-currency variant must be changed
-        // through the variant form so its source amount/rate snapshot stays
-        // coherent; otherwise an inline Rial value would silently contradict
-        // the stored USD/AED source.
+        // The grid can edit the regular price in Rial or through one of the
+        // admin-only AED/USD columns. Two sources in one row are ambiguous
+        // and rejected instead of silently choosing one.
+        const currencyInputs = [row.regularPrice, row.aedPrice, row.usdPrice].filter(
+          (value) => value !== undefined,
+        );
+        if (currencyInputs.length > 1) {
+          return {
+            result: {
+              variantId: row.variantId,
+              outcome: 'VALIDATION_ERROR',
+              message:
+                'در هر ذخیره فقط یکی از قیمت ریالی، درهمی یا دلاری را تغییر دهید.',
+              fieldErrors: {
+                regularPrice:
+                  'قیمت ریالی، درهمی و دلاری هم‌زمان قابل ویرایش نیستند.',
+              },
+            },
+            productSlug: null,
+          };
+        }
         if (
-          (row.price !== undefined || row.compareAtPrice !== undefined) &&
+          row.regularPrice !== undefined &&
           variant.priceSourceCurrency !== PriceSourceCurrency.RIAL
         ) {
           return {
@@ -557,11 +759,50 @@ export class CatalogGridService {
               variantId: row.variantId,
               outcome: 'VALIDATION_ERROR',
               message:
-                'این نوع با واحد ارزی ثبت شده است؛ قیمت را از فرم ویرایش نوع تغییر دهید.',
-              fieldErrors: { price: 'ویرایش قیمت ارزی از شبکه کاتالوگ مجاز نیست.' },
+                'این نوع با واحد ارزی ثبت شده است؛ برای تغییر واحد از ستون درهم/دلار یا فرم ویرایش نوع استفاده کنید.',
+              fieldErrors: {
+                regularPrice:
+                  'ویرایش مستقیم ریالی برای نوع ارزی مجاز نیست؛ ستون ارز را ویرایش کنید.',
+              },
             },
             productSlug: null,
           };
+        }
+
+        let proposedRegular = row.regularPrice;
+        let sourceCurrency = variant.priceSourceCurrency;
+        let sourceAmount = variant.priceSourceAmount?.toString() ?? null;
+        let sourceRate = variant.priceSourceRate?.toString() ?? null;
+        let sourceRateAt = variant.priceSourceRateAt;
+        let sourceRateId = variant.priceSourceRateId;
+        if (row.aedPrice !== undefined || row.usdPrice !== undefined) {
+          const currency = row.aedPrice !== undefined ? 'AED' : 'USD';
+          const source = (row.aedPrice ?? row.usdPrice) as string;
+          let rate;
+          try {
+            rate = await this.currencyService.current(currency);
+          } catch {
+            const message = `نرخ ${currency === 'AED' ? 'درهم' : 'دلار'} ثبت نشده است.`;
+            return {
+              result: {
+                variantId: row.variantId,
+                outcome: 'VALIDATION_ERROR',
+                message,
+                fieldErrors: {
+                  [row.aedPrice !== undefined ? 'aedPrice' : 'usdPrice']: message,
+                },
+              },
+              productSlug: null,
+            };
+          }
+          proposedRegular = roundRialUp(
+            new Prisma.Decimal(source).mul(new Prisma.Decimal(rate.rialPerUnit)),
+          ).toString();
+          sourceCurrency = currency;
+          sourceAmount = new Prisma.Decimal(source).toFixed(2);
+          sourceRate = rate.rialPerUnit;
+          sourceRateAt = new Date(rate.effectiveAt);
+          sourceRateId = rate.id;
         }
 
         const variantData: GridVariantData = {};
@@ -574,38 +815,93 @@ export class CatalogGridService {
         if (row.variantName !== undefined) {
           variantData.name = row.variantName;
         }
-        if (row.price !== undefined) {
-          variantData.price = row.price;
+        if (proposedRegular !== undefined) {
+          variantData.price = proposedRegular;
+          variantData.priceSourceCurrency = sourceCurrency;
+          variantData.priceSourceAmount = sourceAmount;
+          variantData.priceSourceRate = sourceRate;
+          variantData.priceSourceRateAt = sourceRateAt;
+          variantData.priceSourceRateId = sourceRateId;
+          variantData.priceUpdatedAt = new Date();
         }
-        if (row.compareAtPrice !== undefined) {
-          variantData.compareAtPrice = row.compareAtPrice;
+        if (row.discountedPrice !== undefined) {
+          variantData.discountedPrice = row.discountedPrice;
+        }
+        if (row.discountStartsAt !== undefined) {
+          variantData.discountStartsAt =
+            row.discountStartsAt === null ? null : new Date(row.discountStartsAt);
+        }
+        if (row.discountEndsAt !== undefined) {
+          variantData.discountEndsAt =
+            row.discountEndsAt === null ? null : new Date(row.discountEndsAt);
+        }
+        if (row.partnerPrice !== undefined) {
+          // B2B partner pricing is financially distinct from retail price
+          // editing: only ADMIN may set it (operators keep product/retail
+          // rights; currency rates are ADMIN-only on their own controller).
+          const adminRole = await tx.userRole.findFirst({
+            where: { userId: actorId, role: { name: 'ADMIN' } },
+            select: { userId: true },
+          });
+          if (!adminRole) {
+            return {
+              result: {
+                variantId: row.variantId,
+                outcome: 'VALIDATION_ERROR',
+                message: 'ثبت قیمت همکار فقط توسط مدیر مجاز است.',
+                fieldErrors: { partnerPrice: 'دسترسی کافی ندارید.' },
+              },
+              productSlug: null,
+            };
+          }
+          variantData.partnerPrice = row.partnerPrice;
         }
         if (row.priceStatus !== undefined) {
           variantData.priceStatus = row.priceStatus;
         }
         const variantFieldsChanged = Object.keys(variantData).length > 0;
         // Any pricing field submission re-validates the whole effective
-        // pricing triple (a compareAt-only row still needs the SS-251 rule).
+        // pricing shape (a discounted-only row still needs the invariant).
         const pricingFieldsSubmitted =
-          row.price !== undefined ||
-          row.compareAtPrice !== undefined ||
+          proposedRegular !== undefined ||
+          row.discountedPrice !== undefined ||
+          row.discountStartsAt !== undefined ||
+          row.discountEndsAt !== undefined ||
+          row.partnerPrice !== undefined ||
           row.priceStatus !== undefined;
-        // Only price/priceStatus moves can change the denormalized minimum.
+        // Only regular/discounted/status moves can change the denormalized
+        // minimum price.
         const priceFieldsChanged =
-          row.price !== undefined || row.priceStatus !== undefined;
+          proposedRegular !== undefined ||
+          row.discountedPrice !== undefined ||
+          row.discountStartsAt !== undefined ||
+          row.discountEndsAt !== undefined ||
+          row.priceStatus !== undefined;
 
         if (variantFieldsChanged) {
           if (pricingFieldsSubmitted) {
-            // SS-251 invariant on effective values (partial updates cannot
-            // sneak past it) — the shared rule, not a second implementation.
+            // Shared pricing invariant on effective values (partial updates
+            // cannot sneak past it) — one rule, not a second implementation.
             try {
               this.variantsService.validatePricing({
-                price: row.price ?? variant.price.toString(),
-                compareAtPrice:
-                  row.compareAtPrice !== undefined
-                    ? row.compareAtPrice
-                    : (variant.compareAtPrice?.toString() ?? null),
+                price: proposedRegular ?? variant.price.toString(),
+                discountedPrice:
+                  row.discountedPrice !== undefined
+                    ? row.discountedPrice
+                    : (variant.discountedPrice?.toString() ?? null),
                 priceStatus: row.priceStatus ?? variant.priceStatus,
+                discountStartsAt:
+                  row.discountStartsAt !== undefined
+                    ? row.discountStartsAt
+                    : variant.discountStartsAt,
+                discountEndsAt:
+                  row.discountEndsAt !== undefined
+                    ? row.discountEndsAt
+                    : variant.discountEndsAt,
+                partnerPrice:
+                  row.partnerPrice !== undefined
+                    ? row.partnerPrice
+                    : (variant.partnerPrice?.toString() ?? null),
               });
             } catch (error) {
               const message =
@@ -617,7 +913,7 @@ export class CatalogGridService {
                   variantId: row.variantId,
                   outcome: 'VALIDATION_ERROR',
                   message,
-                  fieldErrors: { compareAtPrice: message },
+                  fieldErrors: { discountedPrice: message },
                 },
                 productSlug: null,
               };
@@ -856,13 +1152,26 @@ export class CatalogGridService {
             before.name = variant.name;
             after.name = row.variantName;
           }
-          if (row.price !== undefined) {
+          if (proposedRegular !== undefined) {
             before.price = variant.price.toString();
-            after.price = row.price;
+            after.price = proposedRegular;
           }
-          if (row.compareAtPrice !== undefined) {
-            before.compareAtPrice = variant.compareAtPrice?.toString() ?? null;
-            after.compareAtPrice = row.compareAtPrice;
+          if (row.discountedPrice !== undefined) {
+            before.discountedPrice = variant.discountedPrice?.toString() ?? null;
+            after.discountedPrice = row.discountedPrice;
+          }
+          if (row.discountStartsAt !== undefined) {
+            before.discountStartsAt =
+              variant.discountStartsAt?.toISOString() ?? null;
+            after.discountStartsAt = row.discountStartsAt;
+          }
+          if (row.discountEndsAt !== undefined) {
+            before.discountEndsAt = variant.discountEndsAt?.toISOString() ?? null;
+            after.discountEndsAt = row.discountEndsAt;
+          }
+          if (row.partnerPrice !== undefined) {
+            before.partnerPrice = variant.partnerPrice?.toString() ?? null;
+            after.partnerPrice = row.partnerPrice;
           }
           if (row.priceStatus !== undefined) {
             before.priceStatus = variant.priceStatus;
@@ -894,7 +1203,11 @@ export class CatalogGridService {
             barcode: true,
             name: true,
             price: true,
-            compareAtPrice: true,
+            discountedPrice: true,
+            discountStartsAt: true,
+            discountEndsAt: true,
+            partnerPrice: true,
+            priceUpdatedAt: true,
             priceStatus: true,
             priceSourceCurrency: true,
             updatedAt: true,
@@ -927,8 +1240,12 @@ export class CatalogGridService {
             variantId: row.variantId,
             outcome: 'SUCCESS',
             updatedAt: current.updatedAt.toISOString(),
-            price: current.price.toString(),
-            compareAtPrice: current.compareAtPrice?.toString() ?? null,
+            regularPrice: current.price.toString(),
+            discountedPrice: current.discountedPrice?.toString() ?? null,
+            discountStartsAt: current.discountStartsAt?.toISOString() ?? null,
+            discountEndsAt: current.discountEndsAt?.toISOString() ?? null,
+            partnerPrice: current.partnerPrice?.toString() ?? null,
+            priceUpdatedAt: current.priceUpdatedAt?.toISOString() ?? null,
             sku: current.sku,
             barcode: current.barcode,
             variantName: current.name,

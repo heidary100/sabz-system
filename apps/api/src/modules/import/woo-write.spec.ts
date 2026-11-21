@@ -95,12 +95,12 @@ describe('splitDottedName + readAttributeSlots (SS-207 specs)', () => {
 });
 
 describe('buildProductPlan (SS-207)', () => {
-  it('maps a priced on-sale row to price=sale + compareAt=regular', async () => {
+  it('maps a priced on-sale row to regular price + discounted sale price', async () => {
     const { verdict, plan } = await planFor(BASE);
     expect(verdict.action).toBe('CREATE');
     expect(plan).toMatchObject({
-      price: '15000000',
-      compareAtPrice: '18000000',
+      price: '18000000',
+      discountedPrice: '15000000',
       priceStatus: 'PRICED',
       status: 'PUBLISHED',
       stockQty: 0,
@@ -110,12 +110,12 @@ describe('buildProductPlan (SS-207)', () => {
 
   it('maps priceless published rows to CALL_FOR_PRICE with price 0', async () => {
     const { plan } = await planFor({ ...BASE, 'قیمت عادی': '', 'قیمت فروش ویژه': '' });
-    expect(plan).toMatchObject({ price: '0', compareAtPrice: null, priceStatus: 'CALL_FOR_PRICE' });
+    expect(plan).toMatchObject({ price: '0', discountedPrice: null, priceStatus: 'CALL_FOR_PRICE' });
   });
 
   it('drops compareAt on sale-without-regular edges', async () => {
     const { plan } = await planFor({ ...BASE, 'قیمت عادی': '', 'قیمت فروش ویژه': '12000000' });
-    expect(plan).toMatchObject({ price: '0', compareAtPrice: null, priceStatus: 'CALL_FOR_PRICE' });
+    expect(plan).toMatchObject({ price: '0', discountedPrice: null, priceStatus: 'CALL_FOR_PRICE' });
   });
 
   it('separates variant axes, specs, and brand slots', async () => {

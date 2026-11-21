@@ -38,7 +38,6 @@ import { OrdersPage } from '../pages/orders-page'
 import { NotificationsPage } from '../pages/notifications-page'
 import { PartnerDetailPage } from '../pages/partner-detail-page'
 import { PartnersPage } from '../pages/partners-page'
-import { PricingPage } from '../pages/pricing-page'
 import { ReturnDetailPage } from '../pages/return-detail-page'
 import { ReturnsPage } from '../pages/returns-page'
 import { RfqDetailPage } from '../pages/rfq-detail-page'
@@ -130,7 +129,7 @@ function createAppRoutes() {
             />
             <Route
               path="pricing"
-              element={<Navigate to="/products/pricing" replace />}
+              element={<Navigate to="/products?view=rules" replace />}
             />
             <Route
               path="currency"
@@ -289,14 +288,6 @@ function createAppRoutes() {
               element={
                 <RequireRole roles={ADMIN_ROLES}>
                   <ProductsPage />
-                </RequireRole>
-              }
-            />
-            <Route
-              path="products/pricing"
-              element={
-                <RequireRole roles={ADMIN_ROLES}>
-                  <PricingPage />
                 </RequireRole>
               }
             />

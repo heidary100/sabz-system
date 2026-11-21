@@ -26,6 +26,7 @@ describe('CurrencyService (SS-900)', () => {
     service = new CurrencyService(
       prisma as unknown as PrismaService,
       audit as unknown as AuditService,
+      { invalidate: jest.fn() } as never,
     );
   });
 

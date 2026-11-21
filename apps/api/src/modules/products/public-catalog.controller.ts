@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Controller,
   Get,
+  Header,
   Injectable,
   NotFoundException,
   Param,
@@ -200,6 +201,9 @@ export class PublicCatalogProductsController {
 
   @Get(':slug/price')
   @UseGuards(OptionalJwtAuthGuard)
+  // Personalized response: never stored by browsers, proxies or the CDN.
+  @Header('Cache-Control', 'private, no-store, max-age=0')
+  @Header('Vary', 'Authorization')
   @ApiOperation({
     summary: 'Public per-variant price quotes (tier-aware when authed)',
   })

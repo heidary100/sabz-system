@@ -124,7 +124,7 @@ export function ProductPurchasePanel({
           <ProductSku sku={selected.sku} />
         </dl>
         <p className="mt-3 text-xs leading-5 text-fg-secondary">
-          قیمت‌ها به ریال و برای خرید خرد است. همکاران تأییدشده قیمت سطح
+          قیمت‌ها به تومان و برای خرید خرد است. همکاران تأییدشده قیمت سطح
           همکاری خود را پس از ورود، همین‌جا و در سبد خرید مشاهده می‌کنند.
         </p>
       </div>

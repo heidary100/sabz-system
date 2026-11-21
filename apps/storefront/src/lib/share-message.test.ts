@@ -25,7 +25,7 @@ describe('buildShareMessage', () => {
     expect(lines).toHaveLength(4);
     expect(lines[0]).toBe('ماوس گیمینگ پرووان مدل BOLT PMG55');
     expect(lines[1]).toBe('proone');
-    expect(lines[2]).toMatch(/^قیمت: .+ ریال$/);
+    expect(lines[2]).toMatch(/^قیمت: .+ تومان$/);
     expect(lines[3]).toBe(URL);
   });
 
@@ -37,7 +37,7 @@ describe('buildShareMessage', () => {
       variantCount: 4,
       url: URL,
     });
-    expect(message.split('\n')[2]).toMatch(/^قیمت: از .+ ریال$/);
+    expect(message.split('\n')[2]).toMatch(/^قیمت: از .+ تومان$/);
   });
 
   it('quotes تماس بگیرید for a call-for-price product — never a fabricated price', () => {
@@ -108,7 +108,7 @@ describe('buildSharePayload (SS-900)', () => {
       variantName: 'Core i7 / 16GB',
       imageUrl: 'https://shop.example/media/a.png',
       priceFromRial: '7700000',
-      compareAtPriceRial: '8100000',
+      regularPriceRial: '8100000',
       variantCount: 1,
       url: URL,
     });
@@ -116,11 +116,11 @@ describe('buildSharePayload (SS-900)', () => {
     expect(payload.shortDescription).toBe('مدل گیمینگ ۱۶ اینچی');
     expect(payload.variantName).toBe('Core i7 / 16GB');
     expect(payload.priceRial).toBe('7700000');
-    expect(payload.compareAtPriceRial).toBe('8100000');
+    expect(payload.regularPriceRial).toBe('8100000');
     expect(payload.text).toContain('مدل گیمینگ ۱۶ اینچی');
     expect(payload.text).toContain('مدل: Core i7 / 16GB');
-    expect(payload.text).toContain('قیمت: ۷٬۷۰۰٬۰۰۰ ریال');
-    expect(payload.text).toContain('قیمت پیش از تخفیف: ۸٬۱۰۰٬۰۰۰ ریال');
+    expect(payload.text).toContain('قیمت: ۷۷۰٬۰۰۰ تومان');
+    expect(payload.text).toContain('قیمت عادی: ۸۱۰٬۰۰۰ تومان');
     expect(payload.text).not.toContain('description');
   });
 
@@ -128,10 +128,10 @@ describe('buildSharePayload (SS-900)', () => {
     const message = buildShareMessage({
       title: 'X',
       priceFromRial: '7700000',
-      compareAtPriceRial: '7700000',
+      regularPriceRial: '7700000',
       variantCount: 1,
       url: URL,
     });
-    expect(message).not.toContain('قیمت پیش از تخفیف');
+    expect(message).not.toContain('قیمت عادی');
   });
 });

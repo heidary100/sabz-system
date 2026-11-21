@@ -17,7 +17,6 @@ const WISHLIST_ITEM_KEYS = [
   'brand',
   'callForPrice',
   'category',
-  'compareAtPrice',
   'condition',
   'id',
   'inStock',
@@ -28,6 +27,7 @@ const WISHLIST_ITEM_KEYS = [
   'promotionEndsAt',
   'ratingAverage',
   'ratingCount',
+  'regularPrice',
   'slug',
   'variantCount',
 ];

@@ -122,6 +122,7 @@ describe('PricingService (SS-235)', () => {
         partner: {
           findFirst: jest.fn().mockResolvedValue({
             tier: { discountPercent: new Prisma.Decimal('12.5') },
+            profile: { user: { status: 'ACTIVE', deletedAt: null } },
           }),
         },
       } as unknown as PrismaService;
@@ -134,7 +135,10 @@ describe('PricingService (SS-235)', () => {
           approvalStatus: PartnerApprovalStatus.APPROVED,
           deletedAt: null,
         },
-        select: { tier: { select: { discountPercent: true } } },
+        select: {
+          tier: { select: { discountPercent: true } },
+          profile: { select: { user: { select: { status: true, deletedAt: true } } } },
+        },
       });
     });
 
@@ -284,6 +288,7 @@ describe('PricingService (SS-235)', () => {
           findUnique: jest.fn().mockResolvedValue({
             type: 'FIXED',
             value: D(500),
+            overridePrice: null,
             isActive: true,
             startsAt: null,
             endsAt: null,
@@ -295,6 +300,7 @@ describe('PricingService (SS-235)', () => {
       await expect(service.productOverrideFor('p-1')).resolves.toEqual({
         type: 'FIXED',
         value: D(500),
+        overridePrice: null,
       });
     });
 

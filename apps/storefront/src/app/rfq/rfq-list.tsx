@@ -11,7 +11,7 @@ import { Skeleton } from '@/components/ecommerce/skeleton/skeleton';
 import { ApiError } from '@/lib/api';
 import { hasSession } from '@/lib/auth-client';
 import { fetchRfqs, rfqStatusLabel } from '@/lib/rfq';
-import { formatFaNumber, formatRial } from '@/lib/format';
+import { formatFaNumber, formatToman } from '@/lib/format';
 import { rialMachineValue } from '@/lib/currency';
 
 const LOAD_FAILED = 'دریافت استعلام‌ها ناموفق بود؛ لطفاً دوباره تلاش کنید.';
@@ -126,7 +126,7 @@ export function RfqList() {
                 <p className="mt-1 text-xs text-fg-muted">
                   {formatFaNumber(rfq.quantity)} عدد
                   {rfq.quotedLineTotal !== null
-                    ? ` — ${formatRial(rialMachineValue(rfq.quotedLineTotal))}`
+                    ? ` — ${formatToman(rialMachineValue(rfq.quotedLineTotal))}`
                     : null}
                 </p>
               </div>

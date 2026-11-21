@@ -161,14 +161,14 @@ export class ListCatalogGridQueryDto {
   stockStatus?: 'IN_STOCK' | 'OUT_OF_STOCK';
 
   @ApiPropertyOptional({
-    enum: ['name', 'sku', 'price', 'compareAtPrice', 'createdAt', 'stock'],
+    enum: ['name', 'sku', 'price', 'discountedPrice', 'createdAt', 'stock'],
     description: 'Sort field.',
   })
   @IsOptional()
-  @IsIn(['name', 'sku', 'price', 'compareAtPrice', 'createdAt', 'stock'], {
+  @IsIn(['name', 'sku', 'price', 'discountedPrice', 'createdAt', 'stock'], {
     message: 'sortBy معتبر نیست.',
   })
-  sortBy?: 'name' | 'sku' | 'price' | 'compareAtPrice' | 'createdAt' | 'stock';
+  sortBy?: 'name' | 'sku' | 'price' | 'discountedPrice' | 'createdAt' | 'stock';
 
   @ApiPropertyOptional({ enum: ['asc', 'desc'], description: 'Sort direction.' })
   @IsOptional()

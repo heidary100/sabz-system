@@ -238,7 +238,7 @@ function ActiveFilterField({
   )
 }
 
-export function PricingPage() {
+export function PricingWorkspace({ embedded = false }: { embedded?: boolean } = {}) {
   const [tab, setTab] = useState<PricingTab>('rules')
   const rules = useCategoryRuleList()
   const overrides = useProductOverrideList()
@@ -334,11 +334,33 @@ export function PricingPage() {
 
   return (
     <div className="w-full space-y-6">
-      <PageHeader
-        title="قیمت‌گذاری محصولات"
-        subtitle="قوانین دسته‌بندی، اورراید محصول، پروموشن و پله همکاری؛ همه در فضای محصولات."
-        actions={
-          <div className="flex flex-wrap items-center gap-2">
+      {!embedded && (
+        <PageHeader
+          title="قیمت‌گذاری محصولات"
+          subtitle="قوانین دسته‌بندی، اورراید محصول، پروموشن و پله همکاری؛ همه در فضای محصولات."
+          actions={
+            <div className="flex flex-wrap items-center gap-2">
+              <Link to="/currency">
+                <Button outline>
+                  <Coins data-slot="icon" />
+                  نرخ ارز دستی
+                </Button>
+              </Link>
+              <Button color="primary" onClick={openCreate}>
+                <Plus data-slot="icon" />
+                {CREATE_LABELS[tab]}
+              </Button>
+            </div>
+          }
+        />
+      )}
+
+      {embedded && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-border bg-surface-strong px-4 py-3">
+          <p className="text-sm text-muted">
+            قانون دسته‌بندی، اورراید محصول، پروموشن و پله همکاری؛ مستقیماً از همین فضای محصولات.
+          </p>
+          <div className="flex flex-wrap gap-2">
             <Link to="/currency">
               <Button outline>
                 <Coins data-slot="icon" />
@@ -350,8 +372,8 @@ export function PricingPage() {
               {CREATE_LABELS[tab]}
             </Button>
           </div>
-        }
-      />
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="بخش‌های قیمت‌گذاری">
         {PRICING_TABS.map((key) => (
@@ -501,12 +523,18 @@ export function PricingPage() {
                     {override.productName}
                   </TableCell>
                   <TableCell>
-                    <StatusBadge tone="neutral">{PROMOTION_TYPE_LABELS[override.type]}</StatusBadge>
+                    <StatusBadge tone="neutral">
+                      {override.type ? PROMOTION_TYPE_LABELS[override.type] : 'قیمت مطلق'}
+                    </StatusBadge>
                   </TableCell>
                   <TableCell className="text-muted" dir="ltr">
-                    {override.type === 'PERCENT'
-                      ? formatPercentValue(override.value)
-                      : formatRial(override.value)}
+                    {override.overridePrice
+                      ? formatRial(override.overridePrice)
+                      : override.type === 'PERCENT' && override.value
+                        ? formatPercentValue(override.value)
+                        : override.value
+                          ? formatRial(override.value)
+                          : '—'}
                   </TableCell>
                   <TableCell className="text-muted">
                     <WindowCell startsAt={override.startsAt} endsAt={override.endsAt} />
@@ -824,4 +852,10 @@ export function PricingPage() {
       />
     </div>
   )
+}
+
+
+/** Compatibility route component (the legacy /products/pricing URL redirects). */
+export function PricingPage() {
+  return <PricingWorkspace />
 }

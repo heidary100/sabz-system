@@ -1,21 +1,35 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import clsx from 'clsx'
-import { Link, useNavigate } from 'react-router-dom'
-import { ArrowDown, ArrowUp, ArrowUpDown, Package, Percent, Plus, SlidersHorizontal } from 'lucide-react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  CalendarClock,
+  Coins,
+  Package,
+  Percent,
+  Plus,
+  SlidersHorizontal,
+  Tags,
+} from 'lucide-react'
 import type {
   CatalogGridRow,
   CatalogGridRowResult,
   CatalogGridSortField,
+  PricingScope,
 } from '@sabz/types'
 import { useCatalogGrid } from '../hooks/use-catalog-grid'
 import { useCatalogDrafts } from '../hooks/use-catalog-drafts'
 import { useCategoryOptions } from '../hooks/use-category-options'
 import { useBrandOptions } from '../hooks/use-brand-options'
 import { deleteVariant } from '../services/variants'
+import { listCatalogGridIds } from '../services/catalog-grid'
 import { translateApiError } from '../lib/error-messages'
-import { formatDate, formatFaNumber } from '../lib/format'
+import { formatDate, formatDateTime, formatFaNumber } from '../lib/format'
 import { adminMediaUrl } from '../lib/media-url'
 import { groupMoneyDigits } from '../lib/money-input'
+import { storefrontProductUrl } from '../lib/storefront-url'
 import type { GridColumnKey } from '../lib/grid-columns'
 import {
   GRID_COLUMN_LABELS,
@@ -58,6 +72,9 @@ import { ColumnChips } from '../components/catalog/column-chips'
 import { HorizontalScroll } from '../components/ui/horizontal-scroll'
 import { RowConflictDialog } from '../components/catalog/row-conflict-dialog'
 import { BulkAttributesDialog } from '../components/products/bulk-attributes-dialog'
+import { BulkPriceDialog } from '../components/products/bulk-price-dialog'
+import { SaleScheduleDialog } from '../components/products/sale-schedule-dialog'
+import { PricingWorkspace } from '../components/products/pricing-workspace'
 
 const SEARCH_DEBOUNCE_MS = 300
 
@@ -129,6 +146,14 @@ function SortableHeader({
  */
 export function ProductsPage() {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const view = searchParams.get('view') === 'rules' ? 'rules' : 'grid'
+  const setView = (next: 'grid' | 'rules'): void => {
+    const params = new URLSearchParams(searchParams)
+    if (next === 'rules') params.set('view', 'rules')
+    else params.delete('view')
+    setSearchParams(params, { replace: true })
+  }
   const grid = useCatalogGrid()
   const {
     setSearch,
@@ -165,6 +190,10 @@ export function ProductsPage() {
     Map<string, { id: string; name: string; updatedAt: string }>
   >(new Map())
   const [bulkAttributesOpen, setBulkAttributesOpen] = useState(false)
+  const [bulkPriceOpen, setBulkPriceOpen] = useState(false)
+  const [bulkPriceMode, setBulkPriceMode] = useState<'discount' | 'override'>('discount')
+  const [allFilteredBusy, setAllFilteredBusy] = useState(false)
+  const [scheduleTarget, setScheduleTarget] = useState<CatalogGridRow | null>(null)
 
   // Guarded debounced server-side filters. On decline the local input
   // reverts to the committed URL value so it never lies about the query.
@@ -241,8 +270,13 @@ export function ProductsPage() {
     grid.applyRowPatches(
       successes.map((result) => ({
         variantId: result.variantId,
-        price: result.price ?? '',
-        compareAtPrice: result.compareAtPrice ?? null,
+        regularPrice: result.regularPrice ?? '',
+        discountedPrice: result.discountedPrice ?? null,
+        discountStartsAt: result.discountStartsAt,
+        discountEndsAt: result.discountEndsAt,
+        partnerPrice: result.partnerPrice,
+        priceUpdatedAt: result.priceUpdatedAt,
+        effectivePrice: result.effectivePrice,
         expectedUpdatedAt: result.updatedAt ?? '',
         stock: result.stock,
         sku: result.sku,
@@ -387,6 +421,59 @@ export function ProductsPage() {
     })
   }
 
+  /**
+   * Select every product matching the current server-side filters — not just
+   * the visible page. The server returns distinct ids and tells us when its
+   * cap truncated the set, so the UI never claims an incomplete selection.
+   */
+  async function selectAllFiltered(): Promise<void> {
+    setAllFilteredBusy(true)
+    try {
+      const result = await listCatalogGridIds({
+        search: grid.filters.search.trim() || undefined,
+        sku: grid.filters.sku.trim() || undefined,
+        statuses: grid.filters.statuses.length > 0 ? grid.filters.statuses : undefined,
+        categoryIds:
+          grid.filters.categoryIds.length > 0 ? grid.filters.categoryIds : undefined,
+        brandIds: grid.filters.brandIds.length > 0 ? grid.filters.brandIds : undefined,
+        priceStatus: grid.filters.priceStatus || undefined,
+        condition: grid.filters.condition || undefined,
+        minPrice: grid.filters.minPrice.trim() || undefined,
+        maxPrice: grid.filters.maxPrice.trim() || undefined,
+        stockStatus: grid.filters.stockStatus || undefined,
+      })
+      setSelectedProducts((current) => {
+        const next = new Map(current)
+        for (const id of result.productIds) {
+          const row = grid.rows.find((item) => item.productId === id)
+          next.set(id, {
+            id,
+            name: row?.productName ?? id,
+            updatedAt: row?.productUpdatedAt ?? '',
+          })
+        }
+        return next
+      })
+      if (result.truncated) {
+        window.alert(
+          'تعداد نتایج بیش از سقف انتخاب گروهی است؛ فقط بخشی از محصولات انتخاب شد. فیلترها را محدودتر کنید.',
+        )
+      }
+    } catch (error) {
+      window.alert(translateApiError(error))
+    } finally {
+      setAllFilteredBusy(false)
+    }
+  }
+
+  const selectionScope = useMemo<PricingScope>(
+    () => ({ type: 'PRODUCTS', productIds: [...selectedProducts.keys()] }),
+    [selectedProducts],
+  )
+
+  const singleSelectedCategory =
+    grid.filters.categoryIds.length === 1 ? grid.filters.categoryIds[0]! : null
+
   const chips: FilterChip[] = []
   if (grid.filters.search.trim()) {
     chips.push({
@@ -468,17 +555,42 @@ export function ProductsPage() {
     grid.clearAllFilters()
   }
 
-  const cellValue = (
-    row: CatalogGridRow,
-    field: 'price' | 'compareAtPrice' | 'stock' | 'sku' | 'barcode' | 'variantName',
-  ): string => {
+  type CellField =
+    | 'price'
+    | 'discountedPrice'
+    | 'partnerPrice'
+    | 'aedPrice'
+    | 'usdPrice'
+    | 'stock'
+    | 'sku'
+    | 'barcode'
+    | 'variantName'
+
+  const cellValue = (row: CatalogGridRow, field: CellField): string => {
     const draft = drafts.drafts[row.variantId]
     if (field === 'price') {
-      return draft?.price !== undefined ? groupMoneyDigits(draft.price) : groupMoneyDigits(row.price)
+      return groupMoneyDigits(
+        draft?.price !== undefined ? draft.price : row.regularPrice,
+      )
     }
-    if (field === 'compareAtPrice') {
+    if (field === 'discountedPrice') {
       const source =
-        draft?.compareAtPrice !== undefined ? draft.compareAtPrice : row.compareAtPrice
+        draft?.discountedPrice !== undefined
+          ? draft.discountedPrice
+          : row.discountedPrice
+      return source === null || source === undefined ? '' : groupMoneyDigits(source)
+    }
+    if (field === 'partnerPrice') {
+      const source =
+        draft?.partnerPrice !== undefined ? draft.partnerPrice : row.partnerPrice
+      return source === null || source === undefined ? '' : groupMoneyDigits(source)
+    }
+    if (field === 'aedPrice') {
+      const source = draft?.aedPrice !== undefined ? draft.aedPrice : row.aedPrice
+      return source === null || source === undefined ? '' : groupMoneyDigits(source)
+    }
+    if (field === 'usdPrice') {
+      const source = draft?.usdPrice !== undefined ? draft.usdPrice : row.usdPrice
       return source === null || source === undefined ? '' : groupMoneyDigits(source)
     }
     if (field === 'stock') {
@@ -501,9 +613,6 @@ export function ProductsPage() {
     return rowErrors[field] ?? rowErrors['_']
   }
 
-  // --- SS-270 product-level helpers -------------------------------------
-  // A product's draft is displayed on EVERY row of that product (the product
-  // spans rows; the carrier row submits in the batch).
   const serverProduct = (row: CatalogGridRow) => ({
     productId: row.productId,
     productName: row.productName,
@@ -528,8 +637,13 @@ export function ProductsPage() {
     sku: row.sku,
     barcode: row.barcode,
     variantName: row.variantName,
-    price: row.price,
-    compareAtPrice: row.compareAtPrice,
+    price: row.regularPrice,
+    discountedPrice: row.discountedPrice,
+    discountStartsAt: row.discountStartsAt,
+    discountEndsAt: row.discountEndsAt,
+    partnerPrice: row.partnerPrice,
+    aedPrice: row.aedPrice,
+    usdPrice: row.usdPrice,
     stock: row.stock,
     priceStatus: row.priceStatus,
   })
@@ -540,24 +654,30 @@ export function ProductsPage() {
     | 'barcode'
     | 'stock'
     | 'regularPrice'
-    | 'salePrice'
+    | 'discountedPrice'
+    | 'partnerPrice'
+    | 'aedPrice'
+    | 'usdPrice'
     | 'priceStatus'
 
-  /** Column key → draft field (price columns are renamed in the draft model). */
-  type CellField = 'price' | 'compareAtPrice' | 'stock' | 'sku' | 'barcode' | 'variantName'
   const EDIT_FIELD_BY_COLUMN: Record<Exclude<EditableColumnKey, 'priceStatus'>, CellField> = {
     variantName: 'variantName',
     sku: 'sku',
     barcode: 'barcode',
     stock: 'stock',
     regularPrice: 'price',
-    salePrice: 'compareAtPrice',
+    discountedPrice: 'discountedPrice',
+    partnerPrice: 'partnerPrice',
+    aedPrice: 'aedPrice',
+    usdPrice: 'usdPrice',
   }
 
   const renderEditableColumn = (row: CatalogGridRow, column: EditableColumnKey) => {
     const status = drafts.statuses[row.variantId] ?? 'clean'
-    // API fieldErrors are keyed by the draft field (compareAtPrice), not the column.
-    const error = cellError(row, column === 'priceStatus' ? 'priceStatus' : EDIT_FIELD_BY_COLUMN[column])
+    const error = cellError(
+      row,
+      column === 'priceStatus' ? 'priceStatus' : EDIT_FIELD_BY_COLUMN[column],
+    )
     if (column === 'stock' && !row.stockEditable) {
       return (
         <span dir="ltr" className="text-sm text-muted">
@@ -583,13 +703,15 @@ export function ProductsPage() {
       )
     }
     const kind =
-      column === 'regularPrice'
+      column === 'regularPrice' ||
+      column === 'discountedPrice' ||
+      column === 'partnerPrice' ||
+      column === 'aedPrice' ||
+      column === 'usdPrice'
         ? 'price'
-        : column === 'salePrice'
-          ? 'compareAtPrice'
-          : column === 'stock'
-            ? 'stock'
-            : 'text'
+        : column === 'stock'
+          ? 'stock'
+          : 'text'
     return (
       <EditableCell
         kind={kind}
@@ -598,25 +720,31 @@ export function ProductsPage() {
         error={error}
         ariaLabel={`${GRID_COLUMN_LABELS[column]} — ${row.sku}`}
         textDir={column === 'variantName' ? 'rtl' : 'ltr'}
-        maxLength={column === 'sku' ? 64 : column === 'barcode' ? 64 : column === 'variantName' ? 255 : undefined}
-        onChange={(value) => drafts.editCell(serverValues(row), EDIT_FIELD_BY_COLUMN[column], value)}
+        maxLength={
+          column === 'sku' ? 64 : column === 'barcode' ? 64 : column === 'variantName' ? 255 : undefined
+        }
+        onChange={(value) =>
+          drafts.editCell(serverValues(row), EDIT_FIELD_BY_COLUMN[column], value)
+        }
       />
     )
+  }
+
+  const priceSourceLabel: Record<string, string> = {
+    REGULAR: 'قیمت عادی',
+    SALE: 'فروش ویژه',
+    CATEGORY_RULE: 'قانون دسته‌بندی',
+    OVERRIDE: 'اورراید محصول',
+    PARTNER_TIER: 'پله همکاری',
   }
 
   return (
     <div className="w-full space-y-6">
       <PageHeader
-        title="محصولات"
-        subtitle="ویرایش سریع قیمت و موجودی؛ تغییرات با «ذخیره تغییرات» اعمال میشود."
+        title="محصولات و قیمت‌گذاری"
+        subtitle="شبکه ویرایش سریع قیمت/موجودی و تمام قوانین قیمت‌گذاری، در یک فضای کاری."
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <Link to="/products/pricing">
-              <Button outline>
-                <Percent data-slot="icon" />
-                قیمت‌گذاری
-              </Button>
-            </Link>
             <Button color="primary" onClick={() => navigate('/products/new')}>
               <Plus data-slot="icon" />
               افزودن محصول
@@ -624,6 +752,36 @@ export function ProductsPage() {
           </div>
         }
       />
+
+      <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="فضای کاری محصولات">
+        {view === 'grid' ? (
+          <Button color="primary" role="tab" aria-selected="true" onClick={() => setView('grid')}>
+            <Package data-slot="icon" />
+            شبکه محصولات
+          </Button>
+        ) : (
+          <Button plain role="tab" aria-selected="false" onClick={() => setView('grid')}>
+            <Package data-slot="icon" />
+            شبکه محصولات
+          </Button>
+        )}
+        {view === 'rules' ? (
+          <Button color="primary" role="tab" aria-selected="true" onClick={() => setView('rules')}>
+            <Percent data-slot="icon" />
+            قوانین، پروموشن‌ها و پله‌ها
+          </Button>
+        ) : (
+          <Button plain role="tab" aria-selected="false" onClick={() => setView('rules')}>
+            <Percent data-slot="icon" />
+            قوانین، پروموشن‌ها و پله‌ها
+          </Button>
+        )}
+      </div>
+
+      {view === 'rules' ? (
+        <PricingWorkspace embedded />
+      ) : (
+        <>
 
       {/* SS-268 filter panel: collapsed below xl by default (the chips row
           below stays visible either way); expanded (or always visible)
@@ -776,21 +934,57 @@ export function ProductsPage() {
       <FilterChips chips={chips} onClearAll={clearAllFilters} />
       <ColumnChips visible={visibleColumns} onToggle={toggleColumn} />
 
-      {selectedProducts.size > 0 && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-primary/30 bg-primary-subtle/40 px-4 py-3">
-          <p className="text-sm font-semibold text-foreground">
-            {formatFaNumber(selectedProducts.size)} محصول انتخاب شده است
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <Button outline onClick={() => setSelectedProducts(new Map())}>
-              پاک کردن انتخاب
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-border bg-surface-strong px-4 py-3">
+        <p className="text-sm text-muted">
+          {selectedProducts.size > 0 ? (
+            <span className="font-semibold text-foreground">
+              {formatFaNumber(selectedProducts.size)} محصول انتخاب شده است
+            </span>
+          ) : (
+            'برای عملیات گروهی، محصولات را انتخاب کنید.'
+          )}
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <Button outline onClick={() => void selectAllFiltered()} disabled={allFilteredBusy}>
+            {allFilteredBusy ? 'در حال انتخاب…' : 'انتخاب همه نتایج فیلتر'}
+          </Button>
+          {selectedProducts.size > 0 && (
+            <>
+              <Button outline onClick={() => setSelectedProducts(new Map())}>
+                پاک کردن انتخاب
+              </Button>
+              <Button
+                outline
+                onClick={() => {
+                  setBulkPriceMode('discount')
+                  setBulkPriceOpen(true)
+                }}
+              >
+                <Percent data-slot="icon" />
+                تخفیف گروهی
+              </Button>
+              <Button
+                outline
+                onClick={() => {
+                  setBulkPriceMode('override')
+                  setBulkPriceOpen(true)
+                }}
+              >
+                <Coins data-slot="icon" />
+                اورراید قیمت
+              </Button>
+              <Button onClick={() => setBulkAttributesOpen(true)}>
+                ویرایش گروهی ویژگی‌ها
+              </Button>
+            </>
+          )}
+          {singleSelectedCategory && (
+            <Button outline onClick={() => setView('rules')}>
+              قانون دسته‌بندی
             </Button>
-            <Button onClick={() => setBulkAttributesOpen(true)}>
-              ویرایش گروهی ویژگی‌ها
-            </Button>
-          </div>
+          )}
         </div>
-      )}
+      </div>
 
       <UnsavedChangesBar
         dirtyCount={drafts.dirtyCount}
@@ -916,13 +1110,30 @@ export function ProductsPage() {
                   </TableHeader>
                   <TableHeader>
                     <SortableHeader
-                      label={GRID_COLUMN_LABELS.salePrice}
-                      field="compareAtPrice"
+                      label={GRID_COLUMN_LABELS.discountedPrice}
+                      field="discountedPrice"
                       sortBy={grid.filters.sortBy}
                       sortDir={grid.filters.sortDir}
                       onSort={(field) => changeFilter(() => setSort(field))()}
                     />
                   </TableHeader>
+                  {showColumn('discountWindow') && (
+                    <TableHeader>{GRID_COLUMN_LABELS.discountWindow}</TableHeader>
+                  )}
+                  {showColumn('aedPrice') && (
+                    <TableHeader>{GRID_COLUMN_LABELS.aedPrice}</TableHeader>
+                  )}
+                  {showColumn('usdPrice') && (
+                    <TableHeader>{GRID_COLUMN_LABELS.usdPrice}</TableHeader>
+                  )}
+                  {showColumn('partnerPrice') && (
+                    <TableHeader>{GRID_COLUMN_LABELS.partnerPrice}</TableHeader>
+                  )}
+                  <TableHeader>{GRID_COLUMN_LABELS.effectivePrice}</TableHeader>
+                  <TableHeader>{GRID_COLUMN_LABELS.priceUpdatedAt}</TableHeader>
+                  {showColumn('storefrontLink') && (
+                    <TableHeader>{GRID_COLUMN_LABELS.storefrontLink}</TableHeader>
+                  )}
                   {showColumn('priceStatus') && <TableHeader>{GRID_COLUMN_LABELS.priceStatus}</TableHeader>}
                   {showColumn('productStatus') && <TableHeader>{GRID_COLUMN_LABELS.productStatus}</TableHeader>}
                   {showColumn('condition') && <TableHeader>{GRID_COLUMN_LABELS.condition}</TableHeader>}
@@ -1044,7 +1255,62 @@ export function ProductsPage() {
                       )}
                       <TableCell>{renderEditableColumn(row, 'stock')}</TableCell>
                       <TableCell>{renderEditableColumn(row, 'regularPrice')}</TableCell>
-                      <TableCell>{renderEditableColumn(row, 'salePrice')}</TableCell>
+                      <TableCell>{renderEditableColumn(row, 'discountedPrice')}</TableCell>
+                      {showColumn('discountWindow') && (
+                        <TableCell>
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                            onClick={() => setScheduleTarget(row)}
+                          >
+                            <CalendarClock className="size-3.5" aria-hidden />
+                            {row.discountStartsAt || row.discountEndsAt
+                              ? `${formatDateTime(row.discountStartsAt)} تا ${formatDateTime(row.discountEndsAt)}`
+                              : 'زمان‌بندی'}
+                          </button>
+                        </TableCell>
+                      )}
+                      {showColumn('aedPrice') && (
+                        <TableCell>{renderEditableColumn(row, 'aedPrice')}</TableCell>
+                      )}
+                      {showColumn('usdPrice') && (
+                        <TableCell>{renderEditableColumn(row, 'usdPrice')}</TableCell>
+                      )}
+                      {showColumn('partnerPrice') && (
+                        <TableCell>{renderEditableColumn(row, 'partnerPrice')}</TableCell>
+                      )}
+                      <TableCell>
+                        <div className="flex flex-col gap-0.5">
+                          <span dir="ltr" className="tabular-nums text-sm text-foreground">
+                            {row.effectivePrice ? groupMoneyDigits(row.effectivePrice) : '—'}
+                          </span>
+                          {row.priceSource ? (
+                            <span className="text-[11px] text-muted">
+                              {priceSourceLabel[row.priceSource] ?? row.priceSource}
+                            </span>
+                          ) : null}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-xs text-muted">
+                        {row.priceUpdatedAt ? formatDateTime(row.priceUpdatedAt) : '—'}
+                      </TableCell>
+                      {showColumn('storefrontLink') && (
+                        <TableCell>
+                          {row.productStatus === 'PUBLISHED' ? (
+                            <a
+                              href={storefrontProductUrl(row.productSlug)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                            >
+                              <Tags className="size-3.5" aria-hidden />
+                              مشاهده
+                            </a>
+                          ) : (
+                            <span className="text-xs text-muted">منتشر نشده</span>
+                          )}
+                        </TableCell>
+                      )}
                       {showColumn('priceStatus') && (
                         <TableCell>{renderEditableColumn(row, 'priceStatus')}</TableCell>
                       )}
@@ -1069,6 +1335,22 @@ export function ProductsPage() {
                           productStatus={row.productStatus}
                           sku={row.sku}
                           onDelete={() => setDeleteTarget({ variantId: row.variantId, sku: row.sku })}
+                          onOverride={() => {
+                            setSelectedProducts(
+                              new Map([
+                                [
+                                  row.productId,
+                                  {
+                                    id: row.productId,
+                                    name: row.productName,
+                                    updatedAt: row.productUpdatedAt,
+                                  },
+                                ],
+                              ]),
+                            )
+                            setBulkPriceMode('override')
+                            setBulkPriceOpen(true)
+                          }}
                         />
                         {status === 'conflict-changed' ? (
                           <button
@@ -1123,6 +1405,27 @@ export function ProductsPage() {
         }}
       />
 
+      <BulkPriceDialog
+        open={bulkPriceOpen}
+        mode={bulkPriceMode}
+        scope={selectionScope}
+        selectionCount={selectedProducts.size}
+        onClose={() => setBulkPriceOpen(false)}
+        onApplied={() => {
+          setSelectedProducts(new Map())
+          void grid.refetch()
+        }}
+      />
+
+      <SaleScheduleDialog
+        row={scheduleTarget}
+        onClose={() => setScheduleTarget(null)}
+        onSaved={() => {
+          setScheduleTarget(null)
+          void grid.refetch()
+        }}
+      />
+
       <DeleteConfirmDialog
         open={deleteTarget !== null}
         title="حذف نوع"
@@ -1138,13 +1441,19 @@ export function ProductsPage() {
 
       <RowConflictDialog
         result={conflictResult}
-        serverPrice={conflictRow ? groupMoneyDigits(conflictRow.price) : null}
-        serverCompareAt={conflictRow?.compareAtPrice ? groupMoneyDigits(conflictRow.compareAtPrice) : null}
+        serverPrice={conflictRow ? groupMoneyDigits(conflictRow.regularPrice) : null}
+        serverCompareAt={
+          conflictRow?.discountedPrice
+            ? groupMoneyDigits(conflictRow.discountedPrice)
+            : null
+        }
         serverStock={conflictRow ? conflictRow.stock : null}
         onKeepDraft={() => resolveConflict('keep')}
         onDropDraft={() => resolveConflict('drop')}
         onClose={() => setConflictQueue([])}
       />
+        </>
+      )}
     </div>
   )
 }

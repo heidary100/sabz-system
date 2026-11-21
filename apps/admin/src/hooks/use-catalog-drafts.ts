@@ -7,23 +7,25 @@ import type {
 import { batchUpdateCatalogGrid } from '../services/catalog-grid'
 
 /**
- * Client editing model for the SS-257 products grid.
+ * Client editing model for the catalog/pricing grid.
  *
  * Server-loaded values and unsaved drafts are strictly separate: a row only
  * has a draft when the operator touched an editable field, and the draft
  * records the `expectedUpdatedAt` token the row was loaded with (the batch
  * write is conditional on it). Cancel/discard is a pure client-side state
- * drop — no request is issued, so the server and database are provably
- * untouched. Saving is explicit and chunks drafts into ≤50-row requests;
- * every row keeps its own status so partial failures stay recoverable.
+ * drop — no request is issued.
  *
- * SS-270 product-level fields (productName/brand/category): a product can
- * span several grid rows, so its edits live in a SEPARATE draft map keyed by
- * productId and displayed on EVERY row of that product. One row — the
- * "carrier", the last row the operator touched — carries the product fields
- * in the batch, guarded by the product's own `expectedProductUpdatedAt`
- * token; the server rejects a second concurrent carrier with a per-row
- * conflict, so the client never sends two.
+ * Financial fields:
+ * - `price` = regular/base Rial price.
+ * - `discountedPrice` = product sale price (null clears).
+ * - `discountStartsAt`/`discountEndsAt` = optional sale window.
+ * - `partnerPrice` = B2B Rial price (admin-only column).
+ * - `aedPrice`/`usdPrice` = admin-only source-currency inputs; the server
+ *   converts with the current manual rate and updates the Rial price.
+ * Only one of regular Rial / AED / USD may be edited for a row at a time.
+ *
+ * Product-level fields (productName/brand/category) live in a separate draft
+ * map keyed by productId because a product spans several variant rows.
  */
 
 export type CatalogRowStatus =
@@ -38,7 +40,12 @@ export type CatalogRowStatus =
 
 export type CatalogEditableField =
   | 'price'
-  | 'compareAtPrice'
+  | 'discountedPrice'
+  | 'discountStartsAt'
+  | 'discountEndsAt'
+  | 'partnerPrice'
+  | 'aedPrice'
+  | 'usdPrice'
   | 'stock'
   | 'sku'
   | 'barcode'
@@ -52,7 +59,12 @@ export interface CatalogRowDraft {
   baseUpdatedAt: string
   price?: string
   /** `null` = the operator explicitly cleared the sale price. */
-  compareAtPrice?: string | null
+  discountedPrice?: string | null
+  discountStartsAt?: string | null
+  discountEndsAt?: string | null
+  partnerPrice?: string | null
+  aedPrice?: string
+  usdPrice?: string
   /** Integer-as-string input state (empty string = invalid, reported on save). */
   stock?: string
   sku?: string
@@ -68,7 +80,12 @@ export interface CatalogRowServerValues {
   barcode: string | null
   variantName: string | null
   price: string
-  compareAtPrice: string | null
+  discountedPrice: string | null
+  discountStartsAt: string | null
+  discountEndsAt: string | null
+  partnerPrice: string | null
+  aedPrice: string | null
+  usdPrice: string | null
   stock: number
   priceStatus: PriceStatus
 }
@@ -87,9 +104,7 @@ export interface CatalogProductDraft {
   productId: string
   /** The row that will carry the product fields in the batch. */
   carrierVariantId: string
-  /** The carrier row's variant token, captured at edit time. Unused by the
-   * server for product-only rows (the variant write is skipped) but still
-   * required by the DTO. */
+  /** The carrier row's variant token, captured at edit time. */
   carrierExpectedUpdatedAt: string
   baseProductUpdatedAt: string
   productName?: string
@@ -103,18 +118,16 @@ export interface SaveOutcome {
   requestError: unknown | null
 }
 
-const GRID_PRICE_PATTERN = /^\d{1,10}(?:\.\d{1,2})?$/
-const GRID_STOCK_PATTERN = /^\d+$/
+const MONEY_PATTERN = /^\d{1,10}(?:\.\d{1,2})?$/
+const STOCK_PATTERN = /^\d+$/
 const SKU_MAX = 64
 const BARCODE_MAX = 64
 const VARIANT_NAME_MAX = 255
 const PRODUCT_NAME_MAX = 255
 const BATCH_CHUNK_SIZE = 50
 
-/** Rows that an explicit «ذخیره» submits: touched or locally-corrected rows. */
 const SUBMITTABLE: readonly CatalogRowStatus[] = ['dirty', 'validation-error']
 
-/** Rows that failed and need per-row resolution (dialog/retry), not blind resubmit. */
 const FAILED: readonly CatalogRowStatus[] = [
   'validation-error',
   'conflict-changed',
@@ -123,14 +136,20 @@ const FAILED: readonly CatalogRowStatus[] = [
 ]
 
 export const LOCAL_FIELD_ERRORS: Record<string, string> = {
-  price: 'قالب قیمت معتبر نیست؛ حداکثر ۲ رقم اعشار.',
-  compareAtPrice: 'قالب قیمت قبل از تخفیف معتبر نیست؛ حداکثر ۲ رقم اعشار.',
+  price: 'قیمت عادی معتبر نیست؛ حداکثر ۲ رقم اعشار.',
+  discountedPrice: 'قیمت فروش ویژه معتبر نیست؛ حداکثر ۲ رقم اعشار.',
+  partnerPrice: 'قیمت همکار معتبر نیست؛ حداکثر ۲ رقم اعشار.',
+  aedPrice: 'قیمت درهم معتبر نیست؛ حداکثر ۲ رقم اعشار.',
+  usdPrice: 'قیمت دلار معتبر نیست؛ حداکثر ۲ رقم اعشار.',
+  discountStartsAt: 'زمان شروع فروش ویژه معتبر نیست.',
+  discountEndsAt: 'زمان پایان فروش ویژه معتبر نیست.',
   stock: 'موجودی باید عدد صحیح نامنفی باشد.',
   sku: `شناسه کالا الزامی است و حداکثر ${SKU_MAX} کاراکتر است.`,
   barcode: `بارکد حداکثر ${BARCODE_MAX} کاراکتر است.`,
   variantName: `نام نوع حداکثر ${VARIANT_NAME_MAX} کاراکتر است.`,
   productName: `نام محصول الزامی است و حداکثر ${PRODUCT_NAME_MAX} کاراکتر است.`,
   categoryId: 'دسته‌بندی الزامی است.',
+  currency: 'در هر ذخیره فقط یکی از قیمت ریالی، درهمی یا دلاری را تغییر دهید.',
 }
 
 function chunk<T>(items: T[], size: number): T[][] {
@@ -139,6 +158,20 @@ function chunk<T>(items: T[], size: number): T[][] {
     chunks.push(items.slice(index, index + size))
   }
   return chunks
+}
+
+function canonicalMoney(raw: string): string {
+  return raw.replace(/[^\d.]/g, '')
+}
+
+function nullableMoney(raw: string): string | null {
+  const cleaned = canonicalMoney(raw)
+  return cleaned === '' ? null : cleaned
+}
+
+function nullableDate(raw: string): string | null {
+  const trimmed = raw.trim()
+  return trimmed === '' ? null : trimmed
 }
 
 export function useCatalogDrafts() {
@@ -177,11 +210,15 @@ export function useCatalogDrafts() {
       rawValue: string,
     ): void => {
       let canonical: string | null | undefined
-      if (field === 'price') {
-        canonical = rawValue.replace(/[^\d.]/g, '')
-      } else if (field === 'compareAtPrice') {
-        const cleaned = rawValue.replace(/[^\d.]/g, '')
-        canonical = cleaned === '' ? null : cleaned
+      if (field === 'price' || field === 'aedPrice' || field === 'usdPrice') {
+        canonical = canonicalMoney(rawValue)
+      } else if (
+        field === 'discountedPrice' ||
+        field === 'partnerPrice'
+      ) {
+        canonical = nullableMoney(rawValue)
+      } else if (field === 'discountStartsAt' || field === 'discountEndsAt') {
+        canonical = nullableDate(rawValue)
       } else if (field === 'stock') {
         canonical = rawValue.replace(/[^\d]/g, '')
       } else if (field === 'sku') {
@@ -200,8 +237,24 @@ export function useCatalogDrafts() {
         const next: CatalogRowDraft = { ...existing, baseUpdatedAt: row.expectedUpdatedAt }
         if (field === 'price') {
           next.price = canonical as string
-        } else if (field === 'compareAtPrice') {
-          next.compareAtPrice = canonical as string | null
+          delete next.aedPrice
+          delete next.usdPrice
+        } else if (field === 'aedPrice') {
+          next.aedPrice = canonical as string
+          delete next.price
+          delete next.usdPrice
+        } else if (field === 'usdPrice') {
+          next.usdPrice = canonical as string
+          delete next.price
+          delete next.aedPrice
+        } else if (field === 'discountedPrice') {
+          next.discountedPrice = canonical as string | null
+        } else if (field === 'partnerPrice') {
+          next.partnerPrice = canonical as string | null
+        } else if (field === 'discountStartsAt') {
+          next.discountStartsAt = canonical as string | null
+        } else if (field === 'discountEndsAt') {
+          next.discountEndsAt = canonical as string | null
         } else if (field === 'stock') {
           next.stock = canonical as string
         } else if (field === 'sku') {
@@ -214,19 +267,43 @@ export function useCatalogDrafts() {
           next.priceStatus = canonical as PriceStatus
         }
 
-        // A draft exists only for values that differ from the server row:
-        // reverting a cell to its loaded value drops it from the draft, and
-        // a fully-reverted row becomes clean again (no no-op saves).
+        // Symmetric revert: a value equal to the loaded row drops out.
         if (next.price !== undefined && next.price === row.price) {
           delete next.price
         }
-        if (next.compareAtPrice !== undefined) {
+        if (next.aedPrice !== undefined && next.aedPrice === (row.aedPrice ?? '')) {
+          delete next.aedPrice
+        }
+        if (next.usdPrice !== undefined && next.usdPrice === (row.usdPrice ?? '')) {
+          delete next.usdPrice
+        }
+        if (next.discountedPrice !== undefined) {
           const matchesServer =
-            next.compareAtPrice === null
-              ? row.compareAtPrice === null
-              : row.compareAtPrice !== null && next.compareAtPrice === row.compareAtPrice
+            next.discountedPrice === null
+              ? row.discountedPrice === null
+              : row.discountedPrice !== null &&
+                next.discountedPrice === row.discountedPrice
           if (matchesServer) {
-            delete next.compareAtPrice
+            delete next.discountedPrice
+          }
+        }
+        if (next.partnerPrice !== undefined) {
+          const matchesServer =
+            next.partnerPrice === null
+              ? row.partnerPrice === null
+              : row.partnerPrice !== null && next.partnerPrice === row.partnerPrice
+          if (matchesServer) {
+            delete next.partnerPrice
+          }
+        }
+        if (next.discountStartsAt !== undefined) {
+          if (next.discountStartsAt === row.discountStartsAt) {
+            delete next.discountStartsAt
+          }
+        }
+        if (next.discountEndsAt !== undefined) {
+          if (next.discountEndsAt === row.discountEndsAt) {
+            delete next.discountEndsAt
           }
         }
         if (next.stock !== undefined && next.stock === String(row.stock)) {
@@ -253,16 +330,18 @@ export function useCatalogDrafts() {
             delete next.variantName
           }
         }
-        if (
-          next.priceStatus !== undefined &&
-          next.priceStatus === row.priceStatus
-        ) {
+        if (next.priceStatus !== undefined && next.priceStatus === row.priceStatus) {
           delete next.priceStatus
         }
 
         if (
           next.price === undefined &&
-          next.compareAtPrice === undefined &&
+          next.discountedPrice === undefined &&
+          next.discountStartsAt === undefined &&
+          next.discountEndsAt === undefined &&
+          next.partnerPrice === undefined &&
+          next.aedPrice === undefined &&
+          next.usdPrice === undefined &&
           next.stock === undefined &&
           next.sku === undefined &&
           next.barcode === undefined &&
@@ -294,9 +373,6 @@ export function useCatalogDrafts() {
       field: CatalogProductEditableField,
       rawValue: string,
     ): void => {
-      // Per-field canonical values: productName/categoryId are required
-      // (empty input stays '' and is reported locally on save); brand
-      // nullable (empty string = explicit clear).
       const nextProductName = field === 'productName' ? rawValue.trim() : undefined
       const nextBrandId =
         field === 'brandId' ? (rawValue === '' ? null : rawValue) : undefined
@@ -311,32 +387,21 @@ export function useCatalogDrafts() {
         }
         const next: CatalogProductDraft = {
           ...existing,
-          // The carrier is the last row the operator touched — it carries
-          // the product fields in the batch (the server rejects two).
           carrierVariantId,
           carrierExpectedUpdatedAt,
           baseProductUpdatedAt: product.productUpdatedAt,
         }
-        if (nextProductName !== undefined) {
-          next.productName = nextProductName
-        }
-        if (nextBrandId !== undefined) {
-          next.brandId = nextBrandId
-        }
-        if (nextCategoryId !== undefined) {
-          next.categoryId = nextCategoryId
-        }
+        if (nextProductName !== undefined) next.productName = nextProductName
+        if (nextBrandId !== undefined) next.brandId = nextBrandId
+        if (nextCategoryId !== undefined) next.categoryId = nextCategoryId
 
-        // Symmetric revert: a value equal to the loaded product drops out.
         if (next.productName !== undefined && next.productName === product.productName) {
           delete next.productName
         }
         if (next.brandId !== undefined) {
           const matchesServer =
             next.brandId === null ? product.brandId === null : next.brandId === product.brandId
-          if (matchesServer) {
-            delete next.brandId
-          }
+          if (matchesServer) delete next.brandId
         }
         if (next.categoryId !== undefined && next.categoryId === product.categoryId) {
           delete next.categoryId
@@ -365,7 +430,6 @@ export function useCatalogDrafts() {
   )
 
   const discardAll = useCallback((): void => {
-    // Zero-drift cancel: pure client-side reset, nothing is sent anywhere.
     setDrafts({})
     setProductDrafts({})
     setStatuses({})
@@ -374,8 +438,6 @@ export function useCatalogDrafts() {
 
   const discardRow = useCallback(
     (variantId: string) => {
-      // Dropping a row also drops its product draft when it is that row's
-      // carrier — the product fields lived on it in the batch.
       setProductDrafts((prev) => {
         const next = { ...prev }
         for (const [productId, draft] of Object.entries(prev)) {
@@ -409,38 +471,64 @@ export function useCatalogDrafts() {
     ): { input: CatalogGridBatchRowInput } | { invalid: Record<string, string> } => {
       const input: CatalogGridBatchRowInput = {
         variantId,
-        expectedUpdatedAt: draft?.baseUpdatedAt ?? productDraft?.carrierExpectedUpdatedAt ?? '',
+        expectedUpdatedAt:
+          draft?.baseUpdatedAt ?? productDraft?.carrierExpectedUpdatedAt ?? '',
       }
       const invalid: Record<string, string> = {}
       if (draft !== undefined) {
         if (draft.price !== undefined) {
-          if (GRID_PRICE_PATTERN.test(draft.price)) {
-            input.price = draft.price
+          if (MONEY_PATTERN.test(draft.price)) input.regularPrice = draft.price
+          else invalid.price = LOCAL_FIELD_ERRORS.price!
+        }
+        if (draft.aedPrice !== undefined) {
+          if (MONEY_PATTERN.test(draft.aedPrice)) input.aedPrice = draft.aedPrice
+          else invalid.aedPrice = LOCAL_FIELD_ERRORS.aedPrice!
+        }
+        if (draft.usdPrice !== undefined) {
+          if (MONEY_PATTERN.test(draft.usdPrice)) input.usdPrice = draft.usdPrice
+          else invalid.usdPrice = LOCAL_FIELD_ERRORS.usdPrice!
+        }
+        if (
+          [draft.price, draft.aedPrice, draft.usdPrice].filter(
+            (value) => value !== undefined,
+          ).length > 1
+        ) {
+          invalid.currency = LOCAL_FIELD_ERRORS.currency!
+        }
+        if (draft.discountedPrice !== undefined) {
+          if (
+            draft.discountedPrice === null ||
+            MONEY_PATTERN.test(draft.discountedPrice)
+          ) {
+            input.discountedPrice = draft.discountedPrice
           } else {
-            invalid.price = LOCAL_FIELD_ERRORS.price!
+            invalid.discountedPrice = LOCAL_FIELD_ERRORS.discountedPrice!
           }
         }
-        if (draft.compareAtPrice !== undefined) {
-          if (draft.compareAtPrice === null || GRID_PRICE_PATTERN.test(draft.compareAtPrice)) {
-            input.compareAtPrice = draft.compareAtPrice
+        if (draft.discountStartsAt !== undefined) {
+          input.discountStartsAt = draft.discountStartsAt
+        }
+        if (draft.discountEndsAt !== undefined) {
+          input.discountEndsAt = draft.discountEndsAt
+        }
+        if (draft.partnerPrice !== undefined) {
+          if (
+            draft.partnerPrice === null ||
+            MONEY_PATTERN.test(draft.partnerPrice)
+          ) {
+            input.partnerPrice = draft.partnerPrice
           } else {
-            invalid.compareAtPrice = LOCAL_FIELD_ERRORS.compareAtPrice!
+            invalid.partnerPrice = LOCAL_FIELD_ERRORS.partnerPrice!
           }
         }
         if (draft.stock !== undefined) {
-          if (GRID_STOCK_PATTERN.test(draft.stock)) {
-            input.stock = Number(draft.stock)
-          } else {
-            invalid.stock = LOCAL_FIELD_ERRORS.stock!
-          }
+          if (STOCK_PATTERN.test(draft.stock)) input.stock = Number(draft.stock)
+          else invalid.stock = LOCAL_FIELD_ERRORS.stock!
         }
         if (draft.sku !== undefined) {
           const trimmed = draft.sku.trim()
-          if (trimmed.length > 0 && trimmed.length <= SKU_MAX) {
-            input.sku = trimmed
-          } else {
-            invalid.sku = LOCAL_FIELD_ERRORS.sku!
-          }
+          if (trimmed.length > 0 && trimmed.length <= SKU_MAX) input.sku = trimmed
+          else invalid.sku = LOCAL_FIELD_ERRORS.sku!
         }
         if (draft.barcode !== undefined) {
           if (draft.barcode === null || draft.barcode.length <= BARCODE_MAX) {
@@ -469,9 +557,7 @@ export function useCatalogDrafts() {
             invalid.productName = LOCAL_FIELD_ERRORS.productName!
           }
         }
-        if (productDraft.brandId !== undefined) {
-          input.brandId = productDraft.brandId
-        }
+        if (productDraft.brandId !== undefined) input.brandId = productDraft.brandId
         if (productDraft.categoryId !== undefined) {
           if (productDraft.categoryId.length > 0) {
             input.categoryId = productDraft.categoryId
@@ -484,10 +570,6 @@ export function useCatalogDrafts() {
       if (Object.keys(invalid).length > 0) {
         return { invalid }
       }
-      // A row whose only content was reverted (nothing left to send) still
-      // produces a structurally valid, field-less request row — the API
-      // accepts it as a no-op success. Product-only rows (no variant draft)
-      // are likewise valid: the server skips the variant write.
       return { input }
     },
     [],
@@ -498,8 +580,6 @@ export function useCatalogDrafts() {
       for (const result of results) {
         if (result.outcome === 'SUCCESS') {
           dropRow(result.variantId)
-          // A successful carrier drops its product draft — the reconciled
-          // product values arrive via `applyRowPatches` on the page side.
           setProductDrafts((prev) => {
             const next = { ...prev }
             for (const [productId, draft] of Object.entries(prev)) {
@@ -521,7 +601,7 @@ export function useCatalogDrafts() {
         }
       }
     },
-    [dropRow, setStatuses],
+    [dropRow],
   )
 
   const saveRows = useCallback(
@@ -530,8 +610,6 @@ export function useCatalogDrafts() {
       const invalidErrors: Record<string, Record<string, string>> = {}
       const validInputs: CatalogGridBatchRowInput[] = []
 
-      // Carrier rows (product drafts) submit even without a variant draft:
-      // their row input carries only the product fields.
       const ids = [...variantIds]
       for (const draft of Object.values(productDrafts)) {
         if (!ids.includes(draft.carrierVariantId)) {
@@ -554,8 +632,6 @@ export function useCatalogDrafts() {
         setStatus(id, 'saving')
       }
       if (invalidIds.length > 0) {
-        // Locally-invalid rows never reach the API: their drafts and errors
-        // stay in place so the operator can correct the exact field.
         setErrors((prev) => ({ ...prev, ...invalidErrors }))
         for (const id of invalidIds) {
           setStatus(id, 'validation-error')
@@ -582,9 +658,6 @@ export function useCatalogDrafts() {
           results.push(...response.results)
         }
       } catch (caught) {
-        // Request-level failure (network/400/401/…): the rows still holding a
-        // `saving` status belong to the rejected in-flight request — return
-        // them to dirty with their drafts intact.
         requestError = caught
         for (const id of inFlight) {
           setStatus(id, 'dirty')
@@ -598,14 +671,17 @@ export function useCatalogDrafts() {
   )
 
   const saveAll = useCallback((): Promise<SaveOutcome> => {
-    // Explicit save submits touched + locally-invalid rows; failed rows that
-    // need per-row resolution (conflict/locked/not-found) are excluded —
-    // they resolve through the conflict dialog or the retry action.
     const submittableIds = Object.keys(drafts).filter((id) =>
       SUBMITTABLE.includes(statuses[id] ?? 'dirty'),
     )
+    // Product-only drafts have no variant draft: include their carrier rows.
+    for (const draft of Object.values(productDrafts)) {
+      if (!submittableIds.includes(draft.carrierVariantId)) {
+        submittableIds.push(draft.carrierVariantId)
+      }
+    }
     return saveRows(submittableIds)
-  }, [drafts, saveRows, statuses])
+  }, [drafts, saveRows, statuses, productDrafts])
 
   const stats = useMemo(() => {
     const values = Object.values(statuses)
@@ -636,7 +712,6 @@ export function useCatalogDrafts() {
   }
 }
 
-/** The product draft a given variant row carries, if any. */
 function productDraftFor(
   productDrafts: Record<string, CatalogProductDraft>,
   variantId: string,

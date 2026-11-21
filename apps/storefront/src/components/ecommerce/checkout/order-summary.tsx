@@ -1,5 +1,5 @@
 import type { CheckoutSummaryDto } from '@sabz/types';
-import { formatFaNumber, formatRial } from '@/lib/format';
+import { formatFaNumber, formatToman } from '@/lib/format';
 
 /**
  * Order summary card (SS-233): mirrors the cart summary `aside + dl +
@@ -23,7 +23,7 @@ export function OrderSummary({ summary }: { summary: CheckoutSummaryDto }) {
               <span className="text-fg-muted"> × {formatFaNumber(item.quantity)}</span>
             </span>
             <span className="shrink-0 font-semibold text-fg">
-              {formatRial(item.lineTotal)}
+              {formatToman(item.lineTotal)}
             </span>
           </li>
         ))}
@@ -35,17 +35,17 @@ export function OrderSummary({ summary }: { summary: CheckoutSummaryDto }) {
         </div>
         <div className="flex items-center justify-between gap-3">
           <dt className="text-fg-secondary">هزینه ارسال</dt>
-          <dd className="font-semibold text-fg">{formatRial(summary.shippingFee)}</dd>
+          <dd className="font-semibold text-fg">{formatToman(summary.shippingFee)}</dd>
         </div>
         <div className="flex items-center justify-between gap-3 border-t border-border pt-3">
           <dt className="font-semibold text-fg">جمع سفارش</dt>
           <dd aria-live="polite" className="text-lg font-bold text-accent-hover">
-            {formatRial(summary.total)}
+            {formatToman(summary.total)}
           </dd>
         </div>
       </dl>
       <p className="mt-3 text-xs leading-5 text-fg-muted">
-        قیمت‌ها به ریال و بر اساس آخرین قیمت فروشگاه محاسبه شده است.
+        قیمت‌ها به تومان و بر اساس آخرین قیمت فروشگاه محاسبه شده است.
       </p>
     </aside>
   );

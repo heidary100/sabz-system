@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useOrderList } from '../hooks/use-order-list'
 import type { OrderStatusFilter } from '../hooks/use-order-list'
@@ -28,6 +29,8 @@ import { TablePagination } from '../components/ui/table-pagination'
 import { PageHeader } from '../components/ui/page-header'
 import { TableCard } from '../components/ui/table-card'
 import { HorizontalScroll } from '../components/ui/horizontal-scroll'
+import { transitionOrder, updateShipment } from '../services/orders'
+import { ORDER_NEXT_TRANSITIONS } from '../lib/order-labels'
 
 export function OrdersPage() {
   const navigate = useNavigate()
@@ -44,7 +47,35 @@ export function OrdersPage() {
     refetch,
   } = useOrderList()
 
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const [trackingDrafts, setTrackingDrafts] = useState<Record<string, string>>({})
   const totalPages = result ? Math.max(1, Math.ceil(result.total / limit)) : 1
+
+  async function changeStatus(orderId: string, next: string): Promise<void> {
+    if (!next) return
+    setBusyId(orderId)
+    try {
+      await transitionOrder(orderId, next as never)
+      await refetch()
+    } catch (error) {
+      window.alert(translateApiError(error))
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  async function saveTracking(orderId: string): Promise<void> {
+    const value = (trackingDrafts[orderId] ?? '').trim()
+    setBusyId(orderId)
+    try {
+      await updateShipment(orderId, { trackingNumber: value })
+      await refetch()
+    } catch (error) {
+      window.alert(translateApiError(error))
+    } finally {
+      setBusyId(null)
+    }
+  }
 
   const openOrder = (orderId: string) => (event: React.MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault()
@@ -110,7 +141,9 @@ export function OrdersPage() {
               <TableRow>
                 <TableHeader>شماره سفارش</TableHeader>
                 <TableHeader>مشتری</TableHeader>
-                <TableHeader>وضعیت</TableHeader>
+                <TableHeader>وضعیت (ویرایش سریع)</TableHeader>
+                <TableHeader>کد رهگیری</TableHeader>
+                <TableHeader>یادداشت مشتری</TableHeader>
                 <TableHeader>پرداخت</TableHeader>
                 <TableHeader>مبلغ</TableHeader>
                 <TableHeader>تاریخ ثبت</TableHeader>
@@ -131,7 +164,56 @@ export function OrdersPage() {
                     {order.customerMobile}
                   </TableCell>
                   <TableCell>
-                    <OrderStatusBadge status={order.status} />
+                    <div className="flex flex-col gap-1">
+                      <OrderStatusBadge status={order.status} />
+                      {(ORDER_NEXT_TRANSITIONS[order.status] ?? []).length > 0 ? (
+                        <select
+                          aria-label={`تغییر وضعیت سفارش ${order.orderNumber}`}
+                          className="rounded-md border border-border bg-surface px-1.5 py-1 text-xs"
+                          value=""
+                          disabled={busyId === order.id}
+                          onChange={(event) => void changeStatus(order.id, event.target.value)}
+                        >
+                          <option value="">تغییر وضعیت…</option>
+                          {(ORDER_NEXT_TRANSITIONS[order.status] ?? []).map((next) => (
+                            <option key={next} value={next}>
+                              {ORDER_STATUS_LABELS[next]}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className="text-[11px] text-muted">وضعیت نهایی</span>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1">
+                      <input
+                        aria-label={`کد رهگیری سفارش ${order.orderNumber}`}
+                        className="w-28 rounded-md border border-border bg-surface px-1.5 py-1 text-xs"
+                        dir="ltr"
+                        placeholder="کد رهگیری"
+                        value={trackingDrafts[order.id] ?? order.shipment?.trackingNumber ?? ''}
+                        onChange={(event) =>
+                          setTrackingDrafts((prev) => ({
+                            ...prev,
+                            [order.id]: event.target.value,
+                          }))
+                        }
+                      />
+                      <Button
+                        plain
+                        disabled={busyId === order.id}
+                        onClick={() => void saveTracking(order.id)}
+                      >
+                        ثبت
+                      </Button>
+                    </div>
+                  </TableCell>
+                  <TableCell className="max-w-48 whitespace-normal text-xs text-muted">
+                    <span title={order.note ?? undefined}>
+                      {order.note ? order.note.slice(0, 60) + (order.note.length > 60 ? '…' : '') : '—'}
+                    </span>
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-col gap-1">

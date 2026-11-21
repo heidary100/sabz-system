@@ -23,7 +23,7 @@ jest.setTimeout(60_000);
  *    Product.minPrice equals the aggregate MIN(price) over live PRICED
  *    variants (the backfill invariant, dataset-shaped, not seed-shaped).
  * 3. Writer matrix — every variant mutation path leaves minPrice correct,
- *    including compareAtPrice (which must NOT move it).
+ *    including discountedPrice (which must NOT move it).
  * 4. Public behavior — DB-side price ordering through PublicCatalogService
  *    (asc/desc, NULLS LAST, ties, pagination, filters, variant-level price
  *    range) and compatibility of the SS-216 q-present sorts.
@@ -76,7 +76,7 @@ describe('Product minPrice denormalization (SS-217)', () => {
     productId: string,
     overrides: {
       price?: string;
-      compareAtPrice?: string | null;
+      discountedPrice?: string | null;
       priceStatus?: PriceStatus;
     } = {},
   ): Promise<{ id: string }> {
@@ -85,8 +85,8 @@ describe('Product minPrice denormalization (SS-217)', () => {
       {
         sku: `SKU-MP-${uniqueSuffix()}`,
         price: overrides.price ?? '100.00',
-        ...(overrides.compareAtPrice !== null && overrides.compareAtPrice !== undefined
-          ? { compareAtPrice: overrides.compareAtPrice }
+        ...(overrides.discountedPrice !== null && overrides.discountedPrice !== undefined
+          ? { discountedPrice: overrides.discountedPrice }
           : {}),
         priceStatus: overrides.priceStatus ?? PriceStatus.PRICED,
       },
@@ -159,7 +159,7 @@ describe('Product minPrice denormalization (SS-217)', () => {
     const mismatches = await prisma.$queryRaw<{ id: string }[]>`
       SELECT p."id" FROM "Product" p
       LEFT JOIN LATERAL (
-        SELECT MIN(v."price") AS "expected"
+        SELECT MIN(COALESCE(v."discountedPrice", v."price")) AS "expected"
         FROM "ProductVariant" v
         WHERE v."productId" = p."id" AND v."deletedAt" IS NULL AND v."priceStatus" = 'PRICED'
       ) agg ON TRUE
@@ -243,12 +243,12 @@ describe('Product minPrice denormalization (SS-217)', () => {
     await expect(minPriceOf(id)).resolves.toBeNull();
   });
 
-  it('compareAtPrice added and removed never changes minPrice', async () => {
+  it('an active discounted price lowers minPrice and clearing it restores it', async () => {
     const { id } = await createProduct();
     const only = await addVariant(id, { price: '150.00' });
-    await variants.update(only.id, { compareAtPrice: '200.00' }, actorId);
-    await expect(minPriceOf(id)).resolves.toBe('150');
-    await variants.update(only.id, { compareAtPrice: null }, actorId);
+    await variants.update(only.id, { discountedPrice: '120.00' }, actorId);
+    await expect(minPriceOf(id)).resolves.toBe('120');
+    await variants.update(only.id, { discountedPrice: null }, actorId);
     await expect(minPriceOf(id)).resolves.toBe('150');
   });
 

@@ -24,18 +24,18 @@ describe('variant form money labels (SS-250)', () => {
     expect(FORM_SOURCE.includes("USD: 'دلار آمریکا'")).toBe(true)
     expect(FORM_SOURCE.includes("AED: 'درهم امارات'")).toBe(true)
     expect(FORM_SOURCE.includes('قیمت ({CURRENCY_LABELS[values.priceSourceCurrency]})')).toBe(true)
-    expect(FORM_SOURCE.includes('قیمت قبل از تخفیف ({CURRENCY_LABELS[values.priceSourceCurrency]})')).toBe(true)
+    expect(FORM_SOURCE.includes('قیمت فروش ویژه ({CURRENCY_LABELS[values.priceSourceCurrency]})')).toBe(true)
   })
 
   it('explains the server-side conversion and Rial display contract', () => {
     expect(FORM_SOURCE.includes('نرخ دستی جاری')).toBe(true)
-    expect(FORM_SOURCE.includes('فروشگاه فقط ریال نمایش می‌دهد')).toBe(true)
+    expect(FORM_SOURCE.includes('فروشگاه قیمت را به تومان نمایش می‌دهد')).toBe(true)
     expect(FORM_SOURCE.includes('قیمت نهایی ریالی پس از تبدیل')).toBe(true)
   })
 
   it('folds Persian/Arabic digits on money inputs before validation', () => {
     expect(FORM_SOURCE.includes('foldDigitsToEnglish')).toBe(true)
-    expect(FORM_SOURCE.includes("key === 'price' || key === 'compareAtPrice'")).toBe(
+    expect(FORM_SOURCE.includes("key === 'price' || key === 'discountedPrice' || key === 'partnerPrice'")).toBe(
       true,
     )
   })

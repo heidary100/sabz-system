@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { PartnerApprovalStatus, Prisma } from '@prisma/client';
+import { PartnerApprovalStatus, Prisma, UserStatus } from '@prisma/client';
 import { PrismaService } from '../../common/database/prisma.service';
+import { hasActiveProductSale } from '../../common/money/discount';
 import { roundRialUp } from '../../common/money/rial';
 
 /**
@@ -43,6 +44,30 @@ export interface PriceAdjustment {
   value: Prisma.Decimal;
 }
 
+/** Absolute override or percent/fixed adjustment (pricing-grid spec §2.6). */
+export interface ProductOverride {
+  type: 'PERCENT' | 'FIXED' | null;
+  value: Prisma.Decimal | null;
+  overridePrice: Prisma.Decimal | null;
+}
+
+/** Product-level sale + B2B price inputs for a single line. */
+export interface LineSaleInput {
+  regularPrice: Prisma.Decimal | string | number;
+  discountedPrice?: Prisma.Decimal | string | number | null;
+  discountStartsAt?: Date | null;
+  discountEndsAt?: Date | null;
+  partnerPrice?: Prisma.Decimal | string | number | null;
+  partnerEligible?: boolean;
+}
+
+export interface PartnerPricing {
+  /** Partner tier discount percent (0 for non-partners). */
+  tierPercent: Prisma.Decimal;
+  /** True only for an authenticated, phone-verified APPROVED partner. */
+  eligible: boolean;
+}
+
 /**
  * Server-side pricing engine (SS-235 Round B1).
  *
@@ -60,12 +85,12 @@ export class PricingService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * Tier discount percent for the user: the APPROVED partner's tier, or
-   * zero for guests / retail customers / non-approved partners
-   * (PRICE-002, PRICE-003). Never throws — pricing must degrade to
-   * retail, never 500 the cart.
+   * Partner pricing for the user: tier percent plus eligibility. Eligible
+   * means an APPROVED, non-deleted partner whose owner account is ACTIVE —
+   * i.e. mobile/phone verification has succeeded (auth marks ACTIVE only on
+   * OTP verification). Never throws — pricing degrades to retail.
    */
-  async tierDiscountForUser(userId: string): Promise<Prisma.Decimal> {
+  async partnerPricingForUser(userId: string): Promise<PartnerPricing> {
     try {
       const partner = await this.prisma.partner.findFirst({
         where: {
@@ -73,20 +98,35 @@ export class PricingService {
           approvalStatus: PartnerApprovalStatus.APPROVED,
           deletedAt: null,
         },
-        select: { tier: { select: { discountPercent: true } } },
+        select: {
+          tier: { select: { discountPercent: true } },
+          profile: { select: { user: { select: { status: true, deletedAt: true } } } },
+        },
       });
+      const eligible =
+        partner !== null &&
+        partner.profile.user.status === UserStatus.ACTIVE &&
+        partner.profile.user.deletedAt === null;
+      if (!eligible) {
+        return { tierPercent: new Prisma.Decimal(0), eligible: false };
+      }
       const raw = partner?.tier?.discountPercent;
       if (raw === null || raw === undefined) {
-        return new Prisma.Decimal(0);
+        return { tierPercent: new Prisma.Decimal(0), eligible: true };
       }
       const pct = new Prisma.Decimal(raw.toString());
       if (!pct.isFinite() || pct.isNegative() || pct.greaterThan(100)) {
-        return new Prisma.Decimal(0);
+        return { tierPercent: new Prisma.Decimal(0), eligible: true };
       }
-      return pct;
+      return { tierPercent: pct, eligible: true };
     } catch {
-      return new Prisma.Decimal(0);
+      return { tierPercent: new Prisma.Decimal(0), eligible: false };
     }
+  }
+
+  /** Tier discount percent for the user (0 for guests/retail/unverified). */
+  async tierDiscountForUser(userId: string): Promise<Prisma.Decimal> {
+    return (await this.partnerPricingForUser(userId)).tierPercent;
   }
 
   /** Currently active promotions scoped to the product (narrowest wins ties by best saving). */
@@ -183,9 +223,10 @@ export class PricingService {
   }
 
   /**
-   * Active category rule for the category: lowest `priority` wins, ties
-   * break by newest row. Null when none applies. Never throws — pricing
-   * must degrade, never 500 the cart.
+   * Active category rule for the product's category. Exact-category rules
+   * win over descendant-scoped rules on an ancestor. Within a category,
+   * lowest `priority` wins, ties break by newest row. Null when none applies.
+   * Never throws — pricing must degrade, never 500 the cart.
    */
   async categoryRuleFor(
     categoryId: string | null,
@@ -195,28 +236,75 @@ export class PricingService {
       return null;
     }
     try {
-      const rows = await this.prisma.categoryPriceRule.findMany({
-        where: {
-          categoryId,
-          isActive: true,
-          OR: [{ startsAt: null }, { startsAt: { lte: now } }],
-        },
-        select: { type: true, value: true, endsAt: true, priority: true, createdAt: true },
-        orderBy: [{ priority: 'asc' }, { createdAt: 'desc' }],
-      });
-      for (const row of rows) {
-        if (row.endsAt !== null && row.endsAt < now) {
-          continue;
+      const exact = await this.activeRuleForCategory(categoryId, false, now);
+      if (exact !== null) {
+        return exact;
+      }
+      // Walk the live ancestor chain looking for includeDescendants rules.
+      // Depth is bounded by the category tree (small); each step is one
+      // indexed lookup by primary key.
+      let currentId = categoryId;
+      const seen = new Set<string>([categoryId]);
+      for (let depth = 0; depth < 32; depth += 1) {
+        const category = await this.prisma.category.findUnique({
+          where: { id: currentId },
+          select: { parentId: true, deletedAt: true },
+        });
+        if (!category || category.deletedAt !== null || category.parentId === null) {
+          return null;
         }
-        if (!isValidAdjustment(row.type, row.value)) {
-          continue;
+        if (seen.has(category.parentId)) {
+          return null;
         }
-        return { type: row.type, value: row.value };
+        seen.add(category.parentId);
+        const inherited = await this.activeRuleForCategory(
+          category.parentId,
+          true,
+          now,
+        );
+        if (inherited !== null) {
+          return inherited;
+        }
+        currentId = category.parentId;
       }
       return null;
     } catch {
       return null;
     }
+  }
+
+  /** One category's winning active rule (optionally requiring descendants scope). */
+  private async activeRuleForCategory(
+    categoryId: string,
+    requireDescendants: boolean,
+    now: Date,
+  ): Promise<PriceAdjustment | null> {
+    const rows = await this.prisma.categoryPriceRule.findMany({
+      where: {
+        categoryId,
+        isActive: true,
+        ...(requireDescendants ? { includeDescendants: true } : {}),
+        OR: [{ startsAt: null }, { startsAt: { lte: now } }],
+      },
+      select: {
+        type: true,
+        value: true,
+        endsAt: true,
+        priority: true,
+        createdAt: true,
+      },
+      orderBy: [{ priority: 'asc' }, { createdAt: 'desc' }],
+    });
+    for (const row of rows) {
+      if (row.endsAt !== null && row.endsAt < now) {
+        continue;
+      }
+      if (!isValidAdjustment(row.type, row.value)) {
+        continue;
+      }
+      return { type: row.type, value: row.value };
+    }
+    return null;
   }
 
   /**
@@ -226,11 +314,18 @@ export class PricingService {
   async productOverrideFor(
     productId: string,
     now = new Date(),
-  ): Promise<PriceAdjustment | null> {
+  ): Promise<ProductOverride | null> {
     try {
       const row = await this.prisma.productPriceOverride.findUnique({
         where: { productId },
-        select: { type: true, value: true, isActive: true, startsAt: true, endsAt: true },
+        select: {
+          type: true,
+          value: true,
+          overridePrice: true,
+          isActive: true,
+          startsAt: true,
+          endsAt: true,
+        },
       });
       if (!row || !row.isActive) {
         return null;
@@ -241,26 +336,61 @@ export class PricingService {
       if (row.endsAt !== null && row.endsAt < now) {
         return null;
       }
+      if (row.overridePrice !== null) {
+        const absolute = new Prisma.Decimal(row.overridePrice.toString());
+        if (!absolute.isFinite() || absolute.lessThanOrEqualTo(0)) {
+          return null;
+        }
+        return { type: null, value: null, overridePrice: absolute };
+      }
+      if (row.type === null || row.value === null) {
+        return null;
+      }
       if (!isValidAdjustment(row.type, row.value)) {
         return null;
       }
-      return { type: row.type, value: row.value };
+      return {
+        type: row.type,
+        value: row.value,
+        overridePrice: null,
+      };
     } catch {
       return null;
     }
   }
 
   /**
-   * Full server-side resolution for one line: category rule → override →
-   * tier → bulk → best promotion. Pure apart from the lookups above being
-   * injected.
+   * Full server-side resolution for one line:
+   *   regular price → active product sale OR (category rule → override)
+   *   → partner price/tier → bulk → best promotion.
+   *
+   * Precedence is deliberate and non-stacking (pricing-grid spec §2.5/§2.6):
+   * - An active product sale price replaces the category rule and product
+   *   adjustment for that line (product-specific beats category-wide).
+   * - An absolute product override replaces the running retail price.
+   * - An authorized partner's explicit `partnerPrice` replaces all retail
+   *   price-setting rules and the tier percentage (no double B2B discount).
+   * - Quantity bulk and one best scheduled promotion apply after the chosen
+   *   base, exactly as the approved pricing-engine §5 chain.
    */
   async resolveUnitPrice(
     userId: string | null,
-    input: { basePrice: Prisma.Decimal | string | number; quantity: number } & PriceScope,
+    input: {
+      basePrice: Prisma.Decimal | string | number;
+      quantity: number;
+      discountedPrice?: Prisma.Decimal | string | number | null;
+      discountStartsAt?: Date | null;
+      discountEndsAt?: Date | null;
+      partnerPrice?: Prisma.Decimal | string | number | null;
+    } & PriceScope,
   ): Promise<Prisma.Decimal> {
-    const [tierPct, promotions, categoryRule, override] = await Promise.all([
-      userId ? this.tierDiscountForUser(userId) : Promise.resolve(new Prisma.Decimal(0)),
+    const [partner, promotions, categoryRule, override] = await Promise.all([
+      userId
+        ? this.partnerPricingForUser(userId)
+        : Promise.resolve({
+            tierPercent: new Prisma.Decimal(0),
+            eligible: false,
+          }),
       this.activePromotionsFor(input, new Date()),
       this.categoryRuleFor(input.categoryId),
       this.productOverrideFor(input.productId),
@@ -268,9 +398,17 @@ export class PricingService {
     return PricingService.resolveLine(
       new Prisma.Decimal(input.basePrice.toString()),
       input.quantity,
-      tierPct,
+      partner.tierPercent,
       promotions,
       { categoryRule, override },
+      {
+        regularPrice: input.basePrice,
+        discountedPrice: input.discountedPrice,
+        discountStartsAt: input.discountStartsAt,
+        discountEndsAt: input.discountEndsAt,
+        partnerPrice: input.partnerPrice,
+        partnerEligible: partner.eligible,
+      },
     );
   }
 
@@ -283,15 +421,42 @@ export class PricingService {
     quantity: number,
     tierDiscountPercent: Prisma.Decimal,
     promotions: PromotionRow[],
-    adjustments: { categoryRule?: PriceAdjustment | null; override?: PriceAdjustment | null } = {},
+    adjustments: {
+      categoryRule?: PriceAdjustment | null;
+      override?: PriceAdjustment | ProductOverride | null;
+    } = {},
+    sale?: LineSaleInput,
   ): Prisma.Decimal {
     let price = basePrice;
     if (price.isNegative()) {
       price = new Prisma.Decimal(0);
     }
-    price = applyAdjustment(price, adjustments.categoryRule);
-    price = applyAdjustment(price, adjustments.override);
-    price = applyPercentOff(price, tierDiscountPercent);
+
+    // B2B explicit partner price: replaces retail price-setting rules AND the
+    // tier percentage so the two B2B mechanisms never stack.
+    const partnerPrice = sale?.partnerEligible
+      ? decimalOrNull(sale.partnerPrice)
+      : null;
+    if (partnerPrice !== null && partnerPrice.greaterThan(0)) {
+      price = partnerPrice;
+    } else {
+      const activeSale =
+        sale !== undefined &&
+        hasActiveProductSale({
+          price: sale.regularPrice,
+          discountedPrice: sale.discountedPrice,
+          discountStartsAt: sale.discountStartsAt,
+          discountEndsAt: sale.discountEndsAt,
+        });
+      if (activeSale) {
+        // Product-specific sale supersedes category/override adjustments.
+        price = new Prisma.Decimal(String(sale.discountedPrice));
+      } else {
+        price = applyAdjustment(price, adjustments.categoryRule);
+        price = applyOverride(price, adjustments.override);
+      }
+      price = applyPercentOff(price, tierDiscountPercent);
+    }
     price = applyPercentOff(price, new Prisma.Decimal(bulkPercentFor(quantity)));
     price = applyBestPromotion(price, quantity, promotions);
     if (price.isNegative()) {
@@ -348,6 +513,48 @@ function applyAdjustment(
     return applyPercentOff(price, new Prisma.Decimal(adjustment.value.toString()));
   }
   return price.sub(new Prisma.Decimal(adjustment.value.toString()));
+}
+
+/**
+ * Applies a product override: an absolute override replaces the running
+ * price; otherwise it is the same PERCENT|FIXED adjustment as before.
+ */
+function applyOverride(
+  price: Prisma.Decimal,
+  override: PriceAdjustment | ProductOverride | null | undefined,
+): Prisma.Decimal {
+  if (!override) {
+    return price;
+  }
+  if ('overridePrice' in override && override.overridePrice !== null) {
+    const absolute = new Prisma.Decimal(override.overridePrice.toString());
+    if (absolute.isFinite() && absolute.greaterThan(0)) {
+      return absolute;
+    }
+    return price;
+  }
+  if (override.type === null || override.value === null) {
+    return price;
+  }
+  return applyAdjustment(price, {
+    type: override.type,
+    value: override.value,
+  });
+}
+
+function decimalOrNull(
+  value: Prisma.Decimal | string | number | null | undefined,
+): Prisma.Decimal | null {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+  try {
+    const parsed =
+      value instanceof Prisma.Decimal ? value : new Prisma.Decimal(String(value));
+    return parsed.isFinite() ? parsed : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Single best applicable promotion (max Rial saving); ties prefer product scope. */

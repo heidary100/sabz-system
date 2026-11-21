@@ -94,8 +94,14 @@ export interface CreateVariantInput {
   sku: string;
   barcode?: string;
   name?: string;
+  /** Regular/base price. */
   price: string;
-  compareAtPrice?: string;
+  /** Promotional selling price; strictly below price. */
+  discountedPrice?: string;
+  discountStartsAt?: string;
+  discountEndsAt?: string;
+  /** B2B partner price in Rial (admin-only). */
+  partnerPrice?: string;
   priceSourceCurrency?: 'RIAL' | 'USD' | 'AED';
   priceStatus?: PriceStatus;
 }
@@ -105,7 +111,10 @@ export interface UpdateVariantInput {
   barcode?: string | null;
   name?: string | null;
   price?: string;
-  compareAtPrice?: string | null;
+  discountedPrice?: string | null;
+  discountStartsAt?: string | null;
+  discountEndsAt?: string | null;
+  partnerPrice?: string | null;
   priceSourceCurrency?: 'RIAL' | 'USD' | 'AED';
   priceStatus?: PriceStatus;
 }

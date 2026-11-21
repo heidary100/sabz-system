@@ -580,7 +580,7 @@ describe('Public catalog API (SS-120/121/122) (e2e)', () => {
       expect(card.id).toBe(draft.productId);
       expect(card.name).toBe(name);
       expect(card.priceFrom).toBe('5000000');
-      expect(card.compareAtPrice).toBeNull();
+      expect(card.regularPrice).toBeNull();
       expect(card.inStock).toBe(false);
       expect(card.primaryImageUrl).toBe(
         `/api/v1/catalog/media/${draft.mediaId}`,
@@ -590,7 +590,6 @@ describe('Public catalog API (SS-120/121/122) (e2e)', () => {
         'brand',
         'callForPrice',
         'category',
-        'compareAtPrice',
         'condition',
         'id',
         'inStock',
@@ -601,6 +600,7 @@ describe('Public catalog API (SS-120/121/122) (e2e)', () => {
         'promotionEndsAt',
         'ratingAverage',
         'ratingCount',
+        'regularPrice',
         'slug',
         'variantCount',
       ]);
@@ -1010,7 +1010,7 @@ describe('Public catalog API (SS-120/121/122) (e2e)', () => {
       return created.body.id as string;
     }
 
-    it('exposes compareAtPrice on sale variants and validates pricing rules', async () => {
+    it('exposes the sale price and regular reference on variants and validates pricing rules', async () => {
       const token = await createOperator();
       const slug = `sale-${uniqueSuffix()}`;
       const productId = await createProductWithSlug(token, slug);
@@ -1020,19 +1020,19 @@ describe('Public catalog API (SS-120/121/122) (e2e)', () => {
         .set('Authorization', `Bearer ${token}`)
         .send({
           sku: `SKU-${uniqueSuffix()}`,
-          price: '1500000.00',
-          compareAtPrice: '1800000.00',
+          price: '1800000.00',
+          discountedPrice: '1500000.00',
         })
         .expect(201);
       variantIds.push(sale.body.id);
-      expect(sale.body.compareAtPrice).toBe('1800000');
+      expect(sale.body.discountedPrice).toBe('1500000');
       expect(sale.body.priceStatus).toBe(PriceStatus.PRICED);
 
       // Reference at/below price is rejected…
       await request(app.getHttpServer())
         .post(`/api/v1/admin/products/${productId}/variants`)
         .set('Authorization', `Bearer ${token}`)
-        .send({ sku: `SKU-${uniqueSuffix()}`, price: '1500000.00', compareAtPrice: '1500000.00' })
+        .send({ sku: `SKU-${uniqueSuffix()}`, price: '1500000.00', discountedPrice: '1500000.00' })
         .expect(400);
 
       // …as is a reference price on a call-for-price variant.
@@ -1042,7 +1042,7 @@ describe('Public catalog API (SS-120/121/122) (e2e)', () => {
         .send({
           sku: `SKU-${uniqueSuffix()}`,
           price: '0',
-          compareAtPrice: '1800000.00',
+          discountedPrice: '1800000.00',
           priceStatus: PriceStatus.CALL_FOR_PRICE,
         })
         .expect(400);
@@ -1056,7 +1056,8 @@ describe('Public catalog API (SS-120/121/122) (e2e)', () => {
         .get(`${PRODUCTS_BASE}/${slug}`)
         .expect(200);
       expect(detail.body.variants).toHaveLength(1);
-      expect(detail.body.variants[0].compareAtPrice).toBe('1800000');
+      expect(detail.body.variants[0].price).toBe('1500000');
+      expect(detail.body.variants[0].regularPrice).toBe('1800000');
       expect(detail.body.variants[0].priceStatus).toBe(PriceStatus.PRICED);
 
       const card = (
@@ -1065,6 +1066,7 @@ describe('Public catalog API (SS-120/121/122) (e2e)', () => {
           .expect(200)
       ).body.items[0];
       expect(card.priceFrom).toBe('1500000');
+      expect(card.regularPrice).toBe('1800000');
       expect(card.callForPrice).toBe(false);
       expect(card.variantCount).toBe(1);
 
@@ -1074,19 +1076,19 @@ describe('Public catalog API (SS-120/121/122) (e2e)', () => {
       await request(app.getHttpServer())
         .patch(`/api/v1/admin/variants/${variantId}`)
         .set('Authorization', `Bearer ${token}`)
-        .send({ compareAtPrice: '1500000.00' })
+        .send({ discountedPrice: '1800000.00' })
         .expect(400);
       await request(app.getHttpServer())
         .patch(`/api/v1/admin/variants/${variantId}`)
         .set('Authorization', `Bearer ${token}`)
-        .send({ price: '1800000.00' })
+        .send({ price: '1500000.00' })
         .expect(400);
 
       // …and a raise of the reference above the stored price still succeeds.
       await request(app.getHttpServer())
         .patch(`/api/v1/admin/variants/${variantId}`)
         .set('Authorization', `Bearer ${token}`)
-        .send({ compareAtPrice: '1900000.00' })
+        .send({ discountedPrice: '1200000.00' })
         .expect(200);
     });
 

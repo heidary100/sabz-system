@@ -31,7 +31,7 @@ import {
   validateCheckout,
   type CheckoutStep,
 } from '@/lib/checkout';
-import { formatRial } from '@/lib/format';
+import { formatToman } from '@/lib/format';
 import {
   NATIONAL_ID_MESSAGES,
   normalizeNationalId,
@@ -317,7 +317,7 @@ export function CheckoutWizard({ stepParam }: { stepParam: unknown }) {
                       ) : null}
                     </span>
                     <span className="shrink-0 font-semibold text-fg">
-                      {formatRial(item.lineTotal)}
+                      {formatToman(item.lineTotal)}
                     </span>
                   </li>
                 ))}
@@ -377,7 +377,7 @@ export function CheckoutWizard({ stepParam }: { stepParam: unknown }) {
                     code: method.code,
                     title: `${method.titleFa} — ${method.etaFa}`,
                     desc: isShippingEnabled(method)
-                      ? `هزینه ارسال: ${formatRial(method.fee)}`
+                      ? `هزینه ارسال: ${formatToman(method.fee)}`
                       : 'این شیوه ارسال در حال حاضر فعال نیست',
                     disabled: !isShippingEnabled(method),
                   }))}

@@ -67,7 +67,7 @@ describe('InvoicePdfService (SS-900)', () => {
     expect(html).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
     expect(html).not.toContain('<script>alert(1)</script>');
     expect(html).toContain('****5679');
-    expect(html).toContain('۲۳٬۱۰۰٬۰۰۰ ریال');
+    expect(html).toContain('۲٬۳۱۰٬۰۰۰ تومان');
     expect(html).toContain('@page');
   });
 

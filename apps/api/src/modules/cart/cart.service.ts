@@ -13,6 +13,7 @@ import type {
   RemoveCartItemResponse,
 } from '@sabz/types';
 import { PrismaService } from '../../common/database/prisma.service';
+import { hasActiveProductSale } from '../../common/money/discount';
 import { roundRialUp } from '../../common/money/rial';
 import {
   activeInventoryWhere,
@@ -34,6 +35,10 @@ const LINE_WITH_VARIANT = {
       sku: true,
       name: true,
       price: true,
+      discountedPrice: true,
+      discountStartsAt: true,
+      discountEndsAt: true,
+      partnerPrice: true,
       priceStatus: true,
       deletedAt: true,
       product: {
@@ -122,7 +127,16 @@ export class CartService {
           cartId: cart.id,
           variantId,
           quantity,
-          unitPriceAtAdd: roundRialUp(variant.price),
+          unitPriceAtAdd: roundRialUp(
+            hasActiveProductSale({
+              price: variant.price,
+              discountedPrice: variant.discountedPrice,
+              discountStartsAt: variant.discountStartsAt,
+              discountEndsAt: variant.discountEndsAt,
+            })
+              ? variant.discountedPrice
+              : variant.price,
+          ),
         },
       });
       return { item: await this.hydrateSingle(cart.id, variantId, userId), created: true };
@@ -274,14 +288,25 @@ export class CartService {
    * product PUBLISHED and non-deleted (the wishlist visibility predicate),
    * and PRICED (CALL_FOR_PRICE rows are published but non-purchasable).
    */
-  private async requirePurchasable(variantId: string): Promise<{ price: Prisma.Decimal }> {
+  private async requirePurchasable(variantId: string): Promise<{
+    price: Prisma.Decimal;
+    discountedPrice: Prisma.Decimal | null;
+    discountStartsAt: Date | null;
+    discountEndsAt: Date | null;
+  }> {
     const variant = await this.prisma.productVariant.findFirst({
       where: {
         id: variantId,
         deletedAt: null,
         product: { deletedAt: null, status: ProductStatus.PUBLISHED },
       },
-      select: { price: true, priceStatus: true },
+      select: {
+        price: true,
+        discountedPrice: true,
+        discountStartsAt: true,
+        discountEndsAt: true,
+        priceStatus: true,
+      },
     });
     if (!variant) {
       throw new NotFoundException('محصول یافت نشد.');
@@ -389,10 +414,12 @@ export class CartService {
     const imageByProduct = await this.primaryImageByProduct(
       visible.map((line) => line.variant.product.id),
     );
-    // One tier lookup per hydration; promotions resolve per line.
-    const tierPct = await this.pricing.tierDiscountForUser(userId);
+    // One partner lookup per hydration; promotions resolve per line.
+    const partner = await this.pricing.partnerPricingForUser(userId);
     const items = await Promise.all(
-      visible.map((line) => this.toDto(line, availableByVariant, imageByProduct, tierPct)),
+      visible.map((line) =>
+        this.toDto(line, availableByVariant, imageByProduct, partner),
+      ),
     );
     let subtotal = new Prisma.Decimal(0);
     let totalQuantity = 0;
@@ -416,15 +443,15 @@ export class CartService {
     const imageByProduct = await this.primaryImageByProduct([
       line.variant.product.id,
     ]);
-    const tierPct = await this.pricing.tierDiscountForUser(userId);
-    return this.toDto(line, availableByVariant, imageByProduct, tierPct);
+    const partner = await this.pricing.partnerPricingForUser(userId);
+    return this.toDto(line, availableByVariant, imageByProduct, partner);
   }
 
   private async toDto(
     line: LineWithVariant,
     availableByVariant: Map<string, number>,
     imageByProduct: Map<string, string>,
-    tierDiscountPercent: Prisma.Decimal,
+    partner: { tierPercent: Prisma.Decimal; eligible: boolean },
   ): Promise<CartItemDto> {
     // SS-235: the line truth is the server-resolved price, never the raw
     // variant price and never anything the client sends (CART-004).
@@ -442,9 +469,17 @@ export class CartService {
     const unitPrice = PricingService.resolveLine(
       line.variant.price,
       line.quantity,
-      tierDiscountPercent,
+      partner.tierPercent,
       promotions,
       { categoryRule, override },
+      {
+        regularPrice: line.variant.price,
+        discountedPrice: line.variant.discountedPrice,
+        discountStartsAt: line.variant.discountStartsAt,
+        discountEndsAt: line.variant.discountEndsAt,
+        partnerPrice: line.variant.partnerPrice,
+        partnerEligible: partner.eligible,
+      },
     ).toString();
     const unitPriceAtAdd = line.unitPriceAtAdd.toString();
     const available = availableByVariant.get(line.variantId) ?? 0;

@@ -407,8 +407,13 @@ export async function seedCatalog(actorId: string): Promise<SeedCatalogStats> {
             productId,
             sku: variant.sku,
             name: variant.name,
-            price: variant.priceRial,
-            compareAtPrice: variant.compareAtRial ?? null,
+            // Fixture semantics mirror the legacy catalog: `priceRial` is the
+            // customer price and `compareAtRial` (when present) is the higher
+            // regular/reference price. The normalized schema stores the
+            // regular price in `price` and the sale price in `discountedPrice`.
+            price: variant.compareAtRial ?? variant.priceRial,
+            discountedPrice:
+              variant.compareAtRial !== undefined ? variant.priceRial : null,
             createdBy: actorId,
           },
         });

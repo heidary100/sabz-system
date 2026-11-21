@@ -8,6 +8,7 @@ import type {
   TorobSort,
 } from '@sabz/types';
 import { PrismaService } from '../../common/database/prisma.service';
+import { customerPricePair } from '../../common/money/discount';
 import {
   activeInventoryWhere,
   deriveAvailable,
@@ -47,7 +48,9 @@ interface FeedProductRow {
   variants: {
     id: string;
     price: Prisma.Decimal;
-    compareAtPrice: Prisma.Decimal | null;
+    discountedPrice: Prisma.Decimal | null;
+    discountStartsAt: Date | null;
+    discountEndsAt: Date | null;
   }[];
   media: {
     id: string;
@@ -159,7 +162,13 @@ export class TorobService {
       category: { select: { name: true } },
       variants: {
         where: { deletedAt: null, priceStatus: PriceStatus.PRICED },
-        select: { id: true, price: true, compareAtPrice: true },
+        select: {
+          id: true,
+          price: true,
+          discountedPrice: true,
+          discountStartsAt: true,
+          discountEndsAt: true,
+        },
         orderBy: [{ createdAt: 'asc' as const }, { id: 'asc' as const }],
       },
       media: {
@@ -361,7 +370,13 @@ export class TorobService {
       }
 
       for (const variant of product.variants) {
-        const currentPrice = rialToToman(variant.price);
+        const pair = customerPricePair({
+          price: variant.price,
+          discountedPrice: variant.discountedPrice,
+          discountStartsAt: variant.discountStartsAt,
+          discountEndsAt: variant.discountEndsAt,
+        });
+        const currentPrice = rialToToman(pair.selling);
         const row: TorobProductDto = {
           page_unique: product.slug,
           page_url: `${storefrontBase}/products/${product.slug}`,
@@ -377,9 +392,8 @@ export class TorobService {
         if (product.subtitle !== null) {
           row.subtitle = product.subtitle;
         }
-        const compareAt = variant.compareAtPrice;
-        if (compareAt !== null && compareAt.toNumber() > variant.price.toNumber()) {
-          row.old_price = rialToToman(compareAt);
+        if (pair.regular !== null) {
+          row.old_price = rialToToman(pair.regular);
         }
         if (product.shortDescription !== null) {
           row.short_desc = product.shortDescription;

@@ -41,3 +41,25 @@ export function convertCurrency(
     `/admin/currency-rates/convert?${params.toString()}`,
   )
 }
+
+export function previewCurrencyRecalculation(
+  input: import('@sabz/types').CurrencyRecalculationPreviewRequest,
+): Promise<import('@sabz/types').CurrencyRecalculationPreviewResponse> {
+  return request('/admin/currency-rates/recalculate/preview', {
+    method: 'POST',
+    body: JSON.stringify(input),
+    headers: { 'Content-Type': 'application/json' },
+  })
+}
+
+export function applyCurrencyRecalculation(
+  input: import('@sabz/types').CurrencyRecalculationApplyRequest,
+): Promise<
+  import('@sabz/types').CurrencyRecalculationPreviewResponse & { rateId: string }
+> {
+  return request('/admin/currency-rates/recalculate', {
+    method: 'POST',
+    body: JSON.stringify(input),
+    headers: { 'Content-Type': 'application/json' },
+  })
+}

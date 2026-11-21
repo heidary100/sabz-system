@@ -1,4 +1,4 @@
-import { CALL_FOR_PRICE_LABEL, formatPriceFrom, formatRial } from './format';
+import { CALL_FOR_PRICE_LABEL, formatPriceFrom, formatToman } from './format';
 
 /**
  * Product share payload composer (SS-249, extended SS-900).
@@ -20,7 +20,7 @@ export interface SharePayloadInput {
   imageUrl?: string | null;
   /** Customer-facing Rial price; null when nothing is priced. */
   priceFromRial: string | null;
-  compareAtPriceRial?: string | null;
+  regularPriceRial?: string | null;
   /** Total PRICED variant count — drives the «از …» rule. */
   variantCount: number;
   url: string;
@@ -35,7 +35,7 @@ export interface ProductSharePayload {
   brandName: string | null;
   variantName: string | null;
   priceRial: string | null;
-  compareAtPriceRial: string | null;
+  regularPriceRial: string | null;
 }
 
 export function buildShareMessage(input: SharePayloadInput): string {
@@ -58,13 +58,13 @@ export function buildShareMessage(input: SharePayloadInput): string {
     const price =
       input.variantCount > 1
         ? formatPriceFrom(input.priceFromRial)
-        : formatRial(input.priceFromRial);
+        : formatToman(input.priceFromRial);
     lines.push(`قیمت: ${price}`);
     if (
-      input.compareAtPriceRial &&
-      Number(input.compareAtPriceRial) > Number(input.priceFromRial)
+      input.regularPriceRial &&
+      Number(input.regularPriceRial) > Number(input.priceFromRial)
     ) {
-      lines.push(`قیمت پیش از تخفیف: ${formatRial(input.compareAtPriceRial)}`);
+      lines.push(`قیمت عادی: ${formatToman(input.regularPriceRial)}`);
     }
   }
   lines.push(input.url);
@@ -81,7 +81,7 @@ export function buildSharePayload(input: SharePayloadInput): ProductSharePayload
     brandName: input.brandName?.trim() || null,
     variantName: input.variantName?.trim() || null,
     priceRial: input.priceFromRial,
-    compareAtPriceRial: input.compareAtPriceRial ?? null,
+    regularPriceRial: input.regularPriceRial ?? null,
   };
 }
 

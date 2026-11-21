@@ -11,7 +11,7 @@ import { Skeleton } from '@/components/ecommerce/skeleton/skeleton';
 import { ApiError } from '@/lib/api';
 import { hasSession } from '@/lib/auth-client';
 import { cancelOrder, fetchOrderDetail, orderStatusLabel, paymentMethodLabel, paymentStatusLabel, shipmentStatusLabel, shippingMethodLabel } from '@/lib/orders';
-import { formatFaNumber, formatRial } from '@/lib/format';
+import { formatFaNumber, formatToman } from '@/lib/format';
 import { OrderTimeline } from './order-timeline';
 import { TrackingNumberValue } from './tracking-number';
 
@@ -137,7 +137,7 @@ export function OrderDetail({ id }: { id: string }) {
               سفارش {formatFaNumber(order.orderNumber)}
             </h2>
             <p className="mt-1 text-xs text-fg-muted">
-              {paymentMethodLabel(order.paymentMethod)} — {paymentStatusLabel(order.paymentStatus)} — جمع {formatRial(order.total)}
+              {paymentMethodLabel(order.paymentMethod)} — {paymentStatusLabel(order.paymentStatus)} — جمع {formatToman(order.total)}
             </p>
           </div>
           <Badge variant={order.status === 'CANCELLED' ? 'outOfStock' : order.status === 'DELIVERED' ? 'success' : 'neutral'}>
@@ -162,7 +162,7 @@ export function OrderDetail({ id }: { id: string }) {
                 </span>
               </span>
               <span className="shrink-0 font-semibold text-fg">
-                {formatRial(item.lineTotal)}
+                {formatToman(item.lineTotal)}
               </span>
             </li>
           ))}
@@ -170,12 +170,12 @@ export function OrderDetail({ id }: { id: string }) {
         <dl className="mt-3 space-y-2 border-t border-border pt-3 text-sm">
           <div className="flex items-center justify-between gap-3">
             <dt className="text-fg-secondary">هزینه ارسال</dt>
-            <dd className="font-semibold text-fg">{formatRial(order.shippingFee)}</dd>
+            <dd className="font-semibold text-fg">{formatToman(order.shippingFee)}</dd>
           </div>
           <div className="flex items-center justify-between gap-3">
             <dt className="font-semibold text-fg">جمع سفارش</dt>
             <dd aria-live="polite" className="text-lg font-bold text-accent-hover">
-              {formatRial(order.total)}
+              {formatToman(order.total)}
             </dd>
           </div>
         </dl>
