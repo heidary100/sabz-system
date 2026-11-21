@@ -3,6 +3,7 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { Prisma, PromotionType } from '@prisma/client';
 import type {
@@ -14,6 +15,11 @@ import type {
   PromotionListResponse,
 } from '@sabz/types';
 import { PrismaService } from '../../common/database/prisma.service';
+import { StorefrontCacheService } from '../../common/storefront-cache/storefront-cache.service';
+import {
+  CATALOG_PRODUCTS_TAG,
+  productDetailTag,
+} from '../../common/storefront-cache/catalog-tags';
 import { AuditService } from '../audit/audit.service';
 import {
   CreateCategoryPriceRuleDto,
@@ -54,6 +60,7 @@ export class AdminPricingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    @Optional() private readonly cache?: StorefrontCacheService,
   ) {}
 
   // -------------------------------------------------------------------------
@@ -128,6 +135,7 @@ export class AdminPricingService {
       after: created as unknown as Prisma.InputJsonValue,
       ipAddress,
     });
+    void this.invalidateCategory(dto.categoryId, dto.includeDescendants ?? false);
     return created;
   }
 
@@ -187,6 +195,10 @@ export class AdminPricingService {
       after: after as unknown as Prisma.InputJsonValue,
       ipAddress,
     });
+    void this.invalidateCategory(existing.categoryId, existing.includeDescendants);
+    if (row.categoryId !== existing.categoryId) {
+      void this.invalidateCategory(row.categoryId, row.includeDescendants);
+    }
     return after;
   }
 
@@ -213,6 +225,7 @@ export class AdminPricingService {
       after: null,
       ipAddress,
     });
+    void this.invalidateCategory(existing.categoryId, existing.includeDescendants);
     return before;
   }
 
@@ -304,6 +317,7 @@ export class AdminPricingService {
       after: created as unknown as Prisma.InputJsonValue,
       ipAddress,
     });
+    void this.invalidateProduct(dto.productId);
     return created;
   }
 
@@ -377,6 +391,7 @@ export class AdminPricingService {
       after: after as unknown as Prisma.InputJsonValue,
       ipAddress,
     });
+    void this.invalidateProduct(existing.productId);
     return after;
   }
 
@@ -403,6 +418,7 @@ export class AdminPricingService {
       after: null,
       ipAddress,
     });
+    void this.invalidateProduct(existing.productId);
     return before;
   }
 
@@ -495,6 +511,11 @@ export class AdminPricingService {
       after: created as unknown as Prisma.InputJsonValue,
       ipAddress,
     });
+    void this.invalidatePromotionScope({
+      productId: dto.productId ?? undefined,
+      categoryId: dto.categoryId ?? undefined,
+      brandId: dto.brandId ?? undefined,
+    });
     return created;
   }
 
@@ -563,6 +584,11 @@ export class AdminPricingService {
       after: after as unknown as Prisma.InputJsonValue,
       ipAddress,
     });
+    void this.invalidatePromotionScope({
+      productId: after.productId ?? undefined,
+      categoryId: after.categoryId ?? undefined,
+      brandId: after.brandId ?? undefined,
+    });
     return after;
   }
 
@@ -586,12 +612,110 @@ export class AdminPricingService {
       after: null,
       ipAddress,
     });
+    void this.invalidatePromotionScope({
+      productId: existing.productId ?? undefined,
+      categoryId: existing.categoryId ?? undefined,
+      brandId: existing.brandId ?? undefined,
+    });
     return before;
   }
 
   // -------------------------------------------------------------------------
   // Internals
   // -------------------------------------------------------------------------
+
+  private async categoryIdsFor(
+    categoryId: string,
+    includeDescendants: boolean,
+  ): Promise<string[]> {
+    if (!includeDescendants) {
+      return [categoryId];
+    }
+    const ids = new Set<string>([categoryId]);
+    let frontier = [categoryId];
+    for (let depth = 0; depth < 32 && frontier.length > 0; depth += 1) {
+      const children = await this.prisma.category.findMany({
+        where: { parentId: { in: frontier }, deletedAt: null },
+        select: { id: true },
+      });
+      frontier = [];
+      for (const child of children) {
+        if (!ids.has(child.id)) {
+          ids.add(child.id);
+          frontier.push(child.id);
+        }
+      }
+    }
+    return [...ids];
+  }
+
+  private async invalidateCategory(
+    categoryId: string,
+    includeDescendants: boolean,
+  ): Promise<void> {
+    if (!this.cache) return;
+    try {
+      const categoryIds = await this.categoryIdsFor(categoryId, includeDescendants);
+      const products = await this.prisma.product.findMany({
+        where: { categoryId: { in: categoryIds }, deletedAt: null },
+        select: { slug: true },
+      });
+      await this.cache.invalidate([
+        CATALOG_PRODUCTS_TAG,
+        ...products.map((product) => productDetailTag(product.slug)),
+      ]);
+    } catch {
+      // cache invalidation is best-effort
+    }
+  }
+
+  private async invalidateProduct(productId: string): Promise<void> {
+    if (!this.cache) return;
+    try {
+      const product = await this.prisma.product.findUnique({
+        where: { id: productId },
+        select: { slug: true },
+      });
+      await this.cache.invalidate([
+        CATALOG_PRODUCTS_TAG,
+        ...(product ? [productDetailTag(product.slug)] : []),
+      ]);
+    } catch {
+      // cache invalidation is best-effort
+    }
+  }
+
+  private async invalidatePromotionScope(scope: {
+    productId?: string;
+    categoryId?: string;
+    brandId?: string;
+  }): Promise<void> {
+    if (!this.cache) return;
+    if (scope.productId) {
+      await this.invalidateProduct(scope.productId);
+      return;
+    }
+    if (scope.categoryId) {
+      await this.invalidateCategory(scope.categoryId, true);
+      return;
+    }
+    if (scope.brandId) {
+      try {
+        const products = await this.prisma.product.findMany({
+          where: { brandId: scope.brandId, deletedAt: null },
+          select: { slug: true },
+        });
+        await this.cache.invalidate([
+          CATALOG_PRODUCTS_TAG,
+          ...products.map((product) => productDetailTag(product.slug)),
+        ]);
+      } catch {
+        // cache invalidation is best-effort
+      }
+      return;
+    }
+    await this.cache.invalidate([CATALOG_PRODUCTS_TAG]);
+  }
 
   private async requireLiveCategory(categoryId: string): Promise<void> {
     const category = await this.prisma.category.findFirst({

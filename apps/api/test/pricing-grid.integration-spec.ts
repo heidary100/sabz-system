@@ -334,6 +334,51 @@ describe('Pricing-grid bulk engine database integration', () => {
     );
   });
 
+  it('projects category rules and overrides into public cards and product detail', async () => {
+    const category = await createCategory();
+    const product = await createProduct(category.id, { price: '10000000' });
+    const rule = await prisma.categoryPriceRule.create({
+      data: {
+        categoryId: category.id,
+        type: PromotionType.PERCENT,
+        value: new Prisma.Decimal(20),
+        isActive: true,
+      },
+    });
+    ruleIds.push(rule.id);
+
+    const card = (await catalog.getVisibleCardsByIds([product.productId]))[0]!;
+    expect(card.priceFrom).toBe('8000000');
+    expect(card.regularPrice).toBe('10000000');
+    const detail = await catalog.getProductBySlug(product.slug);
+    expect(detail.variants[0]!.price).toBe('8000000');
+    expect(detail.variants[0]!.regularPrice).toBe('10000000');
+
+    // A fixed discount larger than the price must never publish a free item.
+    await prisma.categoryPriceRule.update({
+      where: { id: rule.id },
+      data: { type: PromotionType.FIXED, value: new Prisma.Decimal(20000000) },
+    });
+    const notFree = (await catalog.getVisibleCardsByIds([product.productId]))[0]!;
+    expect(notFree.priceFrom).toBe('10000000');
+    expect(notFree.regularPrice).toBeNull();
+
+    // An absolute product override is projected consistently too.
+    const override = await prisma.productPriceOverride.create({
+      data: {
+        productId: product.productId,
+        overridePrice: new Prisma.Decimal(7000000),
+        isActive: true,
+      },
+    });
+    overrideIds.push(override.id);
+    const overridden = (await catalog.getVisibleCardsByIds([product.productId]))[0]!;
+    expect(overridden.priceFrom).toBe('7000000');
+    expect(overridden.regularPrice).toBe('10000000');
+    const overriddenDetail = await catalog.getProductBySlug(product.slug);
+    expect(overriddenDetail.variants[0]!.price).toBe('7000000');
+  });
+
   it('sets an absolute override, exposes it in the effective price, and clears it', async () => {
     const category = await createCategory();
     const p = await createProduct(category.id, { price: '10000000' });

@@ -381,9 +381,9 @@ export class BulkPricingService {
         if (ruleResult.lessThanOrEqualTo(0)) {
           return this.categoryRow(
             variant,
-            'FAILED',
+            'SKIPPED',
             undefined,
-            'نتیجه قانون صفر یا منفی می‌شود.',
+            'تخفیف ثابت از قیمت این محصول بیشتر است؛ برای این محصول اعمال نمی‌شود.',
           );
         }
         const rounded = roundRialUp(ruleResult.toDecimalPlaces(0));

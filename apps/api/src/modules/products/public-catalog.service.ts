@@ -23,7 +23,6 @@ import type {
   PaginatedResult,
 } from '@sabz/types';
 import { PrismaService } from '../../common/database/prisma.service';
-import { customerPricePair } from '../../common/money/discount';
 import { roundRialUp } from '../../common/money/rial';
 import {
   activeInventoryWhere,
@@ -748,19 +747,41 @@ export class PublicCatalogService {
             Math.min(...detailPromotions.map((promo) => promo.endsAt.getTime())),
           ).toISOString();
 
+    // Public detail must show the same rule/override/sale result as the price
+    // API and listing cards. Category rules/overrides are not tier-personalized;
+    // partner pricing stays exclusively on the authenticated price endpoint.
+    const [categoryRule, override] = await Promise.all([
+      this.pricing.categoryRuleFor(product.categoryId),
+      this.pricing.productOverrideFor(product.id),
+    ]);
+
     const variants: CatalogProductVariantDto[] = product.variants.map((variant) => {
-      const pair = customerPricePair({
-        price: variant.price,
-        discountedPrice: variant.discountedPrice,
-        discountStartsAt: variant.discountStartsAt,
-        discountEndsAt: variant.discountEndsAt,
-      });
+      const price =
+        variant.priceStatus === PriceStatus.PRICED
+          ? PricingService.resolveLine(
+              variant.price,
+              1,
+              new Prisma.Decimal(0),
+              detailPromotions,
+              { categoryRule, override },
+              {
+                regularPrice: variant.price,
+                discountedPrice: variant.discountedPrice,
+                discountStartsAt: variant.discountStartsAt,
+                discountEndsAt: variant.discountEndsAt,
+              },
+            )
+          : new Prisma.Decimal(0);
+      const regular = roundRialUp(variant.price);
       return {
         id: variant.id,
         sku: variant.sku,
         name: variant.name,
-        price: pair.selling.toString(),
-        regularPrice: pair.regular?.toString() ?? null,
+        price: price.toString(),
+        regularPrice:
+          price.greaterThan(0) && price.lessThan(regular)
+            ? regular.toString()
+            : null,
         priceStatus: variant.priceStatus,
         inStock: (availableByVariant.get(variant.id) ?? 0) > 0,
         options: variant.options
@@ -1861,32 +1882,66 @@ export class PublicCatalogService {
     );
 
     const rowsById = new Map(rows.map((row) => [row.id, row]));
+    const categoryIds = [...new Set(rows.map((row) => row.categoryId))];
+    const [categoryRuleEntries, overridesByProduct, promotionsByProduct] =
+      await Promise.all([
+        Promise.all(
+          categoryIds.map(
+            async (categoryId) =>
+              [categoryId, await this.pricing.categoryRuleFor(categoryId)] as const,
+          ),
+        ),
+        this.pricing.productOverridesFor(rows.map((row) => row.id)),
+        this.pricing.activePromotionsByProduct(
+          rows.map((row) => ({
+            productId: row.id,
+            categoryId: row.categoryId,
+            brandId: row.brandId,
+          })),
+        ),
+      ]);
+    const categoryRules = new Map(categoryRuleEntries);
     const cards: CatalogProductCardDto[] = [];
-    const now = new Date();
     for (const id of pageIds) {
       const row = rowsById.get(id);
       if (!row) {
         continue;
       }
+      const categoryRule = categoryRules.get(row.categoryId) ?? null;
+      const override = overridesByProduct.get(row.id) ?? null;
+      const promotions = promotionsByProduct.get(row.id) ?? [];
       const priced = row.variants
         .filter((variant) => variant.priceStatus === PriceStatus.PRICED)
-        .map((variant) => ({
-          variant,
-          pair: customerPricePair(
+        .map((variant) => {
+          const selling = PricingService.resolveLine(
+            variant.price,
+            1,
+            new Prisma.Decimal(0),
+            promotions,
+            { categoryRule, override },
             {
-              price: variant.price,
+              regularPrice: variant.price,
               discountedPrice: variant.discountedPrice,
               discountStartsAt: variant.discountStartsAt,
               discountEndsAt: variant.discountEndsAt,
             },
-            now,
-          ),
-        }));
+          );
+          const regular = roundRialUp(variant.price);
+          return {
+            variant,
+            selling,
+            regular:
+              selling.greaterThan(0) && selling.lessThan(regular)
+                ? regular
+                : null,
+          };
+        })
+        .filter((entry) => entry.selling.greaterThan(0));
       const winner =
         priced.length === 0
           ? null
           : priced.reduce((min, candidate) =>
-              candidate.pair.selling.lessThan(min.pair.selling) ? candidate : min,
+              candidate.selling.lessThan(min.selling) ? candidate : min,
             );
       const rating = ratingsByProduct.get(row.id) ?? { average: null, count: 0 };
       cards.push({
@@ -1896,8 +1951,8 @@ export class PublicCatalogService {
         condition: row.condition,
         brand: row.brand,
         category: row.category,
-        priceFrom: winner?.pair.selling.toString() ?? '',
-        regularPrice: winner?.pair.regular?.toString() ?? null,
+        priceFrom: winner?.selling.toString() ?? '',
+        regularPrice: winner?.regular?.toString() ?? null,
         callForPrice: winner === null,
         promotionEndsAt: promotionEndsAtByProduct.get(row.id) ?? null,
         variantCount: row.variants.length,

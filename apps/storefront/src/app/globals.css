@@ -632,3 +632,9 @@ summary:focus-visible,
     background-color: var(--ss-scrollbar-hover);
   }
 }
+
+/* Safe-area pad for full-height mobile drawers. Kept as a named utility so
+   Turbopack never has to parse a comma/parenthesised arbitrary variant. */
+.pb-safe {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}

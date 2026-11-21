@@ -184,7 +184,7 @@ export function MobileMenu({
 
                 <nav
                   aria-label="ناوبری دسته‌بندی‌ها"
-                  className="flex-1 overscroll-contain overflow-y-auto px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
+                  className="flex-1 overscroll-contain overflow-y-auto px-4 py-4 pb-safe"
                 >
                   <div className="flex min-h-8 items-center gap-2">
                     {current ? (

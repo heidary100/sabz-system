@@ -11,5 +11,5 @@ export default defineConfig([
       globals: { self: 'readonly', clients: 'readonly' },
     },
   },
-  globalIgnores(['.next/**', 'out/**', 'build/**', 'next-env.d.ts']),
+  globalIgnores(['.next/**', '.next-dev/**', 'out/**', 'build/**', 'next-env.d.ts']),
 ]);

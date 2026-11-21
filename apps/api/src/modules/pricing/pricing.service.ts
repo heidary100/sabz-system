@@ -360,6 +360,145 @@ export class PricingService {
   }
 
   /**
+   * Batched overrides for a listing page. Same active/window/validity rules as
+   * `productOverrideFor`, one query instead of N.
+   */
+  async productOverridesFor(
+    productIds: string[],
+    now = new Date(),
+  ): Promise<Map<string, ProductOverride | null>> {
+    const result = new Map<string, ProductOverride | null>();
+    if (productIds.length === 0) {
+      return result;
+    }
+    try {
+      const rows = await this.prisma.productPriceOverride.findMany({
+        where: { productId: { in: productIds } },
+        select: {
+          productId: true,
+          type: true,
+          value: true,
+          overridePrice: true,
+          isActive: true,
+          startsAt: true,
+          endsAt: true,
+        },
+      });
+      const byProduct = new Map(rows.map((row) => [row.productId, row]));
+      for (const productId of productIds) {
+        const row = byProduct.get(productId);
+        if (
+          !row ||
+          !row.isActive ||
+          (row.startsAt !== null && row.startsAt > now) ||
+          (row.endsAt !== null && row.endsAt < now)
+        ) {
+          result.set(productId, null);
+          continue;
+        }
+        if (row.overridePrice !== null) {
+          const absolute = new Prisma.Decimal(row.overridePrice.toString());
+          result.set(
+            productId,
+            absolute.greaterThan(0)
+              ? { type: null, value: null, overridePrice: absolute }
+              : null,
+          );
+          continue;
+        }
+        result.set(
+          productId,
+          row.type !== null &&
+            row.value !== null &&
+            isValidAdjustment(row.type, row.value)
+            ? { type: row.type, value: row.value, overridePrice: null }
+            : null,
+        );
+      }
+      return result;
+    } catch {
+      return result;
+    }
+  }
+
+  /**
+   * Batched active promotions for listing/detail cards. Scope matching mirrors
+   * `activePromotionsFor`; one query per page.
+   */
+  async activePromotionsByProduct(
+    scopes: PriceScope[],
+    now = new Date(),
+  ): Promise<Map<string, PromotionRow[]>> {
+    const result = new Map<string, PromotionRow[]>();
+    if (scopes.length === 0) {
+      return result;
+    }
+    try {
+      const productIds = [...new Set(scopes.map((scope) => scope.productId))];
+      const categoryIds = [
+        ...new Set(
+          scopes
+            .map((scope) => scope.categoryId)
+            .filter((value): value is string => value !== null),
+        ),
+      ];
+      const brandIds = [
+        ...new Set(
+          scopes
+            .map((scope) => scope.brandId)
+            .filter((value): value is string => value !== null),
+        ),
+      ];
+      const rows = await this.prisma.promotion.findMany({
+        where: {
+          isActive: true,
+          startsAt: { lte: now },
+          endsAt: { gte: now },
+          OR: [
+            { productId: { in: productIds } },
+            ...(categoryIds.length > 0
+              ? [{ categoryId: { in: categoryIds } }]
+              : []),
+            ...(brandIds.length > 0 ? [{ brandId: { in: brandIds } }] : []),
+            { productId: null, categoryId: null, brandId: null },
+          ],
+        },
+        select: {
+          type: true,
+          value: true,
+          productId: true,
+          categoryId: true,
+          brandId: true,
+          minQuantity: true,
+          endsAt: true,
+        },
+      });
+      for (const scope of scopes) {
+        result.set(
+          scope.productId,
+          rows.filter(
+            (row) =>
+              row.productId === scope.productId ||
+              (row.productId === null &&
+                row.categoryId !== null &&
+                row.categoryId === scope.categoryId) ||
+              (row.productId === null &&
+                row.categoryId === null &&
+                row.brandId !== null &&
+                row.brandId === scope.brandId) ||
+              (row.productId === null &&
+                row.categoryId === null &&
+                row.brandId === null),
+          ),
+        );
+      }
+      return result;
+    } catch {
+      return result;
+    }
+  }
+
+  /**
    * Full server-side resolution for one line:
    *   regular price → active product sale OR (category rule → override)
    *   → partner price/tier → bulk → best promotion.
@@ -512,7 +651,10 @@ function applyAdjustment(
   if (adjustment.type === 'PERCENT') {
     return applyPercentOff(price, new Prisma.Decimal(adjustment.value.toString()));
   }
-  return price.sub(new Prisma.Decimal(adjustment.value.toString()));
+  const discounted = price.sub(new Prisma.Decimal(adjustment.value.toString()));
+  // A fixed discount at/above the running price is invalid for this line.
+  // Skip it rather than publishing a zero/free price.
+  return discounted.lessThanOrEqualTo(0) ? price : discounted;
 }
 
 /**
@@ -578,7 +720,7 @@ function applyBestPromotion(
       candidate = applyPercentOff(price, v);
     } else {
       const v = new Prisma.Decimal(promo.value.toString());
-      if (!v.isFinite() || v.lessThanOrEqualTo(0)) {
+      if (!v.isFinite() || v.lessThanOrEqualTo(0) || v.greaterThanOrEqualTo(price)) {
         continue;
       }
       candidate = price.sub(v);

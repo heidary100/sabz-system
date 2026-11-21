@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import Script from 'next/script';
 import '@fontsource-variable/vazirmatn';
 import './globals.css';
 import { brand } from '@/lib/brand';
@@ -76,12 +77,15 @@ export default async function RootLayout({
 
   return (
     <html lang="fa" dir="rtl" suppressHydrationWarning>
-      <body className="flex min-h-dvh flex-col bg-bg font-sans text-fg antialiased">
+      <head>
         {/* Applies the persisted/system theme before page content paints. */}
-        <script
-          suppressHydrationWarning
+        <Script
+          id="theme-boot"
+          strategy="beforeInteractive"
           dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }}
         />
+      </head>
+      <body className="flex min-h-dvh flex-col bg-bg font-sans text-fg antialiased">
         <a
           href="#main"
           className="sr-only focus:not-sr-only focus:absolute focus:start-4 focus:top-4 focus:z-50 focus:rounded-control focus:bg-accent focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-on-accent"

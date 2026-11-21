@@ -235,6 +235,9 @@ services:
       # STOREFRONT_REVALIDATE_TOKEN. When unset the endpoint refuses all
       # requests (503).
       REVALIDATE_TOKEN: ${REVALIDATE_TOKEN:-dev_revalidate_secret_change_me}
+      # Keep dev output separate from the production `.next` build so running
+      # `pnpm build` on the host never corrupts the live dev compiler cache.
+      NEXT_DIST_DIR: ${NEXT_DIST_DIR:-.next-dev}
     command: ["pnpm", "--filter", "@sabz/storefront", "dev", "--hostname", "0.0.0.0"]
     volumes:
       - ./apps/storefront:/app/apps/storefront

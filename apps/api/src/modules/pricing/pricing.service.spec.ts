@@ -80,11 +80,11 @@ describe('PricingService (SS-235)', () => {
       expect(result.toString()).toBe('8000000');
     });
 
-    it('never returns a negative price (PRICE-005)', () => {
+    it('never publishes a free/negative price: an oversized fixed discount is skipped', () => {
       const result = PricingService.resolveLine(D(1000000), 1, D(0), [
         promo({ type: 'FIXED', value: D(5000000) }),
       ]);
-      expect(result.toString()).toBe('0');
+      expect(result.toString()).toBe('1000000');
     });
 
     it('rounds the customer-facing unit UP to 100,000 Rial', () => {

@@ -42,6 +42,9 @@ describe('PublicCatalogService listing facets', () => {
       {
         promotionEndsAtByProduct: jest.fn().mockResolvedValue(new Map()),
         activePromotionsFor: jest.fn().mockResolvedValue([]),
+        categoryRuleFor: jest.fn().mockResolvedValue(null),
+        productOverridesFor: jest.fn().mockResolvedValue(new Map()),
+        activePromotionsByProduct: jest.fn().mockResolvedValue(new Map()),
       } as unknown as PricingService,
       {} as unknown as AttributesService,
     );

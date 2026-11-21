@@ -141,7 +141,7 @@ export function SearchOverlay({
               <div
                 className={
                   mobile
-                    ? 'relative h-dvh overflow-y-auto overscroll-contain bg-surface p-4 pt-16 pb-[max(1rem,env(safe-area-inset-bottom))]'
+                    ? 'relative h-dvh overflow-y-auto overscroll-contain bg-surface p-4 pt-16 pb-safe'
                     : 'animate-zoom-in relative mx-auto mt-24 w-[min(40rem,calc(100vw-2rem))] origin-top rounded-panel border border-border bg-surface p-6 shadow-overlay'
                 }
               >
