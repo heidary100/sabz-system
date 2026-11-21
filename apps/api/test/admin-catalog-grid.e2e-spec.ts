@@ -289,7 +289,7 @@ describe('Admin catalog grid API (SS-257) (e2e)', () => {
       expect(row.categoryName).not.toBeNull();
       expect(row.thumbnailUrl).toBeNull();
       expect(row.stock).toBe(0);
-      expect(row.stockEditable).toBe(false);
+      expect(row.stockEditable).toBe(true);
       expect(typeof row.expectedUpdatedAt).toBe('string');
       expect(new Date(row.expectedUpdatedAt).toISOString()).toBe(
         row.expectedUpdatedAt,
@@ -739,7 +739,7 @@ describe('Admin catalog grid API (SS-257) (e2e)', () => {
       expect(movement!.type).toBe('MANUAL_ADJUSTMENT');
     });
 
-    it('rejects stock edits on multi-warehouse and item-less variants with field errors', async () => {
+    it('rejects multi-warehouse stock edits but creates the first row for item-less variants', async () => {
       const operator = await createUser('OPERATOR');
       const productId = await createProduct();
       const multi = await createVariant(productId);
@@ -761,8 +761,14 @@ describe('Admin catalog grid API (SS-257) (e2e)', () => {
         .expect(200);
       expect(res.body.results[0].outcome).toBe('VALIDATION_ERROR');
       expect(res.body.results[0].fieldErrors.stock).toBeTruthy();
-      expect(res.body.results[1].outcome).toBe('VALIDATION_ERROR');
-      expect(res.body.results[1].fieldErrors.stock).toBeTruthy();
+      expect(res.body.results[1].outcome).toBe('SUCCESS');
+      expect(res.body.results[1].stock).toBe(5);
+
+      const created = await prisma.inventoryItem.findMany({
+        where: { variantId: itemless.id },
+      });
+      expect(created).toHaveLength(1);
+      expect(created[0]!.quantityOnHand).toBe(5);
 
       // Rows are independent: the valid price row in the same request still applies.
       const priceRow = await createVariant(productId);

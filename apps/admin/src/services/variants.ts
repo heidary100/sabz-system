@@ -19,6 +19,10 @@ export function createVariant(
   })
 }
 
+export function getVariant(id: string): Promise<VariantSummary> {
+  return request<VariantSummary>(`/admin/variants/${id}`)
+}
+
 export function updateVariant(
   id: string,
   input: UpdateVariantInput,

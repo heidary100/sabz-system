@@ -6,6 +6,7 @@ import {
   Prisma,
   ProductMediaType,
   ProductStatus,
+  WarehouseStatus,
 } from '@prisma/client';
 import type {
   CatalogGridBatchRowInput,
@@ -582,7 +583,10 @@ export class CatalogGridService {
             }
           : null,
       stock: stockTotals.get(row.id) ?? 0,
-      stockEditable: (itemCounts.get(row.id) ?? 0) === 1,
+      // Editable when there is at most one warehouse row. Zero rows is a
+      // valid state for a newly created variant and the batch writer creates
+      // the row in the default active warehouse on first stock entry.
+      stockEditable: (itemCounts.get(row.id) ?? 0) <= 1,
       expectedUpdatedAt: row.updatedAt.toISOString(),
       productUpdatedAt: row.product.updatedAt.toISOString(),
     };
@@ -1076,21 +1080,9 @@ export class CatalogGridService {
             where: { variantId: variant.id, ...activeInventoryWhere() },
             select: { id: true, warehouseId: true, quantityOnHand: true },
           });
-          if (items.length === 0) {
-            const message = 'این نوع ردیف موجودی قابل ویرایش ندارد.';
-            return {
-              result: {
-                variantId: row.variantId,
-                outcome: 'VALIDATION_ERROR',
-                message,
-                fieldErrors: { stock: message },
-              },
-              productSlug: null,
-            };
-          }
           if (items.length > 1) {
             const message =
-              'این نوع در چند انبار موجودی دارد؛ ویرایش موجودی آن از صفحه انبار نوع انجام میشود.';
+              'این نوع در چند انبار موجودی دارد؛ ویرایش موجودی آن از صفحه انبار نوع انجام می‌شود.';
             return {
               result: {
                 variantId: row.variantId,
@@ -1102,15 +1094,40 @@ export class CatalogGridService {
             };
           }
 
-          const item = items[0]!;
+          // A newly created variant has no inventory row yet. Entering stock
+          // in the grid creates the first row in the default active warehouse
+          // (lowest warehouse code); the same movement/audit core is reused.
+          let warehouseId = items[0]?.warehouseId ?? null;
+          if (warehouseId === null) {
+            const warehouse = await tx.warehouse.findFirst({
+              where: { deletedAt: null, status: WarehouseStatus.ACTIVE },
+              select: { id: true },
+              orderBy: [{ code: 'asc' }, { id: 'asc' }],
+            });
+            if (!warehouse) {
+              const message =
+                'هیچ انبار فعالی وجود ندارد؛ ابتدا یک انبار فعال بسازید.';
+              return {
+                result: {
+                  variantId: row.variantId,
+                  outcome: 'VALIDATION_ERROR',
+                  message,
+                  fieldErrors: { stock: message },
+                },
+                productSlug: null,
+              };
+            }
+            warehouseId = warehouse.id;
+          }
+
           const applied = await this.inventoryService.applyAbsoluteSet(tx, {
             variantId: variant.id,
-            warehouseId: item.warehouseId,
+            warehouseId,
             requested: row.stock,
             reason: GRID_ADJUST_REASON,
             notes: null,
             actorId,
-            createIfMissing: false,
+            createIfMissing: true,
           });
           appliedStock = applied.onHandAfter;
 
@@ -1123,7 +1140,7 @@ export class CatalogGridService {
               before: null,
               after: {
                 variantId: variant.id,
-                warehouseId: item.warehouseId,
+                warehouseId,
                 requestedQuantity: row.stock,
                 delta: applied.delta,
                 reason: GRID_ADJUST_REASON,

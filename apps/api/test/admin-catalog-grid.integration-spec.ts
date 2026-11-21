@@ -232,6 +232,54 @@ describe('Admin catalog grid batch database integration (SS-257)', () => {
     ]);
   });
 
+  it('creates the first inventory row when a new variant has no stock yet', async () => {
+    const productId = await createProduct();
+    const variant = await createVariant(productId, { price: '100000.00' });
+    await createWarehouse();
+
+    const before = await prisma.inventoryItem.count({
+      where: { variantId: variant.id },
+    });
+    expect(before).toBe(0);
+
+    const response = await gridService.batch(
+      {
+        rows: [
+          {
+            variantId: variant.id,
+            expectedUpdatedAt: variant.updatedAt.toISOString(),
+            stock: 7,
+          },
+        ],
+      },
+      ACTOR_ID,
+    );
+
+    expect(response.results[0]!.outcome).toBe('SUCCESS');
+    expect(response.results[0]!.stock).toBe(7);
+
+    const items = await prisma.inventoryItem.findMany({
+      where: { variantId: variant.id },
+    });
+    expect(items).toHaveLength(1);
+    createdItemIds.push(items[0]!.id);
+    expect(items[0]!.quantityOnHand).toBe(7);
+
+    const movements = await prisma.inventoryMovement.findMany({
+      where: { variantId: variant.id },
+    });
+    expect(movements).toHaveLength(1);
+    expect(movements[0]).toMatchObject({
+      onHandBefore: 0,
+      onHandAfter: 7,
+      reason: 'ویرایش از شبکه کاتالوگ',
+    });
+
+    const list = await gridService.list({ sku: variant.sku });
+    expect(list.items[0]!.stock).toBe(7);
+    expect(list.items[0]!.stockEditable).toBe(true);
+  });
+
   it('a stale stock-only row conflicts without writing while a fresh row in the same batch applies', async () => {
     const productId = await createProduct();
     const staleVariant = await createVariant(productId);
