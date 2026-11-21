@@ -249,7 +249,7 @@ export function ReturnRequestForm({ id }: { id: string }) {
           rows={4}
           maxLength={1000}
           placeholder="لطفاً دلیل برگشت کالا را بنویسید…"
-          className="mt-2 w-full rounded-control border border-border-control bg-surface px-3 py-2 text-sm leading-6 text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none"
+          className="mt-2 w-full rounded-control border border-border-control bg-surface px-3 py-2 text-sm leading-6 text-fg placeholder:text-fg-muted focus:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
         />
         {reasonError !== null ? (
           <p role="alert" className="mt-2 text-xs text-danger">{reasonError}</p>

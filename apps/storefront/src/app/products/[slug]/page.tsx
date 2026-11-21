@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { brand } from '@/lib/brand';
-import { fetchProductBySlug, mediaImageUrl } from '@/lib/catalog';
+import { fetchProductBySlug, mediaUrl } from '@/lib/catalog';
 import { conditionLabel } from '@/lib/condition';
 import { selectOgImage } from '@/lib/product-seo';
 import { seoDescriptionFromHtml } from '@/lib/seo';
@@ -45,7 +45,7 @@ export async function generateMetadata({
     product.shortDescription ??
     seoDescriptionFromHtml(product.description);
   const canonical = `/products/${product.slug}`;
-  const ogImageUrl = mediaImageUrl(selectOgImage(product.media)?.url);
+  const ogImageUrl = publicMediaUrl(selectOgImage(product.media)?.url);
   return {
     title,
     description: description || undefined,
@@ -56,9 +56,25 @@ export async function generateMetadata({
       url: canonical,
       siteName: brand.nameFa,
       locale: 'fa_IR',
-      ...(ogImageUrl ? { images: [{ url: ogImageUrl }] } : {}),
+      type: 'website',
+      ...(ogImageUrl
+        ? { images: [{ url: ogImageUrl, alt: title }] }
+        : {}),
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description: description || undefined,
+      ...(ogImageUrl ? { images: [ogImageUrl] } : {}),
     },
   };
+}
+
+/** Absolute, crawler-accessible media URL (never the compose-internal host). */
+function publicMediaUrl(path: string | null | undefined): string | null {
+  const url = mediaUrl(path);
+  if (!url) return null;
+  return /^https?:/i.test(url) ? url : absoluteUrl(url);
 }
 
 /**
@@ -115,7 +131,7 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
     shortDescription: product.shortDescription,
     brandName: product.brand?.name ?? null,
     variantName: selectedVariant?.name ?? null,
-    imageUrl: mediaImageUrl(
+    imageUrl: publicMediaUrl(
       product.media.find((item) => item.mediaType === 'IMAGE')?.thumbnailUrl ??
         product.media.find((item) => item.mediaType === 'IMAGE')?.url ??
         null,
@@ -131,7 +147,7 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
   });
   const jsonLdImages = product.media
     .filter((item) => item.mediaType === 'IMAGE')
-    .map((item) => mediaImageUrl(item.url))
+    .map((item) => publicMediaUrl(item.url))
     .filter((url): url is string => url !== null);
 
   return (

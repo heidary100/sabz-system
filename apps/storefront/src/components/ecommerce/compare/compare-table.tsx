@@ -119,13 +119,13 @@ export function CompareTable({
                 >
                   <div className="flex flex-col items-center gap-2">
                     {image ? (
-                      <span className="relative block aspect-square w-28 overflow-hidden rounded-control bg-surface-2">
+                      <span className="relative block aspect-square w-28 overflow-hidden rounded-control bg-transparent ring-1 ring-inset ring-border/60">
                         <Image
                           src={image}
                           alt=""
                           fill
                           sizes="112px"
-                          className="object-cover"
+                          className="object-contain p-1"
                         />
                       </span>
                     ) : null}

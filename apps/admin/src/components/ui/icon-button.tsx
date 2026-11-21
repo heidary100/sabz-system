@@ -26,7 +26,7 @@ export function IconButton({
         outline
           ? 'border-zinc-950/10 text-zinc-600 data-hover:bg-zinc-950/5 data-hover:text-zinc-950 dark:border-white/15 dark:text-zinc-400 dark:data-hover:bg-white/10 dark:data-hover:text-white'
           : 'border-transparent text-zinc-500 data-hover:bg-zinc-950/5 data-hover:text-zinc-950 dark:text-zinc-400 dark:data-hover:bg-white/10 dark:data-hover:text-white',
-        'focus:not-data-focus:outline-hidden data-focus:outline-2 data-focus:outline-offset-2 data-focus:outline-blue-500',
+        'focus:not-data-focus:outline-hidden data-focus:outline-2 data-focus:outline-offset-2 data-focus:outline-focus-ring',
       )}
     >
       <span

@@ -5,10 +5,12 @@ import { AuditModule } from '../audit/audit.module';
 import { AuthModule } from '../auth/auth.module';
 import { InventoryModule } from '../inventory/inventory.module';
 import { PricingModule } from '../pricing/pricing.module';
+import { CurrencyModule } from '../currency/currency.module';
 import { BrandsController } from './brands.controller';
 import { BrandsService } from './brands.service';
 import { CategoriesController } from './categories.controller';
 import { CategoriesService } from './categories.service';
+import { CategoryImageService } from './category-image.service';
 import { ProductsController } from './products.controller';
 import { ProductsService } from './products.service';
 import { AdminAttributesController } from './attributes-admin.controller';
@@ -69,7 +71,7 @@ export const PRODUCT_MEDIA_TEMP_DIR = 'PRODUCT_MEDIA_TEMP_DIR';
  * the shared AuditService.
  */
 @Module({
-  imports: [AuthModule, AuditModule, InventoryModule, PricingModule],
+  imports: [AuthModule, AuditModule, InventoryModule, PricingModule, CurrencyModule],
   controllers: [
     AdminBulkAttributesController,
     AdminProductAttributesController,
@@ -93,6 +95,7 @@ export const PRODUCT_MEDIA_TEMP_DIR = 'PRODUCT_MEDIA_TEMP_DIR';
   providers: [
     ProductsService,
     CategoriesService,
+    CategoryImageService,
     BrandsService,
     VariantsService,
     CatalogGridService,

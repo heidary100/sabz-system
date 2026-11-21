@@ -14,10 +14,8 @@ import { MessageCircle,
   Package,
   PanelRightClose,
   PanelRightOpen,
-  Percent,
   ShieldCheck,
   ShoppingCart,
-  Sprout,
   Star,
   Tag,
   Undo2,
@@ -30,6 +28,8 @@ import { useEffect } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { Button } from '../catalyst/button'
 import { Tooltip } from '../ui/tooltip'
+import { AdminBrandLockup } from './admin-brand-lockup'
+import { PwaInstallButton } from '../pwa/pwa-install-button'
 
 const SIDEBAR_STORAGE_KEY = 'sabz-admin-sidebar'
 
@@ -48,7 +48,6 @@ export const NAV_ITEMS: Array<{ to: string; label: string; icon: LucideIcon }> =
   { to: '/chat', label: 'گفتگوی پشتیبانی', icon: MessageCircle },
   { to: '/currency', label: 'نرخ ارز', icon: Coins },
   { to: '/settings/footer', label: 'پاورقی فروشگاه', icon: PanelRightOpen },
-  { to: '/pricing', label: 'قیمت‌گذاری', icon: Percent },
   { to: '/rfq', label: 'استعلام‌ها', icon: FileText },
   { to: '/reviews', label: 'نقدها', icon: Star },
   { to: '/blog', label: 'وبلاگ', icon: Newspaper },
@@ -56,6 +55,21 @@ export const NAV_ITEMS: Array<{ to: string; label: string; icon: LucideIcon }> =
   { to: '/users', label: 'کاربران', icon: Users },
   { to: '/roles', label: 'نقش‌ها', icon: ShieldCheck },
   { to: '/audit', label: 'گزارش فعالیت‌ها', icon: ClipboardList },
+]
+
+const NAV_GROUPS: Array<{ label: string; tos: string[] }> = [
+  { label: 'نمای کلی', tos: ['/dashboard'] },
+  {
+    label: 'کاتالوگ',
+    tos: ['/merchandising', '/products', '/categories', '/attributes', '/brands', '/inventory', '/warehouses'],
+  },
+  { label: 'فروش', tos: ['/orders', '/returns', '/rfq'] },
+  { label: 'پشتیبانی', tos: ['/notifications', '/chat'] },
+  { label: 'محتوا', tos: ['/reviews', '/blog'] },
+  {
+    label: 'تنظیمات و دسترسی',
+    tos: ['/currency', '/settings/footer', '/partners', '/users', '/roles', '/audit'],
+  },
 ]
 
 export function readSidebarPreference(): boolean {
@@ -82,14 +96,7 @@ function BrandArea({ collapsed }: { collapsed: boolean }) {
         collapsed && 'justify-center px-0',
       )}
     >
-      <span className={clsx('flex items-center gap-2.5', collapsed && 'justify-center')}>
-        <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary-strong text-on-primary shadow-sm ring-1 ring-primary-border">
-          <Sprout className="size-5" aria-hidden="true" />
-        </span>
-        {!collapsed && (
-          <span className="truncate text-sm font-bold text-foreground">پنل مدیریت سبز</span>
-        )}
-      </span>
+      <AdminBrandLockup collapsed={collapsed} />
     </div>
   )
 }
@@ -101,7 +108,7 @@ function NavLinkItem({ item, collapsed }: { item: (typeof NAV_ITEMS)[number]; co
       aria-label={collapsed ? item.label : undefined}
       className={({ isActive }) =>
         clsx(
-          'group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold transition duration-150',
+          'group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold transition duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring',
           collapsed && 'justify-center px-0',
           isActive
             ? 'bg-primary-subtle text-primary shadow-[inset_0_0_0_1px_var(--color-primary-border)]'
@@ -158,13 +165,29 @@ export function Sidebar({
     (item) => isAdmin || (item.to !== '/roles' && item.to !== '/warehouses'),
   )
 
-  const renderNav = (drawerCollapsed: boolean) => (
-    <nav aria-label="ناوبری اصلی" className="flex flex-1 flex-col gap-1 overflow-y-auto p-3">
-      {visibleItems.map((item) => (
-        <NavLinkItem key={item.to} item={item} collapsed={drawerCollapsed} />
-      ))}
-    </nav>
-  )
+  const renderNav = (drawerCollapsed: boolean) => {
+    const grouped = NAV_GROUPS.map((group) => ({
+      ...group,
+      items: visibleItems.filter((item) => group.tos.includes(item.to)),
+    })).filter((group) => group.items.length > 0)
+
+    return (
+      <nav aria-label="ناوبری اصلی" className="flex flex-1 flex-col gap-3 overflow-y-auto p-3">
+        {grouped.map((group) => (
+          <div key={group.label} className="space-y-1">
+            {!drawerCollapsed && (
+              <p className="px-3 pt-1 text-[10px] font-semibold tracking-wide text-muted">
+                {group.label}
+              </p>
+            )}
+            {group.items.map((item) => (
+              <NavLinkItem key={item.to} item={item} collapsed={drawerCollapsed} />
+            ))}
+          </div>
+        ))}
+      </nav>
+    )
+  }
 
   return (
     <>
@@ -208,12 +231,7 @@ export function Sidebar({
             className="rule-double-edge glass flex h-full w-72 max-w-[85vw] translate-x-0 flex-col transition duration-300 ease-out data-closed:translate-x-full data-enter:ease-out data-leave:ease-in"
           >
             <div className="flex h-16 shrink-0 items-center justify-between border-b border-border ps-4 pe-2">
-              <span className="flex items-center gap-2.5">
-                <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary-strong text-on-primary shadow-sm ring-1 ring-primary-border">
-                <Sprout className="size-5" aria-hidden="true" />
-              </span>
-                <span className="truncate text-sm font-bold text-foreground">پنل مدیریت سبز</span>
-              </span>
+              <AdminBrandLockup />
               <Button
                 plain
                 className="shrink-0"
@@ -224,6 +242,9 @@ export function Sidebar({
               </Button>
             </div>
             {renderNav(false)}
+            <div className="shrink-0 border-t border-border p-3">
+              <PwaInstallButton mobile />
+            </div>
           </Headless.DialogPanel>
         </div>
       </Headless.Dialog>

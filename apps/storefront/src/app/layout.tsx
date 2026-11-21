@@ -11,6 +11,7 @@ import { SiteHeader } from '@/components/ecommerce/header/site-header';
 import { SiteFooter } from '@/components/ecommerce/footer/site-footer';
 import { ThemeProvider } from '@/components/ecommerce/theme/theme-provider';
 import { StoreNotificationProvider } from '@/components/ecommerce/notifications/notification-provider';
+import { Suspense } from 'react';
 import { ChatWidget } from '@/components/ecommerce/chat/chat-widget';
 import { THEME_BOOT_SCRIPT } from '@/lib/theme';
 import { fetchFooterSettings } from '@/lib/settings';
@@ -23,8 +24,16 @@ export const metadata: Metadata = {
   },
   description: 'فروشگاه آنلاین کالای دیجیتال و لوازم جانبی — خرده و عمده.',
   icons: {
-    icon: [{ url: brand.icons.icon32, sizes: '32x32', type: 'image/png' }],
+    icon: [
+      { url: brand.icons.icon16, sizes: '16x16', type: 'image/png' },
+      { url: brand.icons.icon32, sizes: '32x32', type: 'image/png' },
+    ],
     apple: [{ url: brand.icons.appleTouchIcon, sizes: '180x180' }],
+  },
+  appleWebApp: {
+    capable: true,
+    title: brand.nameFa,
+    statusBarStyle: 'default',
   },
   openGraph: {
     title: 'سبز سیستم',
@@ -90,7 +99,9 @@ export default async function RootLayout({
                   {children}
                 </main>
                 <SiteFooter categories={categories} settings={footerSettings} />
-                <ChatWidget />
+                <Suspense fallback={null}>
+                  <ChatWidget />
+                </Suspense>
               </StoreNotificationProvider>
             </CompareProvider>
           </CartProvider>

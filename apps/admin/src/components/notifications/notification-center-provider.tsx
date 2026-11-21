@@ -214,6 +214,7 @@ export function NotificationCenterProvider({ children }: { children: ReactNode }
     socket.on('chat:message', onChat)
     socket.on('chat:read', onChat)
     socket.on('chat:closed', onChat)
+      socket.on('chat:context', onChat)
 
     const onVisible = () => {
       if (document.visibilityState === 'visible') {
@@ -235,6 +236,7 @@ export function NotificationCenterProvider({ children }: { children: ReactNode }
       socket.off('chat:message', onChat)
       socket.off('chat:read', onChat)
       socket.off('chat:closed', onChat)
+      socket.off('chat:context', onChat)
       socket.disconnect()
       socketRef.current = null
       document.removeEventListener('visibilitychange', onVisible)

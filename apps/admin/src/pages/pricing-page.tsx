@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Pencil, Percent, Plus, Trash2 } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Coins, Pencil, Percent, Plus, Trash2 } from 'lucide-react'
 import { StatusBadge } from '../components/ui/status-badge'
 import { Button } from '../components/catalyst/button'
 import { Field, Label } from '../components/catalyst/fieldset'
@@ -200,7 +201,7 @@ function SectionShell({
         <div className="flex items-center justify-center gap-3 py-4" role="status">
           <span
             aria-hidden="true"
-            className="size-5 animate-spin rounded-full border-2 border-hunter-800 border-t-primary"
+            className="size-5 animate-spin rounded-full border-2 border-border border-t-primary"
           />
           <span className="text-sm font-medium text-muted">در حال بارگذاری…</span>
         </div>
@@ -334,12 +335,21 @@ export function PricingPage() {
   return (
     <div className="w-full space-y-6">
       <PageHeader
-        title="قیمت‌گذاری"
+        title="قیمت‌گذاری محصولات"
+        subtitle="قوانین دسته‌بندی، اورراید محصول، پروموشن و پله همکاری؛ همه در فضای محصولات."
         actions={
-          <Button color="primary" onClick={openCreate}>
-            <Plus data-slot="icon" />
-            {CREATE_LABELS[tab]}
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link to="/currency">
+              <Button outline>
+                <Coins data-slot="icon" />
+                نرخ ارز دستی
+              </Button>
+            </Link>
+            <Button color="primary" onClick={openCreate}>
+              <Plus data-slot="icon" />
+              {CREATE_LABELS[tab]}
+            </Button>
+          </div>
         }
       />
 

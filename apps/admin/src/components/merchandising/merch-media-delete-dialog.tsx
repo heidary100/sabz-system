@@ -125,7 +125,7 @@ export function MerchMediaDeleteDialog({
           >
             <span
               aria-hidden="true"
-              className="size-5 animate-spin rounded-full border-2 border-hunter-800 border-t-primary motion-reduce:animate-none"
+              className="size-5 animate-spin rounded-full border-2 border-border border-t-primary motion-reduce:animate-none"
             />
             <span className="text-sm font-medium text-muted">
               در حال بررسی استفاده رسانه…

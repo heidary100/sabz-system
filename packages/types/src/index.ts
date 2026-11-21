@@ -241,6 +241,7 @@ export {
   OpenChatConversationInput,
   SendChatMessageInput,
   UpdateChatConversationInput,
+  UpdateChatContextInput,
 } from './chat/chat';
 
 export {

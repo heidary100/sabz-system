@@ -13,6 +13,7 @@ import { SITE_FOOTER_TAG } from '../../common/storefront-cache/catalog-tags';
 import { StorefrontCacheService } from '../../common/storefront-cache/storefront-cache.service';
 import { AuditService } from '../audit/audit.service';
 import type { FooterLinkDto, FooterSettingsDto } from './dto/footer.dto';
+import { DEFAULT_FOOTER } from './footer-defaults';
 
 const FOOTER_KEY = 'footer';
 
@@ -36,7 +37,12 @@ export class SettingsService {
       where: { key: FOOTER_KEY },
     });
     if (!row) {
-      return { value: null, updatedAt: null, updatedBy: null, version: 0 };
+      return {
+        value: DEFAULT_FOOTER,
+        updatedAt: null,
+        updatedBy: null,
+        version: 0,
+      };
     }
     const value = this.parseFooter(row.value);
     return {
@@ -116,10 +122,10 @@ export class SettingsService {
     return this.getFooter();
   }
 
-  private parseFooter(value: Prisma.JsonValue): FooterSettings | null {
+  private parseFooter(value: Prisma.JsonValue): FooterSettings {
     try {
       if (!value || typeof value !== 'object' || Array.isArray(value)) {
-        return null;
+        return DEFAULT_FOOTER;
       }
       return normalizeFooter(value as unknown as FooterSettingsDto);
     } catch (error) {
@@ -128,7 +134,7 @@ export class SettingsService {
           error instanceof Error ? error.message : String(error)
         }`,
       );
-      return null;
+      return DEFAULT_FOOTER;
     }
   }
 }
@@ -148,7 +154,7 @@ function normalizeFooter(input: FooterSettingsDto): FooterSettings {
       hours: cleanText(input.contact?.hours, 200),
     },
     socials: (input.socials ?? []).map((link) => normalizeLink(link)),
-    legalLinks: (input.legalLinks ?? []).map((link) => normalizeLink(link, true)),
+    legalLinks: (input.legalLinks ?? []).map((link) => normalizeLink(link)),
     copyright: cleanText(input.copyright, 300),
   };
 }

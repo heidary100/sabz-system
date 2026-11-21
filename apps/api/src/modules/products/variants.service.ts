@@ -3,8 +3,9 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
-import { PriceStatus, Prisma, ProductStatus } from '@prisma/client';
+import { PriceSourceCurrency, PriceStatus, Prisma, ProductStatus } from '@prisma/client';
 import type { VariantSummary } from '@sabz/types';
 import { PrismaService } from '../../common/database/prisma.service';
 import { StorefrontCacheService } from '../../common/storefront-cache/storefront-cache.service';
@@ -13,6 +14,8 @@ import {
   productDetailTag,
 } from '../../common/storefront-cache/catalog-tags';
 import { AuditService } from '../audit/audit.service';
+import { CurrencyService } from '../currency/currency.service';
+import { roundRialUp } from '../../common/money/rial';
 import { recomputeProductMinPrice } from './min-price';
 import { CreateVariantDto, UpdateVariantDto } from './dto';
 
@@ -25,6 +28,12 @@ const variantSelect = {
   price: true,
   compareAtPrice: true,
   priceStatus: true,
+  priceSourceCurrency: true,
+  priceSourceAmount: true,
+  compareAtSourceAmount: true,
+  priceSourceRate: true,
+  priceSourceRateAt: true,
+  priceSourceRateId: true,
   deletedAt: true,
 } satisfies Prisma.ProductVariantSelect;
 
@@ -40,6 +49,7 @@ export class VariantsService {
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
     private readonly storefrontCache: StorefrontCacheService,
+    @Optional() private readonly currency?: CurrencyService,
   ) {}
 
   /** Listing + detail tags of the product a variant mutation touched. */
@@ -79,9 +89,10 @@ export class VariantsService {
     actorId: string,
     ipAddress?: string,
   ): Promise<VariantSummary> {
+    const pricing = await this.resolveCreatePricing(dto);
     this.validatePricing({
-      price: dto.price,
-      compareAtPrice: dto.compareAtPrice ?? null,
+      price: pricing.price,
+      compareAtPrice: pricing.compareAtPrice,
       priceStatus: dto.priceStatus ?? PriceStatus.PRICED,
     });
     try {
@@ -95,9 +106,10 @@ export class VariantsService {
             sku: dto.sku,
             barcode: dto.barcode ?? null,
             name: dto.name ?? null,
-            price: dto.price,
-            compareAtPrice: dto.compareAtPrice ?? null,
+            price: pricing.price,
+            compareAtPrice: pricing.compareAtPrice,
             priceStatus: dto.priceStatus ?? PriceStatus.PRICED,
+            ...this.pricingColumns(pricing),
             createdBy: actorId,
           },
           select: variantSelect,
@@ -144,20 +156,28 @@ export class VariantsService {
     actorId: string,
     ipAddress?: string,
   ): Promise<VariantSummary> {
-    const data = this.buildUpdateData(dto);
-
     try {
       let productSlug: string | null = null;
       const updated = await this.prisma.$transaction(async (tx) => {
         const target = await this.readVariantInTx(tx, variantId);
         productSlug = await this.assertProductForMutation(tx, target.productId);
+        const pricing = await this.resolveUpdatePricing(dto, target);
+        const data: VariantUpdateData = {
+          ...this.buildUpdateData(dto),
+          ...(pricing
+            ? {
+                price: pricing.price,
+                compareAtPrice: pricing.compareAtPrice,
+                ...this.pricingColumns(pricing),
+              }
+            : {}),
+        };
 
         this.validatePricing({
-          price:
-            data.price ?? target.price.toString(),
+          price: pricing?.price ?? target.price.toString(),
           compareAtPrice:
-            data.compareAtPrice !== undefined
-              ? data.compareAtPrice
+            pricing !== null
+              ? pricing.compareAtPrice
               : (target.compareAtPrice?.toString() ?? null),
           priceStatus: data.priceStatus ?? target.priceStatus,
         });
@@ -272,6 +292,125 @@ export class VariantsService {
       price: row.price.toString(),
       compareAtPrice: row.compareAtPrice?.toString() ?? null,
       priceStatus: row.priceStatus,
+      priceSourceCurrency: row.priceSourceCurrency ?? PriceSourceCurrency.RIAL,
+      priceSourceAmount: row.priceSourceAmount?.toString() ?? row.price.toString(),
+      compareAtSourceAmount:
+        row.compareAtSourceAmount?.toString() ??
+        row.compareAtPrice?.toString() ??
+        null,
+      priceSourceRate: row.priceSourceRate?.toString() ?? null,
+      priceSourceRateAt: row.priceSourceRateAt?.toISOString() ?? null,
+    };
+  }
+
+  private pricingColumns(pricing: ResolvedVariantPricing) {
+    return {
+      priceSourceCurrency: pricing.priceSourceCurrency,
+      priceSourceAmount: pricing.priceSourceAmount,
+      compareAtSourceAmount: pricing.compareAtSourceAmount,
+      priceSourceRate: pricing.priceSourceRate,
+      priceSourceRateAt: pricing.priceSourceRateAt,
+      priceSourceRateId: pricing.priceSourceRateId,
+    };
+  }
+
+  private async resolveCreatePricing(
+    dto: CreateVariantDto,
+  ): Promise<ResolvedVariantPricing> {
+    return this.resolvePricing(
+      dto.priceSourceCurrency ?? PriceSourceCurrency.RIAL,
+      dto.price,
+      dto.compareAtPrice ?? null,
+    );
+  }
+
+  private async resolveUpdatePricing(
+    dto: UpdateVariantDto,
+    target: VariantRow,
+  ): Promise<ResolvedVariantPricing | null> {
+    const pricingTouched =
+      dto.price !== undefined ||
+      dto.compareAtPrice !== undefined ||
+      dto.priceSourceCurrency !== undefined;
+    if (!pricingTouched) {
+      return null;
+    }
+    // A partial price edit keeps the variant's existing source currency. Only
+    // an explicit `priceSourceCurrency` switches it (and that switch requires
+    // a price); new variants default to Rial in resolveCreatePricing.
+    const currency =
+      dto.priceSourceCurrency ??
+      target.priceSourceCurrency ??
+      PriceSourceCurrency.RIAL;
+    if (
+      dto.priceSourceCurrency !== undefined &&
+      dto.priceSourceCurrency !== target.priceSourceCurrency &&
+      dto.price === undefined
+    ) {
+      throw new BadRequestException(
+        'برای تغییر واحد پول، مبلغ قیمت را نیز وارد کنید.',
+      );
+    }
+    const sourcePrice =
+      dto.price ??
+      (currency === PriceSourceCurrency.RIAL
+        ? target.price.toString()
+        : (target.priceSourceAmount?.toString() ?? target.price.toString()));
+    const sourceCompare =
+      dto.compareAtPrice !== undefined
+        ? dto.compareAtPrice
+        : currency === PriceSourceCurrency.RIAL
+          ? (target.compareAtPrice?.toString() ?? null)
+          : (target.compareAtSourceAmount?.toString() ??
+            target.compareAtPrice?.toString() ??
+            null);
+    return this.resolvePricing(currency, sourcePrice, sourceCompare);
+  }
+
+  private async resolvePricing(
+    currency: PriceSourceCurrency,
+    sourcePrice: string,
+    sourceCompare: string | null,
+  ): Promise<ResolvedVariantPricing> {
+    const source = parseMoney(sourcePrice, 'قیمت');
+    const sourceCompareAt =
+      sourceCompare === null ? null : parseMoney(sourceCompare, 'قیمت قبل از تخفیف');
+    if (currency === PriceSourceCurrency.RIAL) {
+      return {
+        price: source.toFixed(2),
+        compareAtPrice: sourceCompareAt?.toFixed(2) ?? null,
+        priceSourceCurrency: currency,
+        priceSourceAmount: source.toFixed(2),
+        compareAtSourceAmount: sourceCompareAt?.toFixed(2) ?? null,
+        priceSourceRate: null,
+        priceSourceRateAt: null,
+        priceSourceRateId: null,
+      };
+    }
+    let rate;
+    try {
+      if (!this.currency) {
+        throw new Error('CurrencyService unavailable');
+      }
+      rate = await this.currency.current(currency);
+    } catch {
+      throw new BadRequestException(
+        `نرخ ${currency === 'USD' ? 'دلار' : 'درهم'} ثبت نشده است؛ ابتدا نرخ ارز را در تنظیمات ثبت کنید.`,
+      );
+    }
+    const rateValue = new Prisma.Decimal(rate.rialPerUnit);
+    const rialPrice = roundRialUp(source.mul(rateValue));
+    const rialCompare =
+      sourceCompareAt === null ? null : roundRialUp(sourceCompareAt.mul(rateValue));
+    return {
+      price: rialPrice.toString(),
+      compareAtPrice: rialCompare?.toString() ?? null,
+      priceSourceCurrency: currency,
+      priceSourceAmount: source.toFixed(2),
+      compareAtSourceAmount: sourceCompareAt?.toFixed(2) ?? null,
+      priceSourceRate: rateValue.toString(),
+      priceSourceRateAt: new Date(rate.effectiveAt),
+      priceSourceRateId: rate.id,
     };
   }
 
@@ -394,9 +533,6 @@ export class VariantsService {
     if (dto.sku !== undefined) data.sku = dto.sku;
     if (dto.barcode !== undefined) data.barcode = dto.barcode;
     if (dto.name !== undefined) data.name = dto.name;
-    if (dto.price !== undefined) data.price = dto.price;
-    if (dto.compareAtPrice !== undefined)
-      data.compareAtPrice = dto.compareAtPrice;
     if (dto.priceStatus !== undefined) data.priceStatus = dto.priceStatus;
     return data;
   }
@@ -425,6 +561,21 @@ export class VariantsService {
     if (changed('priceStatus'))
       delta.priceStatus =
         side === 'before' ? target.priceStatus : (data.priceStatus as PriceStatus);
+    if (changed('priceSourceCurrency'))
+      delta.priceSourceCurrency =
+        side === 'before'
+          ? target.priceSourceCurrency
+          : (data.priceSourceCurrency as PriceSourceCurrency);
+    if (changed('priceSourceAmount'))
+      delta.priceSourceAmount =
+        side === 'before'
+          ? target.priceSourceAmount?.toString() ?? null
+          : (data.priceSourceAmount as string | null);
+    if (changed('compareAtSourceAmount'))
+      delta.compareAtSourceAmount =
+        side === 'before'
+          ? target.compareAtSourceAmount?.toString() ?? null
+          : (data.compareAtSourceAmount as string | null);
 
     return delta;
   }
@@ -445,4 +596,33 @@ interface VariantUpdateData {
   price?: string;
   compareAtPrice?: string | null;
   priceStatus?: PriceStatus;
+  priceSourceCurrency?: PriceSourceCurrency;
+  priceSourceAmount?: string | null;
+  compareAtSourceAmount?: string | null;
+  priceSourceRate?: string | null;
+  priceSourceRateAt?: Date | null;
+  priceSourceRateId?: string | null;
+}
+
+interface ResolvedVariantPricing {
+  price: string;
+  compareAtPrice: string | null;
+  priceSourceCurrency: PriceSourceCurrency;
+  priceSourceAmount: string | null;
+  compareAtSourceAmount: string | null;
+  priceSourceRate: string | null;
+  priceSourceRateAt: Date | null;
+  priceSourceRateId: string | null;
+}
+
+function parseMoney(value: string, label: string): Prisma.Decimal {
+  try {
+    const amount = new Prisma.Decimal(value);
+    if (!amount.isFinite() || amount.lessThan(0)) {
+      throw new Error('invalid');
+    }
+    return amount;
+  } catch {
+    throw new BadRequestException(`${label} معتبر نیست.`);
+  }
 }

@@ -12,6 +12,8 @@ export interface CategorySummary {
   parentId: string | null;
   sortOrder: number;
   isVisible: boolean;
+  /** Public editorial category image URL; null/undefined uses the derived cover. */
+  imageUrl?: string | null;
 }
 
 export interface CategoryDetail extends CategorySummary {
@@ -43,6 +45,15 @@ export interface VariantSummary {
   /** Pre-discount reference price (SS-201); null when no sale. */
   compareAtPrice: string | null;
   priceStatus: PriceStatus;
+  /** Operator-entered source currency (SS-900 Part II). */
+  priceSourceCurrency?: 'RIAL' | 'USD' | 'AED';
+  /** Source amount for the regular price; null for legacy rows. */
+  priceSourceAmount?: string | null;
+  /** Source amount for the compare-at price; null when absent. */
+  compareAtSourceAmount?: string | null;
+  /** Manual Rial-per-unit rate snapshot used for the derived Rial price. */
+  priceSourceRate?: string | null;
+  priceSourceRateAt?: string | null;
 }
 
 export interface ProductMediaSummary {

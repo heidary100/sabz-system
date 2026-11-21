@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import clsx from 'clsx'
 import { Link, useNavigate } from 'react-router-dom'
-import { ArrowDown, ArrowUp, ArrowUpDown, Package, Plus, SlidersHorizontal } from 'lucide-react'
+import { ArrowDown, ArrowUp, ArrowUpDown, Package, Percent, Plus, SlidersHorizontal } from 'lucide-react'
 import type {
   CatalogGridRow,
   CatalogGridRowResult,
@@ -610,10 +610,18 @@ export function ProductsPage() {
         title="محصولات"
         subtitle="ویرایش سریع قیمت و موجودی؛ تغییرات با «ذخیره تغییرات» اعمال میشود."
         actions={
-          <Button color="primary" onClick={() => navigate('/products/new')}>
-            <Plus data-slot="icon" />
-            افزودن محصول
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link to="/products/pricing">
+              <Button outline>
+                <Percent data-slot="icon" />
+                قیمت‌گذاری
+              </Button>
+            </Link>
+            <Button color="primary" onClick={() => navigate('/products/new')}>
+              <Plus data-slot="icon" />
+              افزودن محصول
+            </Button>
+          </div>
         }
       />
 
@@ -956,7 +964,7 @@ export function ProductsPage() {
                               height={40}
                               loading="lazy"
                               decoding="async"
-                              className="size-10 rounded-md object-cover"
+                              className="size-10 rounded-md border border-border bg-transparent object-contain p-0.5"
                             />
                           ) : (
                             <div className="flex size-10 items-center justify-center rounded-lg bg-primary-subtle/50 text-primary/60">
@@ -1057,6 +1065,8 @@ export function ProductsPage() {
                         <RowActions
                           productId={row.productId}
                           productName={row.productName}
+                          productSlug={row.productSlug}
+                          productStatus={row.productStatus}
                           sku={row.sku}
                           onDelete={() => setDeleteTarget({ variantId: row.variantId, sku: row.sku })}
                         />

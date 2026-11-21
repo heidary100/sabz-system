@@ -102,7 +102,7 @@ describe('watermark dual-theme legibility (SS-210)', () => {
     expect(config.sizeRatio).toBe(0.17);
     expect(config.minSizePx).toBe(100);
     expect(config.maxSizePx).toBe(240);
-    expect(config.textColor).toBe('#F8F7F5');
+    expect(config.textColor).toBe('#F1F6F2');
     expect(config.lockup).toBe('auto');
     expect(config.logoPath?.endsWith('assets/brand/logo.png')).toBe(true);
     expect(config.thumbnailMode).toBe('smaller');
@@ -127,7 +127,7 @@ describe('watermark dual-theme legibility (SS-210)', () => {
     try {
       const config = resolveWatermarkConfig();
       expect(config.lockup).toBe('auto');
-      expect(config.textColor).toBe('#F8F7F5');
+      expect(config.textColor).toBe('#F1F6F2');
     } finally {
       delete process.env.WATERMARK_LOCKUP;
       delete process.env.WATERMARK_TEXT_COLOR;
@@ -180,10 +180,10 @@ describe('watermark dual-theme legibility (SS-210)', () => {
   });
 
   it('builds a stroked chip so the mark reads on near-black photos', () => {
-    const svg = chipSvg(200, 100, 0.38, 'rgba(248,247,245,0.35)');
-    expect(svg).toContain('stroke="rgba(248,247,245,0.35)"');
-    expect(svg).toContain('rgba(20,26,22,0.38)');
-    expect(hexToRgb('#F8F7F5')).toEqual({ r: 248, g: 247, b: 245 });
+    const svg = chipSvg(200, 100, 0.38, 'rgba(241,246,242,0.35)');
+    expect(svg).toContain('stroke="rgba(241,246,242,0.35)"');
+    expect(svg).toContain('rgba(11,21,16,0.38)');
+    expect(hexToRgb('#F1F6F2')).toEqual({ r: 241, g: 246, b: 242 });
   });
 
   it('produces a valid overlay PNG for every lockup', async () => {

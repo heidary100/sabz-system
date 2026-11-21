@@ -6,8 +6,9 @@ import { useState } from 'react';
 /**
  * Card image with a real load-failure fallback. `next/image` can fail after
  * SSR (missing thumbnail, optimizer error), so the fallback must be a client
- * state swap rather than a null check alone. The image stays on the light
- * plate; no filter or colour transform is applied.
+ * state swap rather than a null check alone. The stage is transparent so a
+ * processed product PNG keeps its alpha channel; no filter or colour
+ * transform is applied.
  */
 export function ProductCardImage({
   src,

@@ -2,8 +2,10 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  Optional,
   UnprocessableEntityException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { ChatConversationStatus, ChatSenderType, Prisma } from '@prisma/client';
 import {
   CHAT_STATUS_FA,
@@ -23,6 +25,7 @@ import type {
   ListChatMessagesQueryDto,
   OpenChatConversationDto,
   SendChatMessageDto,
+  UpdateChatContextDto,
   UpdateChatConversationDto,
 } from './dto/chat.dto';
 
@@ -39,6 +42,10 @@ const conversationSelect = {
   assignedToId: true,
   subject: true,
   contextUrl: true,
+  contextTitle: true,
+  contextKind: true,
+  contextLabel: true,
+  contextUpdatedAt: true,
   lastMessageAt: true,
   lastCustomerMessageAt: true,
   lastAdminMessageAt: true,
@@ -62,6 +69,9 @@ const conversationSelect = {
       senderUserId: true,
       body: true,
       contextUrl: true,
+      contextTitle: true,
+      contextKind: true,
+      contextLabel: true,
       createdAt: true,
       sender: {
         select: {
@@ -93,6 +103,7 @@ export class ChatService {
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationService,
     private readonly realtime: RealtimeService,
+    @Optional() private readonly config?: ConfigService,
   ) {}
 
   async customerState(userId: string): Promise<CustomerChatStateDto> {
@@ -107,19 +118,23 @@ export class ChatService {
     userId: string,
     input: OpenChatConversationDto,
   ): Promise<CustomerChatConversationDto> {
-    const contextUrl = sanitizeContextUrl(input.contextUrl);
+    const context = this.normalizeContext(input);
+    const contextFields = this.contextColumns(context);
     const subject = cleanOptionalText(input.subject, 200);
     const existing = await this.findOpen(userId);
     if (existing) {
-      if (contextUrl || subject) {
+      if (context || subject) {
         const updated = await this.prisma.chatConversation.update({
           where: { id: existing.id },
           data: {
-            ...(contextUrl ? { contextUrl } : {}),
+            ...contextFields,
             ...(subject ? { subject } : {}),
           },
           select: conversationSelect,
         });
+        if (context) {
+          this.emitContext(existing.id, userId, updated, context);
+        }
         return this.toCustomerDto(updated);
       }
       return this.toCustomerDto(existing);
@@ -129,7 +144,7 @@ export class ChatService {
         data: {
           userId,
           status: ChatConversationStatus.OPEN,
-          contextUrl,
+          ...contextFields,
           subject,
           messages: {
             create: {
@@ -190,11 +205,12 @@ export class ChatService {
     input: SendChatMessageDto,
   ): Promise<CustomerChatConversationDto> {
     const body = cleanBody(input.body);
-    const contextUrl = sanitizeContextUrl(input.contextUrl);
+    const context = this.normalizeContext(input);
+    const contextFields = this.contextColumns(context);
     await this.enforceCustomerRate(userId);
     let conversation = await this.findOpen(userId);
     if (!conversation) {
-      await this.open(userId, { contextUrl: contextUrl ?? undefined });
+      await this.open(userId, input);
       conversation = await this.findOpen(userId);
     }
     if (!conversation) {
@@ -223,7 +239,10 @@ export class ChatService {
           senderType: ChatSenderType.CUSTOMER,
           senderUserId: userId,
           body,
-          contextUrl: contextUrl ?? conversation.contextUrl,
+          contextUrl: context?.url ?? conversation.contextUrl,
+          contextTitle: context?.title ?? conversation.contextTitle,
+          contextKind: context?.kind ?? conversation.contextKind,
+          contextLabel: context?.label ?? conversation.contextLabel,
           clientMessageId,
         },
       }),
@@ -234,7 +253,7 @@ export class ChatService {
           unreadForAdmin: { increment: 1 },
           lastMessageAt: new Date(),
           lastCustomerMessageAt: new Date(),
-          contextUrl: contextUrl ?? conversation.contextUrl,
+          ...(context ? contextFields : {}),
         },
       }),
     ]);
@@ -257,6 +276,9 @@ export class ChatService {
           customerUserId: userId,
         });
       }
+    }
+    if (context && updated) {
+      this.emitContext(updated.id, userId, updated, context);
     }
     await this.notifications.notifyOperators({
       type: 'CHAT_MESSAGE',
@@ -289,6 +311,27 @@ export class ChatService {
       unreadForCustomer: updated.unreadForCustomer,
       unreadForAdmin: updated.unreadForAdmin,
     };
+  }
+
+  async updateCustomerContext(
+    userId: string,
+    input: UpdateChatContextDto,
+  ): Promise<CustomerChatConversationDto> {
+    const context = this.normalizeContext(input);
+    if (!context) {
+      throw new BadRequestException('اطلاعات صفحه معتبر نیست.');
+    }
+    const conversation = await this.findOpen(userId);
+    if (!conversation) {
+      throw new NotFoundException('گفتگوی فعالی یافت نشد.');
+    }
+    const updated = await this.prisma.chatConversation.update({
+      where: { id: conversation.id },
+      data: this.contextColumns(context),
+      select: conversationSelect,
+    });
+    this.emitContext(conversation.id, userId, updated, context);
+    return this.toCustomerDto(updated);
   }
 
   async closeCustomer(userId: string): Promise<{ closed: true }> {
@@ -345,6 +388,10 @@ export class ChatService {
           id: true,
           status: true,
           contextUrl: true,
+          contextTitle: true,
+          contextKind: true,
+          contextLabel: true,
+          contextUpdatedAt: true,
           unreadForAdmin: true,
           lastMessageAt: true,
           createdAt: true,
@@ -409,7 +456,7 @@ export class ChatService {
     input: SendChatMessageDto,
   ): Promise<AdminChatConversationDto> {
     const body = cleanBody(input.body);
-    const contextUrl = sanitizeContextUrl(input.contextUrl);
+    const context = this.normalizeContext(input);
     const conversation = await this.prisma.chatConversation.findUnique({
       where: { id: conversationId },
       select: { id: true, userId: true, status: true, contextUrl: true },
@@ -442,7 +489,10 @@ export class ChatService {
           senderType: ChatSenderType.ADMIN,
           senderUserId: adminUserId,
           body,
-          contextUrl,
+          contextUrl: context?.url ?? null,
+          contextTitle: context?.title ?? null,
+          contextKind: context?.kind ?? null,
+          contextLabel: context?.label ?? null,
           clientMessageId,
         },
       }),
@@ -624,6 +674,10 @@ export class ChatService {
       status: row.status,
       statusFa: CHAT_STATUS_FA[row.status],
       contextUrl: row.contextUrl,
+      contextTitle: row.contextTitle,
+      contextKind: row.contextKind,
+      contextLabel: row.contextLabel,
+      contextUpdatedAt: row.contextUpdatedAt?.toISOString() ?? null,
       unreadForCustomer: row.unreadForCustomer,
       lastMessageAt: row.lastMessageAt.toISOString(),
       messages,
@@ -635,6 +689,10 @@ export class ChatService {
     id: string;
     status: ChatConversationStatus;
     contextUrl: string | null;
+    contextTitle: string | null;
+    contextKind: string | null;
+    contextLabel: string | null;
+    contextUpdatedAt: Date | null;
     unreadForAdmin: number;
     lastMessageAt: Date;
     createdAt: Date;
@@ -660,6 +718,10 @@ export class ChatService {
       },
       assignedTo: row.assignedTo,
       contextUrl: row.contextUrl,
+      contextTitle: row.contextTitle,
+      contextKind: row.contextKind,
+      contextLabel: row.contextLabel,
+      contextUpdatedAt: row.contextUpdatedAt?.toISOString() ?? null,
       unreadForAdmin: row.unreadForAdmin,
       lastMessageAt: row.lastMessageAt.toISOString(),
       lastMessagePreview: row.messages[0]
@@ -676,6 +738,9 @@ export class ChatService {
     senderUserId: string | null;
     body: string;
     contextUrl: string | null;
+    contextTitle: string | null;
+    contextKind: string | null;
+    contextLabel: string | null;
     createdAt: Date;
     sender: {
       mobile: string;
@@ -701,8 +766,74 @@ export class ChatService {
       senderName,
       body: row.body,
       contextUrl: row.contextUrl,
+      contextTitle: row.contextTitle,
+      contextKind: row.contextKind,
+      contextLabel: row.contextLabel,
       createdAt: row.createdAt.toISOString(),
     };
+  }
+
+  private normalizeContext(input: {
+    contextUrl?: string;
+    contextTitle?: string;
+    contextKind?: string;
+    contextLabel?: string;
+  }): PageContext | null {
+    const url = sanitizeContextUrl(input.contextUrl, this.storefrontOrigin());
+    if (!url) {
+      return null;
+    }
+    const path = new URL(url).pathname;
+    const requestedKind = cleanOptionalText(input.contextKind, 40);
+    const kind =
+      requestedKind && CHAT_PAGE_KINDS.has(requestedKind)
+        ? requestedKind
+        : derivePageKind(path);
+    return {
+      url,
+      title: cleanOptionalText(input.contextTitle, 300),
+      kind,
+      label: cleanOptionalText(input.contextLabel, 300),
+    };
+  }
+
+  private contextColumns(context: PageContext | null) {
+    if (!context) {
+      return {};
+    }
+    return {
+      contextUrl: context.url,
+      contextTitle: context.title,
+      contextKind: context.kind,
+      contextLabel: context.label,
+      contextUpdatedAt: new Date(),
+    };
+  }
+
+  private emitContext(
+    conversationId: string,
+    customerUserId: string,
+    row: { contextUrl: string | null; contextTitle: string | null; contextKind: string | null; contextLabel: string | null },
+    context: PageContext,
+  ): void {
+    const payload = {
+      conversationId,
+      customerUserId,
+      contextUrl: row.contextUrl ?? context.url,
+      contextTitle: row.contextTitle ?? context.title,
+      contextKind: row.contextKind ?? context.kind,
+      contextLabel: row.contextLabel ?? context.label,
+      contextUpdatedAt: new Date().toISOString(),
+    };
+    this.realtime.emitToRole('OPERATOR', 'chat:context', payload);
+    this.realtime.emitToRole('ADMIN', 'chat:context', payload);
+  }
+
+  private storefrontOrigin(): string {
+    const configured = this.config?.get<string>('STOREFRONT_PUBLIC_URL')?.trim();
+    return configured && configured.length > 0
+      ? configured.replace(/\/+$/, '')
+      : DEFAULT_STOREFRONT_ORIGIN;
   }
 
   private customerName(row: ConversationRow): string {
@@ -720,6 +851,9 @@ const messageSelect = {
   senderUserId: true,
   body: true,
   contextUrl: true,
+  contextTitle: true,
+  contextKind: true,
+  contextLabel: true,
   createdAt: true,
   sender: {
     select: {
@@ -772,7 +906,55 @@ function cleanOptionalText(
  * credentials/fragments are stripped and non-web schemes (javascript:, data:)
  * are rejected. The value is always rendered as text, never HTML.
  */
-export function sanitizeContextUrl(raw: string | undefined): string | null {
+export const DEFAULT_STOREFRONT_ORIGIN = 'http://localhost:3002';
+
+export const CHAT_PAGE_KINDS = new Set([
+  'home',
+  'product',
+  'category',
+  'search',
+  'cart',
+  'checkout',
+  'account',
+  'orders',
+  'blog',
+  'compare',
+  'wishlist',
+  'other',
+]);
+
+interface PageContext {
+  url: string;
+  title: string | null;
+  kind: string;
+  label: string | null;
+}
+
+function derivePageKind(path: string): string {
+  if (path === '/') return 'home';
+  if (path === '/products') return 'search';
+  if (path.startsWith('/products/')) return 'product';
+  if (path === '/categories') return 'category';
+  if (path.startsWith('/categories/')) return 'category';
+  if (path === '/cart') return 'cart';
+  if (path === '/checkout') return 'checkout';
+  if (path === '/account') return 'account';
+  if (path === '/orders' || path.startsWith('/orders/')) return 'orders';
+  if (path === '/blog' || path.startsWith('/blog/')) return 'blog';
+  if (path === '/compare') return 'compare';
+  if (path === '/wishlist') return 'wishlist';
+  return 'other';
+}
+
+/**
+ * Validate the page context a browser sends. Only the configured storefront
+ * origin is accepted; the result is an absolute URL with credentials and
+ * fragments removed and only the `variant` query parameter retained.
+ */
+export function sanitizeContextUrl(
+  raw: string | undefined,
+  storefrontOrigin = DEFAULT_STOREFRONT_ORIGIN,
+): string | null {
   if (raw === undefined) {
     return null;
   }
@@ -783,24 +965,38 @@ export function sanitizeContextUrl(raw: string | undefined): string | null {
   if (trimmed.length > MAX_CONTEXT) {
     throw new BadRequestException('نشانی صفحه حداکثر ۲۰۴۸ کاراکتر است.');
   }
-  if (trimmed.startsWith('/')) {
-    if (trimmed.startsWith('//')) {
-      return null;
-    }
-    return trimmed.split('#')[0]!;
+  if (trimmed.startsWith('//')) {
+    return null;
   }
+  let parsed: URL;
   try {
-    const url = new URL(trimmed);
-    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-      return null;
-    }
-    url.username = '';
-    url.password = '';
-    url.hash = '';
-    return url.toString();
+    parsed = trimmed.startsWith('/')
+      ? new URL(trimmed, storefrontOrigin)
+      : new URL(trimmed);
   } catch {
     return null;
   }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    return null;
+  }
+  let allowedOrigin: string;
+  try {
+    allowedOrigin = new URL(storefrontOrigin).origin;
+  } catch {
+    return null;
+  }
+  if (parsed.origin !== allowedOrigin) {
+    return null;
+  }
+  parsed.username = '';
+  parsed.password = '';
+  parsed.hash = '';
+  const variant = parsed.searchParams.get('variant');
+  parsed.search = '';
+  if (variant !== null && variant.length <= 200) {
+    parsed.searchParams.set('variant', variant);
+  }
+  return parsed.toString();
 }
 
 function truncate(value: string, max: number): string {

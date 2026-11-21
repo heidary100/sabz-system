@@ -3,10 +3,10 @@ import type { CatalogCategoryNode, FooterSettings } from '@sabz/types';
 import { homeConfig } from '@/config/home';
 import { BrandLockup } from '@/components/ecommerce/brand/brand-lockup';
 import { ScrollTopButton } from '@/components/ecommerce/ui/scroll-top-button';
+import { PwaInstallButton } from '@/components/ecommerce/pwa/pwa-install-button';
 import { brand } from '@/lib/brand';
-import { formatFaNumber } from '@/lib/format';
 import { resolveFeaturedCategories } from '@/lib/home';
-import { contactChannels, filterValidFooterLinks, siteConfig } from '@/lib/site';
+import { filterValidFooterLinks } from '@/lib/site';
 
 /**
  * Storefront footer (SS-124, SS-215, upgraded SS-224 with the verified
@@ -33,21 +33,18 @@ export function SiteFooter({
     homeConfig.featuredCategorySlugs,
     homeConfig.maxCategoryTiles,
   );
-  const socials = settings
-    ? settings.socials.filter((link) => link.label && link.href)
-    : filterValidFooterLinks(siteConfig.socials);
-  const legalLinks = settings
-    ? settings.legalLinks.filter((link) => link.label && link.href)
-    : filterValidFooterLinks(siteConfig.legalLinks);
-  const contact = settings
-    ? settings.contact
-    : {
-        address: siteConfig.address,
-        phone: contactChannels.phones[0]?.display ?? null,
-        email: siteConfig.email,
-        hours: siteConfig.hours,
-      };
-  const blurb = settings ? settings.blurb : siteConfig.blurb;
+  // The API owns the normal footer document (including backend defaults).
+  // If the API is unavailable, render the brand/category/navigation shell
+  // without inventing contact details or a second static copy of the defaults.
+  const socials = filterValidFooterLinks(settings?.socials ?? []);
+  const legalLinks = filterValidFooterLinks(settings?.legalLinks ?? []);
+  const contact = settings?.contact ?? {
+    address: null,
+    phone: null,
+    email: null,
+    hours: null,
+  };
+  const blurb = settings?.blurb ?? null;
   const customColumns = settings?.columns ?? [];
   const hasContact =
     Boolean(contact.address) ||
@@ -65,16 +62,22 @@ export function SiteFooter({
   ];
 
   return (
-    <footer className="stage-surface relative mt-16 overflow-hidden bg-stage text-on-stage-secondary">
+    <footer className="stage-surface relative mt-16 overflow-hidden border-t-2 border-t-accent-stage bg-stage text-on-stage-secondary">
       <div className="relative mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 gap-12 sm:grid-cols-2 lg:grid-cols-12">
           <div className="lg:col-span-4">
-            <BrandLockup wordmarkClassName="text-lg font-bold text-on-stage" />
+            <BrandLockup
+              wordmarkClassName="text-lg font-bold text-on-stage"
+              focusRingClassName="focus-visible:outline-focus-stage"
+            />
             {blurb ? (
               <p className="mt-4 max-w-sm text-sm leading-7 text-on-stage-muted">
                 {blurb}
               </p>
             ) : null}
+            <div className="mt-3 sm:hidden">
+              <PwaInstallButton mobile />
+            </div>
             {socials.length > 0 ? (
               <nav aria-label="شبکه‌های اجتماعی" className="mt-5">
                 <ul role="list" className="flex flex-wrap gap-2">
@@ -84,7 +87,7 @@ export function SiteFooter({
                         href={social.href}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex min-h-9 items-center rounded-pill bg-on-stage/5 px-3.5 text-xs font-medium text-on-stage-secondary ring-1 ring-inset ring-on-stage/10 transition-all duration-200 hover:bg-accent-stage hover:text-stage hover:ring-focus focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+                        className="inline-flex min-h-9 items-center rounded-pill bg-on-stage/5 px-3.5 text-xs font-medium text-on-stage-secondary ring-1 ring-inset ring-on-stage/10 transition-all duration-200 hover:bg-accent-stage hover:text-stage hover:ring-focus focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-stage"
                       >
                         {social.label}
                         <span className="sr-only"> (باز شدن در پنجره جدید)</span>
@@ -103,7 +106,7 @@ export function SiteFooter({
                 <li key={category.id}>
                   <Link
                     href={`/categories/${category.slug}`}
-                    className="group inline-flex items-center gap-2 text-sm text-on-stage-muted transition-colors hover:text-accent-stage focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+                    className="group inline-flex items-center gap-2 text-sm text-on-stage-muted transition-colors hover:text-accent-stage focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-stage"
                   >
                     <span
                       aria-hidden="true"
@@ -116,7 +119,7 @@ export function SiteFooter({
               <li>
                 <Link
                   href="/categories"
-                  className="text-sm font-medium text-accent-stage hover:text-accent-stage focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+                  className="text-sm font-medium text-accent-stage hover:text-accent-stage focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-stage"
                 >
                   همه دسته‌بندی‌ها ←
                 </Link>
@@ -136,7 +139,7 @@ export function SiteFooter({
                       href={link.href}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-sm text-on-stage-muted transition-colors hover:text-accent-stage focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+                      className="text-sm text-on-stage-muted transition-colors hover:text-accent-stage focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-stage"
                     >
                       {link.label}
                       <span className="sr-only"> (باز شدن در پنجره جدید)</span>
@@ -144,7 +147,7 @@ export function SiteFooter({
                   ) : (
                     <Link
                       href={link.href}
-                      className="text-sm text-on-stage-muted transition-colors hover:text-accent-stage focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+                      className="text-sm text-on-stage-muted transition-colors hover:text-accent-stage focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-stage"
                     >
                       {link.label}
                     </Link>
@@ -168,7 +171,7 @@ export function SiteFooter({
                     <a
                       href={`tel:${contact.phone.replace(/[^\d+]/g, '')}`}
                       dir="ltr"
-                      className="inline-block rounded-control transition-colors hover:text-accent-stage focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+                      className="inline-block rounded-control transition-colors hover:text-accent-stage focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-stage"
                     >
                       {contact.phone}
                     </a>
@@ -182,7 +185,7 @@ export function SiteFooter({
                     <a
                       href={`mailto:${contact.email}`}
                       dir="ltr"
-                      className="rounded-control break-all transition-colors hover:text-accent-stage focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+                      className="rounded-control break-all transition-colors hover:text-accent-stage focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-stage"
                     >
                       {contact.email}
                     </a>
@@ -197,7 +200,7 @@ export function SiteFooter({
           <p className="text-xs leading-5 text-on-stage-muted">
             {settings?.copyright
               ? settings.copyright
-              : `© ${formatFaNumber(new Date().getFullYear())} ${brand.nameFa} — تمامی حقوق محفوظ است.`}
+              : `© ${new Intl.DateTimeFormat('fa-IR', { year: 'numeric' }).format(new Date())} ${brand.nameFa} — تمامی حقوق محفوظ است.`}
           </p>
           <p className="text-xs text-on-stage-secondary">{brand.nameEn}</p>
         </div>

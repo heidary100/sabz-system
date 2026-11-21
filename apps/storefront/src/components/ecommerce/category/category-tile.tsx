@@ -1,15 +1,16 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import type { CatalogCategoryNode } from '@sabz/types';
 import { formatFaNumber } from '@/lib/format';
+import { mediaImageUrl } from '@/lib/catalog';
 import { CHILD_PREVIEW_LIMIT } from '@/lib/nav';
 
 export type CategoryTileVariant = 'index' | 'child';
 
 /**
  * Shared category tile (SS-211 index tile, SS-212 child variant): one visual
- * language for `/categories` and child strips. `imageUrl` is reserved for a
- * future category-image field — never passed today, so imagery needs no API
- * rewrite later.
+ * language for `/categories` and child strips. Editorial category images
+ * resolve through the API DTO; the derived product cover remains a fallback.
  */
 export function CategoryTile({
   category,
@@ -20,7 +21,7 @@ export function CategoryTile({
   variant?: CategoryTileVariant;
   imageUrl?: string | null;
 }) {
-  void imageUrl;
+  const resolvedImage = imageUrl ?? mediaImageUrl(category.imageUrl ?? null);
 
   if (variant === 'child') {
     return (
@@ -60,6 +61,17 @@ export function CategoryTile({
 
   return (
     <li className="flex h-full flex-col rounded-card border border-border bg-surface p-5 transition hover:border-accent">
+      {resolvedImage ? (
+        <div className="relative mb-3 aspect-[4/3] overflow-hidden rounded-control border border-border bg-surface-2">
+          <Image
+            src={resolvedImage}
+            alt=""
+            fill
+            sizes="(min-width: 1024px) 30vw, (min-width: 640px) 45vw, 100vw"
+            className="object-contain p-3"
+          />
+        </div>
+      ) : null}
       <Link
         href={`/categories/${category.slug}`}
         className="rounded-control text-base font-bold text-fg hover:text-accent"

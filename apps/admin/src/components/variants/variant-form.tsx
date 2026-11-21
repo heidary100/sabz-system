@@ -30,6 +30,14 @@ const SKU_MAX = 64
 const BARCODE_MAX = 64
 const NAME_MAX = 255
 
+type PriceSourceCurrency = 'RIAL' | 'USD' | 'AED'
+
+const CURRENCY_LABELS: Record<PriceSourceCurrency, string> = {
+  RIAL: 'ریال',
+  USD: 'دلار آمریکا',
+  AED: 'درهم امارات',
+}
+
 const PRICE_STATUS_LABELS: Record<'PRICED' | 'CALL_FOR_PRICE', string> = {
   PRICED: 'قیمت‌دار (قابل خرید)',
   CALL_FOR_PRICE: 'تماس بگیرید (بدون قیمت)',
@@ -41,6 +49,7 @@ interface VariantFormValue {
   name: string
   price: string
   compareAtPrice: string
+  priceSourceCurrency: PriceSourceCurrency
   priceStatus: 'PRICED' | 'CALL_FOR_PRICE'
 }
 
@@ -50,6 +59,7 @@ const EMPTY: VariantFormValue = {
   name: '',
   price: '',
   compareAtPrice: '',
+  priceSourceCurrency: 'RIAL',
   priceStatus: 'PRICED',
 }
 
@@ -58,8 +68,10 @@ function fromVariant(variant: VariantSummary): VariantFormValue {
     sku: variant.sku,
     barcode: variant.barcode ?? '',
     name: variant.name ?? '',
-    price: variant.price,
-    compareAtPrice: variant.compareAtPrice ?? '',
+    price: variant.priceSourceAmount ?? variant.price,
+    compareAtPrice:
+      variant.compareAtSourceAmount ?? variant.compareAtPrice ?? '',
+    priceSourceCurrency: variant.priceSourceCurrency ?? 'RIAL',
     priceStatus: variant.priceStatus,
   }
 }
@@ -162,6 +174,7 @@ export function VariantForm({
           name: values.name.trim() || null,
           price: values.price.trim(),
           compareAtPrice: values.compareAtPrice.trim() || null,
+          priceSourceCurrency: values.priceSourceCurrency,
           priceStatus: values.priceStatus,
         })
       } else {
@@ -171,6 +184,7 @@ export function VariantForm({
           name: values.name.trim() || undefined,
           price: values.price.trim(),
           compareAtPrice: values.compareAtPrice.trim() || undefined,
+          priceSourceCurrency: values.priceSourceCurrency,
           priceStatus: values.priceStatus,
         })
       }
@@ -245,23 +259,47 @@ export function VariantForm({
           </Field>
 
           <Field>
-            <Label>قیمت (ریال)</Label>
+            <Label>واحد پول قیمت</Label>
+            <Select
+              name="priceSourceCurrency"
+              value={values.priceSourceCurrency}
+              onChange={(event) =>
+                set('priceSourceCurrency', event.target.value as PriceSourceCurrency)
+              }
+              disabled={submitting}
+            >
+              {(Object.keys(CURRENCY_LABELS) as PriceSourceCurrency[]).map((code) => (
+                <option key={code} value={code}>
+                  {CURRENCY_LABELS[code]}
+                </option>
+              ))}
+            </Select>
+            <Text className="text-xs text-muted">
+              مبلغ دلار/درهم با نرخ دستی جاری به ریال تبدیل و به ۱۰۰٬۰۰۰ ریال
+              گرد می‌شود؛ فروشگاه فقط ریال نمایش می‌دهد.
+            </Text>
+          </Field>
+
+          <Field>
+            <Label>قیمت ({CURRENCY_LABELS[values.priceSourceCurrency]})</Label>
             <Input
               name="price"
               dir="ltr"
               inputMode="decimal"
               value={groupMoneyDigits(values.price)}
-              placeholder="مثلاً 1,500,000"
+              placeholder={
+                values.priceSourceCurrency === 'RIAL' ? 'مثلاً 1,500,000' : 'مثلاً 120.00'
+              }
               onChange={(event) => setMoney('price', event)}
               disabled={submitting}
             />
             <Text className="text-xs text-muted">
-              مبنا ریال است؛ فروشگاه همان مبلغ را به ریال نمایش می‌دهد.
+              مبلغ منبع؛ قیمت نهایی ریالی پس از تبدیل و گرد شدن در سرور تعیین می‌شود.
             </Text>
           </Field>
 
           <Field>
-            <Label>قیمت قبل از تخفیف (ریال)</Label>
+            <Label>قیمت قبل از تخفیف ({CURRENCY_LABELS[values.priceSourceCurrency]})</Label>
             <Input
               name="compareAtPrice"
               dir="ltr"

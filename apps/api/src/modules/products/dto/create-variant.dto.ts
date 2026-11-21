@@ -8,7 +8,7 @@ import {
   Matches,
   MaxLength,
 } from 'class-validator';
-import { PriceStatus } from '@prisma/client';
+import { PriceSourceCurrency, PriceStatus } from '@prisma/client';
 
 export const PRICE_12_2_PATTERN = /^\d{1,10}(?:\.\d{1,2})?$/;
 
@@ -81,6 +81,15 @@ export class CreateVariantDto {
     message: 'compareAtPrice باید عدد اعشاری معتبر با حداکثر ۲ رقم اعشار باشد.',
   })
   compareAtPrice?: string;
+
+  @ApiPropertyOptional({
+    enum: PriceSourceCurrency,
+    description:
+      'Source currency for `price`/`compareAtPrice` (SS-900 Part II). USD/AED values are converted with the current manual rate and the Rial result is stored authoritatively.',
+  })
+  @IsOptional()
+  @IsEnum(PriceSourceCurrency, { message: 'واحد پول قیمت معتبر نیست.' })
+  priceSourceCurrency?: PriceSourceCurrency;
 
   @ApiPropertyOptional({
     enum: PriceStatus,

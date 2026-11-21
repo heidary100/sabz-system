@@ -78,6 +78,8 @@ export interface CatalogCategoryNode {
   slug: string;
   sortOrder: number;
   publishedProductCount: number;
+  /** Editorial category image URL; null/undefined uses the derived product cover. */
+  imageUrl?: string | null;
   children: CatalogCategoryNode[];
 }
 

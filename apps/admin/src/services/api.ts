@@ -12,8 +12,10 @@ interface RequestOptions {
 
 type AuthStateListener = () => void
 
+export type RefreshOutcome = 'refreshed' | 'expired' | 'unavailable'
+
 let accessToken: string | null = null
-let refreshPromise: Promise<boolean> | null = null
+let refreshPromise: Promise<RefreshOutcome> | null = null
 const authStateListeners = new Set<AuthStateListener>()
 
 export function setAccessToken(token: string | null): void {
@@ -38,7 +40,7 @@ export function clearSession(): void {
   authStateListeners.forEach((listener) => listener())
 }
 
-export async function refreshSession(): Promise<boolean> {
+export async function refreshSession(): Promise<RefreshOutcome> {
   if (!refreshPromise) {
     refreshPromise = fetch(`${API_BASE_URL}/auth/refresh`, {
       method: 'POST',
@@ -47,19 +49,56 @@ export async function refreshSession(): Promise<boolean> {
       body: '{}',
     })
       .then(async (response) => {
-        if (!response.ok) {
-          return false
+        // Only an explicit auth rejection ends the session. Throttling,
+        // gateway errors and network failures are transient: keep the
+        // in-memory session and let the caller retry.
+        if (response.status === 401 || response.status === 403) {
+          return 'expired' as const
         }
-        const pair = (await response.json()) as TokenPair
+        if (!response.ok) {
+          return 'unavailable' as const
+        }
+        const pair = (await response.json().catch(() => undefined)) as
+          | Partial<TokenPair>
+          | undefined
+        if (typeof pair?.accessToken !== 'string' || pair.accessToken === '') {
+          return 'unavailable' as const
+        }
         accessToken = pair.accessToken
-        return true
+        return 'refreshed' as const
       })
-      .catch(() => false)
+      .catch(() => 'unavailable' as const)
       .finally(() => {
         refreshPromise = null
       })
   }
   return refreshPromise
+}
+
+/**
+ * Runs one authenticated request and retries it once after a successful
+ * refresh. A 401 is only a session end when the refresh endpoint explicitly
+ * says the refresh token is invalid/expired; 429/5xx/network failures leave
+ * the session intact.
+ */
+async function withRefreshRetry<T>(
+  performRequest: () => Promise<T>,
+  { auth = true, allowRefresh = true }: RequestOptions,
+): Promise<T> {
+  try {
+    return await performRequest()
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401 && auth && allowRefresh) {
+      const outcome = await refreshSession()
+      if (outcome === 'refreshed') {
+        return performRequest()
+      }
+      if (outcome === 'expired') {
+        clearSession()
+      }
+    }
+    throw error
+  }
 }
 
 const client = createApiClient({
@@ -72,7 +111,7 @@ export async function request<T>(
   init: RequestInit = {},
   options: RequestOptions = {},
 ): Promise<T> {
-  const { auth = true, allowRefresh = true } = options
+  const { auth = true } = options
 
   const performRequest = (): Promise<T> =>
     client.request<T>(path, {
@@ -83,25 +122,14 @@ export async function request<T>(
       },
     })
 
-  try {
-    return await performRequest()
-  } catch (error) {
-    if (error instanceof ApiError && error.status === 401 && auth && allowRefresh) {
-      const refreshed = await refreshSession()
-      if (refreshed) {
-        return performRequest()
-      }
-      clearSession()
-    }
-    throw error
-  }
+  return withRefreshRetry(performRequest, options)
 }
 
 /**
  * Authenticated multipart/form-data upload that returns JSON. Used by the
  * product media upload flow. Mirrors request()/requestBlob() exactly: bearer
- * token injection, single-flight refresh, one retry, and session clearing on
- * refresh failure stay centralized here.
+ * token injection, single-flight refresh, one retry, and transient-failure
+ * preservation stay centralized here.
  *
  * The `Content-Type` header is intentionally never set: the browser must
  * generate the multipart boundary itself.
@@ -111,7 +139,7 @@ export async function requestMultipart<T>(
   formData: FormData,
   options: RequestOptions = {},
 ): Promise<T> {
-  const { auth = true, allowRefresh = true } = options
+  const { auth = true } = options
 
   const performRequest = async (): Promise<T> => {
     const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -133,24 +161,14 @@ export async function requestMultipart<T>(
     return (await response.json()) as T
   }
 
-  try {
-    return await performRequest()
-  } catch (error) {
-    if (error instanceof ApiError && error.status === 401 && auth && allowRefresh) {
-      const refreshed = await refreshSession()
-      if (refreshed) {
-        return performRequest()
-      }
-      clearSession()
-    }
-    throw error
-  }
+  return withRefreshRetry(performRequest, options)
 }
 
 /**
  * Authenticated multipart/form-data upload that reports upload progress
  * through an XHR request. Mirrors requestMultipart() exactly for auth handling
- * (bearer token injection, single-flight refresh, one retry, session clearing)
+ * (bearer token injection, single-flight refresh, one retry, and session
+ * preservation on transient failures)
  * but reports the client-side upload percentage via `onProgress` so large
  * media (up to 200 MB) can show a real progress bar before the server-side
  * watermark processing phase begins.
@@ -161,7 +179,7 @@ export async function requestMultipartWithProgress<T>(
   onProgress?: (percent: number) => void,
   options: RequestOptions = {},
 ): Promise<T> {
-  const { auth = true, allowRefresh = true } = options
+  const { auth = true } = options
 
   const performRequest = (): Promise<T> =>
     new Promise<T>((resolvePromise, rejectPromise) => {
@@ -197,32 +215,21 @@ export async function requestMultipartWithProgress<T>(
       xhr.send(formData)
     })
 
-  try {
-    return await performRequest()
-  } catch (error) {
-    if (error instanceof ApiError && error.status === 401 && auth && allowRefresh) {
-      const refreshed = await refreshSession()
-      if (refreshed) {
-        return performRequest()
-      }
-      clearSession()
-    }
-    throw error
-  }
+  return withRefreshRetry(performRequest, options)
 }
 
 /**
  * Authenticated fetch that returns binary content instead of JSON. Used by the
  * document preview/download flow, which mirrors request() exactly: bearer token
- * injection, single-flight refresh, one retry, and session clearing on refresh
- * failure stay centralized here.
+ * injection, single-flight refresh, one retry, and session preservation on
+ * transient refresh failures stay centralized here.
  */
 export async function requestBlob(
   path: string,
   init: RequestInit = {},
   options: RequestOptions = {},
 ): Promise<Blob> {
-  const { auth = true, allowRefresh = true } = options
+  const { auth = true } = options
 
   const performRequest = async (): Promise<Blob> => {
     const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -244,16 +251,5 @@ export async function requestBlob(
     return response.blob()
   }
 
-  try {
-    return await performRequest()
-  } catch (error) {
-    if (error instanceof ApiError && error.status === 401 && auth && allowRefresh) {
-      const refreshed = await refreshSession()
-      if (refreshed) {
-        return performRequest()
-      }
-      clearSession()
-    }
-    throw error
-  }
+  return withRefreshRetry(performRequest, options)
 }

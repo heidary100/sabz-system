@@ -1,6 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
+import sharp from 'sharp';
 import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/app.setup';
 import { PrismaService } from '../src/common/database/prisma.service';
@@ -466,6 +467,104 @@ describe('Admin category API (SS-103) (e2e)', () => {
         .patch(`${BASE}/${category.id}/reorder`)
         .set('Authorization', `Bearer ${operator.accessToken}`)
         .send({ position: -1 })
+        .expect(400);
+    });
+  });
+
+  describe('category image upload (SS-900 Part II)', () => {
+    it('uploads a decodable image, serves it publicly, and removes it', async () => {
+      const operator = await createUser('OPERATOR');
+      const category = await createCategoryViaApi(operator.accessToken, {
+        name: `Image ${Date.now()}`,
+        slug: `image-${Date.now()}`,
+      });
+      const png = await sharp({
+        create: {
+          width: 640,
+          height: 360,
+          channels: 4,
+          background: { r: 22, g: 165, b: 75, alpha: 1 },
+        },
+      })
+        .png()
+        .toBuffer();
+
+      const uploaded = await request(app.getHttpServer())
+        .post(`${BASE}/${category.id}/image`)
+        .set('Authorization', `Bearer ${operator.accessToken}`)
+        .attach('image', png, { filename: 'category.png', contentType: 'image/png' })
+        .expect(201);
+      expect(uploaded.body.imageUrl).toContain(`/catalog/categories/${category.id}/image`);
+      const firstImageUrl = uploaded.body.imageUrl as string;
+
+      // Reload the category: the image association survives a fresh read.
+      const reloaded = await request(app.getHttpServer())
+        .get(`${BASE}/${category.id}`)
+        .set('Authorization', `Bearer ${operator.accessToken}`)
+        .expect(200);
+      expect(reloaded.body.imageUrl).toBe(firstImageUrl);
+
+      // Replace with a different source; the public URL must point at the new
+      // object/version while the category association remains unique.
+      const replacement = await sharp({
+        create: {
+          width: 320,
+          height: 640,
+          channels: 4,
+          background: { r: 58, g: 90, b: 64, alpha: 0.8 },
+        },
+      })
+        .png()
+        .toBuffer();
+      const replaced = await request(app.getHttpServer())
+        .post(`${BASE}/${category.id}/image`)
+        .set('Authorization', `Bearer ${operator.accessToken}`)
+        .attach('image', replacement, {
+          filename: 'replacement.png',
+          contentType: 'image/png',
+        })
+        .expect(201);
+      expect(replaced.body.imageUrl).toContain(
+        `/catalog/categories/${category.id}/image`,
+      );
+      expect(replaced.body.imageUrl).not.toBe(firstImageUrl);
+
+      const image = await request(app.getHttpServer())
+        .get(`/api/v1/catalog/categories/${category.id}/image`)
+        .expect(200);
+      expect(image.headers['content-type']).toContain('image/webp');
+      expect(Number(image.headers['content-length'])).toBeGreaterThan(0);
+
+      const removed = await request(app.getHttpServer())
+        .delete(`${BASE}/${category.id}/image`)
+        .set('Authorization', `Bearer ${operator.accessToken}`)
+        .expect(200);
+      expect(removed.body.imageUrl).toBeUndefined();
+      await request(app.getHttpServer())
+        .get(`/api/v1/catalog/categories/${category.id}/image`)
+        .expect(404);
+    });
+
+    it('rejects a non-image upload and requires authorization', async () => {
+      const operator = await createUser('OPERATOR');
+      const category = await createCategoryViaApi(operator.accessToken, {
+        name: `BadImage ${Date.now()}`,
+        slug: `bad-image-${Date.now()}`,
+      });
+      await request(app.getHttpServer())
+        .post(`${BASE}/${category.id}/image`)
+        .attach('image', Buffer.from('not an image'), {
+          filename: 'bad.txt',
+          contentType: 'text/plain',
+        })
+        .expect(401);
+      await request(app.getHttpServer())
+        .post(`${BASE}/${category.id}/image`)
+        .set('Authorization', `Bearer ${operator.accessToken}`)
+        .attach('image', Buffer.from('not an image'), {
+          filename: 'bad.txt',
+          contentType: 'text/plain',
+        })
         .expect(400);
     });
   });

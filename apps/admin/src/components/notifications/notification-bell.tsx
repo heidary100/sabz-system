@@ -53,7 +53,7 @@ export function NotificationBell() {
       >
         <Bell className="size-5" aria-hidden="true" />
         {unread > 0 && (
-          <span className="absolute -top-1 -end-1 flex min-w-5 items-center justify-center rounded-pill bg-danger px-1 text-[10px] font-bold leading-5 text-white">
+          <span className="absolute -top-1 -end-1 flex min-w-5 items-center justify-center rounded-pill bg-danger px-1 text-[10px] font-bold leading-5 text-on-danger">
             {formatFaNumber(unread > 99 ? 99 : unread)}
           </span>
         )}
@@ -196,7 +196,7 @@ export function NotificationBell() {
                               void markRead(notification.id)
                             }
                           }}
-                          className="block px-4 py-3 transition-colors hover:bg-surface-2/70 focus-visible:bg-surface-2 focus-visible:outline-none"
+                          className="block px-4 py-3 transition-colors hover:bg-surface-2/70 focus-visible:bg-surface-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
                         >
                           {body}
                         </Link>

@@ -224,7 +224,7 @@ export function HeroStage({ slides }: { slides: HeroStageSlide[] }) {
                     {slide.href && slide.ctaLabel ? (
                       <Link
                         href={slide.href}
-                        className="inline-flex min-h-12 w-full items-center justify-center rounded-pill bg-on-stage px-7 text-sm font-bold text-stage transition-colors hover:bg-on-stage/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus active:scale-[0.98] sm:w-auto"
+                        className="inline-flex min-h-12 w-full items-center justify-center rounded-pill bg-on-stage px-7 text-sm font-bold text-stage transition-colors hover:bg-on-stage/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-stage active:scale-[0.98] sm:w-auto"
                       >
                         {slide.ctaLabel}
                       </Link>
@@ -267,7 +267,7 @@ export function HeroStage({ slides }: { slides: HeroStageSlide[] }) {
                                 ? 'پخش خودکار اسلایدها'
                                 : 'توقف پخش خودکار'
                             }
-                            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-pill bg-on-stage/10 text-on-stage-secondary transition-colors hover:bg-on-stage/25 hover:text-on-stage focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+                            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-pill bg-on-stage/10 text-on-stage-secondary transition-colors hover:bg-on-stage/25 hover:text-on-stage focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-stage"
                           >
                             {paused ? (
                             <svg

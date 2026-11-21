@@ -1,164 +1,158 @@
 @import 'tailwindcss';
+@import '../../../packages/config/design-tokens.css';
 
 /* Class-based dark mode: the `.dark` class on <html> is applied by the
    inline script in index.html (before render) and by the theme toggle. */
 @variant dark (&:where(.dark, .dark *));
 
 @theme {
-  /* Dust Grey (neutral ramp, 100 = darkest) */
-  --color-dust-100: #312e24;
-  --color-dust-200: #615b48;
-  --color-dust-300: #92896c;
-  --color-dust-400: #b6b09c;
-  --color-dust-500: #dad7cd;
-  --color-dust-600: #e2dfd7;
-  --color-dust-700: #e9e7e1;
-  --color-dust-800: #f0efeb;
-  --color-dust-900: #f8f7f5;
+  /* Official Sabz primitives mirrored by packages/config/design-tokens.css.
+     The official primary is #16A54B; #0B6B2F is its accessible text/action
+     variant on light surfaces. The official neutral is #707271. */
+  --color-brand-50: #f1fbf5;
+  --color-brand-100: #ddf6e6;
+  --color-brand-200: #baebcc;
+  --color-brand-300: #86dca8;
+  --color-brand-400: #45c57a;
+  --color-brand-500: #16a54b;
+  --color-brand-600: #0d843b;
+  --color-brand-700: #0b6b2f;
+  --color-brand-800: #095426;
+  --color-brand-900: #073f1e;
 
-  /* Dry Sage (100 = darkest) */
-  --color-dry-sage-100: #212619;
-  --color-dry-sage-200: #434c33;
-  --color-dry-sage-300: #64724c;
-  --color-dry-sage-400: #859865;
-  --color-dry-sage-500: #a3b18a;
-  --color-dry-sage-600: #b6c1a2;
-  --color-dry-sage-700: #c8d0b9;
-  --color-dry-sage-800: #dae0d0;
-  --color-dry-sage-900: #edefe8;
+  /* Cool neutral ramp (100 = darkest). */
+  --color-dust-100: #1c1f1d;
+  --color-dust-200: #454846;
+  --color-dust-300: #5a5d5b;
+  --color-dust-400: #a9b0ab;
+  --color-dust-500: #cfd5d0;
+  --color-dust-600: #dde3df;
+  --color-dust-700: #e7ebe8;
+  --color-dust-800: #eff2f0;
+  --color-dust-900: #f4f6f5;
 
-  /* Fern (100 = darkest) */
-  --color-fern-100: #111911;
-  --color-fern-200: #233323;
-  --color-fern-300: #344c34;
-  --color-fern-400: #466645;
-  --color-fern-500: #588157;
-  --color-fern-600: #739f72;
-  --color-fern-700: #96b795;
-  --color-fern-800: #b9cfb9;
-  --color-fern-900: #dce7dc;
+  /* Green ramps retained under their historical names so existing
+     components inherit the new identity without a class rename. */
+  --color-dry-sage-100: #042b14;
+  --color-dry-sage-200: #073f1e;
+  --color-dry-sage-300: #095426;
+  --color-dry-sage-400: #0d843b;
+  --color-dry-sage-500: #16a54b;
+  --color-dry-sage-600: #45c57a;
+  --color-dry-sage-700: #86dca8;
+  --color-dry-sage-800: #baebcc;
+  --color-dry-sage-900: #ddf6e6;
 
-  /* Hunter Green (100 = darkest) — the vibrant Sabz brand ramp. The
-     mid tones carry the primary action color (#35703f); the light end
-     provides the mint tints used for active navigation, links and
-     focus states in dark mode. */
-  --color-hunter-100: #0b1410;
-  --color-hunter-200: #10241a;
-  --color-hunter-300: #163a25;
-  --color-hunter-400: #1f4d2e;
-  --color-hunter-500: #35703f;
-  --color-hunter-600: #4c8a57;
-  --color-hunter-700: #74a87c;
-  --color-hunter-800: #a6c8a9;
-  --color-hunter-900: #d8e8da;
+  --color-fern-100: #062315;
+  --color-fern-200: #0b3f20;
+  --color-fern-300: #0b6b2f;
+  --color-fern-400: #0d843b;
+  --color-fern-500: #16a54b;
+  --color-fern-600: #45c57a;
+  --color-fern-700: #86dca8;
+  --color-fern-800: #baebcc;
+  --color-fern-900: #ddf6e6;
 
-  /* Pine Teal (100 = darkest) */
-  --color-pine-teal-100: #0a0f0d;
-  --color-pine-teal-200: #141f1a;
-  --color-pine-teal-300: #1f2e26;
-  --color-pine-teal-400: #293d33;
-  --color-pine-teal-500: #344e41;
-  --color-pine-teal-600: #527a66;
-  --color-pine-teal-700: #75a38c;
-  --color-pine-teal-800: #a3c2b3;
-  --color-pine-teal-900: #d1e0d9;
+  --color-hunter-100: #042b14;
+  --color-hunter-200: #073f1e;
+  --color-hunter-300: #095426;
+  --color-hunter-400: #0b6b2f;
+  --color-hunter-500: #0d843b;
+  --color-hunter-600: #16a54b;
+  --color-hunter-700: #45c57a;
+  --color-hunter-800: #86dca8;
+  --color-hunter-900: #ddf6e6;
 
-  /* Remap the neutral scale so the Catalyst kit uses the Dust Grey ramp.
-     The provided ramp is inverted vs. Tailwind (100 = darkest), and the
-     mid tones are light, so the mapping reassigns the semantic mid-points:
-     secondary text (zinc-500) uses dust-200 so it stays clearly readable
-     on light surfaces; zinc-600/700 are interpolated between dust-200 and
-     dust-100. */
-  --color-zinc-50: #fbfaf8;
-  --color-zinc-100: #f8f7f5;
-  --color-zinc-200: #f0efeb;
-  --color-zinc-300: #e9e7e1;
-  --color-zinc-400: #dad7cd;
-  --color-zinc-500: #615b48;
-  --color-zinc-600: #514c3d;
-  --color-zinc-700: #413d31;
-  --color-zinc-800: #312e24;
-  --color-zinc-900: #24211a;
-  --color-zinc-950: #171510;
+  --color-pine-teal-100: #0b1510;
+  --color-pine-teal-200: #132019;
+  --color-pine-teal-300: #1d2b22;
+  --color-pine-teal-400: #2d4034;
+  --color-pine-teal-500: #0b6b2f;
+  --color-pine-teal-600: #0d843b;
+  --color-pine-teal-700: #45c57a;
+  --color-pine-teal-800: #86dca8;
+  --color-pine-teal-900: #ddf6e6;
 
-  /* Semantic status scales. Remapped from the stock Tailwind hues so every
-     existing usage — status badges, stat cards, validation messages, error
-     boxes, destructive buttons, invalid inputs — shares one coordinated
-     system. Each family carries its own light/dark readable pairs via the
-     existing `dark:` variants in the shared components.
-       green  = success (vibrant, brand-adjacent)
-       amber  = warning (olive-gold)
-       orange = warning (alias of the same family)
-       red    = danger (warm, unmistakable)
-       sky    = info (teal-blue, the fourth status hue)
-  */
-  --color-green-50: #f2f8f1;
-  --color-green-100: #e2efe1;
-  --color-green-200: #c4dfc4;
-  --color-green-300: #98c79b;
-  --color-green-400: #63ab6b;
-  --color-green-500: #3d9450;
-  --color-green-600: #2f7c42;
-  --color-green-700: #276635;
-  --color-green-800: #1f5230;
-  --color-green-900: #173d25;
-  --color-green-950: #0c2a17;
+  /* Catalyst neutral remap: cool surfaces, crisp readable mids. */
+  --color-zinc-50: #fafcfb;
+  --color-zinc-100: #f4f6f5;
+  --color-zinc-200: #eff2f0;
+  --color-zinc-300: #e5eae7;
+  --color-zinc-400: #d3dad5;
+  --color-zinc-500: #5a5d5b;
+  --color-zinc-600: #454846;
+  --color-zinc-700: #363a37;
+  --color-zinc-800: #1c1f1d;
+  --color-zinc-900: #171a18;
+  --color-zinc-950: #0f1210;
 
-  --color-amber-50: #fbf6e9;
-  --color-amber-100: #f6ebcd;
-  --color-amber-200: #edd69a;
-  --color-amber-300: #e0bc63;
+  /* Semantic status scales. */
+  --color-green-50: #f1fbf5;
+  --color-green-100: #ddf6e6;
+  --color-green-200: #baebcc;
+  --color-green-300: #86dca8;
+  --color-green-400: #45c57a;
+  --color-green-500: #16a54b;
+  --color-green-600: #0d843b;
+  --color-green-700: #0b6b2f;
+  --color-green-800: #095426;
+  --color-green-900: #073f1e;
+  --color-green-950: #042b14;
+
+  --color-amber-50: #fffaf0;
+  --color-amber-100: #fff4da;
+  --color-amber-200: #f4dfaa;
+  --color-amber-300: #e9c36c;
   --color-amber-400: #d9a441;
-  --color-amber-500: #c78f2f;
-  --color-amber-600: #a8741f;
-  --color-amber-700: #855516;
-  --color-amber-800: #6e4a14;
-  --color-amber-900: #52360f;
-  --color-amber-950: #382507;
+  --color-amber-500: #a66a00;
+  --color-amber-600: #8a5700;
+  --color-amber-700: #704600;
+  --color-amber-800: #5c3900;
+  --color-amber-900: #432900;
+  --color-amber-950: #2b1a00;
 
-  --color-orange-50: #fbf6e9;
-  --color-orange-100: #f6ebcd;
-  --color-orange-200: #edd69a;
-  --color-orange-300: #e0bc63;
+  --color-orange-50: #fffaf0;
+  --color-orange-100: #fff4da;
+  --color-orange-200: #f4dfaa;
+  --color-orange-300: #e9c36c;
   --color-orange-400: #d9a441;
-  --color-orange-500: #c78f2f;
-  --color-orange-600: #a8741f;
-  --color-orange-700: #855516;
-  --color-orange-800: #6e4a14;
-  --color-orange-900: #52360f;
-  --color-orange-950: #382507;
+  --color-orange-500: #a66a00;
+  --color-orange-600: #8a5700;
+  --color-orange-700: #704600;
+  --color-orange-800: #5c3900;
+  --color-orange-900: #432900;
+  --color-orange-950: #2b1a00;
 
-  --color-red-50: #fdf1f0;
-  --color-red-100: #fbe0de;
-  --color-red-200: #f5c2be;
-  --color-red-300: #ec9891;
-  --color-red-400: #e5655f;
-  --color-red-500: #d94a44;
-  --color-red-600: #c1352f;
-  --color-red-700: #a32823;
-  --color-red-800: #8a201c;
-  --color-red-900: #6d1a17;
-  --color-red-950: #4a110e;
+  --color-red-50: #fdf4f3;
+  --color-red-100: #fbe9e7;
+  --color-red-200: #f2c4c0;
+  --color-red-300: #e59b95;
+  --color-red-400: #d46c64;
+  --color-red-500: #c2413a;
+  --color-red-600: #a9332d;
+  --color-red-700: #8b2722;
+  --color-red-800: #721f1b;
+  --color-red-900: #5a1815;
+  --color-red-950: #3b0e0c;
 
-  --color-sky-50: #eef6f8;
-  --color-sky-100: #dcecf1;
-  --color-sky-200: #b9dae3;
-  --color-sky-300: #8ec2d0;
-  --color-sky-400: #5ba3b8;
-  --color-sky-500: #3d8da6;
-  --color-sky-600: #2f7489;
-  --color-sky-700: #275e6f;
-  --color-sky-800: #1f4857;
-  --color-sky-900: #173541;
-  --color-sky-950: #0d2129;
+  --color-sky-50: #f0f8fb;
+  --color-sky-100: #e8f4f8;
+  --color-sky-200: #c4e2eb;
+  --color-sky-300: #8fc7d7;
+  --color-sky-400: #5aa6bb;
+  --color-sky-500: #256a82;
+  --color-sky-600: #1d566a;
+  --color-sky-700: #184858;
+  --color-sky-800: #133b48;
+  --color-sky-900: #0e2d37;
+  --color-sky-950: #071b21;
 
-  /* Remap the blue shades used by Catalyst focus rings and links to the
-     brand primary so keyboard focus always speaks in the brand color. */
-  --color-blue-300: #74a87c;
-  --color-blue-400: #4c8a57;
-  --color-blue-500: #35703f;
-  --color-blue-600: #2e6136;
-  --color-blue-700: #285431;
+  /* Catalyst focus/link blues speak in the accessible brand green. */
+  --color-blue-300: #86dca8;
+  --color-blue-400: #45c57a;
+  --color-blue-500: #0b6b2f;
+  --color-blue-600: #095426;
+  --color-blue-700: #073f1e;
 
   --font-sans:
     'Vazirmatn Variable', 'Vazirmatn', ui-sans-serif, system-ui, -apple-system,
@@ -187,6 +181,7 @@
      `primary-subtle`/`primary-border` tint selected and hovered states. */
   --color-primary: var(--sabz-primary);
   --color-on-primary: var(--sabz-on-primary);
+  --color-on-danger: var(--sabz-on-danger);
   --color-primary-hover: var(--sabz-primary-hover);
   --color-primary-active: var(--sabz-primary-active);
   --color-primary-strong: var(--sabz-primary-strong);
@@ -218,112 +213,95 @@
 :root {
   color-scheme: light;
 
-  /* Neutral surfaces: the page sits on the AGENTS.md warm stone (#f8f7f5),
-     cards are subtly off-white (never flat white), elevated surfaces and
-     dialogs are pure white. The glass carries a faint green cast from the
-     brand. */
-  --sabz-background: #f8f7f5;
-  --sabz-foreground: #312e24;
-  --sabz-border: #dad7cd;
-  /* Strong rules (table headers, input borders) carry real 3:1 contrast —
-     the soft #dad7cd edge stays for decorative separation. */
-  --sabz-border-strong: #8a8271;
-  --sabz-surface: #fbfaf7;
+  /* Light workspace: cool paper, white cards, restrained green. */
+  --sabz-background: #f4f6f5;
+  --sabz-foreground: var(--brand-gray-900);
+  --sabz-border: var(--brand-gray-200);
+  --sabz-border-strong: #8c968f;
+  --sabz-surface: #ffffff;
   --sabz-surface-strong: #ffffff;
-  --sabz-glass: rgb(251 250 247 / 0.74);
-  --sabz-glass-border: rgb(53 112 63 / 0.12);
-  --sabz-muted: #615b48;
+  --sabz-glass: rgb(255 255 255 / 0.84);
+  --sabz-glass-border: rgb(22 165 75 / 0.16);
+  --sabz-muted: #646765;
 
-  /* Brand primary — vibrant forest green for actions, links, focus. */
-  --sabz-primary: #35703f;
+  --sabz-primary: var(--brand-green-700);
   --sabz-on-primary: #ffffff;
-  --sabz-primary-hover: #2e6136;
-  --sabz-primary-active: #285431;
-  --sabz-primary-strong: #35703f;
-  --sabz-primary-strong-hover: #2e6136;
-  --sabz-primary-dark: #2a5233;
-  --sabz-primary-subtle: rgb(53 112 63 / 0.12);
-  --sabz-primary-border: rgb(53 112 63 / 0.28);
+  --sabz-primary-hover: var(--brand-green-800);
+  --sabz-primary-active: var(--brand-green-900);
+  --sabz-primary-strong: var(--brand-green-700);
+  --sabz-primary-strong-hover: var(--brand-green-800);
+  --sabz-primary-dark: var(--brand-green-900);
+  --sabz-primary-subtle: var(--brand-green-50);
+  --sabz-primary-border: var(--brand-green-200);
 
-  --sabz-secondary: #4c8a57;
-  --sabz-accent: #a3b18a;
+  --sabz-secondary: var(--brand-green-500);
+  --sabz-accent: var(--brand-green-300);
 
-  /* Semantic statuses. */
-  --sabz-success: #276635;
-  --sabz-success-subtle: #f2f8f1;
-  --sabz-success-border: #c4dfc4;
-  --sabz-warning: #855516;
-  --sabz-warning-subtle: #fbf6e9;
-  --sabz-warning-border: #edd69a;
-  --sabz-danger: #a32823;
-  --sabz-danger-subtle: #fdf1f0;
-  --sabz-danger-border: #f5c2be;
-  --sabz-info: #275e6f;
-  --sabz-info-subtle: #eef6f8;
-  --sabz-info-border: #b9dae3;
+  --sabz-success: var(--brand-green-700);
+  --sabz-success-subtle: var(--brand-green-50);
+  --sabz-success-border: var(--brand-green-200);
+  --sabz-warning: #8a5700;
+  --sabz-warning-subtle: #fff4da;
+  --sabz-warning-border: #f0d28a;
+  --sabz-danger: #a9332d;
+  --sabz-on-danger: #ffffff;
+  --sabz-danger-subtle: #fbe9e7;
+  --sabz-danger-border: #f2c4c0;
+  --sabz-info: #1d566a;
+  --sabz-info-subtle: #e8f4f8;
+  --sabz-info-border: #c4e2eb;
 
-  /* Keyboard focus ring — the brand ink, one step deeper than the link
-     color so it reads on both the stone background and white surfaces. */
-  --sabz-focus-ring: #2e6136;
+  --sabz-focus-ring: var(--brand-green-700);
 
-  /* Elevation: cards get a whisper of depth (1); dialogs and overlays,
-     which float over a scrimmed page, get real lift (2). */
-  --sabz-elevation-1: 0 1px 2px rgb(49 46 36 / 0.05), 0 2px 8px rgb(49 46 36 / 0.04);
-  --sabz-elevation-2: 0 2px 6px rgb(49 46 36 / 0.08), 0 16px 40px rgb(49 46 36 / 0.12);
+  --sabz-elevation-1: 0 1px 2px rgb(16 19 17 / 0.04), 0 4px 14px rgb(16 19 17 / 0.04);
+  --sabz-elevation-2: 0 4px 10px rgb(16 19 17 / 0.07), 0 20px 48px rgb(16 19 17 / 0.12);
 }
 
 .dark {
   color-scheme: dark;
 
-  /* Layered dark surfaces: deep warm background, one step up for cards,
-     a lighter step for elevated panels so the hierarchy stays visible.
-     Borders are SOLID (not alpha) and clearly visible — the old 0.15-alpha
-     border dissolved table grids into the surface (SS-267 dark retune). */
-  --sabz-background: #191713;
-  --sabz-foreground: #ece9e1;
-  --sabz-border: #3a372f;
-  --sabz-border-strong: #726b5d;
-  --sabz-surface: #201e19;
-  --sabz-surface-strong: #262420;
-  --sabz-glass: rgb(20 19 16 / 0.74);
-  --sabz-glass-border: rgb(142 203 150 / 0.14);
-  --sabz-muted: #a8a396;
+  /* Deep green-charcoal, never pure black. */
+  --sabz-background: #0f1210;
+  --sabz-foreground: #f1f4f1;
+  --sabz-border: #2d342f;
+  --sabz-border-strong: #5f6a62;
+  --sabz-surface: #171b18;
+  --sabz-surface-strong: #1c211d;
+  --sabz-glass: rgb(16 20 17 / 0.82);
+  --sabz-glass-border: rgb(111 227 160 / 0.16);
+  --sabz-muted: #a7aea9;
 
-  /* Brand primary — fresh mint for text/icons/links; the button fill drops
-     to a saturated mid green so white text keeps its contrast. */
-  --sabz-primary: #8ecb96;
-  --sabz-on-primary: #ffffff;
-  --sabz-primary-hover: #9fd5a6;
-  --sabz-primary-active: #7cbe85;
-  --sabz-primary-strong: #3d7d48;
-  --sabz-primary-strong-hover: #3a7a44;
-  --sabz-primary-dark: #1f3a26;
-  --sabz-primary-subtle: rgb(69 146 90 / 0.14);
-  --sabz-primary-border: rgb(69 146 90 / 0.32);
+  --sabz-primary: #6fe3a0;
+  --sabz-on-primary: #07150c;
+  --sabz-primary-hover: #8bedb4;
+  --sabz-primary-active: #57d68b;
+  --sabz-primary-strong: var(--brand-green-500);
+  --sabz-primary-strong-hover: #1bb857;
+  --sabz-primary-dark: #0b3a20;
+  --sabz-primary-subtle: #132a1c;
+  --sabz-primary-border: #245a36;
 
-  --sabz-secondary: #74a87c;
-  --sabz-accent: #859865;
+  --sabz-secondary: #45c57a;
+  --sabz-accent: #86dca8;
 
-  /* Semantic statuses — lighter foregrounds, translucent tints. */
-  --sabz-success: #63ab6b;
-  --sabz-success-subtle: rgb(61 148 80 / 0.12);
-  --sabz-success-border: rgb(99 171 107 / 0.35);
-  --sabz-warning: #d9a441;
-  --sabz-warning-subtle: rgb(217 164 65 / 0.12);
-  --sabz-warning-border: rgb(217 164 65 / 0.35);
-  --sabz-danger: #ea7570;
-  --sabz-danger-subtle: rgb(217 74 68 / 0.12);
-  --sabz-danger-border: rgb(229 101 95 / 0.35);
-  --sabz-info: #8ec2d0;
-  --sabz-info-subtle: rgb(61 141 166 / 0.12);
-  --sabz-info-border: rgb(142 194 208 / 0.35);
+  --sabz-success: #6fe3a0;
+  --sabz-success-subtle: #132a1c;
+  --sabz-success-border: #245a36;
+  --sabz-warning: #f0c46a;
+  --sabz-warning-subtle: #2b210f;
+  --sabz-warning-border: #5a461b;
+  --sabz-danger: #f19a94;
+  --sabz-on-danger: #2a0d0a;
+  --sabz-danger-subtle: #331715;
+  --sabz-danger-border: #5c2824;
+  --sabz-info: #8fc7d7;
+  --sabz-info-subtle: #122a31;
+  --sabz-info-border: #24505c;
 
-  --sabz-focus-ring: #8ecb96;
+  --sabz-focus-ring: #6fe3a0;
 
-  /* Dark elevation: shadows deepen instead of lightening (never a
-     light-mode inversion). */
-  --sabz-elevation-1: 0 1px 2px rgb(0 0 0 / 0.4), 0 3px 10px rgb(0 0 0 / 0.28);
-  --sabz-elevation-2: 0 2px 8px rgb(0 0 0 / 0.45), 0 16px 44px rgb(0 0 0 / 0.5);
+  --sabz-elevation-1: 0 1px 2px rgb(0 0 0 / 0.34), 0 4px 14px rgb(0 0 0 / 0.2);
+  --sabz-elevation-2: 0 4px 12px rgb(0 0 0 / 0.4), 0 24px 60px rgb(0 0 0 / 0.42);
 }
 
 @layer base {
@@ -335,11 +313,13 @@
   }
 
   ::selection {
-    background-color: var(--color-hunter-800);
+    background-color: var(--sabz-primary-strong);
+    color: var(--sabz-on-primary);
   }
 
   .dark ::selection {
-    background-color: var(--color-hunter-600);
+    background-color: #6fe3a0;
+    color: #07150c;
   }
 }
 
@@ -414,35 +394,47 @@
      it as their title separator and table cards as their top edge — while
      the sidebar edge keeps the edge variant. Defined after `.glass` so its
      `border-inline-end` overrides the glass border on that edge. */
+  /* Brand signature: a crisp rule with a short green leading segment.
+     It replaces the old double manuscript rule and carries the identity
+     through page headers, table cards and the sidebar edge. */
   .rule-double {
-    height: 1px;
-    background-color: var(--color-border);
-    box-shadow: 0 4px 0 0 var(--color-border);
+    height: 2px;
+    background: linear-gradient(
+      to left,
+      var(--sabz-primary) 0 44px,
+      var(--sabz-border) 44px 100%
+    );
   }
 
   .rule-double-top {
-    border-top: 1px solid var(--color-border);
-    box-shadow: inset 0 3px 0 0 var(--color-border);
+    border-top: 1px solid var(--sabz-border);
+    background-image: linear-gradient(
+      to left,
+      var(--sabz-primary) 0 64px,
+      transparent 64px
+    );
+    background-repeat: no-repeat;
+    background-size: 100% 2px;
   }
 
   /* RTL app: the content boundary is the sidebar's end (left) edge. */
   .rule-double-edge {
-    border-inline-end: 1px solid var(--color-border);
-    box-shadow: inset -4px 0 0 0 var(--color-hunter-800);
+    border-inline-end: 1px solid var(--sabz-border);
+    box-shadow: inset 2px 0 0 0 var(--sabz-primary);
   }
 
   /* Ambient layered backdrop for the app shell and login screens. */
   .ambient {
     background:
-      radial-gradient(60rem 30rem at 85% -10%, rgb(152 199 155 / 0.32), transparent 60%),
-      radial-gradient(50rem 26rem at -10% 110%, rgb(53 112 63 / 0.12), transparent 55%),
+      radial-gradient(64rem 32rem at 88% -12%, rgb(22 165 75 / 0.11), transparent 64%),
+      radial-gradient(48rem 28rem at -8% 112%, rgb(112 114 113 / 0.09), transparent 58%),
       var(--sabz-background);
   }
 
   .dark .ambient {
     background:
-      radial-gradient(60rem 30rem at 85% -10%, rgb(69 146 90 / 0.3), transparent 60%),
-      radial-gradient(50rem 26rem at -10% 110%, rgb(31 58 38 / 0.24), transparent 55%),
+      radial-gradient(64rem 34rem at 88% -12%, rgb(22 165 75 / 0.16), transparent 64%),
+      radial-gradient(48rem 28rem at -8% 112%, rgb(22 165 75 / 0.05), transparent 58%),
       var(--sabz-background);
   }
 }

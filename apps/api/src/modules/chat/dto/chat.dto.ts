@@ -28,6 +28,27 @@ export class OpenChatConversationDto {
   @MaxLength(2048, { message: 'نشانی صفحه حداکثر ۲۰۴۸ کاراکتر است.' })
   contextUrl?: string;
 
+  @ApiPropertyOptional({ description: 'Human-readable page title' })
+  @IsOptional()
+  @Transform(({ value }) => trimOptional(value))
+  @IsString({ message: 'عنوان صفحه معتبر نیست.' })
+  @MaxLength(300, { message: 'عنوان صفحه حداکثر ۳۰۰ کاراکتر است.' })
+  contextTitle?: string;
+
+  @ApiPropertyOptional({ description: 'Allowlisted page kind (product/category/...)' })
+  @IsOptional()
+  @Transform(({ value }) => trimOptional(value))
+  @IsString({ message: 'نوع صفحه معتبر نیست.' })
+  @MaxLength(40, { message: 'نوع صفحه حداکثر ۴۰ کاراکتر است.' })
+  contextKind?: string;
+
+  @ApiPropertyOptional({ description: 'Product/category display label' })
+  @IsOptional()
+  @Transform(({ value }) => trimOptional(value))
+  @IsString({ message: 'برچسب صفحه معتبر نیست.' })
+  @MaxLength(300, { message: 'برچسب صفحه حداکثر ۳۰۰ کاراکتر است.' })
+  contextLabel?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @Transform(({ value }) => trimOptional(value))
@@ -54,6 +75,57 @@ export class SendChatMessageDto {
   @IsString({ message: 'نشانی صفحه معتبر نیست.' })
   @MaxLength(2048)
   contextUrl?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Transform(({ value }) => trimOptional(value))
+  @IsString({ message: 'عنوان صفحه معتبر نیست.' })
+  @MaxLength(300)
+  contextTitle?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Transform(({ value }) => trimOptional(value))
+  @IsString({ message: 'نوع صفحه معتبر نیست.' })
+  @MaxLength(40)
+  contextKind?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Transform(({ value }) => trimOptional(value))
+  @IsString({ message: 'برچسب صفحه معتبر نیست.' })
+  @MaxLength(300)
+  contextLabel?: string;
+}
+
+export class UpdateChatContextDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Transform(({ value }) => trimOptional(value))
+  @IsString({ message: 'نشانی صفحه معتبر نیست.' })
+  @MaxLength(2048)
+  contextUrl?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Transform(({ value }) => trimOptional(value))
+  @IsString({ message: 'عنوان صفحه معتبر نیست.' })
+  @MaxLength(300)
+  contextTitle?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Transform(({ value }) => trimOptional(value))
+  @IsString({ message: 'نوع صفحه معتبر نیست.' })
+  @MaxLength(40)
+  contextKind?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Transform(({ value }) => trimOptional(value))
+  @IsString({ message: 'برچسب صفحه معتبر نیست.' })
+  @MaxLength(300)
+  contextLabel?: string;
 }
 
 export class ListChatMessagesQueryDto {

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { useHasSession } from '@/components/ecommerce/wishlist/use-has-session';
 import { useStoreNotifications } from '@/components/ecommerce/notifications/notification-provider';
 import type { CustomerChatConversationDto } from '@sabz/types';
@@ -10,13 +11,44 @@ import {
   markChatRead,
   openChatConversation,
   sendChatMessage,
+  updateChatContext,
 } from '@/lib/chat';
 import { ApiError } from '@/lib/api';
 import { formatFaDateTime } from '@/lib/format';
 
-function currentContext(): string {
-  if (typeof window === 'undefined') return '';
-  return window.location.href.slice(0, 2048);
+type PageContextInput = {
+  contextUrl: string;
+  contextTitle: string;
+  contextKind: string;
+  contextLabel: string;
+};
+
+function pageKind(pathname: string): string {
+  if (pathname === '/') return 'home';
+  if (pathname === '/products') return 'search';
+  if (pathname.startsWith('/products/')) return 'product';
+  if (pathname === '/categories' || pathname.startsWith('/categories/')) return 'category';
+  if (pathname === '/cart') return 'cart';
+  if (pathname === '/checkout') return 'checkout';
+  if (pathname === '/account') return 'account';
+  if (pathname === '/orders' || pathname.startsWith('/orders/')) return 'orders';
+  if (pathname === '/blog' || pathname.startsWith('/blog/')) return 'blog';
+  if (pathname === '/compare') return 'compare';
+  if (pathname === '/wishlist') return 'wishlist';
+  return 'other';
+}
+
+function currentContext(pathname: string): PageContextInput {
+  if (typeof window === 'undefined') {
+    return { contextUrl: '/', contextTitle: '', contextKind: 'other', contextLabel: '' };
+  }
+  const title = document.title.trim();
+  return {
+    contextUrl: window.location.href.slice(0, 2048),
+    contextTitle: title.slice(0, 300),
+    contextKind: pageKind(pathname),
+    contextLabel: title.slice(0, 300),
+  };
 }
 
 /**
@@ -27,6 +59,8 @@ function currentContext(): string {
 export function ChatWidget() {
   const visible = useHasSession();
   const { chatVersion } = useStoreNotifications();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [open, setOpen] = useState(false);
   const [conversation, setConversation] = useState<CustomerChatConversationDto | null>(null);
   const [loading, setLoading] = useState(false);
@@ -44,9 +78,12 @@ export function ChatWidget() {
       const state = await fetchChatState();
       let next = state.conversation;
       if (!next && options.start) {
-        next = await openChatConversation(currentContext());
+        next = await openChatConversation(currentContext(pathname));
       }
       setConversation(next);
+      if (next) {
+        void updateChatContext(currentContext(pathname)).catch(() => undefined);
+      }
       if (next && next.unreadForCustomer > 0) {
         await markChatRead();
       }
@@ -59,7 +96,7 @@ export function ChatWidget() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [pathname]);
 
   useEffect(() => {
     if (!visible) {
@@ -88,6 +125,16 @@ export function ChatWidget() {
     void load();
   }, [open, load, chatVersion]);
 
+  const searchKey = searchParams.toString();
+  const openConversationId = conversation?.id ?? null;
+  useEffect(() => {
+    if (!open || openConversationId === null) return;
+    const timer = window.setTimeout(() => {
+      void updateChatContext(currentContext(pathname)).catch(() => undefined);
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [open, openConversationId, pathname, searchKey]);
+
   useEffect(() => {
     const node = listRef.current;
     if (node) node.scrollTop = node.scrollHeight;
@@ -102,7 +149,7 @@ export function ChatWidget() {
       const next = await sendChatMessage({
         body: draft,
         clientMessageId: crypto.randomUUID(),
-        contextUrl: currentContext(),
+        ...currentContext(pathname),
       });
       setConversation(next);
       setDraft('');
@@ -154,7 +201,7 @@ export function ChatWidget() {
             <div>
               <p className="text-sm font-bold text-fg">پشتیبانی سبز سیستم</p>
               <p className="mt-0.5 text-[11px] text-fg-muted">
-                پاسخ اپراتورها در همین صفحه و مرکز اعلان‌ها می‌آید.
+                پاسخ اپراتورها در همین صفحه و مرکز اعلان‌ها می‌آید. صفحه فعلی شما برای درک بهتر پرسش با پشتیبانی به اشتراک گذاشته می‌شود.
               </p>
             </div>
             <button
@@ -234,7 +281,7 @@ export function ChatWidget() {
 
               {conversation.contextUrl && (
                 <p className="border-t border-border px-3 py-1.5 text-[10px] text-fg-muted" dir="ltr">
-                  {conversation.contextUrl.replace(/^https?:\/\/[^/]+/, '') || '/'}
+                  {conversation.contextTitle || conversation.contextUrl.replace(/^https?:\/\/[^/]+/, '') || '/'}
                 </p>
               )}
 

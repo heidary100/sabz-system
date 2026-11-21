@@ -225,6 +225,7 @@ export function CurrencyPage() {
                 <Field>
                   <Label htmlFor="rate-effective">زمان اعتبار (اختیاری)</Label>
                   <JalaliDateTimeInput
+            businessTimeZone
                     id="rate-effective"
                     value={effectiveAt}
                     onChange={setEffectiveAt}
@@ -244,7 +245,7 @@ export function CurrencyPage() {
                     maxLength={500}
                   />
                 </Field>
-                <Button type="submit" disabled={saving}>
+                <Button type="submit" color="primary" disabled={saving}>
                   {saving ? 'در حال ثبت…' : 'ثبت نرخ'}
                 </Button>
               </form>

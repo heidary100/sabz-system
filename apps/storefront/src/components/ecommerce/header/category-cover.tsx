@@ -52,7 +52,7 @@ export function CategoryCover({
 
   return (
     <span
-      className={`relative block shrink-0 overflow-hidden bg-plate ${
+      className={`relative block shrink-0 overflow-hidden bg-transparent ${
         variant === 'feature'
           ? 'aspect-[4/3] w-full rounded-card'
           : variant === 'panel'

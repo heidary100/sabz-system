@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import type { CategoryDetail, CategoryTreeNode } from '@sabz/types'
-import { Folder } from 'lucide-react'
+import { Folder, ImagePlus, Trash2 } from 'lucide-react'
 import { Alert, AlertActions, AlertBody, AlertDescription, AlertTitle } from '../catalyst/alert'
 import { StatusBadge } from '../ui/status-badge'
 import { Button } from '../catalyst/button'
@@ -12,7 +12,13 @@ import { translateApiError, isConflictError } from '../../lib/error-messages'
 import { findSlugCollision } from '../../lib/slug-collision'
 import { slugify } from '../../lib/slug'
 import { flattenAllNodes, getDescendantIds, lookupNode, maxSiblingSortOrder } from '../../lib/category-tree-utils'
-import { createCategory, updateCategory } from '../../services/categories'
+import {
+  createCategory,
+  removeCategoryImage,
+  updateCategory,
+  uploadCategoryImage,
+} from '../../services/categories'
+import { adminMediaUrl } from '../../lib/media-url'
 import { SlugField } from '../ui/slug-field'
 
 export function CategoryEditor({
@@ -40,6 +46,12 @@ export function CategoryEditor({
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [slugConflict, setSlugConflict] = useState<string | null>(null)
+  const [createdCategory, setCreatedCategory] = useState<CategoryDetail | null>(null)
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [imageRemoveRequested, setImageRemoveRequested] = useState(false)
+  const [imageError, setImageError] = useState<string | null>(null)
+  const imageInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (open) {
@@ -51,8 +63,20 @@ export function CategoryEditor({
       setIsVisible(category?.isVisible ?? true)
       setError(null)
       setSlugConflict(null)
+      setCreatedCategory(null)
+      setImageFile(null)
+      setImagePreview(adminMediaUrl(category?.imageUrl ?? null))
+      setImageRemoveRequested(false)
+      setImageError(null)
+      if (imageInputRef.current) imageInputRef.current.value = ''
     }
   }, [open, category, parentPreset])
+
+  useEffect(() => {
+    return () => {
+      if (imagePreview?.startsWith('blob:')) URL.revokeObjectURL(imagePreview)
+    }
+  }, [imagePreview])
 
   const parentOptions = useMemo(() => {
     const excluded = category ? new Set([category.id, ...getDescendantIds(tree, category.id)]) : new Set<string>()
@@ -79,6 +103,42 @@ export function CategoryEditor({
 
   const canSubmit = name.trim().length > 0 && !submitting
 
+  const pickImage = (event: ChangeEvent<HTMLInputElement>): void => {
+    const file = event.target.files?.[0] ?? null
+    setImageError(null)
+    if (!file) return
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      setImageError('فقط تصویر JPG، PNG یا WEBP مجاز است.')
+      event.target.value = ''
+      return
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      setImageError('حجم تصویر حداکثر ۸ مگابایت است.')
+      event.target.value = ''
+      return
+    }
+    if (imagePreview?.startsWith('blob:')) URL.revokeObjectURL(imagePreview)
+    setImageFile(file)
+    setImagePreview(URL.createObjectURL(file))
+    setImageRemoveRequested(false)
+  }
+
+  const clearImage = (): void => {
+    if (imagePreview?.startsWith('blob:')) URL.revokeObjectURL(imagePreview)
+    setImageFile(null)
+    setImagePreview(null)
+    setImageRemoveRequested(Boolean(category?.imageUrl ?? createdCategory?.imageUrl))
+    if (imageInputRef.current) imageInputRef.current.value = ''
+  }
+
+  const handleCancel = (): void => {
+    if (createdCategory && !category) {
+      onSuccess(createdCategory, 'create')
+      return
+    }
+    onClose()
+  }
+
   const handleSubmit = async (): Promise<void> => {
     if (!name.trim()) {
       setError('نام دسته بندی الزامی است.')
@@ -86,6 +146,7 @@ export function CategoryEditor({
     }
     setSubmitting(true)
     setError(null)
+    setImageError(null)
     setSlugConflict(null)
     try {
       const base = {
@@ -94,20 +155,30 @@ export function CategoryEditor({
         parentId: parentId || null,
         isVisible,
       }
+      let saved: CategoryDetail
       if (isEdit && category) {
-        const updated = await updateCategory(category.id, base)
-        onSuccess(updated, 'edit')
+        saved = await updateCategory(category.id, base)
+      } else if (createdCategory) {
+        saved = await updateCategory(createdCategory.id, base)
       } else {
-        const created = await createCategory({
+        saved = await createCategory({
           ...base,
           sortOrder: maxSiblingSortOrder(tree, parentId || null),
         })
-        onSuccess(created, 'create')
+        setCreatedCategory(saved)
       }
+      if (imageFile) {
+        saved = await uploadCategoryImage(saved.id, imageFile)
+      } else if (imageRemoveRequested && saved.imageUrl) {
+        saved = await removeCategoryImage(saved.id)
+      }
+      onSuccess(saved, isEdit ? 'edit' : 'create')
     } catch (submitError) {
-      setError(translateApiError(submitError))
+      const message = translateApiError(submitError)
+      setError(message)
+      setImageError(message)
       if (isConflictError(submitError)) {
-        setSlugConflict(translateApiError(submitError))
+        setSlugConflict(message)
       }
     } finally {
       setSubmitting(false)
@@ -117,7 +188,7 @@ export function CategoryEditor({
   const previewPath = [...parentPath, name.trim() || category?.name || 'نام دسته بندی']
 
   return (
-    <Alert open={open} onClose={onClose} size="2xl">
+    <Alert open={open} onClose={handleCancel} size="2xl">
       <AlertTitle>{isEdit ? 'ویرایش دسته بندی' : 'افزودن دسته بندی'}</AlertTitle>
       <AlertDescription>
         {isEdit
@@ -201,6 +272,52 @@ export function CategoryEditor({
           </Fieldset>
 
           <Fieldset>
+            <Legend>تصویر دسته‌بندی</Legend>
+            <FieldGroup>
+              <div className="flex flex-wrap items-start gap-4">
+                <div className="flex size-28 shrink-0 items-center justify-center overflow-hidden rounded-card border border-border bg-surface-2">
+                  {imagePreview ? (
+                    <img
+                      src={imagePreview}
+                      alt={`پیش‌نمایش تصویر ${name || 'دسته‌بندی'}`}
+                      className="h-full w-full object-contain"
+                    />
+                  ) : (
+                    <ImagePlus className="size-8 text-muted" aria-hidden="true" />
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <div className="flex flex-wrap gap-2">
+                    <label className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-control border border-border bg-surface px-3 text-sm font-semibold text-foreground hover:border-accent hover:text-accent">
+                      <ImagePlus className="size-4" aria-hidden="true" />
+                      {imagePreview ? 'تغییر تصویر' : 'انتخاب تصویر'}
+                      <input
+                        ref={imageInputRef}
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        className="sr-only"
+                        onChange={pickImage}
+                        disabled={submitting}
+                      />
+                    </label>
+                    {imagePreview ? (
+                      <Button outline onClick={clearImage} disabled={submitting}>
+                        <Trash2 className="size-4" aria-hidden="true" />
+                        حذف تصویر
+                      </Button>
+                    ) : null}
+                  </div>
+                  <Text className="text-xs text-muted">
+                    JPG، PNG یا WEBP، حداکثر ۸ مگابایت. تصویر با نسبت اصلی ذخیره
+                    می‌شود و در کارت‌ها و ناوبری فروشگاه نمایش می‌یابد.
+                  </Text>
+                  {imageError ? <ErrorMessage>{imageError}</ErrorMessage> : null}
+                </div>
+              </div>
+            </FieldGroup>
+          </Fieldset>
+
+          <Fieldset>
             <Legend>پیش نمایش</Legend>
             <FieldGroup>
               <div className="flex items-center gap-3 rounded-xl border border-primary-border bg-primary-subtle/40 px-3 py-3">
@@ -226,7 +343,7 @@ export function CategoryEditor({
         </div>
       </AlertBody>
       <AlertActions>
-        <Button outline onClick={onClose} disabled={submitting}>
+        <Button outline onClick={handleCancel} disabled={submitting}>
           انصراف
         </Button>
         <Button color="primary" onClick={() => void handleSubmit()} disabled={!canSubmit}>

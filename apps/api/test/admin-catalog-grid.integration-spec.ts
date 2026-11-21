@@ -283,4 +283,39 @@ describe('Admin catalog grid batch database integration (SS-257)', () => {
       await prisma.inventoryMovement.count({ where: { variantId: staleVariant.id } }),
     ).toBe(0);
   });
+
+  it('rejects inline Rial edits for a source-currency variant and preserves its snapshot', async () => {
+    const productId = await createProduct();
+    const variant = await createVariant(productId, {
+      price: '46300000.00',
+      priceSourceCurrency: 'USD',
+      priceSourceAmount: '50.00',
+      priceSourceRate: '925000.000000',
+      priceSourceRateId: 'rate-grid-int-1',
+      priceSourceRateAt: new Date('2026-11-18T00:00:00.000Z'),
+    });
+
+    const response = await gridService.batch(
+      {
+        rows: [
+          {
+            variantId: variant.id,
+            expectedUpdatedAt: variant.updatedAt.toISOString(),
+            price: '47000000',
+          },
+        ],
+      },
+      ACTOR_ID,
+    );
+
+    expect(response.results[0]!.outcome).toBe('VALIDATION_ERROR');
+    expect(response.results[0]!.message).toContain('واحد ارزی');
+    const after = await prisma.productVariant.findUnique({
+      where: { id: variant.id },
+    });
+    expect(after!.price.toString()).toBe('46300000');
+    expect(after!.priceSourceCurrency).toBe('USD');
+    expect(after!.priceSourceAmount!.toString()).toBe('50');
+    expect(after!.priceSourceRateId).toBe('rate-grid-int-1');
+  });
 });

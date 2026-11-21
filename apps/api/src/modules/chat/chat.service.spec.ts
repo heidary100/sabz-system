@@ -5,17 +5,26 @@ import { NotificationService } from '../notifications/notification.service';
 import { RealtimeService } from '../realtime/realtime.service';
 
 describe('chat context safety (SS-900)', () => {
-  it('accepts http(s) and same-origin paths, stripping credentials/fragments', () => {
-    expect(sanitizeContextUrl('/products/laptop?x=1#top')).toBe('/products/laptop?x=1');
+  it('accepts canonical paths and preserves only the allowlisted variant query', () => {
+    expect(sanitizeContextUrl('/products/laptop?x=1&variant=v-2#top')).toBe(
+      'http://localhost:3002/products/laptop?variant=v-2',
+    );
     expect(
-      sanitizeContextUrl('https://user:pass@shop.example/products/a#frag'),
+      sanitizeContextUrl(
+        'https://shop.example/products/a#frag',
+        'https://shop.example',
+      ),
     ).toBe('https://shop.example/products/a');
   });
 
-  it('rejects non-web schemes and protocol-relative URLs', () => {
+  it('rejects non-web schemes, protocol-relative URLs and foreign origins', () => {
     expect(sanitizeContextUrl('javascript:alert(1)')).toBeNull();
     expect(sanitizeContextUrl('data:text/html,hi')).toBeNull();
     expect(sanitizeContextUrl('//evil.example/x')).toBeNull();
+    expect(sanitizeContextUrl('https://evil.example/products/a')).toBeNull();
+    expect(
+      sanitizeContextUrl('https://evil.example/products/a', 'https://shop.example'),
+    ).toBeNull();
   });
 
   it('caps oversized context values', () => {

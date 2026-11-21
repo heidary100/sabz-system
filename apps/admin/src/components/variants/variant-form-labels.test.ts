@@ -19,14 +19,18 @@ describe('variant form money labels (SS-250)', () => {
     expect(FORM_SOURCE.includes('ریال ÷ ۱۰')).toBe(false)
   })
 
-  it('labels both price fields in ریال', () => {
-    expect(FORM_SOURCE.includes('قیمت (ریال)')).toBe(true)
-    expect(FORM_SOURCE.includes('قیمت قبل از تخفیف (ریال)')).toBe(true)
+  it('offers Rial, USD and AED source currencies with a Rial final price', () => {
+    expect(FORM_SOURCE.includes("RIAL: 'ریال'")).toBe(true)
+    expect(FORM_SOURCE.includes("USD: 'دلار آمریکا'")).toBe(true)
+    expect(FORM_SOURCE.includes("AED: 'درهم امارات'")).toBe(true)
+    expect(FORM_SOURCE.includes('قیمت ({CURRENCY_LABELS[values.priceSourceCurrency]})')).toBe(true)
+    expect(FORM_SOURCE.includes('قیمت قبل از تخفیف ({CURRENCY_LABELS[values.priceSourceCurrency]})')).toBe(true)
   })
 
-  it('explains the Rial base and display unit', () => {
-    expect(FORM_SOURCE.includes('مبنا ریال است')).toBe(true)
-    expect(FORM_SOURCE.includes('به ریال نمایش می‌دهد')).toBe(true)
+  it('explains the server-side conversion and Rial display contract', () => {
+    expect(FORM_SOURCE.includes('نرخ دستی جاری')).toBe(true)
+    expect(FORM_SOURCE.includes('فروشگاه فقط ریال نمایش می‌دهد')).toBe(true)
+    expect(FORM_SOURCE.includes('قیمت نهایی ریالی پس از تبدیل')).toBe(true)
   })
 
   it('folds Persian/Arabic digits on money inputs before validation', () => {

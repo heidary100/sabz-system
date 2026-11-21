@@ -211,6 +211,8 @@ export function StoreNotificationProvider({ children }: { children: ReactNode })
     socket.on('notification:read', onRead);
     socket.on('chat:message', onChat);
     socket.on('chat:read', onChat);
+    socket.on('chat:context', onChat);
+    socket.on('chat:closed', onChat);
     const onInteraction = () => unlockNotificationSound();
     window.addEventListener('pointerdown', onInteraction, { once: true });
     window.addEventListener('keydown', onInteraction, { once: true });

@@ -61,7 +61,7 @@ export function ProductCard({
       >
         <div
           data-card-image
-          className="relative aspect-square overflow-hidden bg-plate"
+          className="relative aspect-square overflow-hidden bg-transparent"
         >
           <div
             className={`absolute inset-0 ${compact ? 'p-2.5' : 'p-3 sm:p-4'}`}

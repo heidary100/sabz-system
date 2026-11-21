@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from 'react'
 import {
+  ApiError,
   clearSession,
   onAuthStateChange,
   setAccessToken,
@@ -17,7 +18,7 @@ import type { AppRole, AuthUser } from '@sabz/types'
 
 export const ADMIN_ROLES: readonly AppRole[] = ['OPERATOR', 'ADMIN']
 
-export type AuthStatus = 'loading' | 'authenticated' | 'anonymous'
+export type AuthStatus = 'loading' | 'authenticated' | 'anonymous' | 'unavailable'
 
 interface AuthContextValue {
   status: AuthStatus
@@ -25,6 +26,8 @@ interface AuthContextValue {
   isAdmin: boolean
   login: (mobile: string, code: string) => Promise<void>
   logout: () => Promise<void>
+  /** Retry a session restore that failed for a transient server/network reason. */
+  retrySession: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
@@ -40,33 +43,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return me
   }, [])
 
-  useEffect(() => {
-    let cancelled = false
-
-    async function restore(): Promise<void> {
-      const restored = await authService.restoreSession()
-      if (cancelled) {
-        return
-      }
-      if (!restored) {
+  const restore = useCallback(async (): Promise<void> => {
+    setStatus('loading')
+    const outcome = await authService.restoreSession()
+    if (outcome === 'expired') {
+      clearSession()
+      setStatus('anonymous')
+      return
+    }
+    if (outcome === 'unavailable') {
+      // Throttling / 5xx / network failures must not destroy the session.
+      // Keep the retry token cookie and offer an explicit retry screen.
+      setStatus('unavailable')
+      return
+    }
+    try {
+      await loadUser()
+    } catch (error) {
+      if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
+        clearSession()
         setStatus('anonymous')
         return
       }
-      try {
-        await loadUser()
-      } catch {
-        if (!cancelled) {
-          clearSession()
-        }
-      }
-    }
-
-    void restore()
-
-    return () => {
-      cancelled = true
+      setStatus('unavailable')
     }
   }, [loadUser])
+
+  useEffect(() => {
+    void restore()
+  }, [restore])
 
   useEffect(() => {
     return onAuthStateChange(() => {
@@ -98,8 +103,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAdmin: user?.roles.some((role) => ADMIN_ROLES.includes(role)) ?? false,
       login,
       logout,
+      retrySession: restore,
     }),
-    [status, user, login, logout],
+    [status, user, login, logout, restore],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

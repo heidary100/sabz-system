@@ -198,10 +198,15 @@ describe('SS-900 realtime notifications + chat (e2e)', () => {
     const open = await request(app.getHttpServer())
       .post('/api/v1/chat/conversation')
       .set('Authorization', `Bearer ${customerToken}`)
-      .send({ contextUrl: 'https://shop.example/products/test' })
+      .send({
+        contextUrl: 'http://localhost:3002/products/test',
+        contextTitle: 'محصول آزمایشی',
+        contextKind: 'product',
+        contextLabel: 'محصول آزمایشی',
+      })
       .expect(201);
     const conversationId = open.body.id as string;
-    expect(open.body.contextUrl).toBe('https://shop.example/products/test');
+    expect(open.body.contextUrl).toBe('http://localhost:3002/products/test');
 
     const sent = await request(app.getHttpServer())
       .post('/api/v1/chat/messages')
@@ -209,13 +214,18 @@ describe('SS-900 realtime notifications + chat (e2e)', () => {
       .send({
         body: 'سلام، سوال دارم.',
         clientMessageId: 'ss900-e2e-1',
-        contextUrl: 'https://shop.example/products/test?x=1#frag',
+        contextUrl: 'http://localhost:3002/products/test?variant=v-1&x=1#frag',
+        contextTitle: 'محصول آزمایشی',
+        contextKind: 'product',
       })
       .expect(201);
     expect(sent.body.messages.at(-1)).toMatchObject({
       body: 'سلام، سوال دارم.',
       senderType: 'CUSTOMER',
+      contextUrl: 'http://localhost:3002/products/test?variant=v-1',
+      contextTitle: 'محصول آزمایشی',
     });
+    expect(sent.body.contextTitle).toBeTruthy();
     // Idempotent retry with the same client message id.
     const retried = await request(app.getHttpServer())
       .post('/api/v1/chat/messages')
@@ -227,6 +237,36 @@ describe('SS-900 realtime notifications + chat (e2e)', () => {
         (message: { body: string }) => message.body === 'سلام، سوال دارم.',
       ),
     ).toHaveLength(1);
+
+    // Live page-context update: canonical origin only, allowlisted query.
+    const operatorSocket = connect(operatorToken);
+    await waitForEvent(operatorSocket, 'connected');
+    const contextEvent = waitForEvent<{
+      contextUrl: string;
+      contextTitle: string;
+      contextKind: string;
+    }>(operatorSocket, 'chat:context');
+    await request(app.getHttpServer())
+      .patch('/api/v1/chat/context')
+      .set('Authorization', `Bearer ${customerToken}`)
+      .send({
+        contextUrl:
+          'http://localhost:3002/products/test?variant=v-2&token=secret#fragment',
+        contextTitle: 'صفحه محصول دیگر',
+        contextKind: 'product',
+        contextLabel: 'محصول دیگر',
+      })
+      .expect(200);
+    await expect(contextEvent).resolves.toMatchObject({
+      contextUrl: 'http://localhost:3002/products/test?variant=v-2',
+      contextTitle: 'صفحه محصول دیگر',
+      contextKind: 'product',
+    });
+    await request(app.getHttpServer())
+      .patch('/api/v1/chat/context')
+      .set('Authorization', `Bearer ${customerToken}`)
+      .send({ contextUrl: 'https://evil.example/products/a' })
+      .expect(400);
 
     await request(app.getHttpServer())
       .get('/api/v1/admin/chat/conversations')

@@ -16,6 +16,8 @@ import { ErrorMessage, Field, Label } from '../components/catalyst/fieldset'
 import { RouteHelpSection } from '../components/ui/page-help'
 import { Heading, Subheading } from '../components/catalyst/heading'
 import { Input } from '../components/catalyst/input'
+import { JalaliDateTimeInput } from '../components/ui/jalali-datetime-input'
+import { tehranDateTimeInputToUtcIso, utcIsoToTehranDateTimeInput } from '../lib/tehran-time'
 import { DeleteConfirmDialog } from '../components/ui/delete-confirm-dialog'
 import { EmptyState } from '../components/ui/empty-state'
 import { InfoItem } from '../components/ui/info-item'
@@ -82,7 +84,7 @@ function QuoteForm({
     try {
       await onQuote({
         unitPrice: unitPrice.trim(),
-        ...(expiresAt ? { expiresAt: new Date(expiresAt).toISOString() } : {}),
+        ...(expiresAt ? { expiresAt: tehranDateTimeInputToUtcIso(expiresAt) ?? undefined } : {}),
       })
       setUnitPrice('')
       setExpiresAt('')
@@ -113,13 +115,15 @@ function QuoteForm({
         </Field>
         <Field>
           <Label>انقضا (اختیاری — پیش‌فرض ۷ روز)</Label>
-          <Input
-            name="expiresAt"
-            type="datetime-local"
-            dir="ltr"
-            value={expiresAt}
+          <JalaliDateTimeInput
+            id="rfq-expires-at"
+            value={expiresAt ? tehranDateTimeInputToUtcIso(expiresAt) : null}
+            onChange={(iso) =>
+              setExpiresAt(iso ? utcIsoToTehranDateTimeInput(iso) : '')
+            }
+            withTime
             disabled={mutating}
-            onChange={(event) => setExpiresAt(event.target.value)}
+            ariaLabel="انقضای استعلام به وقت تهران"
           />
         </Field>
       </div>

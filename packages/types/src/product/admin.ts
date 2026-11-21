@@ -96,6 +96,7 @@ export interface CreateVariantInput {
   name?: string;
   price: string;
   compareAtPrice?: string;
+  priceSourceCurrency?: 'RIAL' | 'USD' | 'AED';
   priceStatus?: PriceStatus;
 }
 
@@ -105,5 +106,6 @@ export interface UpdateVariantInput {
   name?: string | null;
   price?: string;
   compareAtPrice?: string | null;
+  priceSourceCurrency?: 'RIAL' | 'USD' | 'AED';
   priceStatus?: PriceStatus;
 }

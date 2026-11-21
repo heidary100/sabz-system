@@ -1,6 +1,12 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { ProductMediaType, ProductStatus, Prisma, PriceStatus } from '@prisma/client';
+import {
+  PriceSourceCurrency,
+  PriceStatus,
+  Prisma,
+  ProductMediaType,
+  ProductStatus,
+} from '@prisma/client';
 import type {
   CatalogGridBatchRowInput,
   CatalogGridBatchResponse,
@@ -495,6 +501,7 @@ export class CatalogGridService {
             price: true,
             compareAtPrice: true,
             priceStatus: true,
+            priceSourceCurrency: true,
             updatedAt: true,
             product: {
               select: {
@@ -536,6 +543,26 @@ export class CatalogGridService {
         }
 
         const expected = new Date(row.expectedUpdatedAt);
+
+        // The grid edits Rial only. A source-currency variant must be changed
+        // through the variant form so its source amount/rate snapshot stays
+        // coherent; otherwise an inline Rial value would silently contradict
+        // the stored USD/AED source.
+        if (
+          (row.price !== undefined || row.compareAtPrice !== undefined) &&
+          variant.priceSourceCurrency !== PriceSourceCurrency.RIAL
+        ) {
+          return {
+            result: {
+              variantId: row.variantId,
+              outcome: 'VALIDATION_ERROR',
+              message:
+                'این نوع با واحد ارزی ثبت شده است؛ قیمت را از فرم ویرایش نوع تغییر دهید.',
+              fieldErrors: { price: 'ویرایش قیمت ارزی از شبکه کاتالوگ مجاز نیست.' },
+            },
+            productSlug: null,
+          };
+        }
 
         const variantData: GridVariantData = {};
         if (row.sku !== undefined) {
@@ -869,6 +896,7 @@ export class CatalogGridService {
             price: true,
             compareAtPrice: true,
             priceStatus: true,
+            priceSourceCurrency: true,
             updatedAt: true,
             deletedAt: true,
             product: {

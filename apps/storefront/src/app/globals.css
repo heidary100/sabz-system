@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import '../../../../packages/config/design-tokens.css';
 
 /* ------------------------------------------------------------------ */
 /* Pine & Paper — token architecture (Task 01)                        */
@@ -14,23 +15,26 @@
 /* ------------------------------------------------------------------ */
 
 @theme {
-  /* Existing Sabz primitives — retained as the source of brand values. */
-  --color-sabz-50: #f4f6f2;
-  --color-sabz-100: #e6eae1;
-  --color-sabz-200: #ccd6c6;
-  --color-sabz-300: #a3b18a;
-  --color-sabz-400: #7d9873;
-  --color-sabz-500: #588157;
-  --color-sabz-600: #4a6d4b;
-  --color-sabz-700: #3a5a40;
-  --color-sabz-800: #344e41;
-  --color-sabz-900: #2b3f35;
+  /* Official Sabz brand primitives mirrored by
+     packages/config/design-tokens.css. #16A54B is the official green;
+     #0B6B2F is the accessible action/text variant on light surfaces.
+     #707271 is the official neutral. */
+  --color-sabz-50: #f1fbf5;
+  --color-sabz-100: #ddf6e6;
+  --color-sabz-200: #baebcc;
+  --color-sabz-300: #86dca8;
+  --color-sabz-400: #45c57a;
+  --color-sabz-500: #16a54b;
+  --color-sabz-600: #0d843b;
+  --color-sabz-700: #0b6b2f;
+  --color-sabz-800: #095426;
+  --color-sabz-900: #073f1e;
 
-  --color-sand-50: #f8f7f5;
-  --color-sand-100: #efece7;
-  --color-sand-200: #dad7cd;
-  --color-ink-900: #312e24;
-  --color-ink-950: #191713;
+  --color-sand-50: #f4f6f5;
+  --color-sand-100: #eff2f0;
+  --color-sand-200: #dde3df;
+  --color-ink-900: #1b1f1d;
+  --color-ink-950: #0f1210;
 
   --font-sans: 'Vazirmatn Variable', 'Vazirmatn', ui-sans-serif, system-ui,
     'Segoe UI', Tahoma, sans-serif;
@@ -38,14 +42,13 @@
   /* Four-value radius system. */
   --radius-control: 10px;
   --radius-card: 16px;
-  --radius-panel: 24px;
+  --radius-panel: 22px;
   --radius-pill: 9999px;
 
-  /* Typography tokens. Existing pages keep their layout; primitives and
-     new work consume these without a page-wide typographic rewrite. */
+  /* Typography tokens. */
   --text-display-xl: clamp(2.5rem, 4vw, 3.5rem);
   --text-display-xl--line-height: 1.15;
-  --text-display-xl--font-weight: 900;
+  --text-display-xl--font-weight: 800;
   --text-display-l: 2.5rem;
   --text-display-l--line-height: 1.25;
   --text-display-l--font-weight: 800;
@@ -69,12 +72,12 @@
   --text-micro--line-height: 1.45;
   --text-micro--font-weight: 500;
 
-  /* Elevation: border-first. Shadows are reserved for overlays/panels. */
+  /* Elevation: border-first; shadows reserved for overlays and lift. */
   --shadow-card: none;
-  --shadow-lift: 0 6px 18px -12px rgb(16 20 14 / 0.28);
-  --shadow-panel: 0 1px 0 rgb(16 20 14 / 0.04),
-    0 16px 40px -24px rgb(16 20 14 / 0.22);
-  --shadow-overlay: 0 24px 64px -16px rgb(16 20 14 / 0.32);
+  --shadow-lift: 0 10px 28px -18px rgb(11 20 14 / 0.28);
+  --shadow-panel: 0 1px 0 rgb(11 20 14 / 0.04),
+    0 18px 44px -28px rgb(11 20 14 / 0.26);
+  --shadow-overlay: 0 28px 72px -18px rgb(4 10 6 / 0.38);
 
   --ease-swift: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -139,119 +142,121 @@
 [data-theme='light'] {
   color-scheme: light;
 
-  --ss-bg: #f8f7f5;
+  --ss-bg: #f4f6f5;
   --ss-surface: #ffffff;
-  --ss-surface-2: #f1eee8;
-  --ss-surface-3: #e9e4db;
+  --ss-surface-2: #eff2f0;
+  --ss-surface-3: #e5eae7;
 
-  --ss-fg: #312e24;
-  --ss-fg-secondary: #5f5a4d;
-  --ss-fg-muted: #726b5d;
+  --ss-fg: #1b1f1d;
+  --ss-fg-secondary: #4c514e;
+  /* The official neutral is #707271; muted copy uses a slightly
+     deeper derivative so secondary text clears AA on tinted surfaces. */
+  --ss-fg-muted: #646765;
 
-  --ss-border: #dad7cd;
-  --ss-border-strong: #bdb8ab;
-  --ss-border-subtle: #e8e4dc;
-  --ss-border-control: #8a8374;
+  --ss-border: #dde3df;
+  --ss-border-strong: #8c968f;
+  --ss-border-subtle: #e8ece9;
+  --ss-border-control: #8b928d;
 
-  --ss-accent: #3a5a40;
-  --ss-accent-hover: #344e41;
-  --ss-accent-soft: #e6eae1;
+  --ss-accent: #0b6b2f;
+  --ss-accent-hover: #095426;
+  --ss-accent-soft: #eaf8ef;
   --ss-on-accent: #ffffff;
-  --ss-accent-stage: #a3b18a;
+  --ss-accent-stage: #86dca8;
 
-  --ss-focus: #4a6d4b;
-  --ss-focus-stage: #a3b18a;
+  --ss-focus: #0b6b2f;
+  --ss-focus-stage: #8bedb4;
 
   --ss-sale: #b42318;
   --ss-on-sale: #ffffff;
   --ss-sale-soft: #fbe9e7;
-  --ss-success: #2f6b3f;
-  --ss-success-soft: #e8f3ea;
-  --ss-warning: #8a5a00;
-  --ss-warning-soft: #f8efdc;
-  --ss-danger: #b42318;
+  --ss-success: #0b6b2f;
+  --ss-success-soft: #eaf8ef;
+  --ss-warning: #8a5700;
+  --ss-warning-soft: #fff4da;
+  --ss-danger: #a9332d;
   --ss-on-danger: #ffffff;
   --ss-danger-soft: #fbe9e7;
 
-  /* Stage is intentionally dark in both themes: hero, footer, campaign. */
-  --ss-stage: #191713;
-  --ss-stage-2: #23211b;
-  --ss-on-stage: #f7f4ec;
-  --ss-on-stage-secondary: #c9c5b9;
-  --ss-on-stage-muted: #a8a396;
-  --ss-stage-border: rgb(255 255 255 / 0.12);
+  /* Stage is intentionally deep green-charcoal in both themes. */
+  --ss-stage: #0b1510;
+  --ss-stage-2: #132019;
+  --ss-on-stage: #f1f6f2;
+  --ss-on-stage-secondary: #c4cec7;
+  --ss-on-stage-muted: #9aa79e;
+  --ss-stage-border: rgb(255 255 255 / 0.14);
 
   /* Product photography stays on a light plate in both themes. */
-  --ss-plate: #f5f2eb;
-  --ss-plate-fg: #312e24;
-  --ss-plate-muted: #726b5d;
-  --ss-plate-border: #e2ded4;
-  --ss-plate-accent: #3a5a40;
+  --ss-plate: #f0f3f0;
+  --ss-plate-fg: #1b1f1d;
+  --ss-plate-muted: #646765;
+  --ss-plate-border: #dde3df;
+  --ss-plate-accent: #0b6b2f;
 
-  --ss-overlay: rgb(12 14 10 / 0.62);
+  --ss-overlay: rgb(5 11 7 / 0.66);
   --ss-shimmer: rgb(255 255 255 / 0.55);
-  --ss-selection-bg: #3a5a40;
+  --ss-selection-bg: #0b6b2f;
   --ss-selection-fg: #ffffff;
-  --ss-scrollbar: #dad7cd;
-  --ss-scrollbar-hover: #a3b18a;
+  --ss-scrollbar: #cfd5d0;
+  --ss-scrollbar-hover: #86dca8;
 }
 
 [data-theme='dark'] {
   color-scheme: dark;
 
-  --ss-bg: #151814;
-  --ss-surface: #1d211c;
-  --ss-surface-2: #232822;
-  --ss-surface-3: #2b312a;
+  --ss-bg: #0f1210;
+  --ss-surface: #171b18;
+  --ss-surface-2: #1d221e;
+  --ss-surface-3: #252b26;
 
-  --ss-fg: #f3f0e9;
-  --ss-fg-secondary: #c7c2b6;
-  --ss-fg-muted: #9b968a;
+  --ss-fg: #f1f4f2;
+  --ss-fg-secondary: #c3cac5;
+  --ss-fg-muted: #a7aea9;
 
-  --ss-border: #343a31;
-  --ss-border-strong: #4c5447;
-  --ss-border-subtle: #2a2f28;
-  --ss-border-control: #6b7464;
+  --ss-border: #2d342f;
+  --ss-border-strong: #5f6a62;
+  --ss-border-subtle: #242a26;
+  --ss-border-control: #6e7a71;
 
-  --ss-accent: #a3b18a;
-  --ss-accent-hover: #b7c3a1;
-  --ss-accent-soft: #263024;
-  --ss-on-accent: #14170f;
-  --ss-accent-stage: #a3b18a;
+  --ss-accent: #16a54b;
+  --ss-accent-hover: #1bb857;
+  --ss-accent-soft: #132a1c;
+  --ss-on-accent: #07150c;
+  --ss-accent-stage: #6fe3a0;
 
-  --ss-focus: #a3b18a;
-  --ss-focus-stage: #a3b18a;
+  --ss-focus: #6fe3a0;
+  --ss-focus-stage: #8bedb4;
 
-  --ss-sale: #b42318;
+  --ss-sale: #c2413a;
   --ss-on-sale: #ffffff;
-  --ss-sale-soft: #3a1c19;
-  --ss-success: #86efac;
-  --ss-success-soft: #1b2e22;
-  --ss-warning: #fbbf24;
-  --ss-warning-soft: #33270f;
-  --ss-danger: #fca5a5;
+  --ss-sale-soft: #331715;
+  --ss-success: #6fe3a0;
+  --ss-success-soft: #132a1c;
+  --ss-warning: #f0c46a;
+  --ss-warning-soft: #2b210f;
+  --ss-danger: #f19a94;
   --ss-on-danger: #2a0d0a;
-  --ss-danger-soft: #3a1c19;
+  --ss-danger-soft: #331715;
 
-  --ss-stage: #191713;
-  --ss-stage-2: #23211b;
-  --ss-on-stage: #f7f4ec;
-  --ss-on-stage-secondary: #c9c5b9;
-  --ss-on-stage-muted: #a8a396;
-  --ss-stage-border: rgb(255 255 255 / 0.12);
+  --ss-stage: #0b1510;
+  --ss-stage-2: #132019;
+  --ss-on-stage: #f1f6f2;
+  --ss-on-stage-secondary: #c4cec7;
+  --ss-on-stage-muted: #9aa79e;
+  --ss-stage-border: rgb(255 255 255 / 0.14);
 
-  --ss-plate: #f5f2eb;
-  --ss-plate-fg: #312e24;
-  --ss-plate-muted: #6b6558;
-  --ss-plate-border: #e2ded4;
-  --ss-plate-accent: #3a5a40;
+  --ss-plate: #e8ece9;
+  --ss-plate-fg: #1b1f1d;
+  --ss-plate-muted: #626864;
+  --ss-plate-border: #d3dad5;
+  --ss-plate-accent: #0b6b2f;
 
-  --ss-overlay: rgb(6 8 6 / 0.7);
+  --ss-overlay: rgb(3 7 5 / 0.72);
   --ss-shimmer: rgb(255 255 255 / 0.07);
-  --ss-selection-bg: #a3b18a;
-  --ss-selection-fg: #14170f;
-  --ss-scrollbar: #343a31;
-  --ss-scrollbar-hover: #4c5447;
+  --ss-selection-bg: #6fe3a0;
+  --ss-selection-fg: #07150c;
+  --ss-scrollbar: #2d342f;
+  --ss-scrollbar-hover: #4a554d;
 }
 
 html {

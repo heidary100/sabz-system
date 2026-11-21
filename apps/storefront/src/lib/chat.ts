@@ -3,7 +3,9 @@ import type {
   ChatReadResponse,
   CustomerChatConversationDto,
   CustomerChatStateDto,
+  OpenChatConversationInput,
   SendChatMessageInput,
+  UpdateChatContextInput,
 } from '@sabz/types';
 import { authFetch } from './auth-client';
 import { ApiError } from './api';
@@ -44,12 +46,23 @@ export async function fetchChatState(): Promise<CustomerChatStateDto> {
 }
 
 export async function openChatConversation(
-  contextUrl: string,
+  input: OpenChatConversationInput,
 ): Promise<CustomerChatConversationDto> {
   const response = await authFetch('/chat/conversation', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ contextUrl }),
+    body: JSON.stringify(input),
+  });
+  return parse<CustomerChatConversationDto>(response, LOAD_FAILED);
+}
+
+export async function updateChatContext(
+  input: UpdateChatContextInput,
+): Promise<CustomerChatConversationDto> {
+  const response = await authFetch('/chat/context', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
   });
   return parse<CustomerChatConversationDto>(response, LOAD_FAILED);
 }

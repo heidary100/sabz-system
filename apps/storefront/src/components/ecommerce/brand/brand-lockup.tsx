@@ -10,20 +10,26 @@ import { brand } from '@/lib/brand';
 export function BrandLockup({
   href = '/',
   markSize = brand.markSize,
-  wordmarkClassName = 'text-lg font-bold tracking-tight text-accent-hover',
+  wordmarkClassName = 'text-lg font-extrabold tracking-tight text-fg',
+  focusRingClassName = 'focus-visible:outline-focus',
 }: {
   href?: string;
   markSize?: number;
   wordmarkClassName?: string;
+  focusRingClassName?: string;
 }) {
   return (
-    <Link href={href} className="flex items-center gap-2" aria-label={brand.nameFa}>
+    <Link
+      href={href}
+      className={`flex items-center gap-2 rounded-control focus-visible:outline-2 focus-visible:outline-offset-2 ${focusRingClassName}`}
+      aria-label={brand.nameFa}
+    >
       <Image
-        src={brand.logoPng[64].src}
+        src={brand.logoPng[128].src}
         alt={brand.logoAlt}
         width={markSize}
         height={markSize}
-        className="rounded-control"
+        className="object-contain"
         priority={false}
       />
       <span className={wordmarkClassName}>{brand.nameFa}</span>

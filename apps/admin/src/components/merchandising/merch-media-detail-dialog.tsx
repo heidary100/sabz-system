@@ -170,7 +170,7 @@ export function MerchMediaDetailDialog({
           >
             <span
               aria-hidden="true"
-              className="size-8 animate-spin rounded-full border-2 border-hunter-800 border-t-primary motion-reduce:animate-none"
+              className="size-8 animate-spin rounded-full border-2 border-border border-t-primary motion-reduce:animate-none"
             />
             <span className="text-sm font-medium text-muted">
               در حال بارگذاری جزئیات…
@@ -189,7 +189,7 @@ export function MerchMediaDetailDialog({
                   >
                     <span
                       aria-hidden="true"
-                      className="size-7 animate-spin rounded-full border-2 border-hunter-800 border-t-primary motion-reduce:animate-none"
+                      className="size-7 animate-spin rounded-full border-2 border-border border-t-primary motion-reduce:animate-none"
                     />
                     <span className="text-xs">در حال بارگذاری فایل…</span>
                   </div>

@@ -344,7 +344,7 @@ export function CategoryManager({
               <span className="flex items-center gap-2 text-xs font-medium text-muted" role="status">
                 <span
                   aria-hidden="true"
-                  className="size-3 animate-spin rounded-full border-2 border-hunter-800 border-t-primary"
+                  className="size-3 animate-spin rounded-full border-2 border-border border-t-primary"
                 />
                 در حال ذخیره ترتیب…
               </span>

@@ -18,6 +18,7 @@ import type {
 } from '@sabz/types'
 import { useAdminChat } from '../hooks/use-admin-chat'
 import { formatFaNumber } from '../lib/format'
+import { storefrontContextUrl } from '../lib/storefront-url'
 import { Button } from '../components/catalyst/button'
 import { Input } from '../components/catalyst/input'
 import { Select } from '../components/catalyst/select'
@@ -42,13 +43,18 @@ const STATUS_TONES: Record<ChatConversationStatus, 'success' | 'warning' | 'neut
 }
 
 function contextPath(value: string | null): string | null {
-  if (!value) return null
+  const safe = storefrontContextUrl(value)
+  if (!safe) return null
   try {
-    const url = new URL(value, 'https://local.invalid')
+    const url = new URL(safe)
     return url.pathname + url.search
   } catch {
-    return value
+    return null
   }
+}
+
+function contextHref(value: string | null): string | null {
+  return storefrontContextUrl(value)
 }
 
 function timeFa(iso: string): string {
@@ -293,9 +299,18 @@ export function ChatPage() {
                     <p dir="ltr" className="mt-0.5 text-xs text-muted">
                       {detail.customer.mobile}
                     </p>
-                    {contextPath(detail.contextUrl) && (
-                      <p className="mt-1 max-w-md truncate rounded-control bg-surface-2 px-2 py-1 text-[11px] text-muted" dir="ltr">
-                        {contextPath(detail.contextUrl)}
+                    {contextPath(detail.contextUrl) && contextHref(detail.contextUrl) && (
+                      <p className="mt-1 max-w-md truncate rounded-control bg-surface-2 px-2 py-1 text-[11px] text-muted">
+                        <span className="me-1 text-muted">صفحه فعلی:</span>
+                        <a
+                          href={contextHref(detail.contextUrl) ?? undefined}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          dir="ltr"
+                          className="font-medium text-accent hover:text-accent-hover"
+                        >
+                          {detail.contextTitle || contextPath(detail.contextUrl)}
+                        </a>
                       </p>
                     )}
                   </div>
@@ -382,6 +397,18 @@ export function ChatPage() {
                           >
                             {timeFa(message.createdAt)}
                           </p>
+                          {!admin && !system && contextHref(message.contextUrl) ? (
+                            <a
+                              href={contextHref(message.contextUrl) ?? undefined}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              dir="ltr"
+                              className="mt-1 block max-w-52 truncate text-[10px] text-accent underline decoration-accent/40 underline-offset-2 hover:text-accent-hover"
+                              title={message.contextTitle ?? message.contextUrl ?? undefined}
+                            >
+                              {message.contextTitle || contextPath(message.contextUrl)}
+                            </a>
+                          ) : null}
                         </div>
                       </div>
                     )
@@ -458,7 +485,7 @@ function ConversationRow({
         onClick={onSelect}
         aria-current={active ? 'true' : undefined}
         className={clsx(
-          'w-full px-3 py-3 text-start transition-colors hover:bg-surface-2/70 focus-visible:bg-surface-2 focus-visible:outline-none',
+          'w-full px-3 py-3 text-start transition-colors hover:bg-surface-2/70 focus-visible:bg-surface-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring',
           active && 'bg-primary-subtle/60',
         )}
       >

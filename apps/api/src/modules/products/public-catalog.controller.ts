@@ -5,10 +5,15 @@ import {
   Injectable,
   NotFoundException,
   Param,
+  ParseUUIDPipe,
   PipeTransform,
   Query,
+  Res,
+  StreamableFile,
   UseGuards,
 } from '@nestjs/common';
+import type { Response } from 'express';
+import { SkipThrottle } from '@nestjs/throttler';
 import {
   ApiOperation,
   ApiParam,
@@ -20,6 +25,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { AuthUser } from '../auth/interfaces/auth-user.interface';
 import { PublicCatalogService } from './public-catalog.service';
+import { CategoryImageService } from './category-image.service';
 import {
   ListCatalogBrandsQueryDto,
   ListCatalogProductsQueryDto,
@@ -51,7 +57,10 @@ export class SlugValidationPipe implements PipeTransform<string, string> {
 @ApiTags('catalog')
 @Controller('catalog/categories')
 export class PublicCatalogCategoriesController {
-  constructor(private readonly publicCatalogService: PublicCatalogService) {}
+  constructor(
+    private readonly publicCatalogService: PublicCatalogService,
+    private readonly categoryImages: CategoryImageService,
+  ) {}
 
   @Get()
   @ApiOperation({
@@ -60,6 +69,18 @@ export class PublicCatalogCategoriesController {
   @ApiResponse({ status: 200, description: 'Category tree returned.' })
   async tree() {
     return this.publicCatalogService.getCategoryTree();
+  }
+
+  @Get(':id/image')
+  @SkipThrottle()
+  async image(
+    @Param('id', new ParseUUIDPipe({ errorHttpStatusCode: 404 })) categoryId: string,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const { stream, mimeType, sizeBytes } = await this.categoryImages.read(categoryId);
+    response.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    response.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    return new StreamableFile(stream, { type: mimeType, length: sizeBytes });
   }
 
   @Get('covers')

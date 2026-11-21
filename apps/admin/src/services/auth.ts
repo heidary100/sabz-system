@@ -1,4 +1,4 @@
-import { refreshSession } from './api'
+import { refreshSession, type RefreshOutcome } from './api'
 import { request } from './api'
 import type {
   AuthUser,
@@ -40,6 +40,6 @@ export async function logout(): Promise<void> {
   }
 }
 
-export async function restoreSession(): Promise<boolean> {
+export async function restoreSession(): Promise<RefreshOutcome> {
   return refreshSession()
 }

@@ -20,6 +20,9 @@ export interface ChatMessageDto {
   senderName: string | null;
   body: string;
   contextUrl: string | null;
+  contextTitle: string | null;
+  contextKind: string | null;
+  contextLabel: string | null;
   createdAt: string;
 }
 
@@ -28,6 +31,10 @@ export interface CustomerChatConversationDto {
   status: ChatConversationStatus;
   statusFa: string;
   contextUrl: string | null;
+  contextTitle: string | null;
+  contextKind: string | null;
+  contextLabel: string | null;
+  contextUpdatedAt: string | null;
   unreadForCustomer: number;
   lastMessageAt: string;
   messages: ChatMessageDto[];
@@ -52,6 +59,10 @@ export interface AdminChatConversationListItemDto {
   };
   assignedTo: { id: string; mobile: string } | null;
   contextUrl: string | null;
+  contextTitle: string | null;
+  contextKind: string | null;
+  contextLabel: string | null;
+  contextUpdatedAt: string | null;
   unreadForAdmin: number;
   lastMessageAt: string;
   lastMessagePreview: string | null;
@@ -82,11 +93,24 @@ export interface SendChatMessageInput {
   clientMessageId?: string;
   /** Storefront page URL, validated/sanitized server-side. */
   contextUrl?: string;
+  contextTitle?: string;
+  contextKind?: string;
+  contextLabel?: string;
 }
 
 export interface OpenChatConversationInput {
   contextUrl?: string;
+  contextTitle?: string;
+  contextKind?: string;
+  contextLabel?: string;
   subject?: string;
+}
+
+export interface UpdateChatContextInput {
+  contextUrl?: string;
+  contextTitle?: string;
+  contextKind?: string;
+  contextLabel?: string;
 }
 
 export interface ChatReadResponse {

@@ -4,6 +4,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Patch,
   Post,
   Query,
   UseGuards,
@@ -23,6 +24,7 @@ import {
   ListChatMessagesQueryDto,
   OpenChatConversationDto,
   SendChatMessageDto,
+  UpdateChatContextDto,
 } from './dto/chat.dto';
 
 /**
@@ -52,6 +54,20 @@ export class ChatController {
     @Body() dto: OpenChatConversationDto,
   ) {
     return this.chat.open(user.userId, dto);
+  }
+
+  @Patch('context')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Share the current storefront page context with support',
+    description:
+      'The URL is restricted to the configured storefront origin; fragments, credentials, sensitive query parameters and cursor/location data are never accepted.',
+  })
+  async context(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: UpdateChatContextDto,
+  ) {
+    return this.chat.updateCustomerContext(user.userId, dto);
   }
 
   @Get('messages')

@@ -176,6 +176,7 @@ export function AuditPage() {
         <Field>
           <Label htmlFor="audit-from">از تاریخ و ساعت</Label>
           <JalaliDateTimeInput
+            businessTimeZone
             id="audit-from"
             value={fromInput || null}
             onChange={(iso) => setFromInput(iso ?? '')}
@@ -186,6 +187,7 @@ export function AuditPage() {
         <Field>
           <Label htmlFor="audit-to">تا تاریخ و ساعت</Label>
           <JalaliDateTimeInput
+            businessTimeZone
             id="audit-to"
             value={toInput || null}
             onChange={(iso) => setToInput(iso ?? '')}
@@ -310,7 +312,7 @@ export function AuditPage() {
         <div className="flex items-center justify-center gap-3 py-4" role="status">
           <span
             aria-hidden="true"
-            className="size-5 animate-spin rounded-full border-2 border-hunter-800 border-t-primary"
+            className="size-5 animate-spin rounded-full border-2 border-border border-t-primary"
           />
           <span className="text-sm font-medium text-muted">در حال بارگذاری…</span>
         </div>

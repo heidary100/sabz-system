@@ -28,6 +28,7 @@ import { ErrorMessage, Field, Label } from '../catalyst/fieldset'
 import { Input } from '../catalyst/input'
 import { Select } from '../catalyst/select'
 import { Text } from '../catalyst/text'
+import { JalaliDateTimeInput } from '../ui/jalali-datetime-input'
 import { useCategoryOptions } from '../../hooks/use-category-options'
 import { translateApiError } from '../../lib/error-messages'
 import {
@@ -50,22 +51,6 @@ import {
   updatePartnerTier,
 } from '../../services/partner-tiers'
 import { getProduct } from '../../services/products'
-
-function isoToLocalInput(iso: string | null | undefined): string {
-  if (!iso) {
-    return ''
-  }
-  const date = new Date(iso)
-  if (Number.isNaN(date.getTime())) {
-    return ''
-  }
-  const pad = (n: number): string => String(n).padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
-}
-
-function localInputToIso(local: string): string {
-  return new Date(local).toISOString()
-}
 
 function useBrandOptions() {
   const [brands, setBrands] = useState<BrandSummary[]>([])
@@ -298,8 +283,8 @@ export function CategoryRuleForm({
       setType(rule?.type ?? 'PERCENT')
       setValue(rule?.value ?? '')
       setPriority(String(rule?.priority ?? 0))
-      setStartsAt(isoToLocalInput(rule?.startsAt))
-      setEndsAt(isoToLocalInput(rule?.endsAt))
+      setStartsAt(rule?.startsAt ?? '')
+      setEndsAt(rule?.endsAt ?? '')
       setIsActive(rule?.isActive ?? true)
       setError(null)
     }
@@ -330,8 +315,8 @@ export function CategoryRuleForm({
           type,
           value: value.trim(),
           isActive,
-          startsAt: startsAt ? localInputToIso(startsAt) : null,
-          endsAt: endsAt ? localInputToIso(endsAt) : null,
+          startsAt: startsAt || null,
+          endsAt: endsAt || null,
           priority: Number.isFinite(priorityNum) ? Math.trunc(priorityNum) : 0,
         }
         await updateCategoryRule(rule.id, input)
@@ -342,8 +327,8 @@ export function CategoryRuleForm({
           value: value.trim(),
           isActive,
           priority: Number.isFinite(priorityNum) ? Math.trunc(priorityNum) : 0,
-          ...(startsAt ? { startsAt: localInputToIso(startsAt) } : {}),
-          ...(endsAt ? { endsAt: localInputToIso(endsAt) } : {}),
+          ...(startsAt ? { startsAt } : {}),
+          ...(endsAt ? { endsAt } : {}),
         }
         await createCategoryRule(input)
       }
@@ -398,22 +383,26 @@ export function CategoryRuleForm({
 
           <Field>
             <Label>شروع بازه (اختیاری)</Label>
-            <Input
-              name="startsAt"
-              type="datetime-local"
-              value={startsAt}
-              onChange={(event) => setStartsAt(event.target.value)}
+            <JalaliDateTimeInput
+              businessTimeZone
+              id="rule-starts-at"
+              value={startsAt || null}
+              onChange={(value) => setStartsAt(value ?? '')}
+              withTime
+              ariaLabel="شروع بازه قانون"
               disabled={submitting}
             />
           </Field>
 
           <Field>
             <Label>پایان بازه (اختیاری)</Label>
-            <Input
-              name="endsAt"
-              type="datetime-local"
-              value={endsAt}
-              onChange={(event) => setEndsAt(event.target.value)}
+            <JalaliDateTimeInput
+              businessTimeZone
+              id="rule-ends-at"
+              value={endsAt || null}
+              onChange={(value) => setEndsAt(value ?? '')}
+              withTime
+              ariaLabel="پایان بازه اورراید"
               disabled={submitting}
             />
           </Field>
@@ -462,8 +451,8 @@ export function ProductOverrideForm({
       setProductId(override?.productId ?? '')
       setType(override?.type ?? 'FIXED')
       setValue(override?.value ?? '')
-      setStartsAt(isoToLocalInput(override?.startsAt))
-      setEndsAt(isoToLocalInput(override?.endsAt))
+      setStartsAt(override?.startsAt ?? '')
+      setEndsAt(override?.endsAt ?? '')
       setIsActive(override?.isActive ?? true)
       setError(null)
     }
@@ -492,8 +481,8 @@ export function ProductOverrideForm({
           type,
           value: value.trim(),
           isActive,
-          startsAt: startsAt ? localInputToIso(startsAt) : null,
-          endsAt: endsAt ? localInputToIso(endsAt) : null,
+          startsAt: startsAt || null,
+          endsAt: endsAt || null,
         }
         await updateProductOverride(override.id, input)
       } else {
@@ -502,8 +491,8 @@ export function ProductOverrideForm({
           type,
           value: value.trim(),
           isActive,
-          ...(startsAt ? { startsAt: localInputToIso(startsAt) } : {}),
-          ...(endsAt ? { endsAt: localInputToIso(endsAt) } : {}),
+          ...(startsAt ? { startsAt } : {}),
+          ...(endsAt ? { endsAt } : {}),
         }
         await createProductOverride(input)
       }
@@ -537,22 +526,26 @@ export function ProductOverrideForm({
 
           <Field>
             <Label>شروع بازه (اختیاری)</Label>
-            <Input
-              name="startsAt"
-              type="datetime-local"
-              value={startsAt}
-              onChange={(event) => setStartsAt(event.target.value)}
+            <JalaliDateTimeInput
+              businessTimeZone
+              id="override-starts-at"
+              value={startsAt || null}
+              onChange={(value) => setStartsAt(value ?? '')}
+              withTime
+              ariaLabel="شروع بازه اورراید"
               disabled={submitting}
             />
           </Field>
 
           <Field>
             <Label>پایان بازه (اختیاری)</Label>
-            <Input
-              name="endsAt"
-              type="datetime-local"
-              value={endsAt}
-              onChange={(event) => setEndsAt(event.target.value)}
+            <JalaliDateTimeInput
+              businessTimeZone
+              id="override-ends-at"
+              value={endsAt || null}
+              onChange={(value) => setEndsAt(value ?? '')}
+              withTime
+              ariaLabel="پایان بازه قانون"
               disabled={submitting}
             />
           </Field>
@@ -613,8 +606,8 @@ export function PromotionForm({
       setScopeProductId(promotion?.productId ?? '')
       setScopeCategoryId(promotion?.categoryId ?? '')
       setScopeBrandId(promotion?.brandId ?? '')
-      setStartsAt(isoToLocalInput(promotion?.startsAt))
-      setEndsAt(isoToLocalInput(promotion?.endsAt))
+      setStartsAt(promotion?.startsAt ?? '')
+      setEndsAt(promotion?.endsAt ?? '')
       setIsActive(promotion?.isActive ?? true)
       setError(null)
     }
@@ -653,8 +646,8 @@ export function PromotionForm({
           titleFa: titleFa.trim(),
           type,
           value: value.trim(),
-          startsAt: localInputToIso(startsAt),
-          endsAt: localInputToIso(endsAt),
+          startsAt,
+          endsAt,
           isActive,
           productId: scopeProductId.trim() || null,
           categoryId: scopeCategoryId || null,
@@ -668,8 +661,8 @@ export function PromotionForm({
           titleFa: titleFa.trim(),
           type,
           value: value.trim(),
-          startsAt: localInputToIso(startsAt),
-          endsAt: localInputToIso(endsAt),
+          startsAt,
+          endsAt,
           isActive,
           minQuantity: minQty,
           ...(scopeProductId.trim() ? { productId: scopeProductId.trim() } : {}),
@@ -779,22 +772,26 @@ export function PromotionForm({
 
           <Field>
             <Label>شروع بازه</Label>
-            <Input
-              name="startsAt"
-              type="datetime-local"
-              value={startsAt}
-              onChange={(event) => setStartsAt(event.target.value)}
+            <JalaliDateTimeInput
+              businessTimeZone
+              id="promotion-starts-at"
+              value={startsAt || null}
+              onChange={(value) => setStartsAt(value ?? '')}
+              withTime
+              ariaLabel="شروع بازه پروموشن"
               disabled={submitting}
             />
           </Field>
 
           <Field>
             <Label>پایان بازه</Label>
-            <Input
-              name="endsAt"
-              type="datetime-local"
-              value={endsAt}
-              onChange={(event) => setEndsAt(event.target.value)}
+            <JalaliDateTimeInput
+              businessTimeZone
+              id="promotion-ends-at"
+              value={endsAt || null}
+              onChange={(value) => setEndsAt(value ?? '')}
+              withTime
+              ariaLabel="پایان بازه پروموشن"
               disabled={submitting}
             />
           </Field>

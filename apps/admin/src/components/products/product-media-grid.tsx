@@ -77,10 +77,10 @@ function MediaCard({
   const isImage = item.mediaType === 'IMAGE'
   return (
     <div className="group overflow-hidden rounded-xl border border-border bg-surface">
-      <div className="relative aspect-square bg-surface-strong">
+      <div className="relative aspect-square bg-transparent ring-1 ring-inset ring-border/60">
         {isImage ? (
           thumbnail ? (
-            <img src={thumbnail} alt={item.originalName} className="size-full object-cover" />
+            <img src={thumbnail} alt={item.originalName} className="size-full object-contain p-1" />
           ) : (
             <div className="flex size-full items-center justify-center text-muted">
               {failed ? 'عدم دسترسی' : 'در حال بارگذاری…'}

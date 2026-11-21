@@ -130,11 +130,7 @@ function createAppRoutes() {
             />
             <Route
               path="pricing"
-              element={
-                <RequireRole roles={ADMIN_ROLES}>
-                  <PricingPage />
-                </RequireRole>
-              }
+              element={<Navigate to="/products/pricing" replace />}
             />
             <Route
               path="currency"
@@ -293,6 +289,14 @@ function createAppRoutes() {
               element={
                 <RequireRole roles={ADMIN_ROLES}>
                   <ProductsPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="products/pricing"
+              element={
+                <RequireRole roles={ADMIN_ROLES}>
+                  <PricingPage />
                 </RequireRole>
               }
             />

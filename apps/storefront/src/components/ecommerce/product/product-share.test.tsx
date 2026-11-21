@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ProductShare } from './product-share';
 
@@ -88,6 +88,53 @@ describe('ProductShare', () => {
         screen.getByRole('button', { name: 'اشتراک‌گذاری…' }),
       ).toBeTruthy();
       Reflect.deleteProperty(navigator, 'share');
+    });
+
+    it('passes the public product image as a file when the platform can share files', async () => {
+      const share = vi.fn().mockResolvedValue(undefined);
+      const canShare = vi.fn().mockReturnValue(true);
+      Object.defineProperty(navigator, 'share', {
+        configurable: true,
+        value: share,
+      });
+      Object.defineProperty(navigator, 'canShare', {
+        configurable: true,
+        value: canShare,
+      });
+      const fetchMock = vi
+        .spyOn(globalThis, 'fetch')
+        .mockResolvedValue(
+          new Response(new Blob(['image'], { type: 'image/png' }), {
+            status: 200,
+            headers: { 'Content-Type': 'image/png' },
+          }),
+        );
+      render(
+        <ProductShare
+          canonicalUrl={canonicalUrl}
+          shareText={shareText}
+          sharePayload={{
+            title: 'محصول',
+            text: shareText,
+            url: canonicalUrl,
+            imageUrl: 'https://shop.example.com/api/v1/catalog/media/a',
+            shortDescription: 'توضیح کوتاه',
+            brandName: 'برند',
+            variantName: 'مدل',
+            priceRial: '100000',
+            compareAtPriceRial: null,
+          }}
+        />,
+      );
+      screen.getByRole('button', { name: 'اشتراک‌گذاری…' }).click();
+      await waitFor(() => expect(share).toHaveBeenCalledTimes(1));
+      const data = share.mock.calls[0]![0] as ShareData;
+      expect(data.files).toHaveLength(1);
+      expect(data.files?.[0]?.type).toBe('image/png');
+      expect(canShare).toHaveBeenCalledWith({ files: data.files });
+      fetchMock.mockRestore();
+      Reflect.deleteProperty(navigator, 'share');
+      Reflect.deleteProperty(navigator, 'canShare');
     });
   });
 

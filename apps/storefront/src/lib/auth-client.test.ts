@@ -139,6 +139,57 @@ describe('authFetch', () => {
     expect(refreshCalls).toBe(1);
     expect(setItem).toHaveBeenCalledWith('sabz.accessToken', 'new-token');
   });
+
+  it('keeps the stored token when the refresh endpoint is throttled or unavailable', async () => {
+    for (const status of [429, 500, 503]) {
+      const removeItem = vi.fn();
+      vi.stubGlobal('window', {
+        localStorage: {
+          getItem: vi.fn(() => 'existing-token'),
+          setItem: vi.fn(),
+          removeItem,
+        },
+      });
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async (input: RequestInfo | URL) => {
+          const url = String(input);
+          if (url.endsWith('/auth/refresh')) {
+            return new Response(null, { status });
+          }
+          return new Response(null, { status: 401 });
+        }),
+      );
+
+      await expect(authFetch('/orders')).rejects.toMatchObject({ status: 401 });
+      expect(removeItem).not.toHaveBeenCalled();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('clears the stored token only when the refresh endpoint rejects it', async () => {
+    const removeItem = vi.fn();
+    vi.stubGlobal('window', {
+      localStorage: {
+        getItem: vi.fn(() => 'existing-token'),
+        setItem: vi.fn(),
+        removeItem,
+      },
+    });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith('/auth/refresh')) {
+          return new Response(null, { status: 401 });
+        }
+        return new Response(null, { status: 401 });
+      }),
+    );
+
+    await expect(authFetch('/orders')).rejects.toMatchObject({ status: 401 });
+    expect(removeItem).toHaveBeenCalledWith('sabz.accessToken');
+  });
 });
 
 describe('logout', () => {

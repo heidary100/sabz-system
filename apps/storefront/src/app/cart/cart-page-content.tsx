@@ -209,10 +209,10 @@ function CartLineRow({
       <Link
         href={`/products/${item.productSlug}`}
         aria-label={item.productName}
-        className="relative size-20 shrink-0 overflow-hidden rounded-card bg-surface-2 sm:size-24"
+        className="relative size-20 shrink-0 overflow-hidden rounded-card bg-transparent ring-1 ring-inset ring-border/60 sm:size-24"
       >
         {image ? (
-          <Image src={image} alt="" fill sizes="96px" className="object-cover" />
+          <Image src={image} alt="" fill sizes="96px" className="object-contain p-1.5" />
         ) : (
           <span className="flex h-full items-center justify-center text-accent">
             <svg viewBox="0 0 24 24" fill="none" strokeWidth={1.5} stroke="currentColor" aria-hidden="true" className="size-8">

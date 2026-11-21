@@ -1,4 +1,4 @@
-import { PriceStatus, Prisma, ProductStatus } from '@prisma/client';
+import { PriceSourceCurrency, PriceStatus, Prisma, ProductStatus } from '@prisma/client';
 import { PrismaService } from '../../common/database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { VariantsService } from './variants.service';
@@ -18,6 +18,12 @@ function makeVariantRow(overrides: Record<string, unknown> = {}) {
     price: { toString: () => '1500.00' },
     compareAtPrice: null,
     priceStatus: 'PRICED',
+    priceSourceCurrency: 'RIAL',
+    priceSourceAmount: null,
+    compareAtSourceAmount: null,
+    priceSourceRate: null,
+    priceSourceRateAt: null,
+    priceSourceRateId: null,
     deletedAt: null,
     ...overrides,
   };
@@ -144,16 +150,19 @@ describe('VariantsService', () => {
 
       const result = await service.getDetail('var-1');
 
-      expect(result).toEqual({
-        id: 'var-1',
-        productId: 'prod-1',
-        sku: 'XPS13-BASE',
-        barcode: null,
-        name: null,
-        price: '1500.00',
-        compareAtPrice: null,
-        priceStatus: 'PRICED',
-      });
+      expect(result).toEqual(
+        expect.objectContaining({
+          id: 'var-1',
+          productId: 'prod-1',
+          sku: 'XPS13-BASE',
+          barcode: null,
+          name: null,
+          price: '1500.00',
+          compareAtPrice: null,
+          priceStatus: 'PRICED',
+          priceSourceCurrency: 'RIAL',
+        }),
+      );
     });
 
     it('throws 404 for a soft-deleted or missing variant', async () => {
@@ -269,6 +278,115 @@ describe('VariantsService', () => {
       );
     });
 
+    it('converts USD source prices with the manual rate and stores the rate snapshot', async () => {
+      const currency = {
+        current: jest.fn().mockResolvedValue({
+          id: 'rate-usd-1',
+          currency: 'USD',
+          rialPerUnit: '925000.00',
+          effectiveAt: '2026-11-19T00:00:00.000Z',
+        }),
+      };
+      const sourceService = new VariantsService(
+        prisma as unknown as PrismaService,
+        audit as unknown as AuditService,
+        makeStorefrontCacheMock(),
+        currency as never,
+      );
+      tx.product.findUnique.mockResolvedValue(makeProductRow());
+      tx.productVariant.create.mockImplementation((args: { data: Record<string, unknown> }) =>
+        makeVariantRow({
+          price: { toString: () => String(args.data.price) },
+          compareAtPrice: args.data.compareAtPrice
+            ? { toString: () => String(args.data.compareAtPrice) }
+            : null,
+          priceSourceCurrency: args.data.priceSourceCurrency,
+          priceSourceAmount: args.data.priceSourceAmount,
+          compareAtSourceAmount: args.data.compareAtSourceAmount,
+          priceSourceRate: args.data.priceSourceRate,
+          priceSourceRateAt: new Date('2026-11-19T00:00:00.000Z'),
+          priceSourceRateId: args.data.priceSourceRateId,
+        }),
+      );
+      audit.log.mockResolvedValue(undefined);
+
+      await sourceService.create(
+        'prod-1',
+        {
+          sku: 'USD-1',
+          price: '50',
+          compareAtPrice: '60',
+          priceSourceCurrency: PriceSourceCurrency.USD,
+        },
+        'actor-1',
+      );
+
+      expect(currency.current).toHaveBeenCalledWith(PriceSourceCurrency.USD);
+      expect(tx.productVariant.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            price: '46300000',
+            compareAtPrice: '55500000',
+            priceSourceCurrency: PriceSourceCurrency.USD,
+            priceSourceAmount: '50.00',
+            compareAtSourceAmount: '60.00',
+            priceSourceRate: '925000',
+            priceSourceRateId: 'rate-usd-1',
+          }),
+        }),
+      );
+    });
+
+    it('keeps USD source currency and rate when only the source price is edited', async () => {
+      const currency = {
+        current: jest.fn().mockResolvedValue({
+          id: 'rate-usd-2',
+          currency: 'USD',
+          rialPerUnit: '900000.00',
+          effectiveAt: '2026-11-19T00:00:00.000Z',
+        }),
+      };
+      const sourceService = new VariantsService(
+        prisma as unknown as PrismaService,
+        audit as unknown as AuditService,
+        makeStorefrontCacheMock(),
+        currency as never,
+      );
+      tx.product.findUnique.mockResolvedValue(makeProductRow());
+      tx.productVariant.findUnique.mockResolvedValue(
+        makeVariantRow({
+          price: { toString: () => '46300000.00' },
+          priceSourceCurrency: 'USD',
+          priceSourceAmount: { toString: () => '50.00' },
+          compareAtSourceAmount: null,
+          priceSourceRate: { toString: () => '925000.000000' },
+          priceSourceRateId: 'rate-usd-1',
+          priceSourceRateAt: new Date('2026-11-18T00:00:00.000Z'),
+        }),
+      );
+      tx.productVariant.updateMany.mockResolvedValue({ count: 1 });
+      audit.log.mockResolvedValue(undefined);
+
+      await sourceService.update(
+        'var-1',
+        { price: '52' },
+        'actor-1',
+      );
+
+      expect(currency.current).toHaveBeenCalledWith(PriceSourceCurrency.USD);
+      expect(tx.productVariant.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            price: '46800000',
+            priceSourceCurrency: PriceSourceCurrency.USD,
+            priceSourceAmount: '52.00',
+            priceSourceRate: '900000',
+            priceSourceRateId: 'rate-usd-2',
+          }),
+        }),
+      );
+    });
+
     it('rejects compareAtPrice at or below price on create', async () => {
       await expect(
         service.create(
@@ -323,8 +441,8 @@ describe('VariantsService', () => {
       expect(audit.log).toHaveBeenCalledWith(
         expect.objectContaining({
           action: 'PRODUCT_VARIANT_UPDATED',
-          before: { sku: 'XPS13-BASE', price: '1500.00' },
-          after: { sku: 'NEW-SKU', price: '2000.00' },
+          before: expect.objectContaining({ sku: 'XPS13-BASE', price: '1500.00' }),
+          after: expect.objectContaining({ sku: 'NEW-SKU', price: '2000.00' }),
         }),
         tx,
       );
@@ -490,8 +608,8 @@ describe('VariantsService', () => {
       expect(audit.log).toHaveBeenCalledWith(
         expect.objectContaining({
           action: 'PRODUCT_VARIANT_UPDATED',
-          before: { compareAtPrice: '1800.00', priceStatus: 'PRICED' },
-          after: { compareAtPrice: null, priceStatus: 'CALL_FOR_PRICE' },
+          before: expect.objectContaining({ compareAtPrice: '1800.00', priceStatus: 'PRICED' }),
+          after: expect.objectContaining({ compareAtPrice: null, priceStatus: 'CALL_FOR_PRICE' }),
         }),
         tx,
       );

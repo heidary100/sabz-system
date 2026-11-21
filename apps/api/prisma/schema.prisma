@@ -217,6 +217,15 @@ enum CurrencyCode {
   AED
 }
 
+/// Source currency entered by an operator for a product variant price.
+/// RIAL means `price` is the authored Rial value; USD/AED rows retain the
+/// source amount and the manual rate snapshot used for the derived Rial price.
+enum PriceSourceCurrency {
+  RIAL
+  USD
+  AED
+}
+
 enum NotificationPriority {
   LOW
   NORMAL
@@ -533,7 +542,12 @@ model ChatConversation {
   assignedTo   User?   @relation("ChatConversationAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
 
   subject    String?
-  contextUrl String? @db.VarChar(2048)
+  /// Last sanitized storefront page URL supplied by the widget.
+  contextUrl   String? @db.VarChar(2048)
+  contextTitle String? @db.VarChar(300)
+  contextKind  String? @db.VarChar(40)
+  contextLabel String? @db.VarChar(300)
+  contextUpdatedAt DateTime?
 
   lastMessageAt        DateTime @default(now())
   lastCustomerMessageAt DateTime?
@@ -567,8 +581,11 @@ model ChatMessage {
 
   body String @db.VarChar(4000)
 
-  /// Sanitized page context at send time (URL only, no cursor data).
-  contextUrl String? @db.VarChar(2048)
+  /// Sanitized page context at send time (immutable message snapshot).
+  contextUrl   String? @db.VarChar(2048)
+  contextTitle String? @db.VarChar(300)
+  contextKind  String? @db.VarChar(40)
+  contextLabel String? @db.VarChar(300)
 
   clientMessageId String? @db.VarChar(100)
 
@@ -722,6 +739,17 @@ model Category {
 
   sortOrder Int     @default(0)
   isVisible Boolean @default(true)
+
+  /// Editorial category image (SS-900 Part II). The bytes live in the
+  /// product-media storage abstraction under a server-generated key; these
+  /// fields are metadata only. The URL is public but category deletion keeps
+  /// the object for audit until an explicit cleanup job.
+  imageStorageKey String?   @unique
+  imageMimeType   String?
+  imageSizeBytes  Int?
+  imageWidth      Int?
+  imageHeight     Int?
+  imageUpdatedAt  DateTime?
 
   products Product[]
 
@@ -904,6 +932,17 @@ model ProductVariant {
   /// published but non-purchasable: never displayed, sorted, or faceted by
   /// price. Every price consumer must filter to PRICED first.
   priceStatus PriceStatus @default(PRICED)
+
+  /// SS-900 Part II: auditable source-currency pricing. `price` and
+  /// `compareAtPrice` remain the authoritative Rial values used everywhere;
+  /// these columns preserve the operator's source amount/currency and the
+  /// manual rate snapshot used to derive that Rial amount.
+  priceSourceCurrency     PriceSourceCurrency @default(RIAL)
+  priceSourceAmount       Decimal?            @db.Decimal(18, 2)
+  compareAtSourceAmount   Decimal?            @db.Decimal(18, 2)
+  priceSourceRate         Decimal?            @db.Decimal(18, 6)
+  priceSourceRateAt       DateTime?
+  priceSourceRateId       String?
 
   /// External-source identity (ADR-004). Same semantics as Product's source
   /// identity, but independent: a product and a variant may legitimately
@@ -1460,6 +1499,14 @@ model OrderItem {
   quantity    Int
   unitPrice   Decimal @db.Decimal(12, 2)
   lineTotal   Decimal @db.Decimal(12, 2)
+
+  /// Source-currency/rate snapshot at order creation (SS-900 Part II).
+  /// `unitPrice` remains the authoritative Rial amount; these columns make
+  /// the conversion auditable even after the catalog or manual rate changes.
+  sourceCurrency PriceSourceCurrency?
+  sourceAmount   Decimal? @db.Decimal(18, 2)
+  sourceRate     Decimal? @db.Decimal(18, 6)
+  sourceRateId   String?
 
   @@index([orderId])
   @@index([variantId])

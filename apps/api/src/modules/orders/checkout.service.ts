@@ -9,6 +9,7 @@ import {
 import {
   OrderStatus,
   PaymentMethod,
+  PriceSourceCurrency,
   PriceStatus,
   Prisma,
   ProductStatus,
@@ -174,6 +175,10 @@ const LINE_WITH_VARIANT = {
       name: true,
       price: true,
       priceStatus: true,
+      priceSourceCurrency: true,
+      priceSourceAmount: true,
+      priceSourceRate: true,
+      priceSourceRateId: true,
       deletedAt: true,
       product: {
         select: {
@@ -204,6 +209,10 @@ interface QuotableLine {
     price: Prisma.Decimal;
     name: string | null;
     sku: string;
+    priceSourceCurrency: PriceSourceCurrency;
+    priceSourceAmount: Prisma.Decimal | null;
+    priceSourceRate: Prisma.Decimal | null;
+    priceSourceRateId: string | null;
     product: { name: string };
   };
 }
@@ -217,6 +226,10 @@ interface AllocationSlice {
   variantName: string | null;
   sku: string;
   reservationId: string;
+  sourceCurrency: PriceSourceCurrency;
+  sourceAmount: Prisma.Decimal | null;
+  sourceRate: Prisma.Decimal | null;
+  sourceRateId: string | null;
 }
 
 /**
@@ -362,6 +375,10 @@ export class CheckoutService {
                 quantity: slice.quantity,
                 unitPrice: slice.unitPrice,
                 lineTotal: slice.unitPrice.mul(slice.quantity),
+                sourceCurrency: slice.sourceCurrency,
+                sourceAmount: slice.sourceAmount,
+                sourceRate: slice.sourceRate,
+                sourceRateId: slice.sourceRateId,
               })),
             },
           },
@@ -468,6 +485,11 @@ export class CheckoutService {
       select: {
         sku: true,
         name: true,
+        price: true,
+        priceSourceCurrency: true,
+        priceSourceAmount: true,
+        priceSourceRate: true,
+        priceSourceRateId: true,
         product: { select: { name: true } },
       },
     });
@@ -494,6 +516,10 @@ export class CheckoutService {
         price: input.unitPrice,
         name: variant.name,
         sku: variant.sku,
+        priceSourceCurrency: PriceSourceCurrency.RIAL,
+        priceSourceAmount: input.unitPrice,
+        priceSourceRate: null,
+        priceSourceRateId: null,
         product: { name: variant.product.name },
       },
     };
@@ -545,6 +571,10 @@ export class CheckoutService {
                 quantity: slice.quantity,
                 unitPrice: slice.unitPrice,
                 lineTotal: slice.unitPrice.mul(slice.quantity),
+                sourceCurrency: slice.sourceCurrency,
+                sourceAmount: slice.sourceAmount,
+                sourceRate: slice.sourceRate,
+                sourceRateId: slice.sourceRateId,
               })),
             },
           },
@@ -733,6 +763,10 @@ export class CheckoutService {
             quantity: true,
             unitPrice: true,
             lineTotal: true,
+            sourceCurrency: true,
+            sourceAmount: true,
+            sourceRate: true,
+            sourceRateId: true,
           },
           orderBy: { id: 'asc' as const },
         },
@@ -929,6 +963,10 @@ export class CheckoutService {
             quantity: true,
             unitPrice: true,
             lineTotal: true,
+            sourceCurrency: true,
+            sourceAmount: true,
+            sourceRate: true,
+            sourceRateId: true,
           },
           orderBy: { id: 'asc' as const },
         },
@@ -1707,6 +1745,12 @@ export class CheckoutService {
             variantName: line.variant.name,
             sku: line.variant.sku,
             reservationId: reservation.id,
+            sourceCurrency:
+              line.variant.priceSourceCurrency ?? PriceSourceCurrency.RIAL,
+            sourceAmount:
+              line.variant.priceSourceAmount ?? line.variant.price,
+            sourceRate: line.variant.priceSourceRate,
+            sourceRateId: line.variant.priceSourceRateId,
           });
           remaining -= take;
         }
@@ -1887,6 +1931,10 @@ export class CheckoutService {
       quantity: number;
       unitPrice: Prisma.Decimal;
       lineTotal: Prisma.Decimal;
+      sourceCurrency: PriceSourceCurrency | null;
+      sourceAmount: Prisma.Decimal | null;
+      sourceRate: Prisma.Decimal | null;
+      sourceRateId: string | null;
     }>;
   }): OrderDetailDto {
     const addressSnapshot: OrderAddressSnapshot = {

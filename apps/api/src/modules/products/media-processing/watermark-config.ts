@@ -12,7 +12,7 @@ import { resolve } from 'path';
  *
  * Branding sources:
  *   - Logo:  `apps/api/assets/brand/logo.png` by default (SS-209 central
- *            brand asset — the real company mark, 141px RGBA; the client's
+ *            brand asset — the official 256px RGBA mark; the client's
  *            official logo replaces this file, or `WATERMARK_LOGO_PATH`
  *            points at the new asset). The legacy
  *            `assets/watermark/logo-placeholder.svg` is kept as a fallback.
@@ -93,10 +93,10 @@ export interface WatermarkConfig {
   thumbnailMaxSizePx: number;
 }
 
-/** Light off-white used for watermark text/edges (brand background). */
-export const WATERMARK_LIGHT = '#F8F7F5';
+/** Light stage ink used for watermark text/edges (brand stage). */
+export const WATERMARK_LIGHT = '#F1F6F2';
 /** Dark chip base (alpha comes from `opacity`). */
-export const WATERMARK_CHIP_RGB = '20,26,22';
+export const WATERMARK_CHIP_RGB = '11,21,16';
 
 function defaultLogoPath(): string {
   const branded = resolve(process.cwd(), 'assets/brand/logo.png');
@@ -156,7 +156,7 @@ export function resolveWatermarkConfig(): WatermarkConfig {
       ? (position as WatermarkConfig['position'])
       : 'bottom-right',
     textColor: envHex('WATERMARK_TEXT_COLOR', WATERMARK_LIGHT),
-    chipEdgeColor: env('WATERMARK_CHIP_EDGE_COLOR', 'rgba(248,247,245,0.35)'),
+    chipEdgeColor: env('WATERMARK_CHIP_EDGE_COLOR', 'rgba(241,246,242,0.35)'),
     logoBackground: envHex('WATERMARK_LOGO_BACKGROUND', WATERMARK_LIGHT),
     lockup: (allowedLockups as string[]).includes(lockup)
       ? (lockup as WatermarkLockup)

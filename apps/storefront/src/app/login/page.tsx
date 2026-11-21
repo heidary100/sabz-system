@@ -114,11 +114,11 @@ export default function LoginPage() {
         <div className="relative hidden flex-col justify-between overflow-hidden bg-stage p-10 lg:flex">
           <div className="relative flex items-center gap-2 text-on-stage">
             <Image
-              src={brand.logoPng[64].src}
+              src={brand.logoPng[128].src}
               alt=""
-              width={40}
-              height={40}
-              className="rounded-control"
+              width={48}
+              height={48}
+              className="object-contain"
             />
             <span className="text-lg font-bold">{brand.nameFa}</span>
           </div>

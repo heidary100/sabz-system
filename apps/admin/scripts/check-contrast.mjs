@@ -12,6 +12,7 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
+const rootDir = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
 const cssPath = join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'index.css')
 const css = readFileSync(cssPath, 'utf8')
 
@@ -29,6 +30,26 @@ function extractBlock(blockSelector) {
     vars[`--${match[1]}`] = match[2].trim()
   }
   return vars
+}
+
+function parseTokens(cssText) {
+  const vars = {}
+  for (const match of cssText.matchAll(/--([\w-]+):\s*([^;]+);/g)) {
+    vars[`--${match[1]}`] = match[2].trim()
+  }
+  return vars
+}
+
+const shared = parseTokens(readFileSync(join(rootDir, 'packages', 'config', 'design-tokens.css'), 'utf8'))
+
+function resolveVar(value, vars, seen = new Set()) {
+  if (typeof value !== 'string') return value
+  const match = value.match(/^var\((--[\w-]+)\)$/)
+  if (!match) return value
+  const name = match[1]
+  if (seen.has(name)) return value
+  seen.add(name)
+  return resolveVar(vars[name] ?? shared[name] ?? value, { ...shared, ...vars }, seen)
 }
 
 function parseColor(value) {
@@ -94,6 +115,7 @@ const PAIRS = [
   ['light', 'primary button on card (UI)', 'primary-strong', 'surface', RATIOS.UI],
   ['light', 'primary button label', 'on-primary', 'primary-strong', RATIOS.TEXT],
   ['light', 'danger button on card (UI)', 'danger', 'surface', RATIOS.UI],
+  ['light', 'danger fill label', 'on-danger', 'danger', RATIOS.TEXT],
   ['light', 'strong border on card (UI)', 'border-strong', 'surface', RATIOS.UI],
   ['light', 'focus ring on input (UI)', 'focus-ring', 'surface-strong', RATIOS.UI],
   ['dark', 'body text on page', 'foreground', 'background', RATIOS.TEXT],
@@ -108,6 +130,7 @@ const PAIRS = [
   ['dark', 'primary button on card (UI)', 'primary-strong', 'surface', RATIOS.UI],
   ['dark', 'primary button label', 'on-primary', 'primary-strong', RATIOS.TEXT],
   ['dark', 'danger button on card (UI)', 'danger', 'surface', RATIOS.UI],
+  ['dark', 'danger fill label', 'on-danger', 'danger', RATIOS.TEXT],
   ['dark', 'strong border on card (UI)', 'border-strong', 'surface', RATIOS.UI],
   ['dark', 'focus ring on input (UI)', 'focus-ring', 'surface-strong', RATIOS.UI],
 ]
@@ -126,8 +149,8 @@ let failures = 0
 console.log(`SS-267/SS-271 contrast gate — ${PAIRS.length} pairs\n`)
 for (const [theme, label, fgVar, bgVar, threshold] of PAIRS) {
   const vars = theme === 'light' ? light : dark
-  const fgRef = vars[`--sabz-${fgVar}`]
-  const bgRef = vars[`--sabz-${bgVar}`]
+  const fgRef = resolveVar(vars[`--sabz-${fgVar}`], vars)
+  const bgRef = resolveVar(vars[`--sabz-${bgVar}`], vars)
   if (!fgRef || !bgRef) {
     console.log(`MISSING  [${theme}] ${label} (fg=${fgRef ?? '∅'}, bg=${bgRef ?? '∅'})`)
     failures += 1
@@ -135,7 +158,7 @@ for (const [theme, label, fgVar, bgVar, threshold] of PAIRS) {
   }
   // Backdrop may itself be translucent (dark subtles): composite over card.
   const bgParsed = parseColor(bgRef)
-  const backdrop = bgParsed.a >= 1 ? bgParsed : composite(bgParsed, parseColor(vars['--sabz-surface']))
+  const backdrop = bgParsed.a >= 1 ? bgParsed : composite(bgParsed, parseColor(resolveVar(vars['--sabz-surface'], vars)))
   const fg = composite(parseColor(fgRef), backdrop)
   const ratio = contrastRatio(fg, backdrop)
   const ok = ratio >= threshold

@@ -85,7 +85,14 @@ export class PublicCatalogService {
   async getCategoryTree(): Promise<CatalogCategoryNode[]> {
     const categories = await this.prisma.category.findMany({
       where: { deletedAt: null, isVisible: true },
-      select: { id: true, name: true, slug: true, sortOrder: true, parentId: true },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        sortOrder: true,
+        parentId: true,
+        imageUpdatedAt: true,
+      },
       orderBy: [{ sortOrder: 'asc' as const }, { name: 'asc' as const }, { id: 'asc' as const }],
     });
     const counts = await this.prisma.product.groupBy({
@@ -115,6 +122,7 @@ export class PublicCatalogService {
           slug: row.slug,
           sortOrder: row.sortOrder,
           publishedProductCount: countByCategory.get(row.id) ?? 0,
+          imageUrl: this.categoryImageUrl(row.id, row.imageUpdatedAt),
           parentId: row.parentId,
           children: [],
         },
@@ -148,6 +156,7 @@ export class PublicCatalogService {
       slug: node.slug,
       sortOrder: node.sortOrder,
       publishedProductCount: node.publishedProductCount,
+      imageUrl: node.imageUrl,
       children: node.children
         .sort(
           (a, b) =>
@@ -179,6 +188,12 @@ export class PublicCatalogService {
    * slugs are omitted; a resolved visible category with no eligible image is
    * returned with `imageUrl: null`.
    */
+  private categoryImageUrl(id: string, updatedAt: Date | null): string | null {
+    return updatedAt
+      ? `/api/v1/catalog/categories/${id}/image?v=${updatedAt.getTime()}`
+      : null;
+  }
+
   async getCategoryCovers(
     slugsRaw: string | undefined,
   ): Promise<CatalogCategoryCoverDto[]> {
@@ -267,17 +282,26 @@ export class PublicCatalogService {
       LEFT JOIN candidates c ON c.root_id = r.id
     `);
 
+    const imageRows = await this.prisma.category.findMany({
+      where: { slug: { in: slugs }, deletedAt: null, isVisible: true },
+      select: { id: true, slug: true, imageUpdatedAt: true },
+    });
+    const imageBySlug = new Map(imageRows.map((row) => [row.slug, row]));
+
     const bySlug = new Map(rows.map((row) => [row.slug, row]));
     return slugs.flatMap((slug) => {
       const row = bySlug.get(slug);
+      const categoryImage = imageBySlug.get(slug);
       if (!row) {
         return [];
       }
-      const imageUrl = row.mediaId
-        ? row.thumbnailKey
-          ? `${PUBLIC_MEDIA_URL_PREFIX}/${row.mediaId}/thumbnail`
-          : `${PUBLIC_MEDIA_URL_PREFIX}/${row.mediaId}`
-        : null;
+      const imageUrl = categoryImage?.imageUpdatedAt
+        ? this.categoryImageUrl(categoryImage.id, categoryImage.imageUpdatedAt)
+        : row.mediaId
+          ? row.thumbnailKey
+            ? `${PUBLIC_MEDIA_URL_PREFIX}/${row.mediaId}/thumbnail`
+            : `${PUBLIC_MEDIA_URL_PREFIX}/${row.mediaId}`
+          : null;
       return [
         {
           slug,

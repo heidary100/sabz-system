@@ -535,7 +535,7 @@ function CategoryRowMenu({
         aria-label={`عملیات ${category.name}`}
         title="عملیات"
         onClick={(event: { stopPropagation: () => void }) => event.stopPropagation()}
-        className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-muted transition duration-150 hover:bg-primary-subtle hover:text-primary focus:not-data-focus:outline-hidden data-focus:outline-2 data-focus:outline-offset-2 data-focus:outline-blue-500"
+        className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-muted transition duration-150 hover:bg-primary-subtle hover:text-primary focus:not-data-focus:outline-hidden data-focus:outline-2 data-focus:outline-offset-2 data-focus:outline-focus-ring"
       >
         <EllipsisVertical className="size-4" aria-hidden="true" />
       </MenuButton>

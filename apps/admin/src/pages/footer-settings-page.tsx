@@ -119,7 +119,7 @@ export function FooterSettingsPage() {
         title="پاورقی فروشگاه"
         subtitle="متن، ستون‌های پیوند، اطلاعات تماس و شبکه‌های اجتماعی. فقط اطلاعات واقعی را وارد کنید؛ فیلد خالی نمایش داده نمی‌شود."
         actions={
-          <Button onClick={() => void save()} disabled={saving}>
+          <Button color="primary" onClick={() => void save()} disabled={saving}>
             <Save className="size-4" aria-hidden="true" />
             {saving ? 'در حال ذخیره…' : 'ذخیره پاورقی'}
           </Button>
@@ -377,8 +377,11 @@ export function FooterSettingsPage() {
             <Eye className="size-4 text-primary" aria-hidden="true" />
             پیش‌نمایش
           </div>
-          <div className="overflow-hidden rounded-card bg-[#1f2923] p-5 text-[#f8f7f5]">
-            <p className="text-base font-bold">سبز سیستم</p>
+          <div className="overflow-hidden rounded-card border-t-2 border-t-[#45c57a] bg-[#0b1510] p-5 text-[#f1f6f2]">
+            <p className="flex items-center gap-2 text-base font-bold">
+              <img src="/brand/logo-64.png" alt="" width={24} height={24} className="object-contain" />
+              سبز سیستم
+            </p>
             {settings.blurb && (
               <p className="mt-2 text-xs leading-6 text-white/70">{settings.blurb}</p>
             )}

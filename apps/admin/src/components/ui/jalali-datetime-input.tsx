@@ -28,6 +28,10 @@ const TimePicker = interopDefault<
   typeof import('react-multi-date-picker/plugins/time_picker').default
 >(TimePickerModule)
 import { CalendarDays } from 'lucide-react'
+import {
+  tehranDateTimeInputToUtcIso,
+  utcIsoToTehranDateTimeInput,
+} from '../../lib/tehran-time'
 
 /**
  * Jalali date/time input (SS-900).
@@ -45,6 +49,7 @@ export function JalaliDateTimeInput({
   required = false,
   ariaLabel,
   className,
+  businessTimeZone = false,
 }: {
   id?: string
   /** ISO-8601 value or null. */
@@ -55,11 +60,21 @@ export function JalaliDateTimeInput({
   required?: boolean
   ariaLabel?: string
   className?: string
+  /** Interpret the ISO value as Asia/Tehran wall time for business fields. */
+  businessTimeZone?: boolean
 }) {
+  const displayDate = businessTimeZone
+    ? (() => {
+        const wall = utcIsoToTehranDateTimeInput(value)
+        return wall ? new Date(wall) : null
+      })()
+    : value
+      ? new Date(value)
+      : null
   const selected =
-    value && !Number.isNaN(new Date(value).getTime())
+    displayDate && !Number.isNaN(displayDate.getTime())
       ? new DateObject({
-          date: new Date(value),
+          date: displayDate,
           calendar: persian,
           locale: persian_fa,
         })
@@ -72,7 +87,18 @@ export function JalaliDateTimeInput({
         value={selected}
         onChange={(next) => {
           const date = Array.isArray(next) ? next[0] : next
-          onChange(date instanceof DateObject ? date.toDate().toISOString() : null)
+          if (!(date instanceof DateObject)) {
+            onChange(null)
+            return
+          }
+          const selectedDate = date.toDate()
+          if (!businessTimeZone) {
+            onChange(selectedDate.toISOString())
+            return
+          }
+          const pad = (part: number): string => String(part).padStart(2, '0')
+          const wall = `${selectedDate.getFullYear()}-${pad(selectedDate.getMonth() + 1)}-${pad(selectedDate.getDate())}T${pad(selectedDate.getHours())}:${pad(selectedDate.getMinutes())}`
+          onChange(tehranDateTimeInputToUtcIso(wall))
         }}
         calendar={persian}
         locale={persian_fa}

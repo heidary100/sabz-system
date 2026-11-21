@@ -3,6 +3,8 @@ import { Description, Field, Label } from '../../catalyst/fieldset'
 import { Input } from '../../catalyst/input'
 import { Select } from '../../catalyst/select'
 import { Text } from '../../catalyst/text'
+import { JalaliDateTimeInput } from '../../ui/jalali-datetime-input'
+import { tehranDateTimeInputToUtcIso, utcIsoToTehranDateTimeInput } from '../../../lib/tehran-time'
 import { Textarea } from '../../catalyst/textarea'
 import { FieldErrorMessage } from '../../ui/field-error'
 import {
@@ -197,14 +199,15 @@ export function CampaignSettingsPanel({
           <Label htmlFor={fieldId('starts-at')}>
             شروع بازه (به وقت تهران)
           </Label>
-          <Input
+          <JalaliDateTimeInput
             id={fieldId('starts-at')}
-            type="datetime-local"
-            dir="ltr"
-            value={form.startsAt}
+            value={form.startsAt ? tehranDateTimeInputToUtcIso(form.startsAt) : null}
+            onChange={(iso) =>
+              update({ startsAt: iso ? utcIsoToTehranDateTimeInput(iso) : '' })
+            }
+            withTime
             disabled={disabled}
-            invalid={Boolean(errors.startsAt)}
-            onChange={(event) => update({ startsAt: event.target.value })}
+            ariaLabel="شروع بازه کمپین به وقت تهران"
           />
           <FieldErrorMessage
             id={errorId('starts-at')}
@@ -213,14 +216,15 @@ export function CampaignSettingsPanel({
         </Field>
         <Field>
           <Label htmlFor={fieldId('ends-at')}>پایان بازه (به وقت تهران)</Label>
-          <Input
+          <JalaliDateTimeInput
             id={fieldId('ends-at')}
-            type="datetime-local"
-            dir="ltr"
-            value={form.endsAt}
+            value={form.endsAt ? tehranDateTimeInputToUtcIso(form.endsAt) : null}
+            onChange={(iso) =>
+              update({ endsAt: iso ? utcIsoToTehranDateTimeInput(iso) : '' })
+            }
+            withTime
             disabled={disabled}
-            invalid={Boolean(errors.endsAt)}
-            onChange={(event) => update({ endsAt: event.target.value })}
+            ariaLabel="پایان بازه کمپین به وقت تهران"
           />
           <FieldErrorMessage
             id={errorId('ends-at')}

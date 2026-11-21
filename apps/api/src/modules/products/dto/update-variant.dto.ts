@@ -7,7 +7,7 @@ import {
   Matches,
   MaxLength,
 } from 'class-validator';
-import { PriceStatus } from '@prisma/client';
+import { PriceSourceCurrency, PriceStatus } from '@prisma/client';
 import { PRICE_12_2_PATTERN } from './create-variant.dto';
 
 const SKU_MAX = 64;
@@ -91,6 +91,15 @@ export class UpdateVariantDto {
     message: 'compareAtPrice باید عدد اعشاری معتبر با حداکثر ۲ رقم اعشار باشد.',
   })
   compareAtPrice?: string | null;
+
+  @ApiPropertyOptional({
+    enum: PriceSourceCurrency,
+    description:
+      'Source currency for the submitted price values. Changing it requires a price.',
+  })
+  @IsOptional()
+  @IsEnum(PriceSourceCurrency, { message: 'واحد پول قیمت معتبر نیست.' })
+  priceSourceCurrency?: PriceSourceCurrency;
 
   @ApiPropertyOptional({
     enum: PriceStatus,

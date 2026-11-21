@@ -469,6 +469,8 @@ describe('CheckoutService', () => {
         unitPrice: new Prisma.Decimal('100000'),
       });
       expect(created.items.create[0].lineTotal.toString()).toBe('500000');
+      expect(created.items.create[0].sourceCurrency).toBe('RIAL');
+      expect(created.items.create[0].sourceAmount.toString()).toBe('900');
       expect(tx.rfq.update).toHaveBeenCalledWith({
         where: { id: RFQ_ID, status: 'QUOTED' },
         data: expect.objectContaining({
