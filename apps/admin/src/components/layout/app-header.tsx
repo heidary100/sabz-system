@@ -1,4 +1,5 @@
 import { LogOut, Menu } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../../auth/auth-provider'
 import { Button } from '../catalyst/button'
 import { IconButton } from '../ui/icon-button'
@@ -23,6 +24,13 @@ export function AppHeader({ title, onOpenMobile }: { title: string; onOpenMobile
         <h1 className="truncate text-sm font-semibold text-foreground">{title}</h1>
       </div>
       <div className="flex items-center gap-2 sm:gap-4">
+        <Link
+          to="/en/products"
+          className="hidden rounded-control px-2 py-1 text-xs font-semibold text-primary hover:bg-primary-subtle sm:inline-block"
+          title="English LTR operations workspace"
+        >
+          EN
+        </Link>
         <PwaInstallButton />
         <NotificationBell />
         <ThemeToggle />

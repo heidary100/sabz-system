@@ -112,6 +112,15 @@ A CHECK constraint now enforces `discountedPrice < price` and a valid window.
   never reports an SMS as delivered. In-app notifications are the verified
   channel.
 
+## Locale scope
+
+Persian RTL remains the primary admin locale. A real English/LTR operations
+workspace is available at `/en/products` and `/en/orders` (linked as **EN** in
+the Persian header). It uses the same APIs, permissions, design tokens, data and
+workflow rules for the pricing grid and order operations; other admin modules
+remain Persian-only. The English shell sets `lang="en"` and `dir="ltr"` on the
+document while mounted and restores the Persian document attributes on exit.
+
 ## Known limitation
 
 `Product.minPrice` is a denormalized index value recomputed on writes. Listing

@@ -10,6 +10,7 @@ import { ADMIN_ROLES, AuthProvider } from '../auth/auth-provider'
 import { RequireAuth } from '../auth/require-auth'
 import { RequireRole } from '../auth/require-role'
 import { AdminLayout } from '../layouts/admin-layout'
+import { EnglishOpsLayout } from '../components/layout/english-ops-layout'
 import { MerchandisingLayout } from '../layouts/merchandising-layout'
 import { AccessDeniedPage } from '../pages/access-denied-page'
 import { AttributesPage } from '../pages/attributes-page'
@@ -21,6 +22,8 @@ import { CategoriesPage } from '../pages/categories-page'
 import { ChatPage } from '../pages/chat-page'
 import { CurrencyPage } from '../pages/currency-page'
 import { DashboardPage } from '../pages/dashboard-page'
+import { EnglishOrdersPage } from '../pages/english-orders-page'
+import { EnglishProductsPage } from '../pages/english-products-page'
 import { FooterSettingsPage } from '../pages/footer-settings-page'
 import { InventoryMovementsPage } from '../pages/inventory-movements-page'
 import { InventoryPage } from '../pages/inventory-page'
@@ -57,6 +60,20 @@ function createAppRoutes() {
   return createRoutesFromElements(
     <>
       <Route path="/login" element={<LoginPage />} />
+      <Route
+        path="/en"
+        element={
+          <RequireAuth>
+            <RequireRole roles={ADMIN_ROLES}>
+              <EnglishOpsLayout />
+            </RequireRole>
+          </RequireAuth>
+        }
+      >
+        <Route index element={<Navigate to="/en/products" replace />} />
+        <Route path="products" element={<EnglishProductsPage />} />
+        <Route path="orders" element={<EnglishOrdersPage />} />
+      </Route>
           <Route
             path="/access-denied"
             element={
