@@ -22,6 +22,7 @@ import { renderWriteSummary, WooRunner } from '../woo-runner';
 
 import { StorefrontCacheService } from '../../../common/storefront-cache/storefront-cache.service';
 import { ConfigService } from '@nestjs/config';
+import { assertApplySafe } from './guard';
 function arg(name: string): string | undefined {
   const index = process.argv.indexOf(`--${name}`);
   return index === -1 ? undefined : process.argv[index + 1];
@@ -58,6 +59,15 @@ async function main(): Promise<void> {
   const prisma = new PrismaService();
   await prisma.$connect();
   try {
+    const guard = await assertApplySafe({
+      prisma,
+      confirmDatabase: arg('confirm-database'),
+      backupPath: arg('backup'),
+      operation: 'WooCommerce product import',
+    });
+    console.log(
+      `database guard: ${guard.database} @ ${guard.serverAddress ?? 'local'} | backup ${guard.backupPath} (${guard.backupBytes} bytes, sha256 ${guard.backupSha256})`,
+    );
     const runner = new WooRunner(prisma, new StorefrontCacheService(new ConfigService()));
     const { report, exitCode } = await runner.runImport({
       file: input,

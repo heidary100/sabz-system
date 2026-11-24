@@ -54,8 +54,8 @@ const EXPLICIT: Record<string, Omit<WooColumnRule, 'via'>> = {
   'توضیح کوتاه': mapped('Product.shortDescription', '183 rows.'),
   'توضیحات': mapped('Product.description', 'Sanitized HTML; inline images take the description-image path.'),
   // Pricing.
-  'تاریخ شروع فروش ویژه': deferred('Sale window 2026-09-05→21 active on 29 rows; no sale-date fields yet — compareAt imports as evergreen, window recorded.'),
-  'تاریخ پایان فروش ویژه': deferred('See sale-start; same window.'),
+  'تاریخ شروع فروش ویژه': mapped('Variant.discountStartsAt', 'Asia/Tehran wall-clock; invalid windows drop the sale.'),
+  'تاریخ پایان فروش ویژه': mapped('Variant.discountEndsAt', 'Asia/Tehran wall-clock; expired windows stay hidden.'),
   'وضعیت مالیات': ignored('Constant across all rows; single tax regime.'),
   'کلاس مالیاتی': ignored('Empty or "parent" (variation inheritance); single tax regime.'),
   // Stock.
@@ -179,6 +179,10 @@ const EXPLICIT: Record<string, Omit<WooColumnRule, 'via'>> = {
   'متا: _elementor_template_type': ignored('Page-builder state.'),
   'متا: _elementor_version': ignored('Page-builder state.'),
   'متا: _elementor_data': ignored('2 rows page-builder payload; theme internals.'),
+  // Present only in the 2026-11 export (244th column); Elementor cache state.
+  'متا: _elementor_element_cache': ignored(
+    'Elementor rendered-element cache; no commerce data.',
+  ),
   'متا: _elementor_pro_version': ignored('Page-builder state.'),
   'متا: _woodmart_product-background': ignored('Theme state.'),
   'متا: woodmart_sguide_select': ignored('Theme state.'),

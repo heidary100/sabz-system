@@ -38,6 +38,38 @@ export const MEDIA_SOURCE_SYSTEM = 'WOOCOMMERCE_MEDIA';
 /** Storage-key prefix of SS-207 reference placeholders awaiting binaries. */
 export const PENDING_MEDIA_PREFIX = 'pending-woo';
 
+export interface PipelineMediaState {
+  deletedAt: Date | null;
+  storageKey: string;
+  mediaType: 'IMAGE' | 'VIDEO';
+  processingStatus: 'NONE' | 'PENDING' | 'PROCESSED' | 'SKIPPED' | 'FAILED';
+  processingError: string | null;
+  backgroundRemoved: boolean;
+  originalStorageKey: string | null;
+}
+
+/**
+ * True when a live row already came from the mandatory pipeline. Transparent
+ * images are `SKIPPED` without background removal; videos retain `NONE`
+ * because the background model is image-only.
+ */
+export function isCurrentPipelineMedia(row: PipelineMediaState): boolean {
+  if (
+    row.deletedAt !== null ||
+    row.storageKey.startsWith(PENDING_MEDIA_PREFIX) ||
+    row.originalStorageKey === null
+  ) {
+    return false;
+  }
+  if (row.mediaType === 'VIDEO') {
+    return row.processingStatus === 'NONE';
+  }
+  return (
+    (row.processingStatus === 'PROCESSED' && row.backgroundRemoved) ||
+    (row.processingStatus === 'SKIPPED' && row.processingError === null)
+  );
+}
+
 /** Default worker count: in-process batching, no queue/broker (per issue). */
 export const DEFAULT_MEDIA_CONCURRENCY = 6;
 /** Per-image fetch attempts (initial try + retries). */
@@ -153,7 +185,7 @@ export function validateDownloadedBytes(
   const detected = detectMediaMimeFromMagic(header);
   if (detected === null) {
     throw new BadRequestException(
-      'فرمت فایل پشتیبانی نمیشود. فقط JPG، PNG، WEBP و MP4 مجاز است.',
+      'فرمت فایل پشتیبانی نمیشود. فقط JPG، PNG، WEBP، AVIF، GIF و MP4 مجاز است.',
     );
   }
   if (sizeBytes > maxSizeBytesForMime(detected)) {
@@ -167,11 +199,13 @@ export function validateDownloadedBytes(
  * Mitigates DNS-rebinding between validation and connect.
  */
 function pinnedLookup(): LookupFunction {
-  return (hostname, _options, callback) => {
+  return (hostname, options, callback) => {
     lookup(hostname, { all: true, verbatim: true })
       .then((addresses) => {
-        const publicAddress = addresses.find((entry) => !isBlockedIp(entry.address));
-        if (!publicAddress) {
+        const publicAddresses = addresses.filter(
+          (entry) => !isBlockedIp(entry.address),
+        );
+        if (publicAddresses.length === 0) {
           callback(
             new BadRequestException('آدرس تصویر نامعتبر است.') as unknown as NodeJS.ErrnoException,
             '',
@@ -179,6 +213,19 @@ function pinnedLookup(): LookupFunction {
           );
           return;
         }
+        // Node's HTTP client passes `all: true` to the custom lookup and
+        // expects the address array in that mode; returning the legacy
+        // single-address shape produced "Invalid IP address: undefined".
+        if ((options as { all?: boolean }).all === true) {
+          (
+            callback as unknown as (
+              error: NodeJS.ErrnoException | null,
+              addresses: Array<{ address: string; family: number }>,
+            ) => void
+          )(null, publicAddresses);
+          return;
+        }
+        const publicAddress = publicAddresses[0]!;
         callback(null, publicAddress.address, publicAddress.family === 6 ? 6 : 4);
       })
       .catch((error) => callback(error as NodeJS.ErrnoException, '', 0));

@@ -536,6 +536,14 @@ describe('Public catalog API (SS-120/121/122) (e2e)', () => {
       expect(res.body.limit).toBe(50);
       expect(typeof res.body.total).toBe('number');
       const ids = res.body.items.map((item: { id: string }) => item.id);
+      // The shared test database may hold more than one page of brands from
+      // other suites; walk the pagination instead of assuming the first page.
+      for (let page = 2; page <= Math.ceil(res.body.total / 50); page += 1) {
+        const next = await request(app.getHttpServer())
+          .get(`${BRANDS_BASE}?page=${page}&limit=50`)
+          .expect(200);
+        ids.push(...next.body.items.map((item: { id: string }) => item.id));
+      }
       expect(ids).toContain(brand.id);
       expect(ids).not.toContain(deleted.id);
       for (const item of res.body.items) {
@@ -582,8 +590,8 @@ describe('Public catalog API (SS-120/121/122) (e2e)', () => {
       expect(card.priceFrom).toBe('5000000');
       expect(card.regularPrice).toBeNull();
       expect(card.inStock).toBe(false);
-      expect(card.primaryImageUrl).toBe(
-        `/api/v1/catalog/media/${draft.mediaId}`,
+      expect(card.primaryImageUrl).toMatch(
+        new RegExp(`^/api/v1/catalog/media/${draft.mediaId}\\?v=`),
       );
       expect(card.primaryThumbnailUrl).toBeNull();
       expect(Object.keys(card).sort()).toEqual([
@@ -874,7 +882,9 @@ describe('Public catalog API (SS-120/121/122) (e2e)', () => {
         media.body.id,
         media2.body.id,
       ]);
-      expect(res.body.media[0].url).toBe(`/api/v1/catalog/media/${media.body.id}`);
+      expect(res.body.media[0].url).toMatch(
+        new RegExp(`^/api/v1/catalog/media/${media.body.id}\\?v=`),
+      );
       expect(JSON.stringify(res.body)).not.toContain('storageKey');
     });
 

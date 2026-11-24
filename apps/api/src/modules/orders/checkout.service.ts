@@ -1277,7 +1277,11 @@ export class CheckoutService {
       const available = availableByVariant.get(line.variantId) ?? 0;
       const inStock = available >= line.quantity;
       const unitPrice = (unitPrices.get(line.variantId) ?? line.variant.price).toString();
-      const priceChanged = unitPrice !== line.unitPriceAtAdd.toString();
+      // Monetary equality, not string equality: Decimal serialization can
+      // differ ("100000" vs "100000.00") without any real change.
+      const priceChanged = !new Prisma.Decimal(unitPrice).equals(
+        line.unitPriceAtAdd,
+      );
       const lineTotal = new Prisma.Decimal(unitPrice).mul(line.quantity).toString();
       items.push({
         variantId: line.variantId,

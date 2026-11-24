@@ -19,6 +19,7 @@ import { writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { PrismaService } from '../../../common/database/prisma.service';
 import { createWooMediaRunner, renderMediaSummary } from '../woo-media-runner';
+import { assertApplySafe } from './guard';
 
 function arg(name: string): string | undefined {
   const index = process.argv.indexOf(`--${name}`);
@@ -70,6 +71,10 @@ async function main(): Promise<void> {
     .flatMap((value) => value.split(','))
     .map((value) => value.trim())
     .filter((value) => value.length > 0);
+  const sourceIds = argsAll('source-id')
+    .flatMap((value) => value.split(','))
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0);
   const outArg = arg('out');
   const out =
     outArg === undefined ? `${input}.media.json` : resolve(process.cwd(), outArg);
@@ -77,6 +82,17 @@ async function main(): Promise<void> {
   const prisma = new PrismaService();
   await prisma.$connect();
   try {
+    if (!flag('dry-run')) {
+      const guard = await assertApplySafe({
+        prisma,
+        confirmDatabase: arg('confirm-database'),
+        backupPath: arg('backup'),
+        operation: 'WooCommerce media import',
+      });
+      console.log(
+        `database guard: ${guard.database} @ ${guard.serverAddress ?? 'local'} | backup ${guard.backupPath} (${guard.backupBytes} bytes, sha256 ${guard.backupSha256})`,
+      );
+    }
     const runner = createWooMediaRunner(prisma);
     const { report, exitCode } = await runner.runMedia({
       file: input,
@@ -87,6 +103,8 @@ async function main(): Promise<void> {
       dryRun: flag('dry-run'),
       failureThreshold,
       resume: !flag('no-resume'),
+      refreshImages: flag('refresh-images'),
+      sourceIds: sourceIds.length > 0 ? sourceIds : undefined,
     });
     writeFileSync(out, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
     console.log(renderMediaSummary(report));

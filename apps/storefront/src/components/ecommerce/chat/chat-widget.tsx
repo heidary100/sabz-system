@@ -58,7 +58,7 @@ function currentContext(pathname: string): PageContextInput {
  */
 export function ChatWidget() {
   const visible = useHasSession();
-  const { chatVersion } = useStoreNotifications();
+  const { chatVersion, connected } = useStoreNotifications();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [open, setOpen] = useState(false);
@@ -67,6 +67,9 @@ export function ChatWidget() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
+  // A failed request may already have persisted the message. Keep the same
+  // idempotency key for a retry of the same body so the server can dedupe it.
+  const pendingSend = useRef<{ body: string; id: string } | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -145,12 +148,18 @@ export function ChatWidget() {
     if (!draft.trim() || sending) return;
     setSending(true);
     setError(null);
+    const body = draft;
+    const pending = pendingSend.current;
+    const clientMessageId =
+      pending !== null && pending.body === body ? pending.id : crypto.randomUUID();
+    pendingSend.current = { body, id: clientMessageId };
     try {
       const next = await sendChatMessage({
-        body: draft,
-        clientMessageId: crypto.randomUUID(),
+        body,
+        clientMessageId,
         ...currentContext(pathname),
       });
+      pendingSend.current = null;
       setConversation(next);
       setDraft('');
     } catch (sendError) {
@@ -203,6 +212,22 @@ export function ChatWidget() {
               <p className="mt-0.5 text-[11px] text-fg-muted">
                 پاسخ اپراتورها در همین صفحه و مرکز اعلان‌ها می‌آید. صفحه فعلی شما برای درک بهتر پرسش با پشتیبانی به اشتراک گذاشته می‌شود.
               </p>
+              <p
+                role="status"
+                className={`mt-1 inline-flex items-center gap-1 text-[10px] ${
+                  connected ? 'text-success' : 'text-warning'
+                }`}
+              >
+                <span
+                  aria-hidden="true"
+                  className={`size-1.5 rounded-pill ${
+                    connected ? 'bg-success' : 'bg-warning'
+                  }`}
+                />
+                {connected
+                  ? 'اتصال زنده برقرار است'
+                  : 'اتصال قطع است؛ پیام‌ها پس از اتصال دوباره همگام می‌شوند'}
+              </p>
             </div>
             <button
               type="button"
@@ -217,6 +242,9 @@ export function ChatWidget() {
           {error && (
             <p role="alert" className="mx-3 mt-2 rounded-control bg-danger-soft px-2.5 py-1.5 text-xs text-danger">
               {error}
+              {draft.trim().length > 0
+                ? ' متن شما حفظ شده است؛ دوباره ارسال کنید.'
+                : ''}
             </p>
           )}
 

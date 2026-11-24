@@ -26,6 +26,8 @@ interface AuthContextValue {
   isAdmin: boolean
   login: (mobile: string, code: string) => Promise<void>
   logout: () => Promise<void>
+  /** Re-read /auth/me (profile edits update the header immediately). */
+  refreshUser: () => Promise<AuthUser | null>
   /** Retry a session restore that failed for a transient server/network reason. */
   retrySession: () => Promise<void>
 }
@@ -96,6 +98,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setStatus('anonymous')
   }, [])
 
+  const refreshUser = useCallback(async (): Promise<AuthUser | null> => {
+    try {
+      return await loadUser()
+    } catch {
+      return null
+    }
+  }, [loadUser])
+
   const value = useMemo<AuthContextValue>(
     () => ({
       status,
@@ -103,9 +113,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAdmin: user?.roles.some((role) => ADMIN_ROLES.includes(role)) ?? false,
       login,
       logout,
+      refreshUser,
       retrySession: restore,
     }),
-    [status, user, login, logout, restore],
+    [status, user, login, logout, refreshUser, restore],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

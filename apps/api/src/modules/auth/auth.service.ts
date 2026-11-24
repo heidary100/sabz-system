@@ -24,10 +24,21 @@ export class AuthService {
    */
   async findUserById(
     id: string,
-  ): Promise<Pick<User, 'id' | 'mobile' | 'status' | 'deletedAt'> | null> {
+  ): Promise<
+    | (Pick<User, 'id' | 'mobile' | 'status' | 'deletedAt'> & {
+        profile: { firstName: string; lastName: string } | null;
+      })
+    | null
+  > {
     return this.prisma.user.findUnique({
       where: { id, deletedAt: null },
-      select: { id: true, mobile: true, status: true, deletedAt: true },
+      select: {
+        id: true,
+        mobile: true,
+        status: true,
+        deletedAt: true,
+        profile: { select: { firstName: true, lastName: true } },
+      },
     });
   }
 

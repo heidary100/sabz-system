@@ -19,6 +19,7 @@ import { MessageCircle,
   Star,
   Tag,
   Undo2,
+  UserRound,
   Users,
   Warehouse,
   X,
@@ -35,6 +36,7 @@ const SIDEBAR_STORAGE_KEY = 'sabz-admin-sidebar'
 
 export const NAV_ITEMS: Array<{ to: string; label: string; icon: LucideIcon }> = [
   { to: '/dashboard', label: 'پیشخوان', icon: LayoutDashboard },
+  { to: '/profile', label: 'پروفایل من', icon: UserRound },
   { to: '/merchandising', label: 'بازاریابی', icon: Megaphone },
   { to: '/products', label: 'محصولات', icon: Package },
   { to: '/categories', label: 'دسته‌بندی‌ها', icon: FolderTree },
@@ -58,7 +60,7 @@ export const NAV_ITEMS: Array<{ to: string; label: string; icon: LucideIcon }> =
 ]
 
 const NAV_GROUPS: Array<{ label: string; tos: string[] }> = [
-  { label: 'نمای کلی', tos: ['/dashboard'] },
+  { label: 'نمای کلی', tos: ['/dashboard', '/profile'] },
   {
     label: 'کاتالوگ',
     tos: ['/merchandising', '/products', '/categories', '/attributes', '/brands', '/inventory', '/warehouses'],

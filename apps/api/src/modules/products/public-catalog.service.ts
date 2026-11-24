@@ -40,6 +40,7 @@ import {
   type CatalogSearchFilters,
   type CatalogSearchSort,
 } from './public-catalog-search';
+import { publicMediaAssetUrl } from './media-public-url';
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 20;
@@ -48,12 +49,8 @@ const DEFAULT_LIMIT = 20;
 export const CATEGORY_COVER_MAX = 12;
 const CATEGORY_COVER_SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
-/**
- * Server-provided public URL of a stored (watermarked) media asset (SS-123).
- * Relative so it stays host-agnostic; each frontend resolves it against the
- * API base URL.
- */
-export const PUBLIC_MEDIA_URL_PREFIX = '/api/v1/catalog/media';
+/** Re-export for consumers that historically imported it from here. */
+export { PUBLIC_MEDIA_URL_PREFIX } from './media-public-url';
 
 /**
  * Public, read-only catalog projections (SS-120/SS-121/SS-122).
@@ -229,6 +226,7 @@ export class PublicCatalogService {
         slug: string;
         name: string;
         mediaId: string | null;
+        storageKey: string | null;
         thumbnailKey: string | null;
       }>
     >(Prisma.sql`
@@ -255,6 +253,7 @@ export class PublicCatalogService {
           s.slug,
           s.name,
           pm.id AS media_id,
+          pm."storageKey" AS storage_key,
           pm."thumbnailKey" AS thumbnail_key
         FROM subtree s
         JOIN "Product" p ON p."categoryId" = s.category_id
@@ -264,6 +263,7 @@ export class PublicCatalogService {
           AND p.status = 'PUBLISHED'
           AND pm."deletedAt" IS NULL
           AND pm."mediaType" = 'IMAGE'
+          AND pm."storageKey" NOT LIKE 'pending-woo%'
           AND (pm."variantId" IS NULL OR v."deletedAt" IS NULL)
         ORDER BY
           s.root_id,
@@ -277,6 +277,7 @@ export class PublicCatalogService {
         r.slug,
         r.name,
         c.media_id AS "mediaId",
+        c.storage_key AS "storageKey",
         c.thumbnail_key AS "thumbnailKey"
       FROM requested r
       LEFT JOIN candidates c ON c.root_id = r.id
@@ -298,9 +299,12 @@ export class PublicCatalogService {
       const imageUrl = categoryImage?.imageUpdatedAt
         ? this.categoryImageUrl(categoryImage.id, categoryImage.imageUpdatedAt)
         : row.mediaId
-          ? row.thumbnailKey
-            ? `${PUBLIC_MEDIA_URL_PREFIX}/${row.mediaId}/thumbnail`
-            : `${PUBLIC_MEDIA_URL_PREFIX}/${row.mediaId}`
+          ? publicMediaAssetUrl(
+              row.mediaId,
+              row.storageKey,
+              row.thumbnailKey !== null,
+              row.thumbnailKey,
+            )
           : null;
       return [
         {
@@ -668,6 +672,7 @@ export class PublicCatalogService {
             mediaType: true,
             isPrimary: true,
             sortOrder: true,
+            storageKey: true,
             thumbnailKey: true,
             variantId: true,
           },
@@ -802,10 +807,10 @@ export class PublicCatalogService {
     const media: CatalogProductMediaDto[] = product.media.map((row) => ({
       id: row.id,
       mediaType: row.mediaType,
-      url: `${PUBLIC_MEDIA_URL_PREFIX}/${row.id}`,
+      url: publicMediaAssetUrl(row.id, row.storageKey),
       thumbnailUrl:
         row.thumbnailKey !== null
-          ? `${PUBLIC_MEDIA_URL_PREFIX}/${row.id}/thumbnail`
+          ? publicMediaAssetUrl(row.id, row.storageKey, true, row.thumbnailKey)
           : null,
       isPrimary: row.isPrimary,
       sortOrder: row.sortOrder,
@@ -1854,7 +1859,7 @@ export class PublicCatalogService {
         },
         media: {
           where: publicMediaWhere({ mediaType: 'IMAGE' }),
-          select: { id: true, thumbnailKey: true },
+          select: { id: true, storageKey: true, thumbnailKey: true },
           orderBy: [
             { isPrimary: 'desc' as const },
             { sortOrder: 'asc' as const },
@@ -1963,11 +1968,19 @@ export class PublicCatalogService {
         ratingCount: rating.count,
         primaryImageUrl:
           row.media.length > 0
-            ? `${PUBLIC_MEDIA_URL_PREFIX}/${row.media[0]!.id}`
+            ? publicMediaAssetUrl(
+                row.media[0]!.id,
+                row.media[0]!.storageKey,
+              )
             : null,
         primaryThumbnailUrl:
           row.media.length > 0 && row.media[0]!.thumbnailKey !== null
-            ? `${PUBLIC_MEDIA_URL_PREFIX}/${row.media[0]!.id}/thumbnail`
+            ? publicMediaAssetUrl(
+                row.media[0]!.id,
+                row.media[0]!.storageKey,
+                true,
+                row.media[0]!.thumbnailKey,
+              )
             : null,
       });
     }
@@ -2086,6 +2099,10 @@ function publicMediaWhere(
 ): Prisma.ProductMediaWhereInput {
   return {
     deletedAt: null,
+    // Legacy importer placeholders (`pending-woo:*`) have no binary and must
+    // never be projected as a product image; a real row or the semantic
+    // fallback is used instead.
+    NOT: { storageKey: { startsWith: 'pending-woo' } },
     OR: [{ variantId: null }, { variant: { is: { deletedAt: null } } }],
     ...extra,
   };

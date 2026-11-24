@@ -27,6 +27,8 @@ export const ALLOWED_MEDIA_MIME_TYPES = [
   'image/jpeg',
   'image/png',
   'image/webp',
+  'image/avif',
+  'image/gif',
   'video/mp4',
 ] as const;
 
@@ -77,6 +79,8 @@ const IMAGE_MIME_TYPES: ReadonlySet<string> = new Set([
   'image/jpeg',
   'image/png',
   'image/webp',
+  'image/avif',
+  'image/gif',
 ]);
 
 /** File extension emitted from a validated MIME type; never from filenames. */
@@ -84,6 +88,8 @@ const MIME_TO_EXTENSION: Record<AllowedMediaMimeType, string> = {
   'image/jpeg': 'jpg',
   'image/png': 'png',
   'image/webp': 'webp',
+  'image/avif': 'avif',
+  'image/gif': 'gif',
   'video/mp4': 'mp4',
 };
 
@@ -94,6 +100,7 @@ const JPEG_MAGIC = Buffer.from([0xff, 0xd8, 0xff]);
 const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
 const RIFF_MAGIC = Buffer.from([0x52, 0x49, 0x46, 0x46]); // RIFF
 const WEBP_MAGIC = Buffer.from([0x57, 0x45, 0x42, 0x50]); // WEBP
+const GIF_MAGIC = Buffer.from([0x47, 0x49, 0x46, 0x38]); // GIF8
 
 /**
  * Detects the real media format from magic bytes. The client-declared MIME
@@ -122,13 +129,25 @@ export function detectMediaMimeFromMagic(
   ) {
     return 'image/webp';
   }
-  // MP4 (ISOBMFF): the first box is a 4-byte size + a 4-byte type; an MP4 file
-  // has a `ftyp` box type at offset 4. This is a shallow container signature,
-  // not codec validation (M1 boundary).
+  if (
+    buffer.length >= GIF_MAGIC.length &&
+    buffer.subarray(0, GIF_MAGIC.length).equals(GIF_MAGIC)
+  ) {
+    return 'image/gif';
+  }
+  // ISOBMFF container: `ftyp` at offset 4. AVIF is an image despite the
+  // shared container, and must be classified before the generic MP4 branch
+  // or the importer sends AVIF through FFmpeg (which fails for most files).
   if (
     buffer.length >= 8 &&
     buffer.subarray(4, 8).equals(Buffer.from([0x66, 0x74, 0x79, 0x70])) // ftyp
   ) {
+    if (buffer.length >= 12) {
+      const brand = buffer.subarray(8, 12).toString('latin1');
+      if (brand === 'avif' || brand === 'avis') {
+        return 'image/avif';
+      }
+    }
     return 'video/mp4';
   }
   return null;
@@ -173,7 +192,7 @@ export function validateMediaFile(
   const detected = detectMediaMimeFromMagic(header);
   if (detected === null) {
     throw new BadRequestException(
-      'فرمت فایل پشتیبانی نمیشود. فقط JPG، PNG، WEBP و MP4 مجاز است.',
+      'فرمت فایل پشتیبانی نمیشود. فقط JPG، PNG، WEBP، AVIF، GIF و MP4 مجاز است.',
     );
   }
 
@@ -212,7 +231,7 @@ export function validateDescriptionImageFile(
   const detected = detectMediaMimeFromMagic(header);
   if (detected === null || !isImageMime(detected)) {
     throw new BadRequestException(
-      'فرمت فایل پشتیبانی نمیشود. فقط JPG، PNG و WEBP مجاز است.',
+      'فرمت فایل پشتیبانی نمیشود. فقط JPG، PNG، WEBP، AVIF و GIF مجاز است.',
     );
   }
   if (declaredMimeType !== detected) {
@@ -245,7 +264,7 @@ export function validateImportedDescriptionImage(
   const detected = detectMediaMimeFromMagic(header);
   if (detected === null || !isImageMime(detected)) {
     throw new BadRequestException(
-      'فرمت فایل پشتیبانی نمیشود. فقط JPG، PNG و WEBP مجاز است.',
+      'فرمت فایل پشتیبانی نمیشود. فقط JPG، PNG، WEBP، AVIF و GIF مجاز است.',
     );
   }
   if (sizeBytes > maxDescriptionImageSizeBytes()) {

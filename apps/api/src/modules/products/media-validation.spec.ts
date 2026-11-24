@@ -10,7 +10,7 @@ import {
   validateMediaFile,
 } from './media-validation';
 
-function imageBuffer(format: 'jpeg' | 'png' | 'webp' | 'mp4'): Buffer {
+function imageBuffer(format: 'jpeg' | 'png' | 'webp' | 'avif' | 'gif' | 'mp4'): Buffer {
   if (format === 'jpeg') {
     return Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46]);
   }
@@ -21,6 +21,17 @@ function imageBuffer(format: 'jpeg' | 'png' | 'webp' | 'mp4'): Buffer {
     return Buffer.concat([
       Buffer.from([0x52, 0x49, 0x46, 0x46, 0x00, 0x00, 0x00, 0x00]),
       Buffer.from([0x57, 0x45, 0x42, 0x50]),
+    ]);
+  }
+  if (format === 'gif') {
+    return Buffer.concat([Buffer.from('GIF89a'), Buffer.from([0x01, 0x00, 0x01, 0x00])]);
+  }
+  if (format === 'avif') {
+    return Buffer.concat([
+      Buffer.from([0x00, 0x00, 0x00, 0x1c]),
+      Buffer.from('ftypavif'),
+      Buffer.from([0x00, 0x00, 0x00, 0x00]),
+      Buffer.from('avifmif1'),
     ]);
   }
   // mp4 ftyp box
@@ -44,6 +55,16 @@ describe('media validation (SS-105)', () => {
     it('detects mp4 ftyp signature', () => {
       expect(detectMediaMimeFromMagic(imageBuffer('mp4'))).toBe('video/mp4');
     });
+    it('detects GIF magic bytes as an image', () => {
+      expect(detectMediaMimeFromMagic(imageBuffer('gif'))).toBe('image/gif');
+      expect(mediaTypeForMime('image/gif')).toBe('IMAGE');
+      expect(extensionForMediaMime('image/gif')).toBe('gif');
+    });
+    it('classifies AVIF ftyp as an image, not MP4', () => {
+      expect(detectMediaMimeFromMagic(imageBuffer('avif'))).toBe('image/avif');
+      expect(mediaTypeForMime('image/avif')).toBe('IMAGE');
+      expect(extensionForMediaMime('image/avif')).toBe('avif');
+    });
     it('returns null for unknown content', () => {
       expect(detectMediaMimeFromMagic(Buffer.from('not a real file'))).toBeNull();
       expect(detectMediaMimeFromMagic(Buffer.from([]))).toBeNull();
@@ -62,6 +83,10 @@ describe('media validation (SS-105)', () => {
     it('accepts a matching webp', () => {
       const header = imageBuffer('webp');
       expect(validateMediaFile('image/webp', header, header.length)).toBe('image/webp');
+    });
+    it('accepts a matching avif', () => {
+      const header = imageBuffer('avif');
+      expect(validateMediaFile('image/avif', header, header.length)).toBe('image/avif');
     });
     it('accepts a matching mp4', () => {
       const header = imageBuffer('mp4');

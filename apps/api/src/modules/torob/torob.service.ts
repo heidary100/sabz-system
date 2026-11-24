@@ -13,7 +13,7 @@ import {
   activeInventoryWhere,
   deriveAvailable,
 } from '../inventory/inventory-aggregate';
-import { PUBLIC_MEDIA_URL_PREFIX } from '../products/public-catalog.service';
+import { publicMediaAssetUrl } from '../products/media-public-url';
 
 /**
  * Torob product feed (SS-239, master plan §5.11, feed v3).
@@ -54,6 +54,7 @@ interface FeedProductRow {
   }[];
   media: {
     id: string;
+    storageKey: string;
     isPrimary: boolean;
     sortOrder: number;
     mediaType: ProductMediaType;
@@ -172,8 +173,13 @@ export class TorobService {
         orderBy: [{ createdAt: 'asc' as const }, { id: 'asc' as const }],
       },
       media: {
+        where: {
+          deletedAt: null,
+          NOT: { storageKey: { startsWith: 'pending-woo' } },
+        },
         select: {
           id: true,
+          storageKey: true,
           isPrimary: true,
           sortOrder: true,
           mediaType: true,
@@ -359,7 +365,9 @@ export class TorobService {
             Number(b.isPrimary) - Number(a.isPrimary) ||
             a.sortOrder - b.sortOrder,
         )
-        .map((item) => `${apiBase}${PUBLIC_MEDIA_URL_PREFIX}/${item.id}`);
+        .map(
+          (item) => `${apiBase}${publicMediaAssetUrl(item.id, item.storageKey)}`,
+        );
 
       const spec: Record<string, string | number> = {};
       for (const row of product.specs) {

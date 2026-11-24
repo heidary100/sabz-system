@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { LogOut, Moon, Package, ShoppingCart, Sun } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../../auth/auth-provider'
+import { adminDisplayName, hasDisplayName } from '../../lib/identity'
 import { Button } from '../catalyst/button'
 
 /**
@@ -14,6 +15,8 @@ import { Button } from '../catalyst/button'
 export function EnglishOpsLayout() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const displayName = adminDisplayName(user)
+  const showsName = hasDisplayName(user)
   const [dark, setDark] = useState(() =>
     document.documentElement.classList.contains('dark'),
   )
@@ -84,9 +87,14 @@ export function EnglishOpsLayout() {
             </nav>
           </div>
           <div className="ms-auto flex shrink-0 items-center gap-2">
-            <span dir="ltr" className="hidden text-xs text-muted md:block">
-              {user?.mobile}
-            </span>
+            <Link
+              to="/profile"
+              className="hidden max-w-44 truncate rounded-lg px-2 py-1 text-xs font-medium text-foreground hover:bg-primary-subtle md:block"
+              dir={showsName ? 'auto' : 'ltr'}
+              title="My profile"
+            >
+              {displayName}
+            </Link>
             <button
               type="button"
               onClick={toggleTheme}

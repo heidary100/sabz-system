@@ -285,7 +285,27 @@ describe('AuthController', () => {
         mobile: '+989123456789',
         status: 'ACTIVE',
         roles: ['OPERATOR', 'ADMIN'],
+        profile: null,
       });
+    });
+
+    it('returns the display profile so the header can prefer a real name', async () => {
+      authService.findUserById.mockResolvedValue({
+        id: 'user-1',
+        mobile: '+989123456789',
+        status: 'ACTIVE',
+        profile: { firstName: 'سارا', lastName: 'احمدی' },
+      });
+      rolesService.findRoleNamesByUserId.mockResolvedValue(['ADMIN']);
+      const user: AuthUser = {
+        userId: 'user-1',
+        sessionId: 'session-1',
+        mobile: '+989123456789',
+      };
+
+      const result = await controller.me(user);
+
+      expect(result.profile).toEqual({ firstName: 'سارا', lastName: 'احمدی' });
     });
   });
 

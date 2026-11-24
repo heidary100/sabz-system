@@ -92,11 +92,13 @@ export function isBlockedIp(address: string): boolean {
  * validated address (mitigates DNS-rebinding between validation and connect).
  */
 function pinnedLookup(): LookupFunction {
-  return (hostname, _options, callback) => {
+  return (hostname, options, callback) => {
     lookup(hostname, { all: true, verbatim: true })
       .then((addresses) => {
-        const publicAddress = addresses.find((entry) => !isBlockedIp(entry.address));
-        if (!publicAddress) {
+        const publicAddresses = addresses.filter(
+          (entry) => !isBlockedIp(entry.address),
+        );
+        if (publicAddresses.length === 0) {
           callback(
             new BadRequestException('آدرس تصویر نامعتبر است.') as unknown as NodeJS.ErrnoException,
             '',
@@ -104,6 +106,18 @@ function pinnedLookup(): LookupFunction {
           );
           return;
         }
+        // Node's HTTP client requests `all: true`; the callback must then
+        // supply the address array, not a single address/family pair.
+        if ((options as { all?: boolean }).all === true) {
+          (
+            callback as unknown as (
+              error: NodeJS.ErrnoException | null,
+              addresses: Array<{ address: string; family: number }>,
+            ) => void
+          )(null, publicAddresses);
+          return;
+        }
+        const publicAddress = publicAddresses[0]!;
         callback(null, publicAddress.address, publicAddress.family === 6 ? 6 : 4);
       })
       .catch((error) =>

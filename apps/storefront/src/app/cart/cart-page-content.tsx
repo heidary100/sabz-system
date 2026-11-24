@@ -30,10 +30,27 @@ export function CartPageContent() {
     clearMerge,
     refresh,
     setQuantity,
+    acknowledgePrices,
     removeLine,
     clear,
   } = useCart();
   const [clearing, setClearing] = useState(false);
+  const [acknowledging, setAcknowledging] = useState(false);
+  const [ackError, setAckError] = useState<string | null>(null);
+  const hasPriceChanges = items.some((item) => item.priceChanged);
+
+  async function handleAcknowledgePrices(): Promise<void> {
+    setAcknowledging(true);
+    setAckError(null);
+    try {
+      const result = await acknowledgePrices();
+      if (!result.ok) {
+        setAckError(result.error.message);
+      }
+    } finally {
+      setAcknowledging(false);
+    }
+  }
 
   if (!ready) {
     return (
@@ -123,6 +140,32 @@ export function CartPageContent() {
             >
               <span aria-hidden="true">×</span>
             </button>
+          </div>
+        </div>
+      ) : null}
+
+      {hasPriceChanges ? (
+        <div
+          role="status"
+          className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-card border border-warning/40 bg-warning-soft p-4 text-sm leading-6 text-fg"
+        >
+          <p>
+            قیمت یک یا چند کالا پس از افزودن به سبد تغییر کرده است. مبلغ فعلی
+            همان مبلغ معتبر فروشگاه است.
+          </p>
+          <div className="flex flex-col items-end gap-2">
+            <Button
+              variant="outline"
+              disabled={acknowledging}
+              onClick={() => void handleAcknowledgePrices()}
+            >
+              {acknowledging ? 'در حال تأیید…' : 'تأیید قیمت جدید'}
+            </Button>
+            {ackError ? (
+              <p role="alert" className="text-xs text-danger">
+                {ackError}
+              </p>
+            ) : null}
           </div>
         </div>
       ) : null}

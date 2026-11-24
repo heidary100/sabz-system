@@ -60,7 +60,7 @@ describe('WooCommerce dry-run pipeline integration (SS-206)', () => {
   it('resolves the 8-row fixture to the expected matrix without writing', async () => {
     const before = await counts();
     const parsed = parseWooCsvFile(fixture);
-    expect(parsed.header).toHaveLength(243);
+    expect(parsed.header).toHaveLength(244);
     expect(parsed.rows).toHaveLength(8);
     // Multiline HTML cell survives the parse intact.
     expect(parsed.rows[0]!.cells['توضیحات']).toContain('\n');

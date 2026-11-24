@@ -49,6 +49,7 @@ import { ReviewsPage } from '../pages/reviews-page'
 import { ProductDetailPage } from '../pages/product-detail-page'
 import { ProductEditorPage } from '../pages/product-editor-page'
 import { ProductsPage } from '../pages/products-page'
+import { ProfilePage } from '../pages/profile-page'
 import { RolesPage } from '../pages/roles-page'
 import { UserDetailPage } from '../pages/user-detail-page'
 import { UsersPage } from '../pages/users-page'
@@ -96,6 +97,14 @@ function createAppRoutes() {
               element={
                 <RequireRole roles={ADMIN_ROLES}>
                   <DashboardPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="profile"
+              element={
+                <RequireRole roles={ADMIN_ROLES}>
+                  <ProfilePage />
                 </RequireRole>
               }
             />

@@ -360,9 +360,12 @@ describe('Torob feed API (SS-239) (e2e)', () => {
       expect(stocked).toBeDefined();
       expect(stocked.availability).toBe(true);
       expect(stocked.old_price).toBe(150000);
-      expect(stocked.image_links).toEqual([
-        `${API_BASE}/api/v1/catalog/media/${pricedMediaId}`,
-      ]);
+      expect(stocked.image_links).toHaveLength(1);
+      expect(stocked.image_links[0]).toMatch(
+        new RegExp(
+          `^${API_BASE}/api/v1/catalog/media/${pricedMediaId}\\?v=`,
+        ),
+      );
       expect(new Date(stocked.date_added).toString()).not.toBe('Invalid Date');
 
       const discounted = groupRows.find(

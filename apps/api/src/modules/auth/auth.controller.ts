@@ -191,6 +191,10 @@ export class AuthController {
       mobile: profile?.mobile,
       status: profile?.status,
       roles,
+      // The admin header prefers a usable name and falls back to mobile.
+      // Only the two display fields are exposed here; profile edits still
+      // go through the self-scoped /auth/profile endpoint.
+      profile: profile?.profile ?? null,
     };
   }
 

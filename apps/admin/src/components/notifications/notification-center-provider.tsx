@@ -198,7 +198,9 @@ export function NotificationCenterProvider({ children }: { children: ReactNode }
     }
     const onConnect = () => {
       setConnected(true)
-      // Reconcile anything missed while the socket was offline.
+      // Reconcile anything missed while the socket was offline, including
+      // chat (Socket.IO does not replay missed chat events).
+      setChatVersion((value) => value + 1)
       void refresh()
     }
     const onDisconnect = () => setConnected(false)

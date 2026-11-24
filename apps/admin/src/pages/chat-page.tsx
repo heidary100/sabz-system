@@ -88,6 +88,7 @@ export function ChatPage() {
     error,
     detailError,
     actionError,
+    connected,
     setStatus,
     setAssigned,
     setSearchInput,
@@ -149,6 +150,15 @@ export function ChatPage() {
 
       {error && <InlineError message={error} />}
       {actionError && <InlineError message={actionError} />}
+      {!connected && (
+        <p
+          role="status"
+          className="rounded-control bg-warning-soft px-3 py-2 text-xs leading-5 text-warning"
+        >
+          ارتباط زنده قطع است. پیام‌ها در سرور ذخیره می‌شوند؛ برای دیدن
+          تازه‌ترین گفتگوها دکمه «تازه‌سازی» را بزنید.
+        </p>
+      )}
 
       <div className="grid min-h-[34rem] flex-1 gap-4 lg:h-[calc(100svh-11rem)] lg:grid-cols-[20rem_minmax(0,1fr)]">
         <aside

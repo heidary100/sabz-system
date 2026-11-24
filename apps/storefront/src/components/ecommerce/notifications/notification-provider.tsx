@@ -200,6 +200,9 @@ export function StoreNotificationProvider({ children }: { children: ReactNode })
     };
     const onConnect = () => {
       setConnected(true);
+      // Socket.IO does not replay missed chat events. Reconcile both the
+      // notification list and any open chat after every (re)connect.
+      setChatVersion((value) => value + 1);
       void refresh();
     };
     const onDisconnect = () => setConnected(false);

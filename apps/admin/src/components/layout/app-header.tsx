@@ -1,6 +1,7 @@
-import { LogOut, Menu } from 'lucide-react'
+import { LogOut, Menu, UserRound } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../auth/auth-provider'
+import { adminDisplayName, hasDisplayName } from '../../lib/identity'
 import { Button } from '../catalyst/button'
 import { IconButton } from '../ui/icon-button'
 import { ThemeToggle } from '../ui/theme-toggle'
@@ -10,6 +11,8 @@ import { PwaInstallButton } from '../pwa/pwa-install-button'
 
 export function AppHeader({ title, onOpenMobile }: { title: string; onOpenMobile: () => void }) {
   const { user, logout } = useAuth()
+  const displayName = adminDisplayName(user)
+  const showsName = hasDisplayName(user)
 
   return (
     // SS-266: solid chrome — no backdrop-blur over scrolling table content.
@@ -34,9 +37,25 @@ export function AppHeader({ title, onOpenMobile }: { title: string; onOpenMobile
         <PwaInstallButton />
         <NotificationBell />
         <ThemeToggle />
-        <span dir="ltr" className="hidden text-sm font-medium tabular-nums text-muted sm:block">
-          {user?.mobile}
-        </span>
+        <Link
+          to="/profile"
+          className="inline-flex min-h-10 items-center gap-1.5 rounded-control px-1 text-xs font-medium text-foreground hover:bg-primary-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus sm:gap-2 sm:px-2 sm:text-sm"
+          aria-label={`پروفایل ${displayName}`}
+          title="پروفایل من"
+        >
+          <span
+            aria-hidden="true"
+            className="flex size-7 items-center justify-center rounded-pill bg-primary-subtle text-primary"
+          >
+            <UserRound className="size-4" />
+          </span>
+          <span
+            className="max-w-20 truncate sm:max-w-40"
+            dir={showsName ? 'auto' : 'ltr'}
+          >
+            {displayName}
+          </span>
+        </Link>
         <span className="hidden sm:inline-flex">
           <Button outline onClick={() => void logout()}>
             خروج از حساب

@@ -324,4 +324,94 @@ describe('SS-900 realtime notifications + chat (e2e)', () => {
       ),
     ).toBe(true);
   });
+
+  it('isolates multiple customers, reconciles unread/read state, and survives reconnect', async () => {
+    const second = await prisma.user.create({
+      data: {
+        mobile: uniqueMobile(),
+        status: 'ACTIVE',
+        roles: { create: { role: { connect: { name: AppRole.CUSTOMER } } } },
+      },
+    });
+    userIds.push(second.id);
+    const secondToken = (await tokenService.createSession(second.id)).accessToken;
+
+    const opened = await request(app.getHttpServer())
+      .post('/api/v1/chat/conversation')
+      .set('Authorization', `Bearer ${secondToken}`)
+      .send({
+        contextUrl: 'http://localhost:3002/cart',
+        contextTitle: 'سبد خرید',
+        contextKind: 'cart',
+      })
+      .expect(201);
+    const secondConversationId = opened.body.id as string;
+
+    await request(app.getHttpServer())
+      .post('/api/v1/chat/messages')
+      .set('Authorization', `Bearer ${secondToken}`)
+      .send({ body: 'پیام مشتری دوم', clientMessageId: 'ss900-e2e-second-1' })
+      .expect(201);
+    await request(app.getHttpServer())
+      .post('/api/v1/chat/messages')
+      .set('Authorization', `Bearer ${secondToken}`)
+      .send({ body: '', clientMessageId: 'ss900-e2e-empty' })
+      .expect(400);
+
+    const firstState = await request(app.getHttpServer())
+      .get('/api/v1/chat/conversation')
+      .set('Authorization', `Bearer ${customerToken}`)
+      .expect(200);
+    expect(firstState.body.conversation.id).not.toBe(secondConversationId);
+    expect(
+      firstState.body.conversation.messages.some(
+        (message: { body: string }) => message.body === 'پیام مشتری دوم',
+      ),
+    ).toBe(false);
+
+    const secondState = await request(app.getHttpServer())
+      .get('/api/v1/chat/conversation')
+      .set('Authorization', `Bearer ${secondToken}`)
+      .expect(200);
+    expect(secondState.body.conversation.id).toBe(secondConversationId);
+    expect(secondState.body.conversation.contextUrl).toBe(
+      'http://localhost:3002/cart',
+    );
+
+    const inbox = await request(app.getHttpServer())
+      .get('/api/v1/admin/chat/conversations?limit=100')
+      .set('Authorization', `Bearer ${operatorToken}`)
+      .expect(200);
+    const secondRow = inbox.body.items.find(
+      (item: { id: string }) => item.id === secondConversationId,
+    );
+    expect(secondRow).toMatchObject({ unreadForAdmin: 1 });
+    expect(inbox.body.unreadConversations).toBeGreaterThanOrEqual(2);
+
+    const read = await request(app.getHttpServer())
+      .post(`/api/v1/admin/chat/conversations/${secondConversationId}/read`)
+      .set('Authorization', `Bearer ${operatorToken}`)
+      .expect(200);
+    expect(read.body.unreadForAdmin).toBe(0);
+    const afterRead = await request(app.getHttpServer())
+      .get(`/api/v1/admin/chat/conversations/${secondConversationId}`)
+      .set('Authorization', `Bearer ${operatorToken}`)
+      .expect(200);
+    expect(afterRead.body.unreadForAdmin).toBe(0);
+
+    // Reconnect and re-fetch: persisted server state is the recovery path and
+    // contains no duplicate message ids.
+    const reconnected = connect(secondToken);
+    await waitForEvent(reconnected, 'connected');
+    const replayed = await request(app.getHttpServer())
+      .get('/api/v1/chat/conversation')
+      .set('Authorization', `Bearer ${secondToken}`)
+      .expect(200);
+    const ids = replayed.body.conversation.messages.map(
+      (message: { id: string }) => message.id,
+    );
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(ids.length).toBeGreaterThan(0);
+    reconnected.disconnect();
+  });
 });

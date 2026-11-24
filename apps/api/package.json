@@ -18,6 +18,8 @@
     "woo:dry-run": "tsx src/modules/import/cli/dry-run.ts",
     "woo:import": "tsx src/modules/import/cli/import.ts",
     "woo:media": "tsx src/modules/import/cli/media.ts",
+    "woo:reconcile": "tsx src/modules/import/cli/reconcile.ts",
+    "media:maintenance": "tsx src/modules/import/cli/media-maintenance.ts",
     "prisma:studio": "prisma studio",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",

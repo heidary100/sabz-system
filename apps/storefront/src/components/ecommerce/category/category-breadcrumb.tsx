@@ -24,6 +24,25 @@ function Separator() {
  * horizontal scroll on narrow screens.
  */
 export function CategoryBreadcrumb({ trail }: { trail: CategoryCrumb[] }) {
+  // Defensive normalization: APIs may omit a deleted ancestor or return a
+  // partial row. Empty/undefined crumbs and duplicate consecutive slugs must
+  // never produce broken labels or links; the current item stays last.
+  const seen = new Set<string>();
+  const crumbs = trail
+    .filter(
+      (crumb): crumb is CategoryCrumb =>
+        typeof crumb?.name === 'string' &&
+        crumb.name.trim().length > 0 &&
+        typeof crumb?.slug === 'string' &&
+        crumb.slug.trim().length > 0,
+    )
+    .map((crumb) => ({ name: crumb.name.trim(), slug: crumb.slug.trim() }))
+    .filter((crumb) => {
+      if (seen.has(crumb.slug)) return false;
+      seen.add(crumb.slug);
+      return true;
+    });
+
   return (
     <nav aria-label="مسیر دسته‌بندی">
       <ol className="flex items-center gap-1.5 overflow-x-auto whitespace-nowrap py-1 text-sm text-fg-muted">
@@ -32,8 +51,8 @@ export function CategoryBreadcrumb({ trail }: { trail: CategoryCrumb[] }) {
             خانه
           </Link>
         </li>
-        {trail.map((crumb, index) => {
-          const isLast = index === trail.length - 1;
+        {crumbs.map((crumb, index) => {
+          const isLast = index === crumbs.length - 1;
           return (
             <li key={crumb.slug} className="flex items-center gap-1.5">
               <Separator />
@@ -43,7 +62,7 @@ export function CategoryBreadcrumb({ trail }: { trail: CategoryCrumb[] }) {
                 </span>
               ) : (
                 <Link
-                  href={`/categories/${crumb.slug}`}
+                  href={`/categories/${encodeURIComponent(crumb.slug)}`}
                   className="rounded-control hover:text-accent"
                 >
                   {crumb.name}

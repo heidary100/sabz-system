@@ -211,16 +211,16 @@ describe('Public media thumbnails (SS-129) (e2e)', () => {
       .get(`/api/v1/catalog/products?q=${encodeURIComponent('تصویر')}`)
       .expect(200);
     const card = listing.body.items.find((c: { id: string }) => c.id === productId);
-    expect(card.primaryThumbnailUrl).toBe(
-      `/api/v1/catalog/media/${mediaId}/thumbnail`,
+    expect(card.primaryThumbnailUrl).toMatch(
+      new RegExp(`^/api/v1/catalog/media/${mediaId}/thumbnail\\?v=`),
     );
     await request(app.getHttpServer()).get(card.primaryThumbnailUrl).expect(200);
 
     const detail = await request(app.getHttpServer())
       .get(`/api/v1/catalog/products/${slug.slug}`)
       .expect(200);
-    expect(detail.body.media[0].thumbnailUrl).toBe(
-      `/api/v1/catalog/media/${mediaId}/thumbnail`,
+    expect(detail.body.media[0].thumbnailUrl).toMatch(
+      new RegExp(`^/api/v1/catalog/media/${mediaId}/thumbnail\\?v=`),
     );
   });
 

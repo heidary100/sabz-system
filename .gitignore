@@ -25,6 +25,7 @@ graphify-out/
 # Real-catalog import sources: large, out-of-band datasets that must never be
 # committed (the SS-219 runbook records the fetch location + checksum).
 wc-product-export-*.csv
+/imports/woocommerce/
 /company-logo.png
 
 # Database dumps from scripts/backup/postgres-backup.sh (SS-244A): large,
@@ -36,3 +37,23 @@ backups/
 
 # Local background-removal model weights (provisioned, not committed)
 apps/api/assets/models/*.onnx
+
+.agents/
+.codewhale/
+.freebuff/
+.kilocode/
+.roo/
+.warp/
+.augment/
+.continue/
+.gemini/
+.kiro/
+.trae/
+.windsurf/
+.claude/
+.cursor/
+.opencode/
+.zcode/
+.codebuddy/
+.factory/
+.qoder/

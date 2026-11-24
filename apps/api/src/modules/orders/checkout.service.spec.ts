@@ -318,6 +318,18 @@ describe('CheckoutService', () => {
     expect(summary.items).toHaveLength(0);
   });
 
+  it('does not flag decimal-equivalent snapshots as a price change', async () => {
+    const line = makeLine({ unitPriceAtAdd: new Prisma.Decimal('100000.00') });
+    prisma.cart.findUnique.mockResolvedValue({ id: CART_ID });
+    prisma.cartItem.findMany.mockResolvedValue([line]);
+    prisma.inventoryItem.findMany.mockResolvedValue([stockRow(5)]);
+
+    const summary = await service.validate(USER_ID);
+
+    expect(summary.problems).toHaveLength(0);
+    expect(summary.items[0]).toMatchObject({ priceChanged: false });
+  });
+
   it('flags live-price drift as informational without blocking', async () => {
     const line = makeLine();
     line.variant.price = new Prisma.Decimal('200000');

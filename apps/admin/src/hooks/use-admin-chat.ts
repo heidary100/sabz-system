@@ -20,7 +20,7 @@ const DEFAULT_LIMIT = 30
 const SEARCH_DEBOUNCE_MS = 300
 
 export function useAdminChat(initialConversationId: string | null) {
-  const { chatVersion } = useNotificationCenter()
+  const { chatVersion, connected } = useNotificationCenter()
   const { user } = useAuth()
   const [status, setStatus] = useState<ChatConversationStatus | ''>('')
   const [assigned, setAssigned] = useState<'me' | 'unassigned' | 'all'>('all')
@@ -38,6 +38,17 @@ export function useAdminChat(initialConversationId: string | null) {
   const [actionError, setActionError] = useState<string | null>(null)
   const listSeq = useRef(0)
   const detailSeq = useRef(0)
+  const selectedIdRef = useRef(selectedId)
+  // Keep one idempotency key per conversation/body until the server confirms.
+  const pendingSend = useRef<{
+    conversationId: string
+    body: string
+    id: string
+  } | null>(null)
+
+  useEffect(() => {
+    selectedIdRef.current = selectedId
+  }, [selectedId])
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -109,6 +120,7 @@ export function useAdminChat(initialConversationId: string | null) {
   }, [selectedId, refreshDetail, chatVersion])
 
   const select = useCallback((id: string | null) => {
+    selectedIdRef.current = id
     setSelectedId(id)
     setActionError(null)
   }, [])
@@ -118,19 +130,33 @@ export function useAdminChat(initialConversationId: string | null) {
       if (!selectedId || body.trim().length === 0) {
         return false
       }
+      const targetId = selectedId
       setSending(true)
       setActionError(null)
+      const pending = pendingSend.current
+      const clientMessageId =
+        pending !== null &&
+        pending.conversationId === targetId &&
+        pending.body === body
+          ? pending.id
+          : crypto.randomUUID()
+      pendingSend.current = { conversationId: targetId, body, id: clientMessageId }
       const input: SendChatMessageInput = {
         body,
-        clientMessageId: crypto.randomUUID(),
+        clientMessageId,
       }
       try {
-        const next = await sendAdminMessage(selectedId, input)
-        setDetail(next)
+        const next = await sendAdminMessage(targetId, input)
+        pendingSend.current = null
+        if (selectedIdRef.current === targetId) {
+          setDetail(next)
+        }
         await refreshList()
         return true
       } catch (sendError) {
-        setActionError(translateApiError(sendError))
+        if (selectedIdRef.current === targetId) {
+          setActionError(translateApiError(sendError))
+        }
         return false
       } finally {
         setSending(false)
@@ -142,13 +168,18 @@ export function useAdminChat(initialConversationId: string | null) {
   const setConversationStatus = useCallback(
     async (nextStatus: ChatConversationStatus) => {
       if (!selectedId) return
+      const targetId = selectedId
       setActionError(null)
       try {
-        const next = await updateAdminConversation(selectedId, { status: nextStatus })
-        setDetail(next)
+        const next = await updateAdminConversation(targetId, { status: nextStatus })
+        if (selectedIdRef.current === targetId) {
+          setDetail(next)
+        }
         await refreshList()
       } catch (updateError) {
-        setActionError(translateApiError(updateError))
+        if (selectedIdRef.current === targetId) {
+          setActionError(translateApiError(updateError))
+        }
       }
     },
     [selectedId, refreshList],
@@ -156,15 +187,20 @@ export function useAdminChat(initialConversationId: string | null) {
 
   const assignToMe = useCallback(async () => {
     if (!selectedId || !user) return
+    const targetId = selectedId
     setActionError(null)
     try {
-      const next = await updateAdminConversation(selectedId, {
+      const next = await updateAdminConversation(targetId, {
         assignedToId: user.id,
       })
-      setDetail(next)
+      if (selectedIdRef.current === targetId) {
+        setDetail(next)
+      }
       await refreshList()
     } catch (updateError) {
-      setActionError(translateApiError(updateError))
+      if (selectedIdRef.current === targetId) {
+        setActionError(translateApiError(updateError))
+      }
     }
   }, [selectedId, user, refreshList])
 
@@ -182,6 +218,7 @@ export function useAdminChat(initialConversationId: string | null) {
     error,
     detailError,
     actionError,
+    connected,
     setStatus: (value: ChatConversationStatus | '') => {
       setStatus(value)
       setPage(1)

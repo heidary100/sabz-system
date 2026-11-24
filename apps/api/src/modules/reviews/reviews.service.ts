@@ -153,14 +153,22 @@ export class ReviewsService {
    * pass any status to audit already-moderated rows. Read-only — no audit.
    */
   async listForModeration(query: {
-    status?: ReviewStatusDto;
+    status?: ReviewStatusDto | 'ALL';
     page?: number;
     limit?: number;
   }): Promise<AdminReviewListResponse> {
-    const status = query.status ?? 'PENDING';
+    // Root cause of the «همه وضعیت‌ها» defect: the admin omits the parameter
+    // for the all-status option, and this service previously coerced that
+    // omission to PENDING. Missing/ALL now means no status predicate; a
+    // concrete status still filters to that status only.
+    const status =
+      query.status === undefined || query.status === 'ALL'
+        ? null
+        : (query.status as ReviewStatus);
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
-    const where = { status: status as ReviewStatus };
+    const where: Prisma.ReviewWhereInput =
+      status === null ? {} : { status };
     const [total, rows] = await this.prisma.$transaction([
       this.prisma.review.count({ where }),
       this.prisma.review.findMany({

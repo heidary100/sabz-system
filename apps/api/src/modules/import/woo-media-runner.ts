@@ -1,11 +1,21 @@
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'node:crypto';
+import { existsSync } from 'node:fs';
 import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { Prisma } from '@prisma/client';
+import sharp from 'sharp';
 import { PrismaService } from '../../common/database/prisma.service';
+import {
+  CATALOG_PRODUCTS_TAG,
+  CATALOG_TREE_TAG,
+  productDetailTag,
+} from '../../common/storefront-cache/catalog-tags';
+import { StorefrontCacheService } from '../../common/storefront-cache/storefront-cache.service';
 import { sanitizeMediaDisplayName } from '../products/media-validation';
 import { extensionForMediaMime, mediaTypeForMime } from '../products/media-validation';
+import { BackgroundRemovalService } from '../products/media-processing/background-removal.service';
 import { FfmpegRunner } from '../products/media-processing/ffmpeg.runner';
 import { ImageProcessorService } from '../products/media-processing/image-processor.service';
 import { MediaProcessingService } from '../products/media-processing/media-processing.service';
@@ -24,6 +34,7 @@ import {
   cleanupDownloaded,
   DEFAULT_MEDIA_CONCURRENCY,
   downloadMediaToTemp,
+  isCurrentPipelineMedia,
   isRetryable,
   MEDIA_IMPORT_ACTOR,
   MEDIA_MAX_ATTEMPTS,
@@ -75,6 +86,15 @@ export interface RunMediaOptions {
   failureThreshold?: number;
   /** Skip rows already IMPORTED by a media run with unchanged hash. */
   resume?: boolean;
+  /**
+   * Re-download and re-process rows even when the source URL already has a
+   * live binary. Required for a pipeline upgrade (background removal +
+   * square canvas + revised watermark); old binaries are retained, never
+   * deleted before the replacement is verified.
+   */
+  refreshImages?: boolean;
+  /** Optional source-id allowlist for targeted retries (debug/recovery). */
+  sourceIds?: string[];
 }
 
 export interface MediaImageFailure {
@@ -97,6 +117,10 @@ export interface MediaReport {
     processed: number;
     failed: number;
     skippedDedup: number;
+    /** Existing live rows replaced by --refresh-images (repo old bytes kept). */
+    refreshed: number;
+    /** Imported media no longer present in the CSV gallery (soft-deleted). */
+    retiredStale: number;
   };
   resumed: number;
   failures: MediaImageFailure[];
@@ -108,7 +132,10 @@ const MEDIA_DECISIONS = [
   'CSV image order is sortOrder; the first image is primary; second_image occupies position 1 (no new field).',
   'Re-runs skip on (productId, sourceUrl) and (productId, contentHash): no duplicate media.',
   'Failed image never fails its product; failures are dead-lettered per URL.',
-  'Binaries run the standard watermark + thumbnail pipeline (MediaProcessingService).',
+  'Binaries run the mandatory local pipeline: background removal → transparent PNG → square transparent canvas → smaller logo-only watermark → thumbnail; original source bytes are retained.',
+  'AVIF is classified as an image before the MP4/ISOBMFF branch; unsupported content is dead-lettered.',
+  '--refresh-images is resumable: rows already on the current pipeline are skipped, legacy/placeholder rows are upgraded without deleting old binaries before verification.',
+  'After a clean product pass, imported media removed from the CSV gallery is soft-deleted and a parent-level primary is restored; manual media is never touched.',
   'No queue/broker: in-process batching with a concurrency cap (per ADR constraints).',
 ];
 
@@ -136,9 +163,15 @@ interface ExistingMedia {
   sourceUrl: string | null;
   contentHash: string | null;
   storageKey: string;
+  thumbnailKey: string | null;
   sortOrder: number;
   isPrimary: boolean;
   deletedAt: Date | null;
+  mediaType: 'IMAGE' | 'VIDEO';
+  processingStatus: 'NONE' | 'PENDING' | 'PROCESSED' | 'SKIPPED' | 'FAILED';
+  processingError: string | null;
+  backgroundRemoved: boolean;
+  originalStorageKey: string | null;
 }
 
 interface MediaCounts {
@@ -146,6 +179,8 @@ interface MediaCounts {
   processed: number;
   failed: number;
   skippedDedup: number;
+  refreshed: number;
+  retiredStale: number;
   resumed: number;
 }
 
@@ -166,6 +201,10 @@ export function createWooMediaRunner(
   const watermark = overrides.watermark ?? resolveWatermarkConfig();
   const storage = new LocalDiskMediaStorage(storageDir);
   const overlay = new WatermarkOverlayService(watermark);
+  // Product imports MUST run the local background-removal pipeline before
+  // watermarking. The model is host-provisioned; the runner verifies it
+  // before a non-dry-run starts and refuses to publish unprocessed images.
+  const backgroundRemoval = new BackgroundRemovalService(new ConfigService());
   const processing = new MediaProcessingService(
     new ImageProcessorService(overlay, watermark),
     new VideoProcessorService(
@@ -175,6 +214,7 @@ export function createWooMediaRunner(
       tempDir,
     ),
     watermark,
+    backgroundRemoval,
   );
   return new WooMediaRunner(
     prisma,
@@ -183,6 +223,9 @@ export function createWooMediaRunner(
     tempDir,
     overrides.downloader,
     overrides.prober,
+    backgroundRemoval,
+    watermark,
+    new StorefrontCacheService(new ConfigService()),
   );
 }
 
@@ -195,6 +238,9 @@ export class WooMediaRunner {
     private readonly tempDir: string,
     private readonly downloader: MediaDownloader = downloadMediaToTemp,
     private readonly prober: MediaProber = probeMediaUrl,
+    private readonly backgroundRemoval?: BackgroundRemovalService,
+    private readonly watermark?: WatermarkConfig,
+    private readonly cache?: StorefrontCacheService,
   ) {}
 
   async runMedia(options: RunMediaOptions): Promise<{ report: MediaReport; exitCode: number }> {
@@ -204,6 +250,17 @@ export class WooMediaRunner {
     const allowHosts = options.allowHosts ?? [];
     const allowPrivate = options.allowPrivate ?? false;
     const dryRun = options.dryRun ?? false;
+    const refreshImages = options.refreshImages ?? false;
+    const sourceIdFilter =
+      options.sourceIds !== undefined && options.sourceIds.length > 0
+        ? new Set(options.sourceIds)
+        : null;
+
+    // Mandatory image pipeline guard: background removal + watermarking must
+    // be available before any binary is published. A dry run only reports.
+    if (!dryRun) {
+      this.assertProcessingReady();
+    }
 
     const parsed = parseWooCsvFile(options.file, options.limit);
     const loader = new WooReferenceLoader(this.prisma);
@@ -222,6 +279,8 @@ export class WooMediaRunner {
       processed: 0,
       failed: 0,
       skippedDedup: 0,
+      refreshed: 0,
+      retiredStale: 0,
       resumed: 0,
     };
     const failures: MediaImageFailure[] = [];
@@ -233,6 +292,9 @@ export class WooMediaRunner {
     const tasks: ProductTask[] = [];
     for (const record of parsed.rows) {
       const verdict = await resolveRow(record, refs, index, claimants);
+      if (sourceIdFilter !== null && !sourceIdFilter.has(verdict.sourceId)) {
+        continue;
+      }
       if (verdict.action === 'SKIP') {
         await this.recordRow(
           run.id,
@@ -244,7 +306,7 @@ export class WooMediaRunner {
         continue;
       }
       const rowHash = buildRowHash(record.cells);
-      if (resume) {
+      if (resume && !refreshImages) {
         const prior = await this.prisma.importRecord.findFirst({
           where: { sourceSystem: MEDIA_SOURCE_SYSTEM, sourceId: verdict.sourceId },
           orderBy: { createdAt: 'desc' },
@@ -342,14 +404,44 @@ export class WooMediaRunner {
             return;
           }
           if (dryRun) {
-            await this.probeProduct(run.id, task, { extraHosts: allowHosts, allowPrivate }, counts, failures);
+            await this.probeProduct(
+              run.id,
+              task,
+              { extraHosts: allowHosts, allowPrivate },
+              counts,
+              failures,
+              refreshImages,
+            );
           } else {
-            await this.processProduct(run.id, task, { extraHosts: allowHosts, allowPrivate }, counts, failures);
+            await this.processProduct(
+              run.id,
+              task,
+              { extraHosts: allowHosts, allowPrivate },
+              counts,
+              failures,
+              refreshImages,
+            );
           }
         }
       })(),
     );
     await Promise.all(workers);
+
+    // Media bytes/URL versions may have changed even when product data did
+    // not: expire the storefront's cached cards/detail pages immediately.
+    if (!dryRun && this.cache !== undefined && tasks.length > 0) {
+      const slugs = await this.prisma.product.findMany({
+        where: { id: { in: [...new Set(tasks.map((task) => task.productId))] } },
+        select: { slug: true },
+      });
+      await this.cache
+        .invalidate([
+          CATALOG_PRODUCTS_TAG,
+          CATALOG_TREE_TAG,
+          ...slugs.map((row) => productDetailTag(row.slug)),
+        ])
+        .catch(() => undefined);
+    }
 
     const failed = failures.length;
     await this.prisma.importRun.update({
@@ -374,6 +466,8 @@ export class WooMediaRunner {
         processed: counts.processed,
         failed: counts.failed,
         skippedDedup: counts.skippedDedup,
+        refreshed: counts.refreshed,
+        retiredStale: counts.retiredStale,
       },
       resumed: counts.resumed,
       failures,
@@ -383,6 +477,47 @@ export class WooMediaRunner {
   }
 
   // ------------------------------------------------------------------ helpers
+
+  /**
+   * Fails closed before an apply when the mandatory local processing pipeline
+   * is not available. A missing U2-Net model or disabled watermark would
+   * otherwise publish unprocessed WooCommerce URLs as final product images.
+   */
+  private assertProcessingReady(): void {
+    if (this.watermark !== undefined) {
+      if (!this.watermark.enabled) {
+        throw new Error(
+          'Watermarking is disabled; the mandatory product-image pipeline cannot run.',
+        );
+      }
+      if (!this.watermark.logoOnly) {
+        throw new Error(
+          'The legacy text watermark is disabled for imports; logo-only watermarking is required.',
+        );
+      }
+      if (
+        !this.watermark.logoPath ||
+        !existsSync(this.watermark.logoPath)
+      ) {
+        throw new Error(
+          `The watermark logo asset is missing at ${this.watermark.logoPath}.`,
+        );
+      }
+    }
+    if (this.backgroundRemoval !== undefined) {
+      if (!this.backgroundRemoval.enabled()) {
+        throw new Error(
+          'Background removal is disabled; the mandatory product-image pipeline cannot run.',
+        );
+      }
+      const modelPath = this.backgroundRemoval.modelPath();
+      if (!existsSync(modelPath)) {
+        throw new Error(
+          `Background-removal model is missing at ${modelPath}; import apply is blocked.`,
+        );
+      }
+    }
+  }
 
   private async loadSourceIndex(): Promise<
     Map<string, { productId: string; variantId: string | null }>
@@ -451,6 +586,7 @@ export class WooMediaRunner {
     fetchOptions: DownloadOptions,
     counts: MediaCounts,
     failures: MediaImageFailure[],
+    refreshImages = false,
   ): Promise<void> {
     const existing = await this.prisma.productMedia.findMany({
       where: { productId: task.productId },
@@ -463,7 +599,7 @@ export class WooMediaRunner {
     );
     let failed = 0;
     for (const item of task.plan.media) {
-      if (liveByUrl.has(item.url)) {
+      if (liveByUrl.has(item.url) && !refreshImages) {
         counts.skippedDedup += 1;
         continue;
       }
@@ -503,6 +639,7 @@ export class WooMediaRunner {
     fetchOptions: DownloadOptions,
     counts: MediaCounts,
     failures: MediaImageFailure[],
+    refreshImages = false,
   ): Promise<void> {
     const rows: ExistingMedia[] = await this.prisma.productMedia.findMany({
       where: { productId: task.productId },
@@ -511,17 +648,39 @@ export class WooMediaRunner {
         sourceUrl: true,
         contentHash: true,
         storageKey: true,
+        thumbnailKey: true,
         sortOrder: true,
         isPrimary: true,
         deletedAt: true,
+        mediaType: true,
+        processingStatus: true,
+        processingError: true,
+        backgroundRemoved: true,
+        originalStorageKey: true,
       },
     });
     const byUrl = new Map<string, ExistingMedia>();
+    // Legacy SS-207 placeholders carry a numeric source id instead of the
+    // real URL. Reuse them by position so the CSV order/primary role is
+    // preserved instead of creating duplicate pending rows.
+    const pendingRows = rows
+      .filter(
+        (row) =>
+          row.deletedAt === null &&
+          row.storageKey.startsWith(PENDING_MEDIA_PREFIX),
+      )
+      .sort((a, b) => a.sortOrder - b.sortOrder);
+    const usedPending = new Set<string>();
+    const takePending = (): ExistingMedia | undefined => {
+      const next = pendingRows.find((row) => !usedPending.has(row.id));
+      if (next) usedPending.add(next.id);
+      return next;
+    };
     const liveHashes = new Set<string>();
     let hasPrimary = false;
     let maxSort = -1;
     for (const row of rows) {
-      if (row.sourceUrl) {
+      if (row.sourceUrl && !row.storageKey.startsWith(PENDING_MEDIA_PREFIX)) {
         byUrl.set(row.sourceUrl, row);
       }
       if (row.deletedAt === null) {
@@ -541,8 +700,14 @@ export class WooMediaRunner {
     let productProcessed = 0;
 
     for (const [position, item] of task.plan.media.entries()) {
-      const hit = byUrl.get(item.url);
-      if (hit && hit.deletedAt === null && !hit.storageKey.startsWith(PENDING_MEDIA_PREFIX)) {
+      const hit = byUrl.get(item.url) ?? takePending();
+      const liveHit =
+        hit !== undefined &&
+        hit.deletedAt === null &&
+        !hit.storageKey.startsWith(PENDING_MEDIA_PREFIX);
+      // Current-pipeline rows are always a no-op. Legacy rows are only
+      // reprocessed when --refresh-images explicitly asks for an upgrade.
+      if (liveHit && (isCurrentPipelineMedia(hit) || !refreshImages)) {
         counts.skippedDedup += 1;
         continue;
       }
@@ -558,6 +723,9 @@ export class WooMediaRunner {
         }
         if (hit) {
           await this.backfillRow(task, hit, item, downloaded, position);
+          if (liveHit) {
+            counts.refreshed += 1;
+          }
         } else {
           const isPrimary = item.isPrimary && !hasPrimary;
           await this.createRow(task, item, downloaded, order, isPrimary, position);
@@ -584,6 +752,24 @@ export class WooMediaRunner {
       }
     }
 
+    // Once every image in the current CSV plan is verified, retire imported
+    // rows that are no longer part of the gallery. Do it only after a clean
+    // pass: a failed replacement must never remove the previous image.
+    if (productFailed === 0) {
+      try {
+        counts.retiredStale += await this.retireStaleMedia(task);
+      } catch (error) {
+        productFailed += 1;
+        counts.failed += 1;
+        failures.push({
+          line: task.line,
+          sourceId: task.sourceId,
+          url: 'stale-media',
+          error: faError(error),
+        });
+      }
+    }
+
     await this.recordRow(
       runId,
       task.record,
@@ -598,6 +784,73 @@ export class WooMediaRunner {
       task.variantId,
       task.rowHash,
     );
+  }
+
+  /**
+   * Soft-deletes imported media that has left the CSV gallery and restores the
+   * product-level primary when the old primary was retired. Manual media
+   * (`sourceUrl = null`) and other variants' media are never touched.
+   */
+  private async retireStaleMedia(task: ProductTask): Promise<number> {
+    const planUrls = task.plan.media.map((item) => item.url);
+    const scope = {
+      productId: task.productId,
+      variantId: task.variantId,
+      deletedAt: null,
+      // Never retire admin-authored media; only rows owned by this import.
+      createdBy: { in: ['woo-import', MEDIA_IMPORT_ACTOR] },
+      sourceUrl:
+        planUrls.length > 0
+          ? { not: null, notIn: planUrls }
+          : { not: null },
+    };
+    return this.prisma.$transaction(async (tx) => {
+      const stale = await tx.productMedia.findMany({
+        where: scope,
+        select: { id: true },
+      });
+      if (stale.length === 0) {
+        return 0;
+      }
+      await tx.productMedia.updateMany({
+        where: { id: { in: stale.map((row) => row.id) } },
+        data: {
+          deletedAt: new Date(),
+          isPrimary: false,
+          updatedBy: MEDIA_IMPORT_ACTOR,
+        },
+      });
+      if (task.variantId === null) {
+        const primary = await tx.productMedia.findFirst({
+          where: {
+            productId: task.productId,
+            deletedAt: null,
+            mediaType: 'IMAGE',
+            isPrimary: true,
+          },
+          select: { id: true },
+        });
+        if (!primary) {
+          const replacement = await tx.productMedia.findFirst({
+            where: {
+              productId: task.productId,
+              variantId: null,
+              deletedAt: null,
+              mediaType: 'IMAGE',
+            },
+            orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
+            select: { id: true },
+          });
+          if (replacement) {
+            await tx.productMedia.update({
+              where: { id: replacement.id },
+              data: { isPrimary: true, updatedBy: MEDIA_IMPORT_ACTOR },
+            });
+          }
+        }
+      }
+      return stale.length;
+    });
   }
 
   /** Download with retries + backoff (fatal errors throw immediately). */
@@ -644,16 +897,36 @@ export class WooMediaRunner {
           mimeType: stored.mimeType,
           sizeBytes: stored.sizeBytes,
           storageKey: stored.storageKey,
+          sourceUrl: item.url,
+          previousStorageKey: hit.storageKey.startsWith(PENDING_MEDIA_PREFIX)
+            ? null
+            : hit.storageKey,
+          previousThumbnailKey: hit.thumbnailKey,
           contentHash: downloaded.contentHash,
           thumbnailKey: stored.thumbnailKey,
           thumbnailSizeBytes: stored.thumbnailSizeBytes,
+          originalStorageKey: stored.originalStorageKey,
+          originalSizeBytes: stored.originalSizeBytes,
+          originalMimeType: stored.originalMimeType,
+          originalWidth: stored.originalWidth,
+          originalHeight: stored.originalHeight,
+          width: stored.width,
+          height: stored.height,
+          processingStatus: stored.processingStatus,
+          backgroundRemoved: stored.backgroundRemoved,
+          processingModel: stored.processingModel,
+          processedAt: stored.processedAt,
           deletedAt: null,
           isPrimary: hit.isPrimary ? true : await this.claimPrimary(task.productId, item.isPrimary),
           updatedBy: MEDIA_IMPORT_ACTOR,
         },
       });
     } catch (error) {
-      await this.deleteStoredBinaries(stored.storageKey, stored.thumbnailKey);
+      await this.deleteStoredBinaries(
+        stored.storageKey,
+        stored.thumbnailKey,
+        stored.originalStorageKey,
+      );
       throw error;
     } finally {
       await this.cleanupProcessed(stored.outputPath, stored.thumbnailPath, downloaded.filePath);
@@ -683,20 +956,35 @@ export class WooMediaRunner {
           contentHash: downloaded.contentHash,
           thumbnailKey: stored.thumbnailKey,
           thumbnailSizeBytes: stored.thumbnailSizeBytes,
+          originalStorageKey: stored.originalStorageKey,
+          originalSizeBytes: stored.originalSizeBytes,
+          originalMimeType: stored.originalMimeType,
+          originalWidth: stored.originalWidth,
+          originalHeight: stored.originalHeight,
+          width: stored.width,
+          height: stored.height,
+          processingStatus: stored.processingStatus,
+          backgroundRemoved: stored.backgroundRemoved,
+          processingModel: stored.processingModel,
+          processedAt: stored.processedAt,
           sortOrder,
           isPrimary,
           createdBy: MEDIA_IMPORT_ACTOR,
         },
       });
     } catch (error) {
-      await this.deleteStoredBinaries(stored.storageKey, stored.thumbnailKey);
+      await this.deleteStoredBinaries(
+        stored.storageKey,
+        stored.thumbnailKey,
+        stored.originalStorageKey,
+      );
       throw error;
     } finally {
       await this.cleanupProcessed(stored.outputPath, stored.thumbnailPath, downloaded.filePath);
     }
   }
 
-  /** Runs the standard pipeline (validation already done at fetch) and stores. */
+  /** Runs the mandatory import pipeline (originals retained) and stores. */
   private async storeBinary(
     productId: string,
     url: string,
@@ -710,41 +998,99 @@ export class WooMediaRunner {
     storageKey: string;
     thumbnailKey: string | null;
     thumbnailSizeBytes: number | null;
+    originalStorageKey: string;
+    originalSizeBytes: number;
+    originalMimeType: string;
+    originalWidth: number | null;
+    originalHeight: number | null;
+    width: number | null;
+    height: number | null;
+    processingStatus: 'NONE' | 'PENDING' | 'PROCESSED' | 'SKIPPED' | 'FAILED';
+    backgroundRemoved: boolean;
+    processingModel: string | null;
+    processedAt: Date | null;
     outputPath: string;
     thumbnailPath: string | null;
   }> {
     const mediaId = randomUUID();
-    const extension = extensionForMediaMime(downloaded.detectedMime);
+    const isImage = mediaTypeForMime(downloaded.detectedMime) === 'IMAGE';
+
+    // 1) Preserve the exact source bytes first; every derivative is
+    // recoverable and a failed import never leaves the product with an
+    // unprocessed substitute.
+    const originalExtension = extensionForMediaMime(downloaded.detectedMime);
+    const originalStorageKey = `products/${productId}/${mediaId}.original.${originalExtension}`;
+    const originalMeta = isImage
+      ? await sharp(downloaded.filePath).metadata().catch(() => null)
+      : null;
+    await this.storage.putFile(originalStorageKey, downloaded.filePath);
+
+    let processed: Awaited<ReturnType<MediaProcessingService['process']>>;
+    try {
+      // 2) Mandatory local background removal → transparent PNG → square
+      // transparent canvas → logo-only watermark → thumbnail derivative.
+      processed = await this.processing.process(
+        downloaded.filePath,
+        downloaded.detectedMime,
+        this.tempDir,
+        isImage ? { backgroundRemoval: true } : {},
+      );
+      if (isImage && (processed.processingStatus === 'FAILED' || processed.processingError)) {
+        throw new Error(
+          processed.processingError ??
+            'پردازش پس‌زمینه تصویر ناموفق بود؛ تصویر منتشر نشد.',
+        );
+      }
+    } catch (error) {
+      await this.storage.delete(originalStorageKey).catch(() => undefined);
+      throw error;
+    }
+
+    const processedMime = processed.mimeType ?? downloaded.detectedMime;
+    const extension = extensionForMediaMime(processedMime);
     const storageKey = `products/${productId}/${mediaId}.${extension}`;
-    const processed = await this.processing.process(
-      downloaded.filePath,
-      downloaded.detectedMime,
-      this.tempDir,
-    );
     const thumbnailKey =
       processed.thumbnailPath !== undefined
         ? `products/${productId}/${mediaId}.thumb.webp`
         : null;
-    await this.storage.putFile(storageKey, processed.outputPath);
     try {
+      await this.storage.putFile(storageKey, processed.outputPath);
       if (thumbnailKey !== null && processed.thumbnailPath !== undefined) {
         await this.storage.putFile(thumbnailKey, processed.thumbnailPath);
       }
     } catch (error) {
+      // DB row is not written yet: remove the partial derivative but keep
+      // the retained original only until the caller's cleanup runs.
       await this.storage.delete(storageKey).catch(() => undefined);
+      if (thumbnailKey !== null) {
+        await this.storage.delete(thumbnailKey).catch(() => undefined);
+      }
+      await this.storage.delete(originalStorageKey).catch(() => undefined);
       throw error;
     }
+
     return {
-      mediaType: mediaTypeForMime(downloaded.detectedMime),
+      mediaType: mediaTypeForMime(processedMime),
       originalName: sanitizeMediaDisplayName(
         basenameForUrl(url, `image-${position}.jpg`),
         'media',
       ),
-      mimeType: downloaded.detectedMime,
+      mimeType: processedMime,
       sizeBytes: processed.sizeBytes,
       storageKey,
       thumbnailKey,
       thumbnailSizeBytes: processed.thumbnailSizeBytes ?? null,
+      originalStorageKey,
+      originalSizeBytes: downloaded.sizeBytes,
+      originalMimeType: downloaded.detectedMime,
+      originalWidth: originalMeta?.width ?? null,
+      originalHeight: originalMeta?.height ?? null,
+      width: processed.width ?? null,
+      height: processed.height ?? null,
+      processingStatus: processed.processingStatus ?? 'NONE',
+      backgroundRemoved: processed.backgroundRemoved ?? false,
+      processingModel: processed.processingModel ?? null,
+      processedAt: new Date(),
       outputPath: processed.outputPath,
       thumbnailPath: processed.thumbnailPath ?? null,
     };
@@ -769,8 +1115,9 @@ export class WooMediaRunner {
   private async deleteStoredBinaries(
     storageKey: string,
     thumbnailKey: string | null,
+    originalStorageKey: string | null = null,
   ): Promise<void> {
-    for (const key of [storageKey, thumbnailKey]) {
+    for (const key of [storageKey, thumbnailKey, originalStorageKey]) {
       if (key === null) {
         continue;
       }
@@ -810,7 +1157,7 @@ export function renderMediaSummary(report: MediaReport): string {
     `WooCommerce media ${report.dryRun ? 'dry-run' : 'import'}: ${report.rows} rows from ${report.file}`,
     `run ${report.runId}`,
     `products ${report.products} / resumed ${report.resumed}`,
-    `images: refs ${report.images.refs} / downloaded ${report.images.downloaded} / processed ${report.images.processed} / failed ${report.images.failed} / skipped-dedup ${report.images.skippedDedup}`,
+    `images: refs ${report.images.refs} / downloaded ${report.images.downloaded} / processed ${report.images.processed} / failed ${report.images.failed} / skipped-dedup ${report.images.skippedDedup} / refreshed ${report.images.refreshed} / retired-stale ${report.images.retiredStale}`,
     ...report.failures
       .slice(0, 50)
       .map((failure) => `FAILED line ${failure.line} (${failure.sourceId}) ${failure.url}: ${failure.error}`),

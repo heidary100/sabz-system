@@ -102,6 +102,19 @@ export class CartController {
     return this.cartService.remove(user.userId, variantId);
   }
 
+  @Post('prices/acknowledge')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Accept the current authoritative prices as the new baseline',
+    description:
+      'Clears genuine price-change warnings until an external price change occurs. Values are resolved server-side; no client price is accepted.',
+  })
+  @ApiResponse({ status: 200, description: 'Cart returned with updated baselines.' })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
+  async acknowledgePrices(@CurrentUser() user: AuthUser) {
+    return this.cartService.acknowledgePrices(user.userId);
+  }
+
   @Delete()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Clear all cart lines' })

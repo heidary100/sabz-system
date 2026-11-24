@@ -118,6 +118,11 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
     ...product.categoryBreadcrumb,
     { name: product.name, slug: product.slug },
   ];
+  // A deleted/missing category must not produce a «back to category» link
+  // that 404s. The breadcrumb still shows «خانه / محصول».
+  const leafCategory = product.categoryBreadcrumb.at(-1) ?? null;
+  const hasNavigableCategory =
+    leafCategory !== null && leafCategory.slug === product.category.slug;
 
   const hasSpecs =
     groupSpecs(product.specs).length > 0 ||
@@ -191,12 +196,21 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
           ) : (
             <span aria-hidden="true" />
           )}
-          <Link
-            href={`/categories/${product.category.slug}`}
-            className="inline-flex min-h-9 max-w-48 items-center truncate rounded-pill bg-surface-2 px-3 py-1.5 text-fg-secondary transition-colors duration-200 hover:bg-accent-soft hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
-          >
-            بازگشت به {product.category.name}
-          </Link>
+          {hasNavigableCategory ? (
+            <Link
+              href={`/categories/${product.category.slug}`}
+              className="inline-flex min-h-9 max-w-48 items-center truncate rounded-pill bg-surface-2 px-3 py-1.5 text-fg-secondary transition-colors duration-200 hover:bg-accent-soft hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+            >
+              بازگشت به {product.category.name}
+            </Link>
+          ) : (
+            <Link
+              href="/products"
+              className="inline-flex min-h-9 max-w-48 items-center truncate rounded-pill bg-surface-2 px-3 py-1.5 text-fg-secondary transition-colors duration-200 hover:bg-accent-soft hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+            >
+              همه محصولات
+            </Link>
+          )}
           {product.next ? (
             <Link
               href={`/products/${product.next.slug}`}
@@ -241,6 +255,14 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
                 className={`${badgeVariants({ variant: 'condition' })} hover:text-accent`}
               >
                 برند: {product.brand.name}
+              </Link>
+            ) : null}
+            {hasNavigableCategory ? (
+              <Link
+                href={`/categories/${product.category.slug}`}
+                className={`${badgeVariants({ variant: 'condition' })} hover:text-accent`}
+              >
+                دسته: {product.category.name}
               </Link>
             ) : null}
             <Badge variant="condition">{conditionLabel(product.condition)}</Badge>

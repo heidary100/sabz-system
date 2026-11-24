@@ -5,7 +5,9 @@
  * cached: those must always come from a live server response. Push handlers
  * remain data-only notifications.
  */
-const CACHE = 'sabz-storefront-shell-v1';
+// Bump on every shell/asset-strategy change. Activation deletes every other
+// cache, so a deploy can never keep serving an obsolete JS chunk.
+const CACHE = 'sabz-storefront-shell-v2';
 const PRECACHE = [
   '/offline',
   '/manifest.webmanifest',
@@ -78,18 +80,30 @@ self.addEventListener('fetch', (event) => {
     url.pathname.startsWith('/brand/') ||
     PRECACHE.includes(url.pathname)
   ) {
+    // Network-first for build assets: a stale content-addressed chunk must
+    // never win over the live document that references it. The cache is only
+    // an offline fallback, not an unversioned long-lived store.
     event.respondWith(
-      caches.match(request).then(
-        (cached) =>
-          cached ||
-          fetch(request).then((response) => {
-            if (response.ok) {
-              const copy = response.clone();
-              caches.open(CACHE).then((cache) => cache.put(request, copy));
-            }
-            return response;
-          }),
-      ),
+      fetch(request)
+        .then((response) => {
+          if (response.ok) {
+            const copy = response.clone();
+            event.waitUntil(
+              caches.open(CACHE).then((cache) => cache.put(request, copy)),
+            );
+          }
+          return response;
+        })
+        .catch(async () => {
+          const cached = await caches.match(request);
+          return (
+            cached ||
+            new Response('آفلاین — منبع در دسترس نیست.', {
+              status: 503,
+              headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+            })
+          );
+        }),
     );
   }
 });

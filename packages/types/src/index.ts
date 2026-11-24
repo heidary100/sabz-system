@@ -19,7 +19,7 @@ export {
 } from './catalog/catalog';
 
 export { APP_ROLES, AppRole } from './auth/roles';
-export { AuthUser, UserStatus } from './auth/user';
+export { AuthUser, UserStatus, authUserDisplayName } from './auth/user';
 export {
   LogoutResponse,
   OtpRequestResult,

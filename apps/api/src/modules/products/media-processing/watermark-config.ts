@@ -98,6 +98,21 @@ export const WATERMARK_LIGHT = '#F1F6F2';
 /** Dark chip base (alpha comes from `opacity`). */
 export const WATERMARK_CHIP_RGB = '11,21,16';
 
+/**
+ * Single source of truth for the revised logo-only watermark size.
+ * The previous 0.17 / 100–240 mark was visually dominant on small product
+ * photography; this is a deliberate ~12% reduction while keeping the logo
+ * legible at every resolution. Thumbnail clamps scale down proportionally.
+ */
+export const WATERMARK_SIZE_DEFAULTS = {
+  sizeRatio: 0.15,
+  minSizePx: 90,
+  maxSizePx: 210,
+  thumbnailSizeRatio: 0.1,
+  thumbnailMinSizePx: 56,
+  thumbnailMaxSizePx: 120,
+} as const;
+
 function defaultLogoPath(): string {
   const branded = resolve(process.cwd(), 'assets/brand/logo.png');
   if (existsSync(branded)) {
@@ -149,9 +164,21 @@ export function resolveWatermarkConfig(): WatermarkConfig {
     fontPath: resolve(env('WATERMARK_FONT_PATH', defaultFontPath())),
     opacity: Math.min(1, Math.max(0, envNumber('WATERMARK_OPACITY', 0.38))),
     marginRatio: envNumber('WATERMARK_MARGIN_RATIO', 0.05),
-    sizeRatio: Math.min(1, Math.max(0, envNumber('WATERMARK_SIZE_RATIO', 0.17))),
-    minSizePx: envNumber('WATERMARK_MIN_SIZE_PX', 100),
-    maxSizePx: envNumber('WATERMARK_MAX_SIZE_PX', 240),
+    sizeRatio: Math.min(
+      1,
+      Math.max(
+        0,
+        envNumber('WATERMARK_SIZE_RATIO', WATERMARK_SIZE_DEFAULTS.sizeRatio),
+      ),
+    ),
+    minSizePx: envNumber(
+      'WATERMARK_MIN_SIZE_PX',
+      WATERMARK_SIZE_DEFAULTS.minSizePx,
+    ),
+    maxSizePx: envNumber(
+      'WATERMARK_MAX_SIZE_PX',
+      WATERMARK_SIZE_DEFAULTS.maxSizePx,
+    ),
     position: (allowedPositions as string[]).includes(position)
       ? (position as WatermarkConfig['position'])
       : 'bottom-right',
@@ -166,10 +193,22 @@ export function resolveWatermarkConfig(): WatermarkConfig {
       : 'smaller',
     thumbnailSizeRatio: Math.min(
       1,
-      Math.max(0, envNumber('WATERMARK_THUMBNAIL_SIZE_RATIO', 0.12)),
+      Math.max(
+        0,
+        envNumber(
+          'WATERMARK_THUMBNAIL_SIZE_RATIO',
+          WATERMARK_SIZE_DEFAULTS.thumbnailSizeRatio,
+        ),
+      ),
     ),
-    thumbnailMinSizePx: envNumber('WATERMARK_THUMBNAIL_MIN_SIZE_PX', 64),
-    thumbnailMaxSizePx: envNumber('WATERMARK_THUMBNAIL_MAX_SIZE_PX', 140),
+    thumbnailMinSizePx: envNumber(
+      'WATERMARK_THUMBNAIL_MIN_SIZE_PX',
+      WATERMARK_SIZE_DEFAULTS.thumbnailMinSizePx,
+    ),
+    thumbnailMaxSizePx: envNumber(
+      'WATERMARK_THUMBNAIL_MAX_SIZE_PX',
+      WATERMARK_SIZE_DEFAULTS.thumbnailMaxSizePx,
+    ),
   };
 }
 

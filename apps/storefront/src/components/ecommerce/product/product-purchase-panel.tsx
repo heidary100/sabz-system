@@ -49,6 +49,7 @@ export function ProductPurchasePanel({
   const router = useRouter();
   const pathname = usePathname();
   const [selectedId, setSelectedId] = useState<string | null>(initialVariantId);
+  const [quantity, setQuantity] = useState(1);
 
   const parsedParam = parseVariantParam(rawVariantParam);
   const needsUrlCleanup =
@@ -66,6 +67,7 @@ export function ProductPurchasePanel({
 
   function handleSelect(id: string) {
     setSelectedId(id);
+    setQuantity(1);
     router.push(`${pathname}?variant=${id}`, { scroll: false });
   }
 
@@ -129,16 +131,65 @@ export function ProductPurchasePanel({
         </p>
       </div>
 
+      {selected.inStock && selected.priceStatus === 'PRICED' ? (
+        <div className="mt-4 flex flex-wrap items-end gap-4 rounded-card border border-border bg-surface p-4">
+          <div>
+            <p className="text-xs font-medium text-fg-muted">تعداد</p>
+            <div className="mt-1.5 inline-flex items-center rounded-control border border-border-control bg-surface">
+              <button
+                type="button"
+                onClick={() => setQuantity((value) => Math.max(1, value - 1))}
+                disabled={quantity <= 1}
+                aria-label="کاهش تعداد"
+                className="flex size-10 items-center justify-center text-lg text-fg-secondary hover:bg-surface-2 disabled:opacity-40"
+              >
+                −
+              </button>
+              <span
+                aria-live="polite"
+                className="min-w-9 text-center text-sm font-bold tabular-nums text-fg"
+              >
+                {quantity.toLocaleString('fa-IR')}
+              </span>
+              <button
+                type="button"
+                onClick={() => setQuantity((value) => Math.min(99, value + 1))}
+                disabled={quantity >= 99}
+                aria-label="افزایش تعداد"
+                className="flex size-10 items-center justify-center text-lg text-fg-secondary hover:bg-surface-2 disabled:opacity-40"
+              >
+                +
+              </button>
+            </div>
+          </div>
+          <p className="flex-1 text-xs leading-5 text-fg-muted">
+            موجودی و سقف مجاز در سرور بررسی می‌شود؛ در صورت تغییر، پیام دقیق
+            نمایش داده می‌شود.
+          </p>
+        </div>
+      ) : null}
+
       <div className="mt-4">
         {selected.inStock && selected.priceStatus === 'PRICED' ? (
           <AddToCartButton
             identity={{ variantId: selected.id }}
             productName={productName}
+            quantity={quantity}
           />
         ) : (
           <ProductPurchaseSlot variant={selected} productName={productName} />
         )}
       </div>
+
+      <ul
+        role="list"
+        className="mt-4 grid gap-2 rounded-card border border-border bg-surface-2/40 p-3 text-xs leading-5 text-fg-secondary sm:grid-cols-2"
+      >
+        <li>ارسال از انبار سبز سیستم، پس از تأیید سفارش.</li>
+        <li>اصالت کالا و بسته‌بندی سالم تضمین می‌شود.</li>
+        <li>امکان مرجوعی طبق شرایط فروش برای سفارش‌های واجد شرایط.</li>
+        <li>پشتیبانی آنلاین برای انتخاب مدل و پیگیری سفارش.</li>
+      </ul>
     </div>
   );
 }

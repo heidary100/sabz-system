@@ -34,7 +34,7 @@ import { InventoryService } from '../inventory/inventory.service';
 import { PricingService } from '../pricing/pricing.service';
 import type { ProductOverride } from '../pricing/pricing.service';
 import { recomputeProductMinPrice } from './min-price';
-import { PUBLIC_MEDIA_URL_PREFIX } from './public-catalog.service';
+import { publicMediaAssetUrl } from './media-public-url';
 import { ProductsService } from './products.service'
 import { VariantsService } from './variants.service';
 import {
@@ -95,7 +95,7 @@ const GRID_ROW_SELECT = {
       brand: { select: { name: true } },
       category: { select: { name: true } },
       media: {
-        select: { id: true, mediaType: true, thumbnailKey: true },
+        select: { id: true, mediaType: true, storageKey: true, thumbnailKey: true },
         orderBy: { createdAt: 'asc' as const },
       },
     },
@@ -549,7 +549,12 @@ export class CatalogGridService {
       categoryName: row.product.category.name,
       thumbnailUrl:
         thumbnail !== undefined
-          ? `${PUBLIC_MEDIA_URL_PREFIX}/${thumbnail.id}/thumbnail`
+          ? publicMediaAssetUrl(
+              thumbnail.id,
+              thumbnail.storageKey,
+              true,
+              thumbnail.thumbnailKey,
+            )
           : null,
       priceStatus: row.priceStatus,
       regularPrice: row.price.toString(),

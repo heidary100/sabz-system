@@ -6,16 +6,16 @@ import type {
 import { request } from './api'
 
 export interface ReviewListQuery {
-  status?: ReviewStatus | ''
+  status?: ReviewStatus | '' | 'ALL'
   page?: number
   limit?: number
 }
 
 function buildListQuery(query: ReviewListQuery): string {
   const params = new URLSearchParams()
-  if (query.status) {
-    params.set('status', query.status)
-  }
+  // Always serialize the status decision: the empty UI option means ALL,
+  // never an omitted parameter that the server could reinterpret.
+  params.set('status', query.status ? query.status : 'ALL')
   if (query.page) {
     params.set('page', String(query.page))
   }

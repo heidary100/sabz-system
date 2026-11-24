@@ -99,16 +99,16 @@ describe('watermark dual-theme legibility (SS-210)', () => {
     expect(config.logoOpacity).toBe(0.85);
     expect(config.opacity).toBe(0.38);
     expect(config.marginRatio).toBe(0.05);
-    expect(config.sizeRatio).toBe(0.17);
-    expect(config.minSizePx).toBe(100);
-    expect(config.maxSizePx).toBe(240);
+    expect(config.sizeRatio).toBe(0.15);
+    expect(config.minSizePx).toBe(90);
+    expect(config.maxSizePx).toBe(210);
     expect(config.textColor).toBe('#F1F6F2');
     expect(config.lockup).toBe('auto');
     expect(config.logoPath?.endsWith('assets/brand/logo.png')).toBe(true);
     expect(config.thumbnailMode).toBe('smaller');
-    expect(config.thumbnailSizeRatio).toBe(0.12);
-    expect(config.thumbnailMinSizePx).toBe(64);
-    expect(config.thumbnailMaxSizePx).toBe(140);
+    expect(config.thumbnailSizeRatio).toBe(0.1);
+    expect(config.thumbnailMinSizePx).toBe(56);
+    expect(config.thumbnailMaxSizePx).toBe(120);
   });
 
   it('falls back to smaller thumbnails on invalid thumbnail env values', () => {
