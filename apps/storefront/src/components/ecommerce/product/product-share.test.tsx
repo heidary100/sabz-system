@@ -101,14 +101,13 @@ describe('ProductShare', () => {
         configurable: true,
         value: canShare,
       });
-      const fetchMock = vi
-        .spyOn(globalThis, 'fetch')
-        .mockResolvedValue(
-          new Response(new Blob(['image'], { type: 'image/png' }), {
-            status: 200,
-            headers: { 'Content-Type': 'image/png' },
-          }),
-        );
+      // Do not construct a runtime Response around a jsdom Blob: CI's
+      // undici/Blob pairing rejects it before the component can share. The
+      // component only reads `ok` and `blob()`.
+      const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+        ok: true,
+        blob: async () => new Blob(['image'], { type: 'image/png' }),
+      } as unknown as Response);
       render(
         <ProductShare
           canonicalUrl={canonicalUrl}
