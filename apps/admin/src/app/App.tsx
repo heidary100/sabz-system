@@ -10,14 +10,21 @@ import { ADMIN_ROLES, AuthProvider } from '../auth/auth-provider'
 import { RequireAuth } from '../auth/require-auth'
 import { RequireRole } from '../auth/require-role'
 import { AdminLayout } from '../layouts/admin-layout'
+import { EnglishOpsLayout } from '../components/layout/english-ops-layout'
 import { MerchandisingLayout } from '../layouts/merchandising-layout'
 import { AccessDeniedPage } from '../pages/access-denied-page'
+import { AttributesPage } from '../pages/attributes-page'
 import { AuditPage } from '../pages/audit-page'
 import { BlogEditorPage } from '../pages/blog-editor-page'
 import { BlogPage } from '../pages/blog-page'
 import { BrandsPage } from '../pages/brands-page'
 import { CategoriesPage } from '../pages/categories-page'
+import { ChatPage } from '../pages/chat-page'
+import { CurrencyPage } from '../pages/currency-page'
 import { DashboardPage } from '../pages/dashboard-page'
+import { EnglishOrdersPage } from '../pages/english-orders-page'
+import { EnglishProductsPage } from '../pages/english-products-page'
+import { FooterSettingsPage } from '../pages/footer-settings-page'
 import { InventoryMovementsPage } from '../pages/inventory-movements-page'
 import { InventoryPage } from '../pages/inventory-page'
 import { InventoryReservationsPage } from '../pages/inventory-reservations-page'
@@ -34,7 +41,6 @@ import { OrdersPage } from '../pages/orders-page'
 import { NotificationsPage } from '../pages/notifications-page'
 import { PartnerDetailPage } from '../pages/partner-detail-page'
 import { PartnersPage } from '../pages/partners-page'
-import { PricingPage } from '../pages/pricing-page'
 import { ReturnDetailPage } from '../pages/return-detail-page'
 import { ReturnsPage } from '../pages/returns-page'
 import { RfqDetailPage } from '../pages/rfq-detail-page'
@@ -43,6 +49,7 @@ import { ReviewsPage } from '../pages/reviews-page'
 import { ProductDetailPage } from '../pages/product-detail-page'
 import { ProductEditorPage } from '../pages/product-editor-page'
 import { ProductsPage } from '../pages/products-page'
+import { ProfilePage } from '../pages/profile-page'
 import { RolesPage } from '../pages/roles-page'
 import { UserDetailPage } from '../pages/user-detail-page'
 import { UsersPage } from '../pages/users-page'
@@ -54,6 +61,20 @@ function createAppRoutes() {
   return createRoutesFromElements(
     <>
       <Route path="/login" element={<LoginPage />} />
+      <Route
+        path="/en"
+        element={
+          <RequireAuth>
+            <RequireRole roles={ADMIN_ROLES}>
+              <EnglishOpsLayout />
+            </RequireRole>
+          </RequireAuth>
+        }
+      >
+        <Route index element={<Navigate to="/en/products" replace />} />
+        <Route path="products" element={<EnglishProductsPage />} />
+        <Route path="orders" element={<EnglishOrdersPage />} />
+      </Route>
           <Route
             path="/access-denied"
             element={
@@ -76,6 +97,14 @@ function createAppRoutes() {
               element={
                 <RequireRole roles={ADMIN_ROLES}>
                   <DashboardPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="profile"
+              element={
+                <RequireRole roles={ADMIN_ROLES}>
+                  <ProfilePage />
                 </RequireRole>
               }
             />
@@ -126,9 +155,21 @@ function createAppRoutes() {
             />
             <Route
               path="pricing"
+              element={<Navigate to="/products?view=rules" replace />}
+            />
+            <Route
+              path="currency"
               element={
                 <RequireRole roles={ADMIN_ROLES}>
-                  <PricingPage />
+                  <CurrencyPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="settings/footer"
+              element={
+                <RequireRole roles={ADMIN_ROLES}>
+                  <FooterSettingsPage />
                 </RequireRole>
               }
             />
@@ -161,6 +202,14 @@ function createAppRoutes() {
               element={
                 <RequireRole roles={ADMIN_ROLES}>
                   <NotificationsPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="chat"
+              element={
+                <RequireRole roles={ADMIN_ROLES}>
+                  <ChatPage />
                 </RequireRole>
               }
             />
@@ -289,6 +338,14 @@ function createAppRoutes() {
               element={
                 <RequireRole roles={ADMIN_ROLES}>
                   <CategoriesPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="attributes"
+              element={
+                <RequireRole roles={ADMIN_ROLES}>
+                  <AttributesPage />
                 </RequireRole>
               }
             />

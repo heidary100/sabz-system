@@ -50,7 +50,7 @@ export function UnsavedChangesBar({
         <span className="flex items-center gap-2 text-sm text-muted">
           <span
             aria-hidden="true"
-            className="size-4 animate-spin rounded-full border-2 border-hunter-800 border-t-primary"
+            className="size-4 animate-spin rounded-full border-2 border-border border-t-primary"
           />
           در حال ذخیره {savingCount} ردیف…
         </span>

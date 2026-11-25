@@ -4,6 +4,7 @@ import {
   Controller,
   Delete,
   Get,
+  Header,
   HttpStatus,
   Ip,
   Param,
@@ -106,6 +107,7 @@ export class ProductMediaController {
         mediaType: { type: 'string', enum: ['IMAGE', 'VIDEO'] },
         variantId: { type: 'string', format: 'uuid' },
         isPrimary: { type: 'boolean' },
+        backgroundRemoval: { type: 'boolean' },
       },
     },
   })
@@ -139,6 +141,67 @@ export class ProductMediaController {
   @ApiResponse({ status: 404, description: 'Product not found.' })
   async list(@Param('productId', UUID_PARAM) productId: string) {
     return this.mediaService.list(productId);
+  }
+
+  @Get(':productId/media/:mediaId/original')
+  @Header('Cache-Control', 'no-store')
+  @ApiOperation({ summary: 'Preview the retained original upload (admin only)' })
+  @ApiParam({ name: 'productId', type: 'string', format: 'uuid' })
+  @ApiParam({ name: 'mediaId', type: 'string', format: 'uuid' })
+  async original(
+    @Param('productId', UUID_PARAM) productId: string,
+    @Param('mediaId', UUID_PARAM) mediaId: string,
+  ) {
+    const { buffer, summary } = await this.mediaService.getOriginalBinary(
+      productId,
+      mediaId,
+    );
+    return new StreamableFile(buffer, {
+      type: summary.originalMimeType ?? summary.mimeType,
+      length: buffer.length,
+    });
+  }
+
+  @Get(':productId/media/:mediaId/reprocess/preview')
+  @Header('Cache-Control', 'no-store')
+  @ApiOperation({ summary: 'Preview local background removal from the original' })
+  @ApiParam({ name: 'productId', type: 'string', format: 'uuid' })
+  @ApiParam({ name: 'mediaId', type: 'string', format: 'uuid' })
+  async reprocessPreview(
+    @Param('productId', UUID_PARAM) productId: string,
+    @Param('mediaId', UUID_PARAM) mediaId: string,
+  ) {
+    const result = await this.mediaService.previewReprocess(productId, mediaId);
+    return new StreamableFile(result.buffer, {
+      type: result.mimeType,
+      length: result.buffer.length,
+    });
+  }
+
+  @Post(':productId/media/:mediaId/reprocess')
+  @ApiOperation({ summary: 'Apply background removal from the retained original' })
+  @ApiParam({ name: 'productId', type: 'string', format: 'uuid' })
+  @ApiParam({ name: 'mediaId', type: 'string', format: 'uuid' })
+  async reprocess(
+    @Param('productId', UUID_PARAM) productId: string,
+    @Param('mediaId', UUID_PARAM) mediaId: string,
+    @CurrentUser() user: AuthUser,
+    @Ip() ipAddress?: string,
+  ) {
+    return this.mediaService.reprocess(productId, mediaId, user.userId, ipAddress);
+  }
+
+  @Post(':productId/media/:mediaId/restore')
+  @ApiOperation({ summary: 'Restore the derivative active before the last reprocess' })
+  @ApiParam({ name: 'productId', type: 'string', format: 'uuid' })
+  @ApiParam({ name: 'mediaId', type: 'string', format: 'uuid' })
+  async restore(
+    @Param('productId', UUID_PARAM) productId: string,
+    @Param('mediaId', UUID_PARAM) mediaId: string,
+    @CurrentUser() user: AuthUser,
+    @Ip() ipAddress?: string,
+  ) {
+    return this.mediaService.restoreDerivative(productId, mediaId, user.userId, ipAddress);
   }
 
   @Get(':productId/media/:mediaId')

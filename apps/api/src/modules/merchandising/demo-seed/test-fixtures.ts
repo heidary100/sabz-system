@@ -41,7 +41,7 @@ export function product(
     brand: { name: `Brand ${n % 4}`, slug: `brand-${n % 4}` },
     category: { name: `Category ${n % 6}`, slug: `category-${n % 6}` },
     priceFrom: '100000',
-    compareAtPrice: null,
+    regularPrice: null,
     callForPrice: false,
     promotionEndsAt: null,
     variantCount: 1,

@@ -50,6 +50,8 @@ describe('Admin partner review database integration (SS-040)', () => {
     const rolesService = new RolesService(prisma);
     const notifications = new NotificationService(
       prisma,
+      { emitToUser: jest.fn(), emitToRole: jest.fn() } as unknown as import('../src/modules/realtime/realtime.service').RealtimeService,
+      { config: () => ({ enabled: false, publicKey: null }), sendToUser: jest.fn() } as unknown as import('../src/modules/notifications/push.service').PushService,
       { get: () => undefined } as unknown as import('@nestjs/config').ConfigService,
     );
     service = new AdminPartnersService(prisma, auditService, rolesService, notifications);
@@ -196,6 +198,8 @@ describe('Admin partner review database integration (SS-040)', () => {
       new RolesService(prisma),
       new NotificationService(
         prisma,
+        { emitToUser: jest.fn(), emitToRole: jest.fn() } as unknown as import('../src/modules/realtime/realtime.service').RealtimeService,
+        { config: () => ({ enabled: false, publicKey: null }), sendToUser: jest.fn() } as unknown as import('../src/modules/notifications/push.service').PushService,
         { get: () => undefined } as unknown as import('@nestjs/config').ConfigService,
       ),
     );

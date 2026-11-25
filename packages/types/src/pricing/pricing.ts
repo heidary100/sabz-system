@@ -20,7 +20,7 @@ export const PROMOTION_TYPE_FA: Record<PromotionType, string> = {
   FIXED: 'مبلغ ثابت (ریال)',
 };
 
-/** Category rule row (SS-235 B1): lowest `priority` wins per category. */
+/** Category rule row (SS-235 B1 + pricing-grid spec §2.4). */
 export interface CategoryPriceRuleDto {
   id: string;
   categoryId: string;
@@ -31,7 +31,11 @@ export interface CategoryPriceRuleDto {
   isActive: boolean;
   startsAt: string | null;
   endsAt: string | null;
+  /** True = the rule also covers live descendant categories. */
+  includeDescendants: boolean;
   priority: number;
+  /** Derived lifecycle state for the admin list. */
+  status: 'ACTIVE' | 'SCHEDULED' | 'EXPIRED' | 'INACTIVE';
   createdAt: string;
   updatedAt: string;
 }
@@ -45,6 +49,7 @@ export interface CreateCategoryPriceRuleInput {
   isActive?: boolean;
   startsAt?: string;
   endsAt?: string;
+  includeDescendants?: boolean;
   priority?: number;
 }
 
@@ -55,6 +60,7 @@ export interface UpdateCategoryPriceRuleInput {
   isActive?: boolean;
   startsAt?: string | null;
   endsAt?: string | null;
+  includeDescendants?: boolean;
   priority?: number;
 }
 
@@ -63,12 +69,16 @@ export interface ProductPriceOverrideDto {
   id: string;
   productId: string;
   productName: string;
-  type: PromotionType;
+  /** PERCENT/FIXED adjustment; null for an absolute override. */
+  type: PromotionType | null;
   /** Rial (Decimal string): 0–100 for PERCENT, Rial amount for FIXED. */
-  value: string;
+  value: string | null;
+  /** Absolute final retail price in Rial; null for an adjustment row. */
+  overridePrice: string | null;
   isActive: boolean;
   startsAt: string | null;
   endsAt: string | null;
+  status: 'ACTIVE' | 'SCHEDULED' | 'EXPIRED' | 'INACTIVE';
   createdAt: string;
   updatedAt: string;
 }
@@ -77,16 +87,18 @@ export type ProductPriceOverrideListResponse = PaginatedResult<ProductPriceOverr
 
 export interface CreateProductPriceOverrideInput {
   productId: string;
-  type: PromotionType;
-  value: string;
+  type?: PromotionType;
+  value?: string;
+  overridePrice?: string;
   isActive?: boolean;
   startsAt?: string;
   endsAt?: string;
 }
 
 export interface UpdateProductPriceOverrideInput {
-  type?: PromotionType;
-  value?: string;
+  type?: PromotionType | null;
+  value?: string | null;
+  overridePrice?: string | null;
   isActive?: boolean;
   startsAt?: string | null;
   endsAt?: string | null;

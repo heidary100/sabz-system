@@ -2,6 +2,7 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import type {
@@ -13,8 +14,9 @@ import type {
 import { PrismaService } from '../../common/database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { StorefrontCacheService } from '../../common/storefront-cache/storefront-cache.service';
-import { CATALOG_TREE_TAG } from '../../common/storefront-cache/catalog-tags';
+import { CATALOG_PRODUCTS_TAG, CATALOG_TREE_TAG } from '../../common/storefront-cache/catalog-tags';
 import { generateSlug } from './slug';
+import { CategoryImageService } from './category-image.service';
 import {
   CreateCategoryDto,
   ListCategoriesQueryDto,
@@ -33,6 +35,7 @@ const summarySelect = {
   sortOrder: true,
   isVisible: true,
   deletedAt: true,
+  imageUpdatedAt: true,
 } satisfies Prisma.CategorySelect;
 
 const detailSelect = {
@@ -53,6 +56,7 @@ export class CategoriesService {
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
     private readonly storefrontCache: StorefrontCacheService,
+    @Optional() private readonly categoryImages?: CategoryImageService,
   ) {}
 
   async list(
@@ -301,6 +305,100 @@ export class CategoriesService {
       }
       throw error;
     }
+  }
+
+  async uploadImage(
+    categoryId: string,
+    file: Express.Multer.File,
+    actorId: string,
+    ipAddress?: string,
+  ): Promise<CategoryDetail> {
+    const existing = await this.prisma.category.findFirst({
+      where: { id: categoryId, deletedAt: null },
+      select: { id: true, imageStorageKey: true },
+    });
+    if (!existing) {
+      throw new NotFoundException('دسته بندی یافت نشد.');
+    }
+    if (!this.categoryImages) {
+      throw new ConflictException('سرویس تصویر دسته‌بندی در دسترس نیست.');
+    }
+    const stored = await this.categoryImages.store(categoryId, file);
+    try {
+      const updated = await this.prisma.category.update({
+        where: { id: categoryId },
+        data: {
+          imageStorageKey: stored.key,
+          imageMimeType: stored.mimeType,
+          imageSizeBytes: stored.sizeBytes,
+          imageWidth: stored.width,
+          imageHeight: stored.height,
+          imageUpdatedAt: new Date(),
+          updatedBy: actorId,
+        },
+        select: detailSelect,
+      });
+      await this.auditService.log({
+        userId: actorId,
+        action: 'CATEGORY_IMAGE_UPDATED',
+        entity: 'Category',
+        entityId: categoryId,
+        before: { imageStorageKey: existing.imageStorageKey },
+        after: {
+          imageStorageKey: stored.key,
+          width: stored.width,
+          height: stored.height,
+        },
+        ipAddress,
+      });
+      if (existing.imageStorageKey && existing.imageStorageKey !== stored.key) {
+        await this.categoryImages?.delete(existing.imageStorageKey);
+      }
+      void this.storefrontCache.invalidate([CATALOG_TREE_TAG, CATALOG_PRODUCTS_TAG]);
+      return this.toDetail(updated);
+    } catch (error) {
+      await this.categoryImages?.delete(stored.key);
+      throw error;
+    }
+  }
+
+  async removeImage(
+    categoryId: string,
+    actorId: string,
+    ipAddress?: string,
+  ): Promise<CategoryDetail> {
+    const existing = await this.prisma.category.findFirst({
+      where: { id: categoryId, deletedAt: null },
+      select: { id: true, imageStorageKey: true },
+    });
+    if (!existing) {
+      throw new NotFoundException('دسته بندی یافت نشد.');
+    }
+    const updated = await this.prisma.category.update({
+      where: { id: categoryId },
+      data: {
+        imageStorageKey: null,
+        imageMimeType: null,
+        imageSizeBytes: null,
+        imageWidth: null,
+        imageHeight: null,
+        imageUpdatedAt: null,
+        updatedBy: actorId,
+      },
+      select: detailSelect,
+    });
+    await this.auditService.log({
+      userId: actorId,
+      action: 'CATEGORY_IMAGE_REMOVED',
+      entity: 'Category',
+      entityId: categoryId,
+      before: { imageStorageKey: existing.imageStorageKey },
+      after: { imageStorageKey: null },
+      ipAddress,
+    });
+    await this.categoryImages?.delete(existing.imageStorageKey);
+    void this.storefrontCache.invalidate([CATALOG_TREE_TAG, CATALOG_PRODUCTS_TAG]);
+    return this.toDetail(updated);
   }
 
   async reorder(
@@ -572,6 +670,7 @@ export class CategoriesService {
   }
 
   private toSummary(row: SummaryRow): CategorySummary {
+    const imageUrl = this.imageUrl(row.id, row.imageUpdatedAt);
     return {
       id: row.id,
       name: row.name,
@@ -579,10 +678,18 @@ export class CategoriesService {
       parentId: row.parentId,
       sortOrder: row.sortOrder,
       isVisible: row.isVisible,
+      ...(imageUrl ? { imageUrl } : {}),
     };
   }
 
+  private imageUrl(id: string, updatedAt: Date | null): string | null {
+    return updatedAt
+      ? `/api/v1/catalog/categories/${id}/image?v=${updatedAt.getTime()}`
+      : null;
+  }
+
   private toDetail(row: DetailRow): CategoryDetail {
+    const imageUrl = this.imageUrl(row.id, row.imageUpdatedAt);
     return {
       id: row.id,
       name: row.name,
@@ -590,6 +697,7 @@ export class CategoriesService {
       parentId: row.parentId,
       sortOrder: row.sortOrder,
       isVisible: row.isVisible,
+      ...(imageUrl ? { imageUrl } : {}),
       children: row.children.map((child) => this.toSummary(child)),
     };
   }

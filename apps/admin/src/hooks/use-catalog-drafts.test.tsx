@@ -32,7 +32,12 @@ const serverRow = {
   barcode: 'BC-1' as string | null,
   variantName: 'نوع یک' as string | null,
   price: '100000',
-  compareAtPrice: null as string | null,
+  discountedPrice: null as string | null,
+  discountStartsAt: null as string | null,
+  discountEndsAt: null as string | null,
+  partnerPrice: null as string | null,
+  aedPrice: null as string | null,
+  usdPrice: null as string | null,
   stock: 5,
   priceStatus: 'PRICED' as const,
 }
@@ -46,7 +51,7 @@ function edit(hook: DraftsHookRender, overrides: Partial<typeof serverRow> = {})
     price: (value: string) =>
       act(() => hook.result.current.editCell(row, 'price', value)),
     compareAt: (value: string) =>
-      act(() => hook.result.current.editCell(row, 'compareAtPrice', value)),
+      act(() => hook.result.current.editCell(row, 'discountedPrice', value)),
     stock: (value: string) =>
       act(() => hook.result.current.editCell(row, 'stock', value)),
     sku: (value: string) =>
@@ -85,10 +90,10 @@ describe('useCatalogDrafts', () => {
 
   it('treats an emptied compareAt cell as an explicit clear (null) draft', () => {
     const hook = renderHook(() => useCatalogDrafts())
-    const cells = edit(hook, { compareAtPrice: '120000' })
+    const cells = edit(hook, { discountedPrice: '120000' })
 
     cells.compareAt('')
-    expect(hook.result.current.drafts['v1']?.compareAtPrice).toBeNull()
+    expect(hook.result.current.drafts['v1']?.discountedPrice).toBeNull()
   })
 
   it('edits sku/barcode/variantName/priceStatus and reverts them like any other field', () => {
@@ -161,7 +166,12 @@ describe('useCatalogDrafts', () => {
             barcode: null,
             variantName: null,
             price: '100000',
-            compareAtPrice: null,
+            discountedPrice: null,
+            discountStartsAt: null,
+            discountEndsAt: null,
+            partnerPrice: null,
+            aedPrice: null,
+            usdPrice: null,
             stock: 5,
             priceStatus: 'PRICED',
           },
@@ -201,7 +211,7 @@ describe('useCatalogDrafts', () => {
         variantId: 'v1',
         outcome: 'SUCCESS' as const,
         price: '150000',
-        compareAtPrice: null,
+        discountedPrice: null,
         sku: 'SKU-1',
         barcode: null,
         variantName: null,
@@ -213,7 +223,7 @@ describe('useCatalogDrafts', () => {
         variantId: 'v2',
         outcome: 'VALIDATION_ERROR' as const,
         message: 'قیمت قبل از تخفیف باید بیشتر از قیمت فروش باشد.',
-        fieldErrors: { compareAtPrice: 'قیمت قبل از تخفیف باید بیشتر از قیمت فروش باشد.' },
+        fieldErrors: { discountedPrice: 'قیمت قبل از تخفیف باید بیشتر از قیمت فروش باشد.' },
       },
     ]
     mockBatch.mockResolvedValue({ results, summary: { succeeded: 1, failed: 1 } } as CatalogGridBatchResponse)
@@ -227,7 +237,7 @@ describe('useCatalogDrafts', () => {
     // Failed draft survives for correction — never silently lost.
     expect(hook.result.current.drafts['v2']).toMatchObject({ price: '999999' })
     expect(hook.result.current.statuses['v2']).toBe('validation-error')
-    expect(hook.result.current.errors['v2']?.compareAtPrice).toContain('بیشتر')
+    expect(hook.result.current.errors['v2']?.discountedPrice).toContain('بیشتر')
     // A successful row is not resubmitted on the next save.
     await act(async () => {
       await hook.result.current.saveAll()

@@ -4,6 +4,7 @@ import type { ProductCondition } from '@sabz/types';
 import {
   fetchBrands,
   fetchCategoryTree,
+  fetchFacets,
   fetchProducts,
 } from '@/lib/catalog';
 import { withCategoryPreset, buildListingHref } from '@/lib/listing';
@@ -53,8 +54,9 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
   }
 
   const state = withCategoryPreset(rawSearchParams, slug);
-  const [brands, result] = await Promise.all([
+  const [brands, facets, result] = await Promise.all([
     fetchBrands(),
+    fetchFacets(state.category),
     fetchProducts({
       q: state.q || undefined,
       category: state.category,
@@ -64,6 +66,7 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
       priceTo: state.priceTo || undefined,
       inStockOnly: state.inStockOnly || undefined,
       rating: state.rating || undefined,
+      attrs: state.attrs || undefined,
       sort: state.sort,
       page: state.page,
       limit: state.perPage,
@@ -73,8 +76,9 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
   const basePath = `/categories/${slug}`;
   const makeHref = (page: number) => buildListingHref(basePath, state, { page });
 
+  const brandOptions = facets.brands.length > 0 ? facets.brands : brands.items
   const brandName = state.brand
-    ? brands.items.find((brand) => brand.slug === state.brand)?.name
+    ? brandOptions.find((brand) => brand.slug === state.brand)?.name
     : undefined;
 
   const trail = findCategoryPath(categories, slug);
@@ -116,8 +120,9 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
           <FiltersPanel
             state={state}
             categories={categories}
-            brands={brands.items}
-            brandsTotal={brands.total}
+            brands={brandOptions}
+            brandsTotal={facets.brands.length > 0 ? facets.brands.length : brands.total}
+            facets={facets}
             basePath={basePath}
           />
         </div>
@@ -127,8 +132,9 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
             <FiltersSheet
               state={state}
               categories={categories}
-              brands={brands.items}
-              brandsTotal={brands.total}
+              brands={brandOptions}
+              brandsTotal={facets.brands.length > 0 ? facets.brands.length : brands.total}
+              facets={facets}
               basePath={basePath}
             />
           </div>

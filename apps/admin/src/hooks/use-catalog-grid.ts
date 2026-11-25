@@ -52,8 +52,13 @@ export interface CatalogGridProductPatch {
 
 export interface CatalogGridRowPatch {
   variantId: string
-  price: string
-  compareAtPrice: string | null
+  regularPrice: string
+  discountedPrice: string | null
+  discountStartsAt?: string | null
+  discountEndsAt?: string | null
+  partnerPrice?: string | null
+  priceUpdatedAt?: string | null
+  effectivePrice?: string | null
   expectedUpdatedAt: string
   stock?: number
   sku?: string
@@ -310,8 +315,24 @@ export function useCatalogGrid() {
               }
               return {
                 ...item,
-                price: patch.price,
-                compareAtPrice: patch.compareAtPrice,
+                regularPrice: patch.regularPrice,
+                discountedPrice: patch.discountedPrice,
+                discountStartsAt:
+                  patch.discountStartsAt !== undefined
+                    ? patch.discountStartsAt
+                    : item.discountStartsAt,
+                discountEndsAt:
+                  patch.discountEndsAt !== undefined
+                    ? patch.discountEndsAt
+                    : item.discountEndsAt,
+                partnerPrice:
+                  patch.partnerPrice !== undefined
+                    ? patch.partnerPrice
+                    : item.partnerPrice,
+                priceUpdatedAt:
+                  patch.priceUpdatedAt !== undefined
+                    ? patch.priceUpdatedAt
+                    : item.priceUpdatedAt,
                 stock: patch.stock ?? item.stock,
                 expectedUpdatedAt: patch.expectedUpdatedAt,
                 sku: patch.sku ?? item.sku,

@@ -29,6 +29,14 @@ describe('classifyColumn (SS-206)', () => {
     expect(classifyColumn('دسته‌ها')).toMatchObject({
       disposition: 'mapped',
     });
+    expect(classifyColumn('تاریخ شروع فروش ویژه')).toMatchObject({
+      disposition: 'mapped',
+      target: 'Variant.discountStartsAt',
+    });
+    expect(classifyColumn('تاریخ پایان فروش ویژه')).toMatchObject({
+      disposition: 'mapped',
+      target: 'Variant.discountEndsAt',
+    });
     expect(classifyColumn('متا: custom_attributes')).toMatchObject({
       disposition: 'mapped',
     });
@@ -69,16 +77,16 @@ describe('classifyColumn (SS-206)', () => {
     expect(classifyAttributeColumn('نام 0 صفت')).toBeNull();
   });
 
-  it('covers the full 243-column export header with zero fallback', () => {
+  it('covers the full 244-column export header with zero fallback', () => {
     const header = fixtureHeader();
-    expect(header).toHaveLength(243);
+    expect(header).toHaveLength(244);
     expect(fallbackHeaders(header)).toEqual([]);
     const histogram = classifyHeaders(header);
     expect(
       histogram.mapped.length +
         histogram.deferred.length +
         histogram.ignored.length,
-    ).toBe(243);
+    ).toBe(244);
   });
 
   it('every explicit key exists in the real header (typo guard)', () => {

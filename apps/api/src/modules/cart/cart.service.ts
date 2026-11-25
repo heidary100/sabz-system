@@ -13,14 +13,14 @@ import type {
   RemoveCartItemResponse,
 } from '@sabz/types';
 import { PrismaService } from '../../common/database/prisma.service';
+import { hasActiveProductSale } from '../../common/money/discount';
+import { roundRialUp } from '../../common/money/rial';
 import {
   activeInventoryWhere,
   deriveAvailable,
 } from '../inventory/inventory-aggregate';
 import { PricingService } from '../pricing/pricing.service';
-
-/** Server-provided public URL prefix for stored media (SS-123, same as catalog cards). */
-const PUBLIC_MEDIA_URL_PREFIX = '/api/v1/catalog/media';
+import { publicMediaAssetUrl } from '../products/media-public-url';
 
 const LINE_WITH_VARIANT = {
   id: true,
@@ -33,6 +33,10 @@ const LINE_WITH_VARIANT = {
       sku: true,
       name: true,
       price: true,
+      discountedPrice: true,
+      discountStartsAt: true,
+      discountEndsAt: true,
+      partnerPrice: true,
       priceStatus: true,
       deletedAt: true,
       product: {
@@ -112,7 +116,10 @@ export class CartService {
         where: { id: existing.id },
         data: { quantity: nextQuantity },
       });
-      return { item: await this.hydrateSingle(cart.id, variantId, userId), created: false };
+      return {
+        item: await this.rebaselineLine(cart.id, variantId, userId),
+        created: false,
+      };
     }
 
     try {
@@ -121,10 +128,26 @@ export class CartService {
           cartId: cart.id,
           variantId,
           quantity,
-          unitPriceAtAdd: variant.price,
+          // The add-time baseline must be the SAME authoritative resolved
+          // unit the customer is shown (tier/bulk/category/promotion chain),
+          // not a simplified variant-price estimate. Rebaselined below once
+          // the full pricing context is loaded.
+          unitPriceAtAdd: roundRialUp(
+            hasActiveProductSale({
+              price: variant.price,
+              discountedPrice: variant.discountedPrice,
+              discountStartsAt: variant.discountStartsAt,
+              discountEndsAt: variant.discountEndsAt,
+            })
+              ? variant.discountedPrice
+              : variant.price,
+          ),
         },
       });
-      return { item: await this.hydrateSingle(cart.id, variantId, userId), created: true };
+      return {
+        item: await this.rebaselineLine(cart.id, variantId, userId),
+        created: true,
+      };
     } catch {
       // Lost a concurrent-insert race (unique [cartId, variantId]): the line
       // exists now, so increment it instead of a 500.
@@ -140,7 +163,10 @@ export class CartService {
         where: { id: raced.id },
         data: { quantity: racedQuantity },
       });
-      return { item: await this.hydrateSingle(cart.id, variantId, userId), created: false };
+      return {
+        item: await this.rebaselineLine(cart.id, variantId, userId),
+        created: false,
+      };
     }
   }
 
@@ -173,7 +199,58 @@ export class CartService {
       where: { id: line.id },
       data: { quantity },
     });
-    return this.hydrateSingle(cart.id, variantId, userId);
+    // Quantity is part of the pricing context (bulk tiers). The customer
+    // just chose this quantity, so the new effective unit is the accepted
+    // baseline; otherwise a bulk-tier change would look like a price drift.
+    return this.rebaselineLine(cart.id, variantId, userId);
+  }
+
+  /**
+   * Explicitly accepts the current authoritative price for every cart line,
+   * clearing genuine change warnings until the next external price change.
+   * The server resolves the values; the client never supplies prices.
+   */
+  async acknowledgePrices(userId: string): Promise<CartResponse> {
+    const cart = await this.prisma.cart.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+    if (!cart) {
+      return { items: [], totalQuantity: 0, subtotal: '0' };
+    }
+    const current = await this.hydrate(cart.id, userId);
+    for (const item of current.items) {
+      await this.prisma.cartItem.update({
+        where: {
+          cartId_variantId: { cartId: cart.id, variantId: item.variantId },
+        },
+        data: { unitPriceAtAdd: new Prisma.Decimal(item.unitPrice) },
+      });
+    }
+    // Re-read so totals and flags are computed from the persisted baseline.
+    return this.hydrate(cart.id, userId);
+  }
+
+  /**
+   * Recomputes a line's authoritative unit and stores it as the accepted
+   * add-time baseline. Used when the customer creates a line, increases its
+   * quantity, or explicitly acknowledges a new price.
+   */
+  private async rebaselineLine(
+    cartId: string,
+    variantId: string,
+    userId: string,
+  ): Promise<CartItemDto> {
+    const item = await this.hydrateSingle(cartId, variantId, userId);
+    await this.prisma.cartItem.update({
+      where: { cartId_variantId: { cartId, variantId } },
+      data: { unitPriceAtAdd: new Prisma.Decimal(item.unitPrice) },
+    });
+    return {
+      ...item,
+      unitPriceAtAdd: item.unitPrice,
+      priceChanged: false,
+    };
   }
 
   async remove(userId: string, variantId: string): Promise<RemoveCartItemResponse> {
@@ -273,14 +350,25 @@ export class CartService {
    * product PUBLISHED and non-deleted (the wishlist visibility predicate),
    * and PRICED (CALL_FOR_PRICE rows are published but non-purchasable).
    */
-  private async requirePurchasable(variantId: string): Promise<{ price: Prisma.Decimal }> {
+  private async requirePurchasable(variantId: string): Promise<{
+    price: Prisma.Decimal;
+    discountedPrice: Prisma.Decimal | null;
+    discountStartsAt: Date | null;
+    discountEndsAt: Date | null;
+  }> {
     const variant = await this.prisma.productVariant.findFirst({
       where: {
         id: variantId,
         deletedAt: null,
         product: { deletedAt: null, status: ProductStatus.PUBLISHED },
       },
-      select: { price: true, priceStatus: true },
+      select: {
+        price: true,
+        discountedPrice: true,
+        discountStartsAt: true,
+        discountEndsAt: true,
+        priceStatus: true,
+      },
     });
     if (!variant) {
       throw new NotFoundException('محصول یافت نشد.');
@@ -334,10 +422,14 @@ export class CartService {
         productId: { in: unique },
         deletedAt: null,
         mediaType: ProductMediaType.IMAGE,
+        // Pending import placeholders have no binary; never render them as a
+        // cart image while the media stage is incomplete.
+        NOT: { storageKey: { startsWith: 'pending-woo' } },
       },
       select: {
         id: true,
         productId: true,
+        storageKey: true,
         isPrimary: true,
         sortOrder: true,
         createdAt: true,
@@ -345,7 +437,13 @@ export class CartService {
     });
     const best = new Map<
       string,
-      { id: string; isPrimary: boolean; sortOrder: number; createdAt: Date }
+      {
+        id: string;
+        storageKey: string;
+        isPrimary: boolean;
+        sortOrder: number;
+        createdAt: Date;
+      }
     >();
     for (const row of media) {
       const current = best.get(row.productId);
@@ -362,7 +460,7 @@ export class CartService {
     }
     const urls = new Map<string, string>();
     for (const [productId, row] of best) {
-      urls.set(productId, `${PUBLIC_MEDIA_URL_PREFIX}/${row.id}`);
+      urls.set(productId, publicMediaAssetUrl(row.id, row.storageKey));
     }
     return urls;
   }
@@ -388,10 +486,12 @@ export class CartService {
     const imageByProduct = await this.primaryImageByProduct(
       visible.map((line) => line.variant.product.id),
     );
-    // One tier lookup per hydration; promotions resolve per line.
-    const tierPct = await this.pricing.tierDiscountForUser(userId);
+    // One partner lookup per hydration; promotions resolve per line.
+    const partner = await this.pricing.partnerPricingForUser(userId);
     const items = await Promise.all(
-      visible.map((line) => this.toDto(line, availableByVariant, imageByProduct, tierPct)),
+      visible.map((line) =>
+        this.toDto(line, availableByVariant, imageByProduct, partner),
+      ),
     );
     let subtotal = new Prisma.Decimal(0);
     let totalQuantity = 0;
@@ -415,15 +515,15 @@ export class CartService {
     const imageByProduct = await this.primaryImageByProduct([
       line.variant.product.id,
     ]);
-    const tierPct = await this.pricing.tierDiscountForUser(userId);
-    return this.toDto(line, availableByVariant, imageByProduct, tierPct);
+    const partner = await this.pricing.partnerPricingForUser(userId);
+    return this.toDto(line, availableByVariant, imageByProduct, partner);
   }
 
   private async toDto(
     line: LineWithVariant,
     availableByVariant: Map<string, number>,
     imageByProduct: Map<string, string>,
-    tierDiscountPercent: Prisma.Decimal,
+    partner: { tierPercent: Prisma.Decimal; eligible: boolean },
   ): Promise<CartItemDto> {
     // SS-235: the line truth is the server-resolved price, never the raw
     // variant price and never anything the client sends (CART-004).
@@ -441,11 +541,24 @@ export class CartService {
     const unitPrice = PricingService.resolveLine(
       line.variant.price,
       line.quantity,
-      tierDiscountPercent,
+      partner.tierPercent,
       promotions,
       { categoryRule, override },
+      {
+        regularPrice: line.variant.price,
+        discountedPrice: line.variant.discountedPrice,
+        discountStartsAt: line.variant.discountStartsAt,
+        discountEndsAt: line.variant.discountEndsAt,
+        partnerPrice: line.variant.partnerPrice,
+        partnerEligible: partner.eligible,
+      },
     ).toString();
     const unitPriceAtAdd = line.unitPriceAtAdd.toString();
+    // Decimal-aware comparison: equal monetary values in different string
+    // representations ("100000" vs "100000.00") are NOT a price change.
+    const priceChanged = !new Prisma.Decimal(unitPrice).equals(
+      line.unitPriceAtAdd,
+    );
     const available = availableByVariant.get(line.variantId) ?? 0;
     return {
       variantId: line.variantId,
@@ -458,7 +571,7 @@ export class CartService {
       unitPrice,
       unitPriceAtAdd,
       lineTotal: new Prisma.Decimal(unitPrice).mul(line.quantity).toString(),
-      priceChanged: unitPrice !== unitPriceAtAdd,
+      priceChanged,
       priceStatus: line.variant.priceStatus,
       available,
       inStock: available > 0,

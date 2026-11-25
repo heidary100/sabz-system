@@ -8,7 +8,7 @@ import type {
   ReorderCategoryInput,
   UpdateCategoryInput,
 } from '@sabz/types'
-import { request } from './api'
+import { request, requestMultipart } from './api'
 
 function buildListQuery(query: CategoryListQuery): string {
   const params = new URLSearchParams()
@@ -65,6 +65,24 @@ export function updateCategory(
 
 export function deleteCategory(categoryId: string): Promise<CategoryDetail> {
   return request<CategoryDetail>(`/admin/categories/${categoryId}`, {
+    method: 'DELETE',
+  })
+}
+
+export function uploadCategoryImage(
+  categoryId: string,
+  file: File,
+): Promise<CategoryDetail> {
+  const formData = new FormData()
+  formData.append('image', file)
+  return requestMultipart<CategoryDetail>(
+    `/admin/categories/${categoryId}/image`,
+    formData,
+  )
+}
+
+export function removeCategoryImage(categoryId: string): Promise<CategoryDetail> {
+  return request<CategoryDetail>(`/admin/categories/${categoryId}/image`, {
     method: 'DELETE',
   })
 }

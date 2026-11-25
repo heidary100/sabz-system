@@ -6,7 +6,7 @@ import type {
   OrderStatus,
   UpdateShipmentInput,
 } from '@sabz/types'
-import { request } from './api'
+import { request, requestBlob } from './api'
 
 export interface OrderListQuery {
   status?: OrderStatus | ''
@@ -65,4 +65,10 @@ export function addTrackingEvent(
     method: 'POST',
     body: JSON.stringify(input),
   })
+}
+
+
+/** Print-ready PDF invoice for the operator view (SS-900). */
+export function downloadOrderInvoicePdf(orderId: string): Promise<Blob> {
+  return requestBlob(`/admin/orders/${orderId}/invoice/pdf`)
 }

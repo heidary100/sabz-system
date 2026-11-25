@@ -4,9 +4,9 @@ import type { PriceStatus } from '../product/type';
  * Customer cart contract (SS-232).
  *
  * The cart is per-user private state behind `JwtAuthGuard` — one cart per
- * authenticated user, lines keyed by variant (CART-001). Money is Rial
- * verbatim (SS-207 "O-1"), serialized as Decimal strings; the storefront
- * presents Toman via `lib/currency.ts`.
+ * authenticated user, lines keyed by variant (CART-001). Money is Rial,
+ * serialized as Decimal strings; the storefront displays the server-rounded
+ * Rial value.
  *
  * Price semantics (CART-003/004): `unitPrice` is the LIVE variant price and
  * the only line truth; `unitPriceAtAdd` is the add-time snapshot kept for

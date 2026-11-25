@@ -536,6 +536,14 @@ describe('Public catalog API (SS-120/121/122) (e2e)', () => {
       expect(res.body.limit).toBe(50);
       expect(typeof res.body.total).toBe('number');
       const ids = res.body.items.map((item: { id: string }) => item.id);
+      // The shared test database may hold more than one page of brands from
+      // other suites; walk the pagination instead of assuming the first page.
+      for (let page = 2; page <= Math.ceil(res.body.total / 50); page += 1) {
+        const next = await request(app.getHttpServer())
+          .get(`${BRANDS_BASE}?page=${page}&limit=50`)
+          .expect(200);
+        ids.push(...next.body.items.map((item: { id: string }) => item.id));
+      }
       expect(ids).toContain(brand.id);
       expect(ids).not.toContain(deleted.id);
       for (const item of res.body.items) {
@@ -562,7 +570,7 @@ describe('Public catalog API (SS-120/121/122) (e2e)', () => {
       const token = await createOperator();
       const name = `لیستینگ ${uniqueSuffix()}`;
       const draft = await seedProduct(token, name, {
-        prices: ['5000.00'],
+        prices: ['5000000.00'],
         withImage: true,
       });
       await request(app.getHttpServer())
@@ -570,7 +578,7 @@ describe('Public catalog API (SS-120/121/122) (e2e)', () => {
         .expect(200)
         .then((res) => expect(res.body.total).toBe(0));
 
-      await publishProduct(token, draft.productId, '5000.00');
+      await publishProduct(token, draft.productId, '5000000.00');
 
       const res = await request(app.getHttpServer())
         .get(`${PRODUCTS_BASE}?q=${encodeURIComponent(name)}`)
@@ -579,18 +587,17 @@ describe('Public catalog API (SS-120/121/122) (e2e)', () => {
       const card = res.body.items[0];
       expect(card.id).toBe(draft.productId);
       expect(card.name).toBe(name);
-      expect(card.priceFrom).toBe('5000');
-      expect(card.compareAtPrice).toBeNull();
+      expect(card.priceFrom).toBe('5000000');
+      expect(card.regularPrice).toBeNull();
       expect(card.inStock).toBe(false);
-      expect(card.primaryImageUrl).toBe(
-        `/api/v1/catalog/media/${draft.mediaId}`,
+      expect(card.primaryImageUrl).toMatch(
+        new RegExp(`^/api/v1/catalog/media/${draft.mediaId}\\?v=`),
       );
       expect(card.primaryThumbnailUrl).toBeNull();
       expect(Object.keys(card).sort()).toEqual([
         'brand',
         'callForPrice',
         'category',
-        'compareAtPrice',
         'condition',
         'id',
         'inStock',
@@ -601,6 +608,7 @@ describe('Public catalog API (SS-120/121/122) (e2e)', () => {
         'promotionEndsAt',
         'ratingAverage',
         'ratingCount',
+        'regularPrice',
         'slug',
         'variantCount',
       ]);
@@ -708,21 +716,21 @@ describe('Public catalog API (SS-120/121/122) (e2e)', () => {
     it('sorts by newest, name and minimum variant price', async () => {
       const token = await createOperator();
       const prefix = `سورت ${uniqueSuffix()}`;
-      // Product A: variants 200 + 100 → priceFrom 100. Product B: 150 → 150.
+      // Product A: variants 20m + 10m → priceFrom 10m. Product B: 15m.
       // ASCII markers keep the generated slugs unique (Persian is stripped).
       const a = await seedProduct(token, `${prefix}-a`, {
-        prices: ['200.00', '100.00'],
+        prices: ['20000000.00', '10000000.00'],
       });
-      const b = await seedProduct(token, `${prefix}-b`, { prices: ['150.00'] });
-      await publishProduct(token, a.productId, '1000.00');
-      await publishProduct(token, b.productId, '1000.00');
+      const b = await seedProduct(token, `${prefix}-b`, { prices: ['15000000.00'] });
+      await publishProduct(token, a.productId, '100000000.00');
+      await publishProduct(token, b.productId, '100000000.00');
 
       const priceAsc = await request(app.getHttpServer())
         .get(`${PRODUCTS_BASE}?q=${encodeURIComponent(prefix)}&sort=price_asc`)
         .expect(200);
       const ascIds = priceAsc.body.items.map((c: { id: string }) => c.id);
       expect(ascIds).toEqual([a.productId, b.productId]);
-      expect(priceAsc.body.items[0].priceFrom).toBe('100');
+      expect(priceAsc.body.items[0].priceFrom).toBe('10000000');
 
       const priceDesc = await request(app.getHttpServer())
         .get(`${PRODUCTS_BASE}?q=${encodeURIComponent(prefix)}&sort=price_desc`)
@@ -850,7 +858,7 @@ describe('Public catalog API (SS-120/121/122) (e2e)', () => {
         .expect(201);
       mediaIds.push(media2.body.id);
 
-      await publishProduct(token, created.body.id, '750.50');
+      await publishProduct(token, created.body.id, '750000.50');
 
       const res = await request(app.getHttpServer())
         .get(`${PRODUCTS_BASE}/detail-${suffix}`)
@@ -867,14 +875,16 @@ describe('Public catalog API (SS-120/121/122) (e2e)', () => {
       ]);
       expect(res.body.variants).toHaveLength(1);
       // Prisma Decimal serializes without a trailing zero.
-      expect(res.body.variants[0].price).toBe('750.5');
+      expect(res.body.variants[0].price).toBe('800000');
       expect(res.body.inStock).toBe(false);
       // Primary image first in the media list.
       expect(res.body.media.map((m: { id: string }) => m.id)).toEqual([
         media.body.id,
         media2.body.id,
       ]);
-      expect(res.body.media[0].url).toBe(`/api/v1/catalog/media/${media.body.id}`);
+      expect(res.body.media[0].url).toMatch(
+        new RegExp(`^/api/v1/catalog/media/${media.body.id}\\?v=`),
+      );
       expect(JSON.stringify(res.body)).not.toContain('storageKey');
     });
 
@@ -1010,7 +1020,7 @@ describe('Public catalog API (SS-120/121/122) (e2e)', () => {
       return created.body.id as string;
     }
 
-    it('exposes compareAtPrice on sale variants and validates pricing rules', async () => {
+    it('exposes the sale price and regular reference on variants and validates pricing rules', async () => {
       const token = await createOperator();
       const slug = `sale-${uniqueSuffix()}`;
       const productId = await createProductWithSlug(token, slug);
@@ -1020,19 +1030,19 @@ describe('Public catalog API (SS-120/121/122) (e2e)', () => {
         .set('Authorization', `Bearer ${token}`)
         .send({
           sku: `SKU-${uniqueSuffix()}`,
-          price: '1500.00',
-          compareAtPrice: '1800.00',
+          price: '1800000.00',
+          discountedPrice: '1500000.00',
         })
         .expect(201);
       variantIds.push(sale.body.id);
-      expect(sale.body.compareAtPrice).toBe('1800');
+      expect(sale.body.discountedPrice).toBe('1500000');
       expect(sale.body.priceStatus).toBe(PriceStatus.PRICED);
 
       // Reference at/below price is rejected…
       await request(app.getHttpServer())
         .post(`/api/v1/admin/products/${productId}/variants`)
         .set('Authorization', `Bearer ${token}`)
-        .send({ sku: `SKU-${uniqueSuffix()}`, price: '1500.00', compareAtPrice: '1500.00' })
+        .send({ sku: `SKU-${uniqueSuffix()}`, price: '1500000.00', discountedPrice: '1500000.00' })
         .expect(400);
 
       // …as is a reference price on a call-for-price variant.
@@ -1042,7 +1052,7 @@ describe('Public catalog API (SS-120/121/122) (e2e)', () => {
         .send({
           sku: `SKU-${uniqueSuffix()}`,
           price: '0',
-          compareAtPrice: '1800.00',
+          discountedPrice: '1800000.00',
           priceStatus: PriceStatus.CALL_FOR_PRICE,
         })
         .expect(400);
@@ -1056,7 +1066,8 @@ describe('Public catalog API (SS-120/121/122) (e2e)', () => {
         .get(`${PRODUCTS_BASE}/${slug}`)
         .expect(200);
       expect(detail.body.variants).toHaveLength(1);
-      expect(detail.body.variants[0].compareAtPrice).toBe('1800');
+      expect(detail.body.variants[0].price).toBe('1500000');
+      expect(detail.body.variants[0].regularPrice).toBe('1800000');
       expect(detail.body.variants[0].priceStatus).toBe(PriceStatus.PRICED);
 
       const card = (
@@ -1064,7 +1075,8 @@ describe('Public catalog API (SS-120/121/122) (e2e)', () => {
           .get(`${PRODUCTS_BASE}?q=${encodeURIComponent(slug)}`)
           .expect(200)
       ).body.items[0];
-      expect(card.priceFrom).toBe('1500');
+      expect(card.priceFrom).toBe('1500000');
+      expect(card.regularPrice).toBe('1800000');
       expect(card.callForPrice).toBe(false);
       expect(card.variantCount).toBe(1);
 
@@ -1074,19 +1086,19 @@ describe('Public catalog API (SS-120/121/122) (e2e)', () => {
       await request(app.getHttpServer())
         .patch(`/api/v1/admin/variants/${variantId}`)
         .set('Authorization', `Bearer ${token}`)
-        .send({ compareAtPrice: '1500.00' })
+        .send({ discountedPrice: '1800000.00' })
         .expect(400);
       await request(app.getHttpServer())
         .patch(`/api/v1/admin/variants/${variantId}`)
         .set('Authorization', `Bearer ${token}`)
-        .send({ price: '1800.00' })
+        .send({ price: '1500000.00' })
         .expect(400);
 
       // …and a raise of the reference above the stored price still succeeds.
       await request(app.getHttpServer())
         .patch(`/api/v1/admin/variants/${variantId}`)
         .set('Authorization', `Bearer ${token}`)
-        .send({ compareAtPrice: '1900.00' })
+        .send({ discountedPrice: '1200000.00' })
         .expect(200);
     });
 
@@ -1578,7 +1590,7 @@ describe('Public catalog API (SS-120/121/122) (e2e)', () => {
     it('resolves the B1 chain for guests and tier partners with pinned keys', async () => {
       const token = await createOperator();
       const name = `قیمت‌گذاری ${uniqueSuffix()}`;
-      const seeded = await seedProduct(token, name, { prices: ['10000'] });
+      const seeded = await seedProduct(token, name, { prices: ['10000000'] });
       // Publish without adding a second variant: the quote math below is
       // exact for the single 10000-Rial variant.
       await request(app.getHttpServer())
@@ -1592,8 +1604,8 @@ describe('Public catalog API (SS-120/121/122) (e2e)', () => {
       const variantId = seeded.variantIds[0]!;
       const suffix = uniqueSuffix();
 
-      // B1 chain setup: −10% category rule, then −1000 Rial override.
-      // 10000 → 9000 → 8000 before tier/bulk/promotion.
+      // B1 chain setup: −10% category rule, then −1,000,000 Rial override.
+      // 10m → 9m → 8m before tier/bulk/promotion.
       await prisma.categoryPriceRule.create({
         data: {
           categoryId: prod.categoryId,
@@ -1604,7 +1616,7 @@ describe('Public catalog API (SS-120/121/122) (e2e)', () => {
         },
       });
       await prisma.productPriceOverride.create({
-        data: { productId: seeded.productId, type: 'FIXED', value: 1000, isActive: true },
+        data: { productId: seeded.productId, type: 'FIXED', value: 1000000, isActive: true },
       });
 
       const QUOTE_KEYS = [
@@ -1631,22 +1643,22 @@ describe('Public catalog API (SS-120/121/122) (e2e)', () => {
           expect(res.body.quotes[0]).toMatchObject({
             variantId,
             priceStatus: 'PRICED',
-            basePrice: '10000',
-            resolvedPrice: '8000',
+            basePrice: '10000000',
+            resolvedPrice: '8000000',
             promotionEndsAt: null,
           });
         });
 
-      // Guest bulk at qty 10 (−3% after rule/override): 8000 → 7760.
+      // Guest bulk at qty 10 (−3% after rule/override): 8m → 7.76m → 7.8m.
       await request(app.getHttpServer())
         .get(`${PRODUCTS_BASE}/${prod.slug}/price?quantity=10`)
         .expect(200)
         .then((res) => {
-          expect(res.body.quotes[0].resolvedPrice).toBe('7760');
+          expect(res.body.quotes[0].resolvedPrice).toBe('7800000');
         });
 
-      // Approved partner on a 20% tier: 8000 → 6400 (qty 1),
-      // 6400 → 6208 at qty 10 (bulk after tier).
+      // Approved partner on a 20% tier: 8m → 6.4m (qty 1),
+      // 6.4m → 6.208m → 6.3m at qty 10 (bulk after tier).
       const partnerMobile = uniqueMobile();
       mobiles.push(partnerMobile);
       const partnerUser = await prisma.user.create({
@@ -1676,7 +1688,7 @@ describe('Public catalog API (SS-120/121/122) (e2e)', () => {
           .expect(200)
           .then((res) => {
             expect(res.body.tierApplied).toBe(true);
-            expect(res.body.quotes[0].resolvedPrice).toBe('6400');
+            expect(res.body.quotes[0].resolvedPrice).toBe('6400000');
           });
 
         await request(app.getHttpServer())
@@ -1684,17 +1696,17 @@ describe('Public catalog API (SS-120/121/122) (e2e)', () => {
           .set('Authorization', `Bearer ${partnerToken}`)
           .expect(200)
           .then((res) => {
-            expect(res.body.quotes[0].resolvedPrice).toBe('6208');
+            expect(res.body.quotes[0].resolvedPrice).toBe('6300000');
           });
 
-        // Product-scoped FIXED promotion (500 Rial off): guest 8000 → 7500,
+        // Product-scoped FIXED promotion (500,000 Rial off): guest 8m → 7.5m,
         // with a real promotionEndsAt on the quote, card, and detail.
         const promo = await prisma.promotion.create({
           data: {
             code: `B1-${suffix}`,
             titleFa: 'فروش ویژه',
             type: 'FIXED',
-            value: 500,
+            value: 500000,
             startsAt: new Date(Date.now() - 3_600_000),
             endsAt: new Date(Date.now() + 86_400_000),
             isActive: true,
@@ -1706,7 +1718,7 @@ describe('Public catalog API (SS-120/121/122) (e2e)', () => {
             .get(`${PRODUCTS_BASE}/${prod.slug}/price`)
             .expect(200)
             .then((res) => {
-              expect(res.body.quotes[0].resolvedPrice).toBe('7500');
+              expect(res.body.quotes[0].resolvedPrice).toBe('7500000');
               expect(typeof res.body.quotes[0].promotionEndsAt).toBe('string');
             });
 

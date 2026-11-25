@@ -10,6 +10,7 @@ import {
   buildRowHash,
   faError,
   parseWooPrice,
+  parseWooSaleDate,
   readAttributeSlots,
   splitDottedName,
 } from './woo-write';
@@ -94,13 +95,29 @@ describe('splitDottedName + readAttributeSlots (SS-207 specs)', () => {
   });
 });
 
+describe('parseWooSaleDate', () => {
+  it('parses Woo single-digit hours as Asia/Tehran instants', () => {
+    expect(parseWooSaleDate('2026-11-23 0:00:00')?.toISOString()).toBe(
+      '2026-11-22T20:30:00.000Z',
+    );
+    expect(parseWooSaleDate('2026-11-29 23:59:59')?.toISOString()).toBe(
+      '2026-11-29T20:29:59.000Z',
+    );
+    expect(parseWooSaleDate('')).toBeNull();
+    expect(parseWooSaleDate('not-a-date')).toBeNull();
+    expect(parseWooSaleDate('2026/11/23 00:00:00')).toBeNull();
+  });
+});
+
 describe('buildProductPlan (SS-207)', () => {
-  it('maps a priced on-sale row to price=sale + compareAt=regular', async () => {
+  it('maps a priced on-sale row to regular price + discounted sale price', async () => {
     const { verdict, plan } = await planFor(BASE);
     expect(verdict.action).toBe('CREATE');
     expect(plan).toMatchObject({
-      price: '15000000',
-      compareAtPrice: '18000000',
+      price: '18000000',
+      discountedPrice: '15000000',
+      discountStartsAt: null,
+      discountEndsAt: null,
       priceStatus: 'PRICED',
       status: 'PUBLISHED',
       stockQty: 0,
@@ -108,14 +125,59 @@ describe('buildProductPlan (SS-207)', () => {
     });
   });
 
+  it('preserves an expired Woo sale window instead of making it evergreen', async () => {
+    const { plan } = await planFor({
+      ...BASE,
+      'تاریخ شروع فروش ویژه': '2020-09-09 0:00:00',
+      'تاریخ پایان فروش ویژه': '2020-09-09 23:59:59',
+    });
+    expect(plan).toMatchObject({
+      price: '18000000',
+      discountedPrice: '15000000',
+      discountStartsAt: '2020-09-08T20:30:00.000Z',
+      discountEndsAt: '2020-09-09T20:29:59.000Z',
+    });
+  });
+
+  it('never treats a numeric second_image attachment id as an image URL', async () => {
+    const { plan } = await planFor({
+      ...BASE,
+      'تصاویر': 'https://sabzsistem.com/a.jpg,https://sabzsistem.com/b.jpg',
+      'متا: second_image': '13713',
+    });
+    expect(plan?.media.map((item) => item.url)).toEqual([
+      'https://sabzsistem.com/a.jpg',
+      'https://sabzsistem.com/b.jpg',
+    ]);
+  });
+
+  it('drops a sale with an inverted or malformed window (fail closed)', async () => {
+    const inverted = await planFor({
+      ...BASE,
+      'تاریخ شروع فروش ویژه': '2026-11-29 0:00:00',
+      'تاریخ پایان فروش ویژه': '2026-11-23 0:00:00',
+    });
+    expect(inverted.plan).toMatchObject({
+      price: '18000000',
+      discountedPrice: null,
+      discountStartsAt: null,
+      discountEndsAt: null,
+    });
+    const malformed = await planFor({
+      ...BASE,
+      'تاریخ شروع فروش ویژه': 'not-a-date',
+    });
+    expect(malformed.plan?.discountedPrice).toBeNull();
+  });
+
   it('maps priceless published rows to CALL_FOR_PRICE with price 0', async () => {
     const { plan } = await planFor({ ...BASE, 'قیمت عادی': '', 'قیمت فروش ویژه': '' });
-    expect(plan).toMatchObject({ price: '0', compareAtPrice: null, priceStatus: 'CALL_FOR_PRICE' });
+    expect(plan).toMatchObject({ price: '0', discountedPrice: null, priceStatus: 'CALL_FOR_PRICE' });
   });
 
   it('drops compareAt on sale-without-regular edges', async () => {
     const { plan } = await planFor({ ...BASE, 'قیمت عادی': '', 'قیمت فروش ویژه': '12000000' });
-    expect(plan).toMatchObject({ price: '0', compareAtPrice: null, priceStatus: 'CALL_FOR_PRICE' });
+    expect(plan).toMatchObject({ price: '0', discountedPrice: null, priceStatus: 'CALL_FOR_PRICE' });
   });
 
   it('separates variant axes, specs, and brand slots', async () => {

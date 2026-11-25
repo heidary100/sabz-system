@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildShareMessage,
+  buildSharePayload,
   shareTextWithoutUrl,
 } from './share-message';
 
@@ -12,7 +13,7 @@ import {
 const URL = 'https://shop.example.com/products/some-slug';
 
 describe('buildShareMessage', () => {
-  it('composes title + brand + exact Toman price + URL for a single-variant product', () => {
+  it('composes title + brand + exact Rial price + URL for a single-variant product', () => {
     const message = buildShareMessage({
       title: 'ماوس گیمینگ پرووان مدل BOLT PMG55',
       brandName: 'proone',
@@ -94,5 +95,43 @@ describe('shareTextWithoutUrl', () => {
 
   it('is a no-op when the message does not end with the URL', () => {
     expect(shareTextWithoutUrl('plain text', URL)).toBe('plain text');
+  });
+});
+
+
+describe('buildSharePayload (SS-900)', () => {
+  it('includes short description, brand, selected variant, image and prices', () => {
+    const payload = buildSharePayload({
+      title: 'لپ‌تاپ ایسوس',
+      shortDescription: 'مدل گیمینگ ۱۶ اینچی',
+      brandName: 'ایسوس',
+      variantName: 'Core i7 / 16GB',
+      imageUrl: 'https://shop.example/media/a.png',
+      priceFromRial: '7700000',
+      regularPriceRial: '8100000',
+      variantCount: 1,
+      url: URL,
+    });
+    expect(payload.imageUrl).toBe('https://shop.example/media/a.png');
+    expect(payload.shortDescription).toBe('مدل گیمینگ ۱۶ اینچی');
+    expect(payload.variantName).toBe('Core i7 / 16GB');
+    expect(payload.priceRial).toBe('7700000');
+    expect(payload.regularPriceRial).toBe('8100000');
+    expect(payload.text).toContain('مدل گیمینگ ۱۶ اینچی');
+    expect(payload.text).toContain('مدل: Core i7 / 16GB');
+    expect(payload.text).toContain('قیمت: ۷۷۰٬۰۰۰ تومان');
+    expect(payload.text).toContain('قیمت عادی: ۸۱۰٬۰۰۰ تومان');
+    expect(payload.text).not.toContain('description');
+  });
+
+  it('never includes an invalid discount after rounding', () => {
+    const message = buildShareMessage({
+      title: 'X',
+      priceFromRial: '7700000',
+      regularPriceRial: '7700000',
+      variantCount: 1,
+      url: URL,
+    });
+    expect(message).not.toContain('قیمت عادی');
   });
 });

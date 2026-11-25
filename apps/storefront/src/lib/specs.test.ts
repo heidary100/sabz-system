@@ -13,12 +13,19 @@ function spec(
   attributeGroup: string | null = null,
 ): CatalogProductSpecDto {
   return {
+    attributeId: attributeName,
     attributeName,
     attributeSlug: attributeName,
     attributeGroup,
     value,
     valueSlug: value,
     sortOrder: 0,
+    valueType: 'TEXT',
+    unit: null,
+    isFilterable: false,
+    isComparable: true,
+    numericValue: null,
+    booleanValue: null,
   };
 }
 

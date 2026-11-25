@@ -7,6 +7,7 @@ import {
 } from '@sabz/types';
 import type { PrismaService } from '../../../common/database/prisma.service';
 import { PricingService } from '../../pricing/pricing.service';
+import { AttributesService } from '../../products/attributes.service';
 import {
   PublicCatalogService,
 } from '../../products/public-catalog.service';
@@ -44,6 +45,7 @@ export class PrismaDemoSeedReadRepository implements DemoSeedReadRepository {
     this.catalog = new PublicCatalogService(
       prismaLike,
       new PricingService(prismaLike),
+      new AttributesService(prismaLike),
     );
   }
 

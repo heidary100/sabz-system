@@ -38,7 +38,7 @@ const existing: VariantSummary = {
   barcode: null,
   name: 'مشکی',
   price: '1500',
-  compareAtPrice: null,
+  discountedPrice: null,
   priceStatus: 'PRICED',
 }
 
@@ -183,12 +183,12 @@ describe('VariantForm SKU suggestion (SS-256)', () => {
   })
 
   it('shows stored prices grouped in edit mode', () => {
-    renderForm({ variant: { ...existing, price: '1500000', compareAtPrice: '1800000' } })
+    renderForm({ variant: { ...existing, price: '1800000', discountedPrice: '1500000' } })
     expect(
       (screen.getByRole('textbox', { name: 'قیمت (ریال)' }) as HTMLInputElement).value,
-    ).toBe('1,500,000')
-    expect(
-      (screen.getByRole('textbox', { name: 'قیمت قبل از تخفیف (ریال)' }) as HTMLInputElement).value,
     ).toBe('1,800,000')
+    expect(
+      (screen.getByRole('textbox', { name: 'قیمت فروش ویژه (ریال)' }) as HTMLInputElement).value,
+    ).toBe('1,500,000')
   })
 })

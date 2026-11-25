@@ -9,6 +9,7 @@ import {
   ParseUUIDPipe,
   Post,
   Query,
+  StreamableFile,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -22,6 +23,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
 import { CheckoutService } from './checkout.service';
+import { InvoicePdfService } from './invoice-pdf.service';
 import { OrderListQueryDto, PlaceOrderDto } from './dto';
 
 /**
@@ -36,7 +38,10 @@ import { OrderListQueryDto, PlaceOrderDto } from './dto';
 @UseGuards(JwtAuthGuard)
 @Controller('orders')
 export class OrdersController {
-  constructor(private readonly checkoutService: CheckoutService) {}
+  constructor(
+    private readonly checkoutService: CheckoutService,
+    private readonly invoicePdf: InvoicePdfService,
+  ) {}
 
   @Post('checkout')
   @ApiOperation({ summary: 'Place an order from the cart (validates stock, prices from DB)' })
@@ -57,6 +62,11 @@ export class OrdersController {
       dto.paymentMethod,
       dto.shippingMethod,
       ipAddress,
+      {
+        note: dto.note,
+        nationalId: dto.nationalId,
+        paymentProvider: dto.paymentProvider,
+      },
     );
   }
 
@@ -104,6 +114,22 @@ export class OrdersController {
     @Ip() ipAddress?: string,
   ) {
     return this.checkoutService.cancelOrder(user.userId, id, ipAddress);
+  }
+
+  @Get(':id/invoice/pdf')
+  @ApiOperation({ summary: 'Download a print-ready PDF invoice' })
+  @ApiParam({ name: 'id', description: 'Order id' })
+  async invoicePdfFile(
+    @CurrentUser() user: AuthUser,
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+  ): Promise<StreamableFile> {
+    const detail = await this.checkoutService.orderDetail(user.userId, id);
+    const customerMobile = await this.checkoutService.customerMobile(user.userId);
+    const pdf = await this.invoicePdf.render({ ...detail, customerMobile });
+    return new StreamableFile(pdf.buffer, {
+      type: 'application/pdf',
+      disposition: `attachment; filename="${pdf.filename}"`,
+    });
   }
 
   @Get(':id/invoice')

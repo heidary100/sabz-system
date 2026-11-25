@@ -8,6 +8,8 @@ import { StorefrontCacheService } from '../src/common/storefront-cache/storefron
 import { InventoryService } from '../src/modules/inventory/inventory.service';
 import { CatalogGridService } from '../src/modules/products/catalog-grid.service';
 import { ProductsService } from '../src/modules/products/products.service'
+import { PricingService } from '../src/modules/pricing/pricing.service'
+import { CurrencyService } from '../src/modules/currency/currency.service'
 import { VariantsService } from '../src/modules/products/variants.service';
 
 jest.setTimeout(60_000);
@@ -49,6 +51,8 @@ describe('Admin catalog grid batch database integration (SS-257)', () => {
       inventoryService,
       productsService,
       new ConfigService({ LOCK_TIMEOUT_MS: '500' }),
+      new PricingService(prisma),
+      new CurrencyService(prisma, audit, cache),
     );
     lockHolderClient = new PrismaService();
   });
@@ -152,12 +156,12 @@ describe('Admin catalog grid batch database integration (SS-257)', () => {
           {
             variantId: lockedVariant.id,
             expectedUpdatedAt: lockedVariant.updatedAt.toISOString(),
-            price: '555000.00',
+            regularPrice: '555000.00',
           },
           {
             variantId: freeVariant.id,
             expectedUpdatedAt: freeVariant.updatedAt.toISOString(),
-            price: '666000.00',
+            regularPrice: '666000.00',
           },
         ],
       },
@@ -197,8 +201,8 @@ describe('Admin catalog grid batch database integration (SS-257)', () => {
           {
             variantId: variant.id,
             expectedUpdatedAt: variant.updatedAt.toISOString(),
-            price: '80000.00',
-            compareAtPrice: '95000.00',
+            regularPrice: '95000.00',
+            discountedPrice: '80000.00',
             stock: 12,
           },
         ],
@@ -226,6 +230,54 @@ describe('Admin catalog grid batch database integration (SS-257)', () => {
       'INVENTORY_ADJUSTED',
       'PRODUCT_VARIANT_UPDATED',
     ]);
+  });
+
+  it('creates the first inventory row when a new variant has no stock yet', async () => {
+    const productId = await createProduct();
+    const variant = await createVariant(productId, { price: '100000.00' });
+    await createWarehouse();
+
+    const before = await prisma.inventoryItem.count({
+      where: { variantId: variant.id },
+    });
+    expect(before).toBe(0);
+
+    const response = await gridService.batch(
+      {
+        rows: [
+          {
+            variantId: variant.id,
+            expectedUpdatedAt: variant.updatedAt.toISOString(),
+            stock: 7,
+          },
+        ],
+      },
+      ACTOR_ID,
+    );
+
+    expect(response.results[0]!.outcome).toBe('SUCCESS');
+    expect(response.results[0]!.stock).toBe(7);
+
+    const items = await prisma.inventoryItem.findMany({
+      where: { variantId: variant.id },
+    });
+    expect(items).toHaveLength(1);
+    createdItemIds.push(items[0]!.id);
+    expect(items[0]!.quantityOnHand).toBe(7);
+
+    const movements = await prisma.inventoryMovement.findMany({
+      where: { variantId: variant.id },
+    });
+    expect(movements).toHaveLength(1);
+    expect(movements[0]).toMatchObject({
+      onHandBefore: 0,
+      onHandAfter: 7,
+      reason: 'ویرایش از شبکه کاتالوگ',
+    });
+
+    const list = await gridService.list({ sku: variant.sku });
+    expect(list.items[0]!.stock).toBe(7);
+    expect(list.items[0]!.stockEditable).toBe(true);
   });
 
   it('a stale stock-only row conflicts without writing while a fresh row in the same batch applies', async () => {
@@ -282,5 +334,40 @@ describe('Admin catalog grid batch database integration (SS-257)', () => {
     expect(
       await prisma.inventoryMovement.count({ where: { variantId: staleVariant.id } }),
     ).toBe(0);
+  });
+
+  it('rejects inline Rial edits for a source-currency variant and preserves its snapshot', async () => {
+    const productId = await createProduct();
+    const variant = await createVariant(productId, {
+      price: '46300000.00',
+      priceSourceCurrency: 'USD',
+      priceSourceAmount: '50.00',
+      priceSourceRate: '925000.000000',
+      priceSourceRateId: 'rate-grid-int-1',
+      priceSourceRateAt: new Date('2026-11-18T00:00:00.000Z'),
+    });
+
+    const response = await gridService.batch(
+      {
+        rows: [
+          {
+            variantId: variant.id,
+            expectedUpdatedAt: variant.updatedAt.toISOString(),
+            regularPrice: '47000000',
+          },
+        ],
+      },
+      ACTOR_ID,
+    );
+
+    expect(response.results[0]!.outcome).toBe('VALIDATION_ERROR');
+    expect(response.results[0]!.message).toContain('واحد ارزی');
+    const after = await prisma.productVariant.findUnique({
+      where: { id: variant.id },
+    });
+    expect(after!.price.toString()).toBe('46300000');
+    expect(after!.priceSourceCurrency).toBe('USD');
+    expect(after!.priceSourceAmount!.toString()).toBe('50');
+    expect(after!.priceSourceRateId).toBe('rate-grid-int-1');
   });
 });

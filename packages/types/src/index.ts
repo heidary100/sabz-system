@@ -19,7 +19,7 @@ export {
 } from './catalog/catalog';
 
 export { APP_ROLES, AppRole } from './auth/roles';
-export { AuthUser, UserStatus } from './auth/user';
+export { AuthUser, UserStatus, authUserDisplayName } from './auth/user';
 export {
   LogoutResponse,
   OtpRequestResult,
@@ -116,6 +116,7 @@ export {
   CatalogGridSortField,
   CatalogGridBatchResponse,
   CatalogGridBatchRowInput,
+  CatalogGridIdsResponse,
   CatalogGridListQuery,
   CatalogGridListResponse,
   CatalogGridRow,
@@ -124,9 +125,33 @@ export {
 } from './product/catalog-grid';
 
 export {
+  ATTRIBUTE_VALUE_TYPE_FA,
   AttributeDto,
   AttributeValueDto,
+  AttributeValueType,
+  AttributeWithValuesDto,
+  BulkAttributeApplyInput,
+  BulkAttributeApplyResponse,
+  BulkAttributeChange,
+  BulkAttributeOperation,
+  BulkAttributePreviewInput,
+  BulkAttributePreviewResponse,
+  BulkAttributeProductOutcome,
+  BulkAttributeProductRef,
+  CatalogAttributeFacetDto,
+  CatalogAttributeOptionFacet,
+  CatalogCompareAttributeDto,
+  CatalogCompareProductDto,
+  CatalogCompareResponse,
+  CatalogFacetsResponse,
+  CategoryAttributeDto,
+  CategoryAttributeInput,
+  CategoryAttributesResponse,
+  ProductAttributeValueDto,
+  ProductAttributeValueInput,
+  ProductAttributesResponse,
   ProductSpecDto,
+  SetProductAttributesInput,
 } from './product/attributes';
 
 export { TagDto } from './product/tags';
@@ -185,12 +210,69 @@ export {
 } from './shipping/shipping';
 
 export {
+  NOTIFICATION_PRIORITY_FA,
   NOTIFICATION_TYPE_FA,
+  ChatSocketMessageEvent,
+  MarkAllNotificationsReadResponse,
   NotificationDto,
   NotificationListResponse,
+  NotificationPreferenceDto,
+  NotificationPriority,
+  NotificationSocketEvent,
   NotificationType,
+  NotificationUnreadEvent,
+  PushConfigResponse,
+  PushSubscriptionInput,
   UnreadCountResponse,
+  UpdateNotificationPreferenceInput,
 } from './notifications/notifications';
+
+export {
+  CHAT_STATUS_FA,
+  AdminChatConversationDto,
+  AdminChatConversationListItemDto,
+  AdminChatConversationListResponse,
+  ChatConversationListQuery,
+  ChatConversationStatus,
+  ChatMessageDto,
+  ChatReadResponse,
+  ChatSenderType,
+  CustomerChatConversationDto,
+  CustomerChatStateDto,
+  OpenChatConversationInput,
+  SendChatMessageInput,
+  UpdateChatConversationInput,
+  UpdateChatContextInput,
+} from './chat/chat';
+
+export {
+  CURRENCY_FA,
+  CURRENCY_UNIT_FA,
+  CreateCurrencyRateInput,
+  CurrencyCode,
+  CurrencyConversionResponse,
+  CurrencyRateDto,
+  CurrencyRateListResponse,
+} from './currency/currency';
+
+export {
+  FooterColumn,
+  FooterLink,
+  FooterSettings,
+  FooterSettingsResponse,
+  UpdateFooterSettingsInput,
+} from './settings/footer';
+
+export {
+  InitiatePaymentInput,
+  InitiatePaymentResult,
+  PAYMENT_PROVIDER_FA,
+  PaymentAttemptDto,
+  PaymentProviderCode,
+  PaymentProviderState,
+  PaymentProviderStatusDto,
+  PaymentProvidersResponse,
+} from './payments/payments';
 
 export {
   AddCartItemInput,
@@ -256,6 +338,26 @@ export {
   UpdateProductPriceOverrideInput,
   UpdatePromotionInput,
 } from './pricing/pricing';
+
+export type {
+  BulkDiscountMode,
+  BulkPriceApplyRequest,
+  BulkPriceApplyResponse,
+  BulkPriceApplyResultRow,
+  BulkPriceOperation,
+  BulkPricePreviewRequest,
+  BulkPricePreviewResponse,
+  BulkPriceRowPreview,
+  BulkRowOutcome,
+  CategoryRulePreviewRequest,
+  CategoryRulePreviewResponse,
+  CategoryRulePreviewRow,
+  CurrencyRecalculationApplyRequest,
+  CurrencyRecalculationPreviewRequest,
+  CurrencyRecalculationPreviewResponse,
+  CurrencyRecalculationRow,
+  PricingScope,
+} from './pricing/bulk';
 
 export {
   AdminReviewListItemDto,

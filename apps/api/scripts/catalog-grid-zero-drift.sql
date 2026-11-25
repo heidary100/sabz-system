@@ -10,7 +10,7 @@
 --   docker exec -i sabz-postgres psql -U sabz -d sabz < apps/api/scripts/catalog-grid-zero-drift.sql
 -- (or against the test/dev database of the environment under test)
 --
--- Scope: every live ProductVariant row — id, price, compareAtPrice — plus
+-- Scope: every live ProductVariant row — id, price, discountedPrice — plus
 -- the aggregate quantityOnHand across qualifying warehouses per variant
 -- (the exact values the grid's inline editing can touch). NULL compareAt
 -- folds to a stable literal so hash rows are deterministic.
@@ -18,7 +18,7 @@
 -- 1. The checksum itself. Expected: identical before/after a cancel flow.
 SELECT md5(
   string_agg(
-    v.id || ':' || v.price::text || '|' || coalesce(v."compareAtPrice"::text, 'NULL')
+    v.id || ':' || v.price::text || '|' || coalesce(v."discountedPrice"::text, 'NULL')
       || '|' || coalesce(stock.total::text, '0'),
     ',' ORDER BY v.id
   )
@@ -42,8 +42,8 @@ WHERE v."deletedAt" IS NULL
 SELECT 'compareAt-invariant' AS check, count(*) AS offending
 FROM "ProductVariant"
 WHERE "deletedAt" IS NULL
-  AND "compareAtPrice" IS NOT NULL
-  AND "compareAtPrice" <= price;
+  AND "discountedPrice" IS NOT NULL
+  AND ("discountedPrice" <= 0 OR "discountedPrice" >= price);
 
 -- 2b. minPrice must still equal the live aggregate (0 = healthy; the same
 -- caveat as the SS-259 probe applies to the value half on shared databases).

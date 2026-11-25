@@ -45,7 +45,7 @@ function product(id: string, name: string): CatalogProductCardDto {
     brand: null,
     category: { name: 'دسته', slug: 'category' },
     priceFrom: '1000000',
-    compareAtPrice: null,
+    regularPrice: null,
     callForPrice: false,
     promotionEndsAt: null,
     variantCount: 1,

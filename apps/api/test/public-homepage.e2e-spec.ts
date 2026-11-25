@@ -269,7 +269,7 @@ describe('Public homepage resolver API (Task 05.5) (e2e)', () => {
     brandId: string | null;
     status: 'PUBLISHED' | 'DRAFT';
     price: string;
-    compareAtPrice: string | null;
+    discountedPrice: string | null;
     stock: number;
     createdAt: Date;
   }) {
@@ -291,7 +291,7 @@ describe('Public homepage resolver API (Task 05.5) (e2e)', () => {
         productId: product.id,
         sku: token('SKU'),
         price: args.price,
-        compareAtPrice: args.compareAtPrice,
+        discountedPrice: args.discountedPrice,
       },
     });
     variantIds.push(variant.id);
@@ -357,8 +357,8 @@ describe('Public homepage resolver API (Task 05.5) (e2e)', () => {
       categoryId,
       brandId,
       status: 'PUBLISHED',
-      price: '100000.00',
-      compareAtPrice: '150000.00',
+      price: '150000.00',
+      discountedPrice: '100000.00',
       stock: 5,
       createdAt: new Date('2026-01-01T00:00:00.000Z'),
     });
@@ -371,7 +371,7 @@ describe('Public homepage resolver API (Task 05.5) (e2e)', () => {
       brandId,
       status: 'DRAFT',
       price: '90000.00',
-      compareAtPrice: null,
+      discountedPrice: null,
       stock: 10,
       createdAt: new Date('2026-01-05T00:00:00.000Z'),
     });
@@ -383,7 +383,7 @@ describe('Public homepage resolver API (Task 05.5) (e2e)', () => {
       brandId,
       status: 'PUBLISHED',
       price: '200000.00',
-      compareAtPrice: null,
+      discountedPrice: null,
       stock: 2,
       createdAt: new Date('2026-01-02T00:00:00.000Z'),
     });
@@ -395,7 +395,7 @@ describe('Public homepage resolver API (Task 05.5) (e2e)', () => {
       brandId,
       status: 'PUBLISHED',
       price: '50000.00',
-      compareAtPrice: null,
+      discountedPrice: null,
       stock: 3,
       createdAt: new Date('2026-01-03T00:00:00.000Z'),
     });
@@ -785,7 +785,7 @@ describe('Public homepage resolver API (Task 05.5) (e2e)', () => {
     });
     await prisma.productVariant.update({
       where: { id: p1Variant },
-      data: { price: '120000.00' },
+      data: { price: '120000.00', discountedPrice: null },
     });
 
     const cached = await request(app.getHttpServer()).get(BASE).expect(200);
@@ -809,7 +809,7 @@ describe('Public homepage resolver API (Task 05.5) (e2e)', () => {
     ).find((section) => section.key === 'offer') as {
       products: Array<{ id: string; priceFrom: string; inStock: boolean }>;
     };
-    expect(refreshedOffer.products[0]!.priceFrom).toBe('120000');
+    expect(refreshedOffer.products[0]!.priceFrom).toBe('200000');
     expect(refreshedOffer.products[0]!.inStock).toBe(true);
 
     const inventory = await prisma.inventoryItem.findFirstOrThrow({

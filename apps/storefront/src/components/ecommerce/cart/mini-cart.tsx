@@ -163,9 +163,9 @@ export function MiniCart() {
                 const image = mediaImageUrl(item.primaryImageUrl);
                 return (
                   <li key={item.variantId} className="flex gap-3 py-3">
-                    <div className="relative size-16 shrink-0 overflow-hidden rounded-control bg-surface-2">
+                    <div className="relative size-16 shrink-0 overflow-hidden rounded-control bg-transparent ring-1 ring-inset ring-border/60">
                       {image ? (
-                        <Image src={image} alt="" fill sizes="64px" className="object-cover" />
+                        <Image src={image} alt="" fill sizes="64px" className="object-contain p-1" />
                       ) : (
                         <div className="flex h-full items-center justify-center text-accent">
                           <svg viewBox="0 0 24 24" fill="none" strokeWidth={1.5} stroke="currentColor" aria-hidden="true" className="size-6">

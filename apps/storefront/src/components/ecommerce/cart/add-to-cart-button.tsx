@@ -17,10 +17,13 @@ import type { CartAddInput } from '@/lib/cart';
 export function AddToCartButton({
   identity,
   productName,
+  quantity = 1,
   size = 'full',
 }: {
   identity: CartAddInput;
   productName: string;
+  /** Detail-panel quantity; server re-validates stock and bounds. */
+  quantity?: number;
   /** `full` for the detail panel, `icon` for overlays, `card` for card footers. */
   size?: 'full' | 'icon' | 'card';
 }) {
@@ -37,7 +40,7 @@ export function AddToCartButton({
     setError(null);
     let result: CartActionResult;
     try {
-      result = await add(identity, 1);
+      result = await add(identity, quantity);
     } catch (loadError) {
       if (loadError instanceof ApiError && loadError.status === 401) {
         router.push('/login');

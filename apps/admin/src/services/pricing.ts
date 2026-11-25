@@ -143,3 +143,34 @@ export function deletePromotion(promotionId: string): Promise<PromotionDto> {
     method: 'DELETE',
   })
 }
+
+// ---------------------------------------------------------------------------
+// Bulk pricing workspace (preview → apply)
+// ---------------------------------------------------------------------------
+
+export function previewBulkPricing(
+  input: import('@sabz/types').BulkPricePreviewRequest,
+): Promise<import('@sabz/types').BulkPricePreviewResponse> {
+  return request('/admin/pricing/bulk/preview', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
+export function applyBulkPricing(
+  input: import('@sabz/types').BulkPriceApplyRequest,
+): Promise<import('@sabz/types').BulkPriceApplyResponse> {
+  return request('/admin/pricing/bulk/apply', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
+export function previewCategoryRule(
+  input: import('@sabz/types').CategoryRulePreviewRequest,
+): Promise<import('@sabz/types').CategoryRulePreviewResponse> {
+  return request('/admin/pricing/bulk/category-rules/preview', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}

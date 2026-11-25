@@ -12,6 +12,7 @@ describe('brand config (SS-209)', () => {
     const paths = [
       brand.logo,
       brand.icons.icon32,
+      brand.icons.icon16,
       brand.icons.appleTouchIcon,
       brand.openGraph.image,
       ...Object.values(brand.logoPng).map((variant) => variant.src),
@@ -30,9 +31,9 @@ describe('brand config (SS-209)', () => {
     }
   });
 
-  it('serves the nav mark at retina density (64px file, 32 CSS px)', () => {
+  it('serves the nav mark at retina density', () => {
     expect(brand.logoPng[64]).toBeDefined();
-    expect(brand.markSize).toBe(32);
+    expect(brand.markSize).toBe(40);
   });
 
   it('declares the OG image at the real 1200x630 file size', () => {

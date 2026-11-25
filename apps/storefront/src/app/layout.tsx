@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import Script from 'next/script';
 import '@fontsource-variable/vazirmatn';
 import './globals.css';
 import { brand } from '@/lib/brand';
@@ -10,7 +11,11 @@ import { CompareProvider } from '@/components/ecommerce/compare/compare-provider
 import { SiteHeader } from '@/components/ecommerce/header/site-header';
 import { SiteFooter } from '@/components/ecommerce/footer/site-footer';
 import { ThemeProvider } from '@/components/ecommerce/theme/theme-provider';
+import { StoreNotificationProvider } from '@/components/ecommerce/notifications/notification-provider';
+import { Suspense } from 'react';
+import { ChatWidget } from '@/components/ecommerce/chat/chat-widget';
 import { THEME_BOOT_SCRIPT } from '@/lib/theme';
+import { fetchFooterSettings } from '@/lib/settings';
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -20,8 +25,16 @@ export const metadata: Metadata = {
   },
   description: 'فروشگاه آنلاین کالای دیجیتال و لوازم جانبی — خرده و عمده.',
   icons: {
-    icon: [{ url: brand.icons.icon32, sizes: '32x32', type: 'image/png' }],
+    icon: [
+      { url: brand.icons.icon16, sizes: '16x16', type: 'image/png' },
+      { url: brand.icons.icon32, sizes: '32x32', type: 'image/png' },
+    ],
     apple: [{ url: brand.icons.appleTouchIcon, sizes: '180x180' }],
+  },
+  appleWebApp: {
+    capable: true,
+    title: brand.nameFa,
+    statusBarStyle: 'default',
   },
   openGraph: {
     title: 'سبز سیستم',
@@ -57,16 +70,22 @@ export default async function RootLayout({
     .slice(0, 12)
     .map((category) => category.slug)
     .join(',');
-  const categoryCovers = await fetchCategoryCovers(coverSlugs);
+  const [categoryCovers, footerSettings] = await Promise.all([
+    fetchCategoryCovers(coverSlugs),
+    fetchFooterSettings(),
+  ]);
 
   return (
     <html lang="fa" dir="rtl" suppressHydrationWarning>
-      <body className="flex min-h-dvh flex-col bg-bg font-sans text-fg antialiased">
+      <head>
         {/* Applies the persisted/system theme before page content paints. */}
-        <script
-          suppressHydrationWarning
+        <Script
+          id="theme-boot"
+          strategy="beforeInteractive"
           dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }}
         />
+      </head>
+      <body className="flex min-h-dvh flex-col bg-bg font-sans text-fg antialiased">
         <a
           href="#main"
           className="sr-only focus:not-sr-only focus:absolute focus:start-4 focus:top-4 focus:z-50 focus:rounded-control focus:bg-accent focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-on-accent"
@@ -76,13 +95,18 @@ export default async function RootLayout({
         <ThemeProvider>
           <CartProvider>
             <CompareProvider>
-              <SiteHeader categories={categories} covers={categoryCovers} />
-              {/* scroll-mt keeps skip-link/anchor focus from landing under the
-                  sticky header (SS-218). */}
-              <main id="main" className="scroll-mt-32 flex-1">
-                {children}
-              </main>
-              <SiteFooter categories={categories} />
+              <StoreNotificationProvider>
+                <SiteHeader categories={categories} covers={categoryCovers} />
+                {/* scroll-mt keeps skip-link/anchor focus from landing under the
+                    sticky header (SS-218). */}
+                <main id="main" className="scroll-mt-32 flex-1">
+                  {children}
+                </main>
+                <SiteFooter categories={categories} settings={footerSettings} />
+                <Suspense fallback={null}>
+                  <ChatWidget />
+                </Suspense>
+              </StoreNotificationProvider>
             </CompareProvider>
           </CartProvider>
         </ThemeProvider>

@@ -1,31 +1,26 @@
-import { rialToToman } from './currency';
+import { TOMAN_LABEL, rialNumber, tomanNumber } from './currency';
 
 /**
- * Persian display formatting (Decision 1: prices present as Toman, fa-IR
- * numerals). The API persists Rial verbatim (SS-207 "O-1"), so every
- * presentation helper converts ÷10 through `lib/currency.ts` — the single
- * conversion point (SS-222). Pure helpers — no API or React dependencies.
+ * Persian display formatting (pricing-grid spec §3).
+ *
+ * Customer prices arrive from the server as Rial, already rounded UP to
+ * 100,000 Rial. The storefront divides by 10 and renders Toman; it never
+ * applies its own rounding. Example: 7,650,000 Rial → server rounds to
+ * 7,700,000 Rial → this module shows ۷۷۰٬۰۰۰ تومان.
  */
 
-const faIrNumber = new Intl.NumberFormat('fa-IR');
+const faIrNumber = new Intl.NumberFormat('fa-IR', {
+  maximumFractionDigits: 2,
+});
 
 /** Formats a plain number with Persian digits and separators. */
 export function formatFaNumber(value: number): string {
   return faIrNumber.format(value);
 }
 
-/**
- * Formats a catalog price for display: API Rial → Toman (÷10), Persian
- * numerals with thousand separators, followed by the تومان unit. The API
- * serializes `Decimal` values as strings ('750.5'); the fractional part —
- * always zero after conversion in retail prices — is dropped.
- */
+/** Formats a server Rial amount as customer-facing Toman. */
 export function formatToman(value: string | number): string {
-  const rial = typeof value === 'string' ? Number(value) : value;
-  if (!Number.isFinite(rial)) {
-    return formatToman(0);
-  }
-  return `${faIrNumber.format(rialToToman(rial))} تومان`;
+  return `${faIrNumber.format(tomanNumber(value))} ${TOMAN_LABEL}`;
 }
 
 /** «از ۲۵۰٬۰۰۰ تومان» — used on listing cards with multiple variants. */
@@ -68,24 +63,25 @@ export function formatCardPrice(
 }
 
 /**
- * Truthful card discount percent (SS-225): the drop from the reference
- * (compare-at) price to the selling price of the same variant, rounded to a
- * whole percent. Null when there is no reference price or the pair does not
- * describe a real discount — a badge must never invent one.
+ * Truthful card discount percent (SS-225/SS-900): the drop between the
+ * server-rounded regular reference and selling prices. Null when the pair
+ * does not describe a real discount — a badge must never invent one, and
+ * rounding that makes the values equal removes the badge.
  */
 export function salePercentFrom(
   priceFrom: string,
-  compareAtPrice: string | null,
+  regularPrice: string | null,
 ): number | null {
-  if (!compareAtPrice) {
+  if (!regularPrice) {
     return null;
   }
-  const price = Number(priceFrom);
-  const reference = Number(compareAtPrice);
+  const price = rialNumber(priceFrom);
+  const reference = rialNumber(regularPrice);
   if (
     !Number.isFinite(price) ||
     !Number.isFinite(reference) ||
     reference <= 0 ||
+    price <= 0 ||
     price >= reference
   ) {
     return null;
@@ -94,11 +90,12 @@ export function salePercentFrom(
 }
 
 /**
- * Persian (Jalali) date for order/RFQ timestamps (SS-246): fa-IR resolves to
- * the Solar Hijri calendar by default, with Persian digits — one formatter
- * so every surface shows dates the same way.
+ * Persian (Jalali) date/time display with an explicit business timezone.
+ * Timestamps stay ISO/UTC in storage and APIs; conversion happens here only.
  */
 const faDateFormatter = new Intl.DateTimeFormat('fa-IR', {
+  calendar: 'persian',
+  timeZone: 'Asia/Tehran',
   year: 'numeric',
   month: 'long',
   day: 'numeric',
@@ -110,4 +107,22 @@ export function formatFaDate(iso: string): string {
     return '';
   }
   return faDateFormatter.format(date);
+}
+
+const faDateTimeFormatter = new Intl.DateTimeFormat('fa-IR', {
+  calendar: 'persian',
+  timeZone: 'Asia/Tehran',
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+});
+
+export function formatFaDateTime(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+  return faDateTimeFormatter.format(date);
 }

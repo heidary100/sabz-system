@@ -62,7 +62,10 @@ export interface ProductPlan {
   priceStatus: PlanPriceStatus;
   /** Rial, verbatim per O-1. '0' for CALL_FOR_PRICE rows. */
   price: string;
-  compareAtPrice: string | null;
+  discountedPrice: string | null;
+  /** Woo sale window; null when unlimited or absent. ISO instants. */
+  discountStartsAt: string | null;
+  discountEndsAt: string | null;
   sku: string | null;
   barcode: string | null;
   stockQty: number;
@@ -106,6 +109,31 @@ export function parseWooPrice(raw: string): number | null {
     return null;
   }
   return value;
+}
+
+/**
+ * Woo sale-date parser. The exporter writes site-local `YYYY-MM-DD H:mm:ss`
+ * values (Asia/Tehran). Attach the fixed +03:30 offset so a container
+ * running UTC cannot shift the promotion window by a day; invalid values
+ * are dropped (and the caller drops the sale) rather than guessed.
+ */
+export function parseWooSaleDate(raw: string): Date | null {
+  const value = raw.trim();
+  if (!value) {
+    return null;
+  }
+  const match = value.match(
+    /^(\d{4}-\d{2}-\d{2})[ T](\d{1,2}:\d{2}(?::\d{2})?)$/,
+  );
+  if (!match) {
+    // Unknown formats are rejected rather than parsed in the host timezone.
+    return null;
+  }
+  // Woo writes single-digit hours ("0:00:00"); ISO requires two.
+  const [hour, ...rest] = match[2]!.split(':');
+  const time = [hour!.padStart(2, '0'), ...rest].join(':');
+  const parsed = new Date(`${match[1]}T${time}+03:30`);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
 /** Canonical per-row hash for resume/change detection (key order stable). */
@@ -204,18 +232,33 @@ export function buildProductPlan(
   const sale = parseWooPrice(get('قیمت فروش ویژه'));
   const priced = verdict.priceStatus === 'PRICED';
   // WooCommerce sale semantics: قیمت فروش ویژه is the discounted price, so a
-  // live sale (0 < sale < regular) writes price=sale + compareAt=regular.
-  // Any other combination keeps price=regular (compareAt dropped when it
-  // cannot satisfy the compareAt>price invariant); priceless rows become
-  // visible CALL_FOR_PRICE with price '0' (Q1, O-1 Rial verbatim).
+  // live sale (0 < sale < regular) writes price=regular + discountedPrice=sale.
+  // Any other combination keeps price=regular (discount dropped when it cannot
+  // satisfy the discounted<regular invariant); priceless rows become visible
+  // CALL_FOR_PRICE with price '0' (Q1, O-1 Rial verbatim).
   let price = '0';
-  let compareAtPrice: string | null = null;
+  let discountedPrice: string | null = null;
+  let discountStartsAt: string | null = null;
+  let discountEndsAt: string | null = null;
   if (priced && regular !== null) {
+    price = String(regular);
     if (sale !== null && sale < regular) {
-      price = String(sale);
-      compareAtPrice = String(regular);
-    } else {
-      price = String(regular);
+      // Preserve the WooCommerce window so expired/not-yet-active sale
+      // prices are never presented as current discounts by the storefront.
+      // Invalid windows drop the sale (fail closed), not the regular price.
+      const rawStart = get('تاریخ شروع فروش ویژه');
+      const rawEnd = get('تاریخ پایان فروش ویژه');
+      const start = parseWooSaleDate(rawStart);
+      const end = parseWooSaleDate(rawEnd);
+      const windowValid =
+        (rawStart === '' || start !== null) &&
+        (rawEnd === '' || end !== null) &&
+        (start === null || end === null || start.getTime() < end.getTime());
+      if (windowValid) {
+        discountedPrice = String(sale);
+        discountStartsAt = start?.toISOString() ?? null;
+        discountEndsAt = end?.toISOString() ?? null;
+      }
     }
   }
 
@@ -287,8 +330,12 @@ export function buildProductPlan(
   }
 
   const imageUrls = splitCell(get('تصاویر'));
+  // `second_image` is usually a Woo attachment id (e.g. "13713"), not a
+  // URL. Only a real http(s) image URL may enter the media plan; an id can
+  // never be fetched and would dead-letter a valid gallery slot.
   const secondImage = get('متا: second_image');
-  if (secondImage && !imageUrls.includes(secondImage)) {
+  const isHttpUrl = /^https?:\/\/\S+$/i.test(secondImage);
+  if (isHttpUrl && !imageUrls.includes(secondImage)) {
     imageUrls.splice(1, 0, secondImage);
   }
   const media: MediaPlan[] = [...new Set(imageUrls)].map((url, index) => ({
@@ -317,7 +364,9 @@ export function buildProductPlan(
     status: verdict.status,
     priceStatus: verdict.priceStatus === 'PRICED' ? 'PRICED' : 'CALL_FOR_PRICE',
     price,
-    compareAtPrice,
+    discountedPrice,
+    discountStartsAt,
+    discountEndsAt,
     sku: verdict.sku,
     barcode: cell(record, 'GTIN، UPC، EAN یا ISBN') || null,
     stockQty,

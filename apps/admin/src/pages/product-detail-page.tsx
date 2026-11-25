@@ -4,7 +4,8 @@ import { useProductDetail } from '../hooks/use-product-detail'
 import { translateApiError } from '../lib/error-messages'
 import { formatDateTime } from '../lib/format'
 import { PRODUCT_CONDITION_LABELS } from '../lib/product-labels'
-import { Package, Pencil, Trash2 } from 'lucide-react'
+import { ExternalLink, Package, Pencil, Trash2 } from 'lucide-react'
+import { storefrontProductUrl } from '../lib/storefront-url'
 import { archiveProduct, deleteProduct, publishProduct } from '../services/products'
 import { deleteVariant } from '../services/variants'
 import { Button } from '../components/catalyst/button'
@@ -128,6 +129,17 @@ export function ProductDetailPage() {
         </div>
 
         <div className="flex items-center gap-3">
+          {product.status === 'PUBLISHED' ? (
+            <a
+              href={storefrontProductUrl(product.slug)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-control border border-border bg-surface px-3 text-sm font-semibold text-foreground hover:border-accent hover:text-accent"
+            >
+              <ExternalLink className="size-4" aria-hidden="true" />
+              مشاهده در فروشگاه
+            </a>
+          ) : null}
           {product.status === 'DRAFT' && (
             <>
               <Button outline onClick={() => navigate(`/products/${product.id}/edit`)}>

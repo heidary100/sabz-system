@@ -117,14 +117,14 @@ describe('Torob feed API (SS-239) (e2e)', () => {
           create: [
             {
               sku: `TOROB-A-${uniqueSuffix()}`,
-              price: '1234567',
-              compareAtPrice: '1500000',
+              price: '1500000',
+              discountedPrice: '1234567',
               priceStatus: PriceStatus.PRICED,
             },
             {
               sku: `TOROB-B-${uniqueSuffix()}`,
-              price: '2000000',
-              compareAtPrice: '2500000',
+              price: '2500000',
+              discountedPrice: '2000000',
               priceStatus: PriceStatus.PRICED,
             },
           ],
@@ -147,7 +147,7 @@ describe('Torob feed API (SS-239) (e2e)', () => {
         data: {
           warehouseId: warehouse.id,
           variantId: variant.id,
-          quantityOnHand: variant.price.toNumber() === 1234567 ? 5 : 0,
+          quantityOnHand: variant.price.toNumber() === 1500000 ? 5 : 0,
           quantityReserved: 0,
         },
       });
@@ -355,14 +355,17 @@ describe('Torob feed API (SS-239) (e2e)', () => {
       // Row-level money and availability: variant without stock is unavailable,
       // compareAt only on variant 2.
       const stocked = groupRows.find(
-        (item: { current_price: number }) => item.current_price === 123456,
+        (item: { current_price: number }) => item.current_price === 130000,
       );
       expect(stocked).toBeDefined();
       expect(stocked.availability).toBe(true);
       expect(stocked.old_price).toBe(150000);
-      expect(stocked.image_links).toEqual([
-        `${API_BASE}/api/v1/catalog/media/${pricedMediaId}`,
-      ]);
+      expect(stocked.image_links).toHaveLength(1);
+      expect(stocked.image_links[0]).toMatch(
+        new RegExp(
+          `^${API_BASE}/api/v1/catalog/media/${pricedMediaId}\\?v=`,
+        ),
+      );
       expect(new Date(stocked.date_added).toString()).not.toBe('Invalid Date');
 
       const discounted = groupRows.find(

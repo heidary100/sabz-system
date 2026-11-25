@@ -2,6 +2,7 @@ import { ProductCondition, ProductStatus } from '@prisma/client';
 import { PrismaService } from '../src/common/database/prisma.service';
 import { PublicCatalogService } from '../src/modules/products/public-catalog.service';
 import { PricingService } from '../src/modules/pricing/pricing.service';
+import { AttributesService } from '../src/modules/products/attributes.service';
 import { TagsService } from '../src/modules/products/tags.service';
 
 jest.setTimeout(30_000);
@@ -74,7 +75,7 @@ describe('Tags/SEO database integration (SS-203)', () => {
     prisma = new PrismaService();
     await prisma.$connect();
     tags = new TagsService(prisma);
-    catalog = new PublicCatalogService(prisma, new PricingService(prisma));
+    catalog = new PublicCatalogService(prisma, new PricingService(prisma), new AttributesService(prisma));
   });
 
   afterAll(async () => {

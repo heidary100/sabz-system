@@ -1,3 +1,10 @@
+const faNumberFormatter = new Intl.NumberFormat('fa-IR')
+
+/** Persian numerals for counts/badges (not money; `formatRial` adds ریال). */
+export function formatFaNumber(value: number): string {
+  return faNumberFormatter.format(value)
+}
+
 const dateFormatter = new Intl.DateTimeFormat('fa-IR', {
   calendar: 'persian',
   year: 'numeric',
@@ -40,8 +47,8 @@ const rialFormatter = new Intl.NumberFormat('fa-IR')
 
 /**
  * Formats a Rial Decimal string for the admin (SS-240A). The admin stays
- * Rial (master-plan standing decision) — the storefront alone converts to
- * Toman via its own currency helper.
+ * Rial (master-plan standing decision); the storefront also displays Rial
+ * after SS-900, using server-rounded values.
  */
 export function formatRial(rial: string | null | undefined): string {
   if (rial === null || rial === undefined || rial === '') {

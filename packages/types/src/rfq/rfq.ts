@@ -3,7 +3,7 @@
  *
  * Only APPROVED partners may file, and only against CALL_FOR_PRICE
  * variants (PRICE-008). Money is Rial verbatim (SS-207 "O-1"), serialized
- * as Decimal strings; the storefront presents Toman via `lib/currency.ts`.
+ * as Decimal strings; the storefront displays the server-rounded Rial value.
  * The operator quote is the price agreement — accept freezes
  * `quotedUnitPrice` into an order, never re-resolving through the pricing
  * engine.
@@ -41,6 +41,9 @@ export interface AcceptRfqInput {
   paymentMethod: 'ONLINE' | 'COD';
   /** Shipping method code (SS-241): fee resolves server-side. */
   shippingMethod: import('../orders/orders').ShippingMethodCode;
+  /** Required by the API when the profile has no personal national ID. */
+  nationalId?: string;
+  note?: string;
 }
 
 export interface RfqDto {

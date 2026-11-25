@@ -25,7 +25,7 @@ import type { PriceStatus } from '@sabz/types'
  * the draft store's revert-to-server semantics, cancels the field's draft
  * when it was the server value).
  */
-export type EditableCellKind = 'price' | 'compareAtPrice' | 'stock' | 'text'
+export type EditableCellKind = 'price' | 'discountedPrice' | 'stock' | 'text'
 
 export interface EditableCellProps {
   kind: EditableCellKind
@@ -148,7 +148,7 @@ export function EditableCell({
         autoFocus
         dir={kind === 'text' ? textDir : 'ltr'}
         type="text"
-        inputMode={kind === 'price' || kind === 'compareAtPrice' || kind === 'stock' ? 'numeric' : 'text'}
+        inputMode={kind === 'price' || kind === 'discountedPrice' || kind === 'stock' ? 'numeric' : 'text'}
         disabled={disabled}
         aria-label={ariaLabel}
         value={value}

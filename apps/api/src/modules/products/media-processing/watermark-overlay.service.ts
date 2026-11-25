@@ -104,6 +104,12 @@ export class WatermarkOverlayService {
     overlayWidth: number,
     lockupOverride?: WatermarkLockup,
   ): Promise<OverlayRender> {
+    // SS-900: the official watermark is a logo-only transparent PNG. The
+    // legacy text lockup remains behind WATERMARK_LOGO_ONLY=false for
+    // rollback, but is never the default.
+    if (this.config.logoOnly) {
+      return this.renderLogoOnly(overlayWidth);
+    }
     const lockup = resolveLockup(lockupOverride ?? this.config.lockup, overlayWidth);
     const layers =
       lockup === 'horizontal'
@@ -123,6 +129,36 @@ export class WatermarkOverlayService {
       .toBuffer();
 
     return { buffer, width: layers.width, height: layers.height };
+  }
+
+  /**
+   * Logo-only mark: preserves the source proportions and alpha channel, with
+   * no text, chip or invented brand element. Alpha is scaled by the configured
+   * opacity so the mark stays subtle on product photography.
+   */
+  private async renderLogoOnly(overlayWidth: number): Promise<OverlayRender> {
+    const width = Math.max(1, Math.round(overlayWidth));
+    if (this.config.logoPath === null || !existsSync(this.config.logoPath)) {
+      throw new Error('Watermark logo asset is missing.');
+    }
+    const logo = await sharp(this.config.logoPath)
+      .resize({ width, fit: 'inside', withoutEnlargement: false })
+      .ensureAlpha()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    const { data, info } = logo;
+    const channels = info.channels;
+    for (let i = 0; i < data.length; i += channels) {
+      if (channels === 4) {
+        data[i + 3] = Math.round(data[i + 3]! * this.config.logoOpacity);
+      }
+    }
+    const buffer = await sharp(data, {
+      raw: { width: info.width, height: info.height, channels: 4 },
+    })
+      .png()
+      .toBuffer();
+    return { buffer, width: info.width, height: info.height };
   }
 
   private async renderVertical(overlayWidth: number): Promise<{

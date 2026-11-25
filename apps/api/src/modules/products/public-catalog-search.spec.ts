@@ -131,7 +131,7 @@ describe('buildCatalogSearchPageSql (SS-216)', () => {
       filters: { priceFrom: '200' },
     });
     expect(ranged.sql).toContain("pv.\"priceStatus\" = 'PRICED'");
-    expect(ranged.sql).toContain('pv."price" >= ?');
+    expect(ranged.sql).toContain('CEIL(pv."price" / 100000) * 100000 >= ?');
 
     const desc = buildCatalogSearchPageSql({ ...base, sort: 'price_desc' });
     expect(desc.sql).toContain(
@@ -192,8 +192,8 @@ describe('buildCatalogSearchPageSql (SS-216)', () => {
       ...base,
       filters: { priceFrom: '100000', priceTo: '200000' },
     });
-    expect(built.sql).toContain('pv."price" >= ');
-    expect(built.sql).toContain('pv."price" <= ');
+    expect(built.sql).toContain('CEIL(pv."price" / 100000) * 100000 >= ?');
+    expect(built.sql).toContain('CEIL(pv."price" / 100000) * 100000 <= ?');
     expect(built.sql).toContain("pv.\"priceStatus\" = 'PRICED'");
   });
 

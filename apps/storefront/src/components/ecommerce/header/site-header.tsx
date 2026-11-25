@@ -11,6 +11,7 @@ import { SearchOverlay } from './search-overlay';
 import { NotificationHeaderIcon } from './notification-header-icon';
 import { WishlistHeaderIcon } from './wishlist-header-icon';
 import { ThemeToggle } from '@/components/ecommerce/theme/theme-toggle';
+import { PwaInstallButton } from '@/components/ecommerce/pwa/pwa-install-button';
 
 /**
  * Storefront shell header (Task 03). Two deliberate rows:
@@ -70,6 +71,7 @@ export function SiteHeader({
               <NotificationHeaderIcon />
               <CompareHeaderIcon />
               <ThemeToggle />
+              <PwaInstallButton />
             </div>
 
             <div className="flex items-center lg:hidden">

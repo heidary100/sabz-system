@@ -85,7 +85,7 @@ describe('semantic token usage', () => {
       'components/ecommerce/header/site-header.tsx': ['bg-surface', 'border-border'],
       'components/ecommerce/header/desktop-nav.tsx': ['bg-surface', 'border-border'],
       'components/ecommerce/header/search-overlay.tsx': ['bg-surface', 'bg-overlay'],
-      'components/ecommerce/product-card/product-card.tsx': ['bg-plate', 'bg-surface', 'text-fg'],
+      'components/ecommerce/product-card/product-card.tsx': ['bg-transparent', 'bg-surface', 'text-fg'],
       'components/ecommerce/footer/site-footer.tsx': ['bg-stage', 'text-on-stage-secondary'],
       'components/ecommerce/hero/hero-slider.tsx': ['bg-stage', 'text-on-stage'],
       'app/checkout/checkout-wizard.tsx': ['bg-surface', 'text-fg'],

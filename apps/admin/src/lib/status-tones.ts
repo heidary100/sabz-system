@@ -125,4 +125,6 @@ export const NOTIFICATION_TYPE_TONES: Record<NotificationType, StatusTone> = {
   PARTNER_SUBMITTED: 'warning',
   PARTNER_APPROVED: 'success',
   PARTNER_REJECTED: 'danger',
+  CHAT_MESSAGE: 'warning',
+  CHAT_REPLY: 'success',
 }

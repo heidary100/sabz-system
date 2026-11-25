@@ -37,25 +37,31 @@ export class StorefrontCacheService {
       return;
     }
 
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          'x-revalidate-token': token,
-        },
-        body: JSON.stringify({ tags: uniqueTags }),
-        signal: AbortSignal.timeout(5_000),
-      });
-      if (!response.ok) {
+    // The storefront endpoint accepts at most 64 tags per request. Chunk so a
+    // category/subtree change with many product detail tags still invalidates
+    // every affected page instead of failing the whole request.
+    for (let index = 0; index < uniqueTags.length; index += 64) {
+      const chunk = uniqueTags.slice(index, index + 64);
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            'x-revalidate-token': token,
+          },
+          body: JSON.stringify({ tags: chunk }),
+          signal: AbortSignal.timeout(5_000),
+        });
+        if (!response.ok) {
+          this.logger.warn(
+            `Storefront revalidation failed (${response.status}) for tags: ${chunk.join(', ')}`,
+          );
+        }
+      } catch (error) {
         this.logger.warn(
-          `Storefront revalidation failed (${response.status}) for tags: ${uniqueTags.join(', ')}`,
+          `Storefront revalidation request failed for tags [${chunk.join(', ')}]: ${error instanceof Error ? error.message : String(error)}`,
         );
       }
-    } catch (error) {
-      this.logger.warn(
-        `Storefront revalidation request failed for tags [${uniqueTags.join(', ')}]: ${error instanceof Error ? error.message : String(error)}`,
-      );
     }
   }
 }

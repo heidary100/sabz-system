@@ -3,6 +3,8 @@ import { Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/auth-provider'
 import { AppHeader } from '../components/layout/app-header'
 import { NAV_ITEMS, readSidebarPreference, Sidebar, writeSidebarPreference } from '../components/layout/sidebar'
+import { NotificationCenterProvider } from '../components/notifications/notification-center-provider'
+import { NotificationToaster } from '../components/notifications/notification-toaster'
 
 export function AdminLayout() {
   const { user } = useAuth()
@@ -28,7 +30,14 @@ export function AdminLayout() {
   const title = activeItem?.label ?? 'پیشخوان'
 
   return (
-    <div className="ambient flex min-h-svh">
+    <NotificationCenterProvider>
+      <a
+        href="#admin-main"
+        className="sr-only focus:not-sr-only focus:fixed focus:start-3 focus:top-3 focus:z-50 focus:rounded-control focus:bg-surface focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-primary focus:outline-2 focus:outline-offset-2 focus:outline-focus-ring"
+      >
+        پرش به محتوای اصلی
+      </a>
+      <div className="ambient flex min-h-svh">
       <Sidebar
         collapsed={collapsed}
         onToggleCollapsed={toggleCollapsed}
@@ -42,10 +51,12 @@ export function AdminLayout() {
             wrapper (full for data tables, capped for forms/details), so a
             table page can use the whole content column without the old
             double nesting (max-w-7xl shell + max-w-6xl page). */}
-        <main className="w-full flex-1 px-4 py-4 sm:px-6 sm:py-6">
+        <main id="admin-main" tabIndex={-1} className="w-full flex-1 px-4 py-4 sm:px-6 sm:py-6">
           <Outlet />
         </main>
       </div>
-    </div>
+      </div>
+      <NotificationToaster />
+    </NotificationCenterProvider>
   )
 }

@@ -140,14 +140,14 @@ describe('WooCommerce writer integration (SS-207)', () => {
       expect(priced.category.name).toBe('هارد دیسک اکسترنال');
       expect(priced.brand?.name).toBe('FixtureBrand');
       expect(priced.tags.map((row) => row.tag.name)).toEqual(['هارد اکسترنال', 'فیکسچر']);
-      expect(priced.specs.some((row) => row.attributeValue.value === '1 ترابایت')).toBe(true);
+      expect(priced.specs.some((row) => row.attributeValue?.value === '1 ترابایت')).toBe(true);
       expect(priced.variants).toHaveLength(1);
       expect(priced.variants[0]).toMatchObject({
         sku: 'FIXTURE-HD1TB-BLK',
         priceStatus: PriceStatus.PRICED,
       });
-      expect(priced.variants[0]!.price.toString()).toBe('15000000');
-      expect(priced.variants[0]!.compareAtPrice?.toString()).toBe('18000000');
+      expect(priced.variants[0]!.price.toString()).toBe('18000000');
+      expect(priced.variants[0]!.discountedPrice?.toString()).toBe('15000000');
       const item = await prisma.inventoryItem.findFirstOrThrow({
         where: { variantId: priced.variants[0]!.id },
         include: { movements: true },
@@ -221,8 +221,8 @@ describe('WooCommerce writer integration (SS-207)', () => {
       expect(rerun.exitCode).toBe(0);
       expect((await productBySource('9006')).status).toBe(ProductStatus.PUBLISHED);
       const repriced = await productBySource('9001');
-      expect(repriced.variants[0]!.compareAtPrice?.toString()).toBe('19000000');
-      expect(repriced.variants[0]!.price.toString()).toBe('15000000');
+      expect(repriced.variants[0]!.discountedPrice?.toString()).toBe('15000000');
+      expect(repriced.variants[0]!.price.toString()).toBe('19000000');
       const updatedRecords = await prisma.importRecord.count({
         where: { runId: rerun.report.runId, status: 'UPDATED' },
       });

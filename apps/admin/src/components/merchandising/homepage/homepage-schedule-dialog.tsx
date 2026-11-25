@@ -9,16 +9,16 @@ import {
 } from '../../catalyst/alert'
 import { Button } from '../../catalyst/button'
 import { Field, Label } from '../../catalyst/fieldset'
-import { Input } from '../../catalyst/input'
 import { Textarea } from '../../catalyst/textarea'
 import { Text } from '../../catalyst/text'
+import { JalaliDateTimeInput } from '../../ui/jalali-datetime-input'
 import { InlineError } from '../../ui/inline-error'
 import {
   BUSINESS_TIME_ZONE_LABEL,
   TEHRAN_TIME_NOTE,
-  currentTehranDateTimeInput,
   formatTehranDateTime,
   tehranDateTimeInputToUtcIso,
+  utcIsoToTehranDateTimeInput,
 } from '../../../lib/tehran-time'
 
 export function HomepageScheduleDialog({
@@ -122,17 +122,16 @@ export function HomepageScheduleDialog({
             <Label htmlFor="homepage-schedule-at">
               زمان انتشار ({TEHRAN_TIME_NOTE})
             </Label>
-            <Input
+            <JalaliDateTimeInput
               id="homepage-schedule-at"
-              type="datetime-local"
-              dir="ltr"
-              min={currentTehranDateTimeInput()}
-              value={publishAt}
-              disabled={submitting}
-              onChange={(event) => {
-                setPublishAt(event.target.value)
+              value={publishAt ? tehranDateTimeInputToUtcIso(publishAt) : null}
+              onChange={(iso) => {
+                setPublishAt(iso ? utcIsoToTehranDateTimeInput(iso) : '')
                 setLocalError(null)
               }}
+              withTime
+              disabled={submitting}
+              ariaLabel="زمان انتشار صفحه اصلی به وقت تهران"
             />
             <Text className="text-xs text-muted">
               زمان وارد‌شده به وقت تهران ({BUSINESS_TIME_ZONE_LABEL}) است و پیش

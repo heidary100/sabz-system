@@ -1,4 +1,5 @@
 import { API_BASE_URL, ApiError } from '@/lib/api';
+import { AUTH_STATE_EVENT } from '@/lib/auth-events';
 import { toEnglishDigits } from '@/lib/digits';
 
 export { toEnglishDigits };
@@ -13,7 +14,11 @@ export { toEnglishDigits };
 const ACCESS_TOKEN_KEY = 'sabz.accessToken';
 
 /** Single-flight refresh shared by concurrent 401s in this tab. */
-let refreshPromise: Promise<string | null> | null = null;
+type RefreshResult =
+  | { status: 'refreshed'; accessToken: string }
+  | { status: 'expired' }
+  | { status: 'unavailable' };
+let refreshPromise: Promise<RefreshResult> | null = null;
 
 export interface AuthSession {
   userId: string;
@@ -49,11 +54,19 @@ function getStoredToken(): string | null {
   return window.localStorage.getItem(ACCESS_TOKEN_KEY);
 }
 
+function notifyAuthState(): void {
+  if (typeof window === 'undefined' || typeof window.dispatchEvent !== 'function') {
+    return;
+  }
+  window.dispatchEvent(new Event(AUTH_STATE_EVENT));
+}
+
 function setStoredToken(token: string): void {
   if (typeof window === 'undefined') {
     return;
   }
   window.localStorage.setItem(ACCESS_TOKEN_KEY, token);
+  notifyAuthState();
 }
 
 function clearStoredToken(): void {
@@ -61,6 +74,12 @@ function clearStoredToken(): void {
     return;
   }
   window.localStorage.removeItem(ACCESS_TOKEN_KEY);
+  notifyAuthState();
+}
+
+/** Read access for the authenticated WebSocket handshake (never logged). */
+export function getAccessToken(): string | null {
+  return getStoredToken();
 }
 
 /** True when an access token is stored (client only). */
@@ -170,9 +189,11 @@ function withAuthHeader(token: string | null, init?: RequestInit): RequestInit {
 
 /**
  * Refreshes the access token once for all concurrent 401s in this tab.
- * Resolves to the new token, or null when the refresh failed.
+ * Only an explicit 401/403 from the refresh endpoint means the session is
+ * over. Throttling, 5xx and network failures are transient and must not
+ * remove a valid stored token.
  */
-async function refreshAccessToken(): Promise<string | null> {
+async function refreshAccessToken(): Promise<RefreshResult> {
   if (!refreshPromise) {
     refreshPromise = fetch(`${API_BASE_URL}/auth/refresh`, {
       method: 'POST',
@@ -180,19 +201,22 @@ async function refreshAccessToken(): Promise<string | null> {
       headers: { 'Content-Type': 'application/json' },
     })
       .then(async (refresh) => {
+        if (refresh.status === 401 || refresh.status === 403) {
+          return { status: 'expired' as const };
+        }
         if (!refresh.ok) {
-          return null;
+          return { status: 'unavailable' as const };
         }
         const body = (await refresh.json().catch(() => undefined)) as
           | { accessToken?: unknown }
           | undefined;
         if (typeof body?.accessToken !== 'string' || body.accessToken === '') {
-          return null;
+          return { status: 'unavailable' as const };
         }
         setStoredToken(body.accessToken);
-        return body.accessToken;
+        return { status: 'refreshed' as const, accessToken: body.accessToken };
       })
-      .catch(() => null)
+      .catch(() => ({ status: 'unavailable' as const }))
       .finally(() => {
         refreshPromise = null;
       });
@@ -214,14 +238,18 @@ export async function authFetch(path: string, init?: RequestInit): Promise<Respo
   if (response.status !== 401) {
     return response;
   }
-  const accessToken = await refreshAccessToken();
-  if (accessToken === null) {
+  const refresh = await refreshAccessToken();
+  if (refresh.status === 'expired') {
     clearStoredToken();
+    throw response;
+  }
+  if (refresh.status === 'unavailable') {
+    // Keep the token/session for a retry; only the refresh attempt failed.
     throw response;
   }
   const retry = await fetch(
     `${API_BASE_URL}${path}`,
-    withAuthHeader(accessToken, init),
+    withAuthHeader(refresh.accessToken, init),
   );
   if (retry.status === 401) {
     clearStoredToken();

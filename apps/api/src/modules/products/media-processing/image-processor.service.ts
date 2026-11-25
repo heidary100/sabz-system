@@ -19,6 +19,13 @@ export interface ProcessedAsset {
   /** Watermarked WEBP derivative for listings (SS-129). Images only. */
   thumbnailPath?: string;
   thumbnailSizeBytes?: number;
+  /** SS-900 processing metadata for the media row. */
+  backgroundRemoved?: boolean;
+  processingStatus?: 'NONE' | 'PENDING' | 'PROCESSED' | 'SKIPPED' | 'FAILED';
+  processingError?: string;
+  processingModel?: string;
+  /** Actual stored mime when background removal forces PNG. */
+  mimeType?: AllowedMediaMimeType;
 }
 
 /** Longest-edge cap for listing thumbnails (SS-129). */

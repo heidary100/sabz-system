@@ -13,6 +13,8 @@ const config = resolveApiConfig(process.env);
 const remotePatterns = getImageRemotePatterns(config);
 
 const nextConfig: NextConfig = {
+  // Optional isolated build/dev directory (useful for parallel UI verification).
+  distDir: process.env.NEXT_DIST_DIR ?? '.next',
   images: {
     remotePatterns,
     // The optimizer fetches media from the trusted internal API over the

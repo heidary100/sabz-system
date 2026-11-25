@@ -17,7 +17,6 @@ const WISHLIST_ITEM_KEYS = [
   'brand',
   'callForPrice',
   'category',
-  'compareAtPrice',
   'condition',
   'id',
   'inStock',
@@ -28,6 +27,7 @@ const WISHLIST_ITEM_KEYS = [
   'promotionEndsAt',
   'ratingAverage',
   'ratingCount',
+  'regularPrice',
   'slug',
   'variantCount',
 ];
@@ -216,7 +216,7 @@ describe('Wishlist API (SS-231) (e2e)', () => {
     expect(created.body.id).toBe(productId);
     expect(Object.keys(created.body).sort()).toEqual(WISHLIST_ITEM_KEYS);
     expect(typeof created.body.addedAt).toBe('string');
-    expect(created.body.priceFrom).toBe('5000');
+    expect(created.body.priceFrom).toBe('100000');
 
     // Repeat save is idempotent: 200, still exactly one row.
     await request(app.getHttpServer())

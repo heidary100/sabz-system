@@ -8,9 +8,9 @@
  * one-time snapshot of the live WooCommerce site (Sep 2026).
  *
  * Binding constraints (milestone-2-plan.md SS-131 + handoff §3):
- * - Prices on the live site are Rial; the storefront contract is Toman, so
- *   every fixture carries `priceRial` (observed) and `priceToman`
- *   (= priceRial / 10). The invariant is asserted at seed time.
+ * - Prices on the live site are Rial; the current storefront contract is Rial
+ *   too (SS-900), so variants persist `priceRial`. `priceToman` remains a
+ *   fixture sanity check (= priceRial / 10); it is never persisted.
  * - Media rows are created THROUGH `MediaService.upload` (constructed here
  *   with the same storage/processing wiring as `products.module.ts`), so
  *   watermarking + thumbnails (SS-129) are applied exactly as in production.
@@ -32,6 +32,7 @@ import { PrismaService } from '../src/common/database/prisma.service';
 import { AuditService } from '../src/modules/audit/audit.service';
 import { MediaService } from '../src/modules/products/media.service';
 import { sanitizeRichText } from '../src/modules/products/description-sanitize';
+import { recomputeProductMinPrice } from '../src/modules/products/min-price';
 import { ensureBrandAliases } from '../src/modules/products/brand-alias';
 import { FfmpegRunner } from '../src/modules/products/media-processing/ffmpeg.runner';
 import { ImageProcessorService } from '../src/modules/products/media-processing/image-processor.service';
@@ -406,13 +407,19 @@ export async function seedCatalog(actorId: string): Promise<SeedCatalogStats> {
             productId,
             sku: variant.sku,
             name: variant.name,
-            price: variant.priceToman,
-            compareAtPrice: variant.compareAtToman ?? null,
+            // Fixture semantics mirror the legacy catalog: `priceRial` is the
+            // customer price and `compareAtRial` (when present) is the higher
+            // regular/reference price. The normalized schema stores the
+            // regular price in `price` and the sale price in `discountedPrice`.
+            price: variant.compareAtRial ?? variant.priceRial,
+            discountedPrice:
+              variant.compareAtRial !== undefined ? variant.priceRial : null,
             createdBy: actorId,
           },
         });
         variantCount += 1;
       }
+      await recomputeProductMinPrice(prisma, productId);
 
       // Upload through MediaService so watermarking/thumbnails match
       // production. The pipeline deletes its input, so each fixture is copied

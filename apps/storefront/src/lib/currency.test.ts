@@ -1,57 +1,57 @@
 import { describe, expect, it } from 'vitest';
 import {
-  RIAL_PER_TOMAN,
-  rialToToman,
-  rialToTomanString,
-  tomanToRial,
-  tomanToRialString,
+  TOMAN_LABEL,
+  tomanNumber,
+  rialBound,
+  rialMachineValue,
+  rialNumber,
 } from './currency';
 
-describe('RIAL_PER_TOMAN', () => {
-  it('is the fixed contract rate', () => {
-    expect(RIAL_PER_TOMAN).toBe(10);
+describe('TOMAN_LABEL', () => {
+  it('is the customer-facing unit', () => {
+    expect(TOMAN_LABEL).toBe('تومان');
   });
 });
 
-describe('rialToToman', () => {
-  it('divides by 10 and floors fractional Tomans', () => {
-    expect(rialToToman(16_000_000)).toBe(1_600_000);
-    expect(rialToToman(16_555_555)).toBe(1_655_555);
-    expect(rialToToman(0)).toBe(0);
+describe('tomanNumber', () => {
+  it('divides Rial by 10 exactly once', () => {
+    expect(tomanNumber('7700000')).toBe(770_000);
+    expect(tomanNumber('7650000')).toBe(765_000);
+    expect(tomanNumber(null)).toBe(0);
   });
 });
 
-describe('tomanToRial', () => {
-  it('multiplies by 10 (exact inverse for whole Tomans)', () => {
-    expect(tomanToRial(1_600_000)).toBe(16_000_000);
-    expect(tomanToRial(0)).toBe(0);
+describe('rialNumber', () => {
+  it('parses server Rial values without conversion or rounding', () => {
+    expect(rialNumber('7700000')).toBe(7_700_000);
+    expect(rialNumber(16_555_555)).toBe(16_555_555);
+    expect(rialNumber(0)).toBe(0);
+    expect(rialNumber(null)).toBe(0);
   });
 });
 
-describe('rialToTomanString', () => {
-  it('converts API Rial strings to Toman strings', () => {
-    expect(rialToTomanString('16000000')).toBe('1600000');
-    expect(rialToTomanString('155000000')).toBe('15500000');
+describe('rialMachineValue', () => {
+  it('emits the server Rial value verbatim', () => {
+    expect(rialMachineValue('16000000')).toBe('16000000');
+    expect(rialMachineValue('7700000')).toBe('7700000');
   });
 
-  it('keeps fractional Tomans without float artifacts', () => {
-    expect(rialToTomanString('15500005')).toBe('1550000.5');
-    expect(rialToTomanString('155.5')).toBe('15.55');
+  it('keeps fractional values without float artifacts', () => {
+    expect(rialMachineValue('155.5')).toBe('155.5');
   });
 
   it('falls back to zero for invalid input', () => {
-    expect(rialToTomanString('not-a-number')).toBe('0');
+    expect(rialMachineValue('not-a-number')).toBe('0');
   });
 });
 
-describe('tomanToRialString', () => {
-  it('converts Toman URL bounds to Rial query bounds', () => {
-    expect(tomanToRialString('2000000')).toBe('20000000');
-    expect(tomanToRialString('12.5')).toBe('125');
-    expect(tomanToRialString('0.01')).toBe('0.1');
+describe('rialBound', () => {
+  it('forwards Rial URL bounds unchanged', () => {
+    expect(rialBound('2000000')).toBe('2000000');
+    expect(rialBound('12.5')).toBe('12.5');
   });
 
   it('falls back to zero for invalid input', () => {
-    expect(tomanToRialString('abc')).toBe('0');
+    expect(rialBound('abc')).toBe('0');
   });
 });

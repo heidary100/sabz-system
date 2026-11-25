@@ -17,9 +17,10 @@ describe('formatFaNumber', () => {
 });
 
 describe('formatToman', () => {
-  it('converts API Rial strings ÷10 and formats whole Tomans', () => {
-    expect(formatToman('750.5')).toBe('۷۵ تومان');
+  it('converts server Rial to Toman at the display boundary', () => {
+    expect(formatToman('750.5')).toBe('۷۵٫۰۵ تومان');
     expect(formatToman('155000000')).toBe('۱۵٬۵۰۰٬۰۰۰ تومان');
+    expect(formatToman('7700000')).toBe('۷۷۰٬۰۰۰ تومان');
   });
 
   it('accepts Rial numbers directly', () => {

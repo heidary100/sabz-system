@@ -5,12 +5,19 @@ import { AuditModule } from '../audit/audit.module';
 import { AuthModule } from '../auth/auth.module';
 import { InventoryModule } from '../inventory/inventory.module';
 import { PricingModule } from '../pricing/pricing.module';
+import { CurrencyModule } from '../currency/currency.module';
 import { BrandsController } from './brands.controller';
 import { BrandsService } from './brands.service';
 import { CategoriesController } from './categories.controller';
 import { CategoriesService } from './categories.service';
+import { CategoryImageService } from './category-image.service';
 import { ProductsController } from './products.controller';
 import { ProductsService } from './products.service';
+import { AdminAttributesController } from './attributes-admin.controller';
+import {
+  AdminBulkAttributesController,
+  AdminProductAttributesController,
+} from './product-attributes.controller';
 import { AdminVariantsController, ProductVariantsController } from './variants.controller';
 import { VariantsService } from './variants.service';
 import { CatalogGridController } from './catalog-grid.controller';
@@ -25,6 +32,7 @@ import { PublicProductMediaController } from './public-media.controller';
 import {
   PublicCatalogBrandsController,
   PublicCatalogCategoriesController,
+  PublicCatalogFacetsController,
   PublicCatalogProductsController,
 } from './public-catalog.controller';
 import { PublicCatalogService } from './public-catalog.service';
@@ -48,6 +56,7 @@ import { WatermarkOverlayService } from './media-processing/watermark-overlay.se
 import { ImageProcessorService } from './media-processing/image-processor.service';
 import { VideoProcessorService } from './media-processing/video-processor.service';
 import { MediaProcessingService } from './media-processing/media-processing.service';
+import { BackgroundRemovalService } from './media-processing/background-removal.service';
 
 export const PRODUCT_MEDIA_TEMP_DIR = 'PRODUCT_MEDIA_TEMP_DIR';
 
@@ -62,8 +71,11 @@ export const PRODUCT_MEDIA_TEMP_DIR = 'PRODUCT_MEDIA_TEMP_DIR';
  * the shared AuditService.
  */
 @Module({
-  imports: [AuthModule, AuditModule, InventoryModule, PricingModule],
+  imports: [AuthModule, AuditModule, InventoryModule, PricingModule, CurrencyModule],
   controllers: [
+    AdminBulkAttributesController,
+    AdminProductAttributesController,
+    AdminAttributesController,
     ProductsController,
     CategoriesController,
     BrandsController,
@@ -77,11 +89,13 @@ export const PRODUCT_MEDIA_TEMP_DIR = 'PRODUCT_MEDIA_TEMP_DIR';
     PublicProductMediaController,
     PublicCatalogCategoriesController,
     PublicCatalogBrandsController,
+    PublicCatalogFacetsController,
     PublicCatalogProductsController,
   ],
   providers: [
     ProductsService,
     CategoriesService,
+    CategoryImageService,
     BrandsService,
     VariantsService,
     CatalogGridService,
@@ -145,6 +159,7 @@ export const PRODUCT_MEDIA_TEMP_DIR = 'PRODUCT_MEDIA_TEMP_DIR';
       ) => new VideoProcessorService(overlay, ffmpeg, config, tempDir),
     },
     MediaProcessingService,
+    BackgroundRemovalService,
   ],
   exports: [
     AttributesService,

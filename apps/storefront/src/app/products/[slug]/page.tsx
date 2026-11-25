@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { brand } from '@/lib/brand';
-import { fetchProductBySlug, mediaImageUrl } from '@/lib/catalog';
+import { fetchProductBySlug, mediaUrl } from '@/lib/catalog';
 import { conditionLabel } from '@/lib/condition';
 import { selectOgImage } from '@/lib/product-seo';
 import { seoDescriptionFromHtml } from '@/lib/seo';
@@ -22,7 +22,8 @@ import { ProductShare } from '@/components/ecommerce/product/product-share';
 import { CompareToggle } from '@/components/ecommerce/compare/compare-toggle';
 import { ProductReviews } from '@/components/ecommerce/product/product-reviews';
 import { absoluteUrl } from '@/lib/site-url';
-import { buildShareMessage } from '@/lib/share-message';
+import { buildSharePayload } from '@/lib/share-message';
+import { formatToman } from '@/lib/format';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -45,20 +46,51 @@ export async function generateMetadata({
     product.shortDescription ??
     seoDescriptionFromHtml(product.description);
   const canonical = `/products/${product.slug}`;
-  const ogImageUrl = mediaImageUrl(selectOgImage(product.media)?.url);
+  const ogImageUrl = publicMediaUrl(selectOgImage(product.media)?.url);
+  // Public social card price: base/retail values only — never a partner price.
+  // The API detail projection has already rounded Rial and contains no B2B
+  // fields, so this is safe to cache and share.
+  const pricedVariants = product.variants.filter(
+    (variant) => variant.priceStatus === 'PRICED',
+  );
+  const lowest = pricedVariants.reduce<typeof pricedVariants[number] | null>(
+    (min, variant) =>
+      min === null || Number(variant.price) < Number(min.price) ? variant : min,
+    null,
+  );
+  const priceLabel = lowest
+    ? `${pricedVariants.length > 1 ? 'از ' : ''}${formatToman(lowest.price)}`
+    : null;
+  const socialDescription = [description, priceLabel].filter(Boolean).join(' — ');
   return {
     title,
     description: description || undefined,
     alternates: { canonical },
     openGraph: {
       title,
-      description: description || undefined,
+      description: socialDescription || undefined,
       url: canonical,
       siteName: brand.nameFa,
       locale: 'fa_IR',
-      ...(ogImageUrl ? { images: [{ url: ogImageUrl }] } : {}),
+      type: 'website',
+      ...(ogImageUrl
+        ? { images: [{ url: ogImageUrl, alt: title }] }
+        : {}),
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description: socialDescription || undefined,
+      ...(ogImageUrl ? { images: [ogImageUrl] } : {}),
     },
   };
+}
+
+/** Absolute, crawler-accessible media URL (never the compose-internal host). */
+function publicMediaUrl(path: string | null | undefined): string | null {
+  const url = mediaUrl(path);
+  if (!url) return null;
+  return /^https?:/i.test(url) ? url : absoluteUrl(url);
 }
 
 /**
@@ -86,6 +118,11 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
     ...product.categoryBreadcrumb,
     { name: product.name, slug: product.slug },
   ];
+  // A deleted/missing category must not produce a «back to category» link
+  // that 404s. The breadcrumb still shows «خانه / محصول».
+  const leafCategory = product.categoryBreadcrumb.at(-1) ?? null;
+  const hasNavigableCategory =
+    leafCategory !== null && leafCategory.slug === product.category.slug;
 
   const hasSpecs =
     groupSpecs(product.specs).length > 0 ||
@@ -103,22 +140,35 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
   // (call-for-price when nothing is priced, «از …» only for a real spread),
   // built from BASE variant values only; tier personalization never reaches
   // a share (guest price responses pin tierApplied=false in e2e).
-  const pricedVariantPrices = product.variants
-    .filter((variant) => variant.priceStatus === 'PRICED')
-    .map((variant) => Number(variant.price));
-  const shareText = buildShareMessage({
+  const pricedVariants = product.variants.filter(
+    (variant) => variant.priceStatus === 'PRICED',
+  );
+  const selectedVariant =
+    product.variants.find((variant) => variant.id === initialVariantId) ?? null;
+  const selectedPriced =
+    selectedVariant?.priceStatus === 'PRICED' ? selectedVariant : null;
+  const sharePayload = buildSharePayload({
     title: product.name,
+    shortDescription: product.shortDescription,
     brandName: product.brand?.name ?? null,
-    priceFromRial:
-      pricedVariantPrices.length > 0
-        ? String(Math.min(...pricedVariantPrices))
+    variantName: selectedVariant?.name ?? null,
+    imageUrl: publicMediaUrl(
+      product.media.find((item) => item.mediaType === 'IMAGE')?.thumbnailUrl ??
+        product.media.find((item) => item.mediaType === 'IMAGE')?.url ??
+        null,
+    ),
+    priceFromRial: selectedPriced
+      ? selectedPriced.price
+      : pricedVariants.length > 0
+        ? String(Math.min(...pricedVariants.map((variant) => Number(variant.price))))
         : null,
-    variantCount: product.variants.length,
+    regularPriceRial: selectedPriced?.regularPrice ?? null,
+    variantCount: pricedVariants.length,
     url: canonicalUrl,
   });
   const jsonLdImages = product.media
     .filter((item) => item.mediaType === 'IMAGE')
-    .map((item) => mediaImageUrl(item.url))
+    .map((item) => publicMediaUrl(item.url))
     .filter((url): url is string => url !== null);
 
   return (
@@ -146,12 +196,21 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
           ) : (
             <span aria-hidden="true" />
           )}
-          <Link
-            href={`/categories/${product.category.slug}`}
-            className="inline-flex min-h-9 max-w-48 items-center truncate rounded-pill bg-surface-2 px-3 py-1.5 text-fg-secondary transition-colors duration-200 hover:bg-accent-soft hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
-          >
-            بازگشت به {product.category.name}
-          </Link>
+          {hasNavigableCategory ? (
+            <Link
+              href={`/categories/${product.category.slug}`}
+              className="inline-flex min-h-9 max-w-48 items-center truncate rounded-pill bg-surface-2 px-3 py-1.5 text-fg-secondary transition-colors duration-200 hover:bg-accent-soft hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+            >
+              بازگشت به {product.category.name}
+            </Link>
+          ) : (
+            <Link
+              href="/products"
+              className="inline-flex min-h-9 max-w-48 items-center truncate rounded-pill bg-surface-2 px-3 py-1.5 text-fg-secondary transition-colors duration-200 hover:bg-accent-soft hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+            >
+              همه محصولات
+            </Link>
+          )}
           {product.next ? (
             <Link
               href={`/products/${product.next.slug}`}
@@ -198,6 +257,14 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
                 برند: {product.brand.name}
               </Link>
             ) : null}
+            {hasNavigableCategory ? (
+              <Link
+                href={`/categories/${product.category.slug}`}
+                className={`${badgeVariants({ variant: 'condition' })} hover:text-accent`}
+              >
+                دسته: {product.category.name}
+              </Link>
+            ) : null}
             <Badge variant="condition">{conditionLabel(product.condition)}</Badge>
           </div>
 
@@ -231,7 +298,7 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
           </div>
 
           <div className="mt-4">
-            <ProductShare canonicalUrl={canonicalUrl} shareText={shareText} />
+            <ProductShare canonicalUrl={canonicalUrl} sharePayload={sharePayload} />
           </div>
 
           <div className="mt-4 flex items-center gap-3 rounded-card border border-border bg-surface px-4 py-3">

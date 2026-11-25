@@ -3,6 +3,7 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { Prisma, PromotionType } from '@prisma/client';
 import type {
@@ -14,6 +15,11 @@ import type {
   PromotionListResponse,
 } from '@sabz/types';
 import { PrismaService } from '../../common/database/prisma.service';
+import { StorefrontCacheService } from '../../common/storefront-cache/storefront-cache.service';
+import {
+  CATALOG_PRODUCTS_TAG,
+  productDetailTag,
+} from '../../common/storefront-cache/catalog-tags';
 import { AuditService } from '../audit/audit.service';
 import {
   CreateCategoryPriceRuleDto,
@@ -54,6 +60,7 @@ export class AdminPricingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    @Optional() private readonly cache?: StorefrontCacheService,
   ) {}
 
   // -------------------------------------------------------------------------
@@ -112,6 +119,7 @@ export class AdminPricingService {
         isActive: dto.isActive ?? true,
         startsAt,
         endsAt,
+        includeDescendants: dto.includeDescendants ?? false,
         priority: dto.priority ?? 0,
         createdBy: operatorId,
       },
@@ -127,6 +135,7 @@ export class AdminPricingService {
       after: created as unknown as Prisma.InputJsonValue,
       ipAddress,
     });
+    void this.invalidateCategory(dto.categoryId, dto.includeDescendants ?? false);
     return created;
   }
 
@@ -168,6 +177,9 @@ export class AdminPricingService {
         ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
         ...('startsAt' in dto ? { startsAt } : {}),
         ...('endsAt' in dto ? { endsAt } : {}),
+        ...(dto.includeDescendants !== undefined
+          ? { includeDescendants: dto.includeDescendants }
+          : {}),
         ...(dto.priority !== undefined ? { priority: dto.priority } : {}),
         updatedBy: operatorId,
       },
@@ -183,6 +195,10 @@ export class AdminPricingService {
       after: after as unknown as Prisma.InputJsonValue,
       ipAddress,
     });
+    void this.invalidateCategory(existing.categoryId, existing.includeDescendants);
+    if (row.categoryId !== existing.categoryId) {
+      void this.invalidateCategory(row.categoryId, row.includeDescendants);
+    }
     return after;
   }
 
@@ -209,6 +225,7 @@ export class AdminPricingService {
       after: null,
       ipAddress,
     });
+    void this.invalidateCategory(existing.categoryId, existing.includeDescendants);
     return before;
   }
 
@@ -266,7 +283,7 @@ export class AdminPricingService {
     if (duplicate) {
       throw new ConflictException('برای این محصول قبلاً اورراید قیمت ثبت شده است.');
     }
-    this.assertValidValue(dto.type, dto.value);
+    const shape = this.resolveOverrideShape(dto);
     const { startsAt, endsAt } = this.parseWindow(dto.startsAt, dto.endsAt);
     this.assertValidWindow(startsAt, endsAt);
     let row: OverrideRow;
@@ -274,8 +291,9 @@ export class AdminPricingService {
       row = await this.prisma.productPriceOverride.create({
         data: {
           productId: dto.productId,
-          type: dto.type,
-          value: new Prisma.Decimal(dto.value),
+          type: shape.type,
+          value: shape.value,
+          overridePrice: shape.overridePrice,
           isActive: dto.isActive ?? true,
           startsAt,
           endsAt,
@@ -299,6 +317,7 @@ export class AdminPricingService {
       after: created as unknown as Prisma.InputJsonValue,
       ipAddress,
     });
+    void this.invalidateProduct(dto.productId);
     return created;
   }
 
@@ -316,9 +335,30 @@ export class AdminPricingService {
       throw new NotFoundException('اورراید قیمت یافت نشد.');
     }
     const before = this.toOverrideDto(existing);
-    const type = dto.type ?? existing.type;
-    const value = dto.value ?? existing.value.toString();
-    this.assertValidValue(type, value);
+    const switchingToAbsolute = dto.overridePrice !== undefined && dto.overridePrice !== null;
+    const switchingToAdjustment =
+      (dto.type !== undefined && dto.type !== null) ||
+      (dto.value !== undefined && dto.value !== null);
+    const mergedType = switchingToAbsolute
+      ? null
+      : dto.type !== undefined
+        ? dto.type
+        : existing.type;
+    const mergedValue = switchingToAbsolute
+      ? null
+      : dto.value !== undefined
+        ? dto.value
+        : (existing.value?.toString() ?? null);
+    const mergedOverridePrice = switchingToAdjustment
+      ? null
+      : dto.overridePrice !== undefined
+        ? dto.overridePrice
+        : (existing.overridePrice?.toString() ?? null);
+    const shape = this.resolveOverrideShape({
+      type: mergedType ?? undefined,
+      value: mergedValue ?? undefined,
+      overridePrice: mergedOverridePrice ?? undefined,
+    });
     const { startsAt, endsAt } = this.parseNullableWindow(
       dto.startsAt,
       dto.endsAt,
@@ -331,8 +371,9 @@ export class AdminPricingService {
     const row = await this.prisma.productPriceOverride.update({
       where: { id },
       data: {
-        ...(dto.type !== undefined ? { type: dto.type } : {}),
-        ...(dto.value !== undefined ? { value: new Prisma.Decimal(dto.value) } : {}),
+        type: shape.type,
+        value: shape.value,
+        overridePrice: shape.overridePrice,
         ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
         ...('startsAt' in dto ? { startsAt } : {}),
         ...('endsAt' in dto ? { endsAt } : {}),
@@ -350,6 +391,7 @@ export class AdminPricingService {
       after: after as unknown as Prisma.InputJsonValue,
       ipAddress,
     });
+    void this.invalidateProduct(existing.productId);
     return after;
   }
 
@@ -376,6 +418,7 @@ export class AdminPricingService {
       after: null,
       ipAddress,
     });
+    void this.invalidateProduct(existing.productId);
     return before;
   }
 
@@ -468,6 +511,11 @@ export class AdminPricingService {
       after: created as unknown as Prisma.InputJsonValue,
       ipAddress,
     });
+    void this.invalidatePromotionScope({
+      productId: dto.productId ?? undefined,
+      categoryId: dto.categoryId ?? undefined,
+      brandId: dto.brandId ?? undefined,
+    });
     return created;
   }
 
@@ -536,6 +584,11 @@ export class AdminPricingService {
       after: after as unknown as Prisma.InputJsonValue,
       ipAddress,
     });
+    void this.invalidatePromotionScope({
+      productId: after.productId ?? undefined,
+      categoryId: after.categoryId ?? undefined,
+      brandId: after.brandId ?? undefined,
+    });
     return after;
   }
 
@@ -559,12 +612,110 @@ export class AdminPricingService {
       after: null,
       ipAddress,
     });
+    void this.invalidatePromotionScope({
+      productId: existing.productId ?? undefined,
+      categoryId: existing.categoryId ?? undefined,
+      brandId: existing.brandId ?? undefined,
+    });
     return before;
   }
 
   // -------------------------------------------------------------------------
   // Internals
   // -------------------------------------------------------------------------
+
+  private async categoryIdsFor(
+    categoryId: string,
+    includeDescendants: boolean,
+  ): Promise<string[]> {
+    if (!includeDescendants) {
+      return [categoryId];
+    }
+    const ids = new Set<string>([categoryId]);
+    let frontier = [categoryId];
+    for (let depth = 0; depth < 32 && frontier.length > 0; depth += 1) {
+      const children = await this.prisma.category.findMany({
+        where: { parentId: { in: frontier }, deletedAt: null },
+        select: { id: true },
+      });
+      frontier = [];
+      for (const child of children) {
+        if (!ids.has(child.id)) {
+          ids.add(child.id);
+          frontier.push(child.id);
+        }
+      }
+    }
+    return [...ids];
+  }
+
+  private async invalidateCategory(
+    categoryId: string,
+    includeDescendants: boolean,
+  ): Promise<void> {
+    if (!this.cache) return;
+    try {
+      const categoryIds = await this.categoryIdsFor(categoryId, includeDescendants);
+      const products = await this.prisma.product.findMany({
+        where: { categoryId: { in: categoryIds }, deletedAt: null },
+        select: { slug: true },
+      });
+      await this.cache.invalidate([
+        CATALOG_PRODUCTS_TAG,
+        ...products.map((product) => productDetailTag(product.slug)),
+      ]);
+    } catch {
+      // cache invalidation is best-effort
+    }
+  }
+
+  private async invalidateProduct(productId: string): Promise<void> {
+    if (!this.cache) return;
+    try {
+      const product = await this.prisma.product.findUnique({
+        where: { id: productId },
+        select: { slug: true },
+      });
+      await this.cache.invalidate([
+        CATALOG_PRODUCTS_TAG,
+        ...(product ? [productDetailTag(product.slug)] : []),
+      ]);
+    } catch {
+      // cache invalidation is best-effort
+    }
+  }
+
+  private async invalidatePromotionScope(scope: {
+    productId?: string;
+    categoryId?: string;
+    brandId?: string;
+  }): Promise<void> {
+    if (!this.cache) return;
+    if (scope.productId) {
+      await this.invalidateProduct(scope.productId);
+      return;
+    }
+    if (scope.categoryId) {
+      await this.invalidateCategory(scope.categoryId, true);
+      return;
+    }
+    if (scope.brandId) {
+      try {
+        const products = await this.prisma.product.findMany({
+          where: { brandId: scope.brandId, deletedAt: null },
+          select: { slug: true },
+        });
+        await this.cache.invalidate([
+          CATALOG_PRODUCTS_TAG,
+          ...products.map((product) => productDetailTag(product.slug)),
+        ]);
+      } catch {
+        // cache invalidation is best-effort
+      }
+      return;
+    }
+    await this.cache.invalidate([CATALOG_PRODUCTS_TAG]);
+  }
 
   private async requireLiveCategory(categoryId: string): Promise<void> {
     const category = await this.prisma.category.findFirst({
@@ -614,6 +765,53 @@ export class AdminPricingService {
     if (type === PromotionType.PERCENT && parsed.greaterThan(100)) {
       throw new BadRequestException('درصد تخفیف نمی‌تواند بیشتر از ۱۰۰ باشد.');
     }
+  }
+
+  /**
+   * Resolve and validate the one-of override shape:
+   * - absolute: `overridePrice` only (positive Rial final price);
+   * - adjustment: `type` + `value` (PERCENT 0–100 or FIXED positive Rial off).
+   */
+  private resolveOverrideShape(input: {
+    type?: PromotionType;
+    value?: string;
+    overridePrice?: string;
+  }): {
+    type: PromotionType | null;
+    value: Prisma.Decimal | null;
+    overridePrice: Prisma.Decimal | null;
+  } {
+    const hasAbsolute =
+      input.overridePrice !== undefined && input.overridePrice !== null;
+    const hasAdjustment = input.type !== undefined || input.value !== undefined;
+    if (hasAbsolute && hasAdjustment) {
+      throw new BadRequestException(
+        'اورراید مطلق و تخفیف درصدی/مبلغی هم‌زمان مجاز نیستند.',
+      );
+    }
+    if (hasAbsolute) {
+      let parsed: Prisma.Decimal;
+      try {
+        parsed = new Prisma.Decimal(input.overridePrice as string);
+      } catch {
+        throw new BadRequestException('قیمت اورراید معتبر نیست.');
+      }
+      if (!parsed.isFinite() || parsed.lessThanOrEqualTo(0)) {
+        throw new BadRequestException('قیمت اورراید باید بزرگ‌تر از صفر باشد.');
+      }
+      return { type: null, value: null, overridePrice: parsed };
+    }
+    if (input.type === undefined || input.value === undefined) {
+      throw new BadRequestException(
+        'نوع و مقدار تخفیف یا قیمت مطلق اورراید الزامی است.',
+      );
+    }
+    this.assertValidValue(input.type, input.value);
+    return {
+      type: input.type,
+      value: new Prisma.Decimal(input.value),
+      overridePrice: null,
+    };
   }
 
   private parseWindow(
@@ -675,7 +873,9 @@ export class AdminPricingService {
       isActive: row.isActive,
       startsAt: row.startsAt?.toISOString() ?? null,
       endsAt: row.endsAt?.toISOString() ?? null,
+      includeDescendants: row.includeDescendants,
       priority: row.priority,
+      status: this.ruleStatus(row.isActive, row.startsAt, row.endsAt),
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
     };
@@ -687,13 +887,33 @@ export class AdminPricingService {
       productId: row.productId,
       productName: row.product.name,
       type: row.type as ProductPriceOverrideDto['type'],
-      value: row.value.toString(),
+      value: row.value?.toString() ?? null,
+      overridePrice: row.overridePrice?.toString() ?? null,
       isActive: row.isActive,
       startsAt: row.startsAt?.toISOString() ?? null,
       endsAt: row.endsAt?.toISOString() ?? null,
+      status: this.ruleStatus(row.isActive, row.startsAt, row.endsAt),
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
     };
+  }
+
+  private ruleStatus(
+    isActive: boolean,
+    startsAt: Date | null,
+    endsAt: Date | null,
+  ): 'ACTIVE' | 'SCHEDULED' | 'EXPIRED' | 'INACTIVE' {
+    if (!isActive) {
+      return 'INACTIVE';
+    }
+    const now = Date.now();
+    if (startsAt !== null && startsAt.getTime() > now) {
+      return 'SCHEDULED';
+    }
+    if (endsAt !== null && endsAt.getTime() < now) {
+      return 'EXPIRED';
+    }
+    return 'ACTIVE';
   }
 
   private toPromotionDto(row: PromotionRow): PromotionDto {

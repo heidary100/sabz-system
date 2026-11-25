@@ -181,6 +181,26 @@ export function OrderDetail({ id }: { id: string }) {
         </dl>
       </Card>
 
+      {(order.note !== null || order.customerNationalIdMasked !== null) ? (
+        <Card className="p-6">
+          <h2 className="text-sm font-bold text-fg">اطلاعات تکمیلی سفارش</h2>
+          <dl className="mt-3 space-y-2 text-sm">
+            {order.customerNationalIdMasked !== null ? (
+              <div className="flex items-center justify-between gap-3">
+                <dt className="text-fg-secondary">کد ملی</dt>
+                <dd dir="ltr" className="font-mono text-fg">{order.customerNationalIdMasked}</dd>
+              </div>
+            ) : null}
+            {order.note !== null ? (
+              <div>
+                <dt className="text-fg-secondary">یادداشت سفارش</dt>
+                <dd className="mt-1 whitespace-pre-line rounded-control bg-surface-2 px-3 py-2 leading-6 text-fg">{order.note}</dd>
+              </div>
+            ) : null}
+          </dl>
+        </Card>
+      ) : null}
+
       {order.shipment !== null ? (
         <Card className="p-6">
           <div className="flex flex-wrap items-center justify-between gap-3">

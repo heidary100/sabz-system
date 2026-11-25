@@ -1,7 +1,8 @@
 # WooCommerce → Sabz Import Mapping (SS-206)
 
-Source dataset: `wc-product-export-20-9-2026-*.csv` (14 MB, Persian-language
-WooCommerce export, **1152 rows × 243 columns**). The file lives outside Git;
+Source dataset: `wc-product-export-23-11-2026-1795446608040.csv` (14,296,747 bytes,
+SHA-256 `ef14e5d8…6cd10b`, Persian-language WooCommerce export,
+**1165 rows × 244 columns**). The file lives outside Git;
 the fetch procedure and the SHA-256 checksum of the current canonical export
 are recorded in the
 [import runbook](../07-development/import-runbook.md) (SS-219). The
@@ -17,16 +18,16 @@ keys) is read from `DATABASE_URL`.
 
 | Dimension | Value |
 |---|---|
-| Rows | 1152 (1069 simple, 24 variable, 59 variation) |
+| Rows | 1165 (1082 simple, 24 variable, 59 variation) |
 | Published / draft / private | 1126 / 14 / 12 |
-| Proposed actions (empty catalog) | CREATE 1125, SKIP 27, UPDATE 0 |
+| Proposed actions (previous import present) | CREATE 13, UPDATE 1125, SKIP 27 |
 | Price states | PRICED ~240, CALL_FOR_PRICE 852 (of which wholesale-only 143), NA (shells) |
 | On sale / sale windows / featured | 12 / 29 (window 2026-09-05→21) / 9 |
 | Orphan variations | 11 (4 unnamed, 7 unresolvable مادر) |
 | No-category rows / uncategorized bucket | 10 / 6 (all SKIP, review list in report) |
 | Unbranded (product-level) | 624 |
 | Imageless products | 10 |
-| Image refs / distinct URLs | 5174 / 4488 (single domain) |
+| Image refs / distinct URLs | 5234 / 4534 (single domain; JPG/PNG/AVIF) |
 | Tag assignments / distinct tags | ~2500 / 1079 |
 | custom_attributes lines | ~2700: ~1100 specs, ~1570 bullets, 7 true dirt |
 | Slug collisions (vs demo seed + in-file) | 31 suffixed, reported per row |
@@ -51,12 +52,14 @@ keys) is read from `DATABASE_URL`.
 6. **`_rank_math_gtin_code` is untrusted.** 451 rows hold model codes/titles
    (`HD720`), not GTINs. Never barcode. Only the single-row `GTIN…` column
    maps to `Variant.barcode`.
-7. **Sale window is live.** 29 rows carry 2026-09-05→21; `compareAt` imports
-   as evergreen until sale scheduling exists (deferred).
+7. **Sale window is live.** 29 rows carry 2026-09-05→21. The start/end
+   columns are written to `Variant.discountStartsAt/EndsAt`; expired or
+   not-yet-active windows are hidden by the pricing engine, never made
+   evergreen.
 
 ## 3. Column dispositions
 
-Summary over 243 headers: **mapped 125, deferred 43, ignored 75**, zero
+Summary over 244 headers: **mapped 127, deferred 41, ignored 76**, zero
 fallback (spec-enforced on a committed full-header fixture).
 
 ### 3.1 Mapped — identity, lifecycle, content
@@ -72,7 +75,8 @@ fallback (spec-enforced on a committed full-header fixture).
 | قابل مشاهده در کاتالوگ | visibility gate | All rows `visible`; anything else → SKIP (loud). |
 | توضیح کوتاه / توضیحات | shortDescription / description | Sanitized HTML; multiline cells preserved; inline `<img>` takes the description-image path. |
 | قیمت عادی | Variant.price | Missing/zero on published rows → CALL_FOR_PRICE (Q1). |
-| قیمت فروش ویژه | Variant.compareAtPrice | 12 rows; sale-without-regular drops compareAt + flags. |
+| قیمت فروش ویژه | Variant.discountedPrice | Sale price; sale ≥ regular is dropped (regular stored in `price`). |
+| تاریخ شروع فروش ویژه / تاریخ پایان فروش ویژه | Variant.discountStartsAt / discountEndsAt | Asia/Tehran wall-clock; invalid windows drop the sale; expired windows stay hidden. |
 | در انبار؟ / انبار | ledger receipt | One `INITIAL_STOCK` per variant on DEFAULT (SS-207). |
 | وزن (گرم) / درازا / پهنا / بلندا | weightKg / depthCm / widthCm / heightCm | Zero rows populated; grams÷1000; mapping ready. |
 | دسته‌ها | Product.categoryId | Deepest chain; 58 empty + 6 bucket → SKIP + review list. |
@@ -100,7 +104,7 @@ analytics (`count_recommended`, `post-views`, `osa_app_report_postviews`,
 `off_product_cat` 23 serialized Arrays, `how_apply_product_rule` 29);
 relations (upsells 5, cross-sells 3 with `id:NNNNN` refs); featured
 (`آیا ویژه است؟` 9, `_woodmart_new_label` 1 — no `isFeatured` yet);
-sale windows (start/end dates); video refs (4 rows); content fragments
+video refs (4 rows); content fragments
 (`content_slider`, `des_before_price` 2, `_subtitle` 1); unreliable GTIN
 field; empty price-history series.
 
@@ -143,6 +147,25 @@ order used); `display_warning_text: off` (warnings disabled); empty
   report.
 - Brand alias + category merge passes precede the first full write.
 - Currency rule (O-1): Rial verbatim — locked in SS-207.
+
+## 5.1 Stabilization additions (2026-11)
+
+- Sale start/end columns are mapped to `ProductVariant.discountStartsAt` /
+  `discountEndsAt` (Asia/Tehran wall-clock values); expired discounts are
+  hidden by the pricing engine instead of becoming evergreen.
+- `second_image` is an attachment id on most rows, not a URL: only real
+  http(s) values enter the gallery plan.
+- AVIF is a supported product image format (`image/avif`), classified before
+  the generic ISOBMFF/MP4 branch; otherwise FFmpeg receives AVIF and fails.
+- The media runner retains originals, runs local background removal,
+  transparent square padding and the revised smaller logo-only watermark,
+  and skips only rows already on that pipeline (`--refresh-images` is
+  resumable).
+- `woo:reconcile` is a read-only post-import gate covering prices, sale
+  windows, SKU/parent integrity, category/brand associations, primary media
+  and public image retrieval.
+- Apply stages require `--confirm-database sabz` and a verified PostgreSQL
+  backup; no production/shared database can be addressed.
 
 ## 6. SS-208 media downloader handoff
 

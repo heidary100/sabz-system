@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { fetchProductBySlug } from '@/lib/catalog';
+import { fetchComparison, fetchProductBySlug } from '@/lib/catalog';
 import { parseSlugsParam } from '@/lib/compare';
 import { CompareView } from './compare-view';
 
@@ -18,9 +18,12 @@ interface PageProps {
 export default async function ComparePage({ searchParams }: PageProps) {
   const query = await searchParams;
   const slugs = parseSlugsParam(query.products);
-  const products = (
-    await Promise.all(slugs.map((slug) => fetchProductBySlug(slug)))
-  ).filter((product) => product !== null);
+  const [products, comparison] = await Promise.all([
+    Promise.all(slugs.map((slug) => fetchProductBySlug(slug))).then((rows) =>
+      rows.filter((product) => product !== null),
+    ),
+    fetchComparison(slugs),
+  ]);
 
   return (
     <CompareView
@@ -30,6 +33,7 @@ export default async function ComparePage({ searchParams }: PageProps) {
         slug: product.slug,
       }))}
       products={products}
+      comparison={comparison}
     />
   );
 }

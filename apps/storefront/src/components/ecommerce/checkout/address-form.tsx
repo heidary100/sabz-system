@@ -132,11 +132,11 @@ export function AddressForm({ onCreated }: { onCreated: (row: AddressDto) => voi
           />
         </div>
         <div className="sm:col-span-2">
-          <label htmlFor="checkout-address" className="mb-1 block text-sm font-semibold text-fg">
+          <label htmlFor="checkout-address-line" className="mb-1 block text-sm font-semibold text-fg">
             نشانی *
           </label>
           <textarea
-            id="checkout-address"
+            id="checkout-address-line"
             value={address}
             onChange={(event) => setAddress(event.target.value)}
             rows={3}

@@ -4,20 +4,23 @@ import { IsEnum, IsInt, IsOptional, Max, Min } from 'class-validator';
 import type { ReviewStatus } from '@sabz/types';
 
 /**
- * Moderation queue query (SS-240D). Status filter defaults to PENDING
- * (the unmoderated worklist); ordering is always newest-first
- * (createdAt DESC, id DESC) so the queue reads stable.
+ * Moderation queue query (SS-240D, stabilization SS-900+). `status=ALL`
+ * (or an omitted status) means no status restriction: the UI's «همه
+ * وضعیت‌ها» option must return every supported review state. Ordering is
+ * always newest-first (createdAt DESC, id DESC) so the queue reads stable.
  */
 export class ListAdminReviewsQueryDto {
   @ApiPropertyOptional({
-    enum: ['PENDING', 'APPROVED', 'REJECTED'],
-    default: 'PENDING',
+    enum: ['ALL', 'PENDING', 'APPROVED', 'REJECTED'],
+    default: 'ALL',
+    description:
+      'ALL (default) returns every status; a concrete status filters to it.',
   })
   @IsOptional()
-  @IsEnum(['PENDING', 'APPROVED', 'REJECTED'], {
+  @IsEnum(['ALL', 'PENDING', 'APPROVED', 'REJECTED'], {
     message: 'وضعیت دیدگاه معتبر نیست.',
   })
-  status?: ReviewStatus;
+  status?: ReviewStatus | 'ALL';
 
   @ApiPropertyOptional({ default: 1, minimum: 1 })
   @IsOptional()

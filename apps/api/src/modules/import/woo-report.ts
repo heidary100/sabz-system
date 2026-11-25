@@ -43,13 +43,14 @@ export interface DryRunReport {
 
 const DECISIONS = [
   'Q1 decided: priceless published rows import as visible CALL_FOR_PRICE (non-purchasable).',
-  'Q2 proposed: unbranded rows import with nullable brand (no synthetic brand).',
-  'Q3 proposed: non-published rows import as DRAFT (admin-visible, storefront-hidden).',
-  'Q4 proposed: rows without any category (10) and uncategorized-bucket rows (6) are SKIPPED, never imported as a storefront category.',
-  'Q5 proposed: single primary category accepted for M2 (secondary join is P1).',
-  'OPEN: CSV prices are raw source units — SS-207 must lock the Rial/Toman rule before writing.',
-  'OPEN: brand candidates mix Persian/English spellings of the same brand (e.g. adata/ای دیتا) — SS-207 needs an alias-reconciliation pass.',
-  'OPEN: near-duplicate category segments (e.g. ابزار/ابزار آلات/ابزارآلات) need a merge review before import.',
+  'Q2 decided: unbranded rows import with nullable brand (no synthetic brand).',
+  'Q3 decided: non-published rows import as DRAFT (admin-visible, storefront-hidden).',
+  'Q4 decided: rows without any category and uncategorized-bucket rows are SKIPPED, never imported as a storefront category.',
+  'Q5 decided: single primary category accepted for M2 (secondary join is P1).',
+  'O-1 decided (SS-207, unchanged): CSV prices are Rial and are written verbatim; no silent Rial/Toman conversion. USD/AED/rate fields are never touched.',
+  'O-2 decided: brand aliases resolve through the curated BrandAlias keyspace; ambiguous spellings are reported, never guessed.',
+  'O-3 open: near-duplicate category segments (e.g. ابزار/ابزار آلات/ابزارآلات) need a merge review; this run reports the missing segments it would create.',
+  'Sale windows: CSV sale start/end dates are preserved on the variant; expired/not-yet-active discounts are hidden by the pricing engine, never rewritten as evergreen.',
 ];
 
 export function buildReport(

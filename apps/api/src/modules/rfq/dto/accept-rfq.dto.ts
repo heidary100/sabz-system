@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { PaymentMethod } from '@prisma/client';
-import { IsEnum, IsUUID } from 'class-validator';
+import { IsEnum, IsOptional, IsString, MaxLength, IsUUID } from 'class-validator';
 
 export class AcceptRfqDto {
   @ApiProperty({
@@ -31,4 +31,20 @@ export class AcceptRfqDto {
     message: 'شیوه ارسال معتبر نیست.',
   })
   shippingMethod!: string;
+
+  @ApiProperty({
+    required: false,
+    description:
+      'Personal national ID (کد ملی) required at order submission when the profile has none.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  nationalId?: string;
+
+  @ApiProperty({ required: false, description: 'Optional plain-text order note' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  note?: string;
 }

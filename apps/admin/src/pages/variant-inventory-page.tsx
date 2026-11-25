@@ -1,10 +1,13 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ArrowRight, Boxes } from 'lucide-react'
-import type { InventoryItemSummary } from '@sabz/types'
+import type { InventoryItemSummary, InventoryVariantRef, VariantSummary } from '@sabz/types'
 import { useVariantInventory } from '../hooks/use-variant-inventory'
+import { useWarehouseOptions } from '../hooks/use-warehouse-options'
+import { getVariant } from '../services/variants'
 import { translateApiError } from '../lib/error-messages'
 import { Button } from '../components/catalyst/button'
+import { Select } from '../components/catalyst/select'
 import { RouteHelpSection } from '../components/ui/page-help'
 import { Heading } from '../components/catalyst/heading'
 import {
@@ -30,11 +33,42 @@ type MutationTarget = { mode: 'receive' | 'adjust' | 'reserve'; item: InventoryI
 export function VariantInventoryPage() {
   const { variantId } = useParams<{ variantId: string }>()
   const { rows, loading, error, refetch } = useVariantInventory(variantId ?? '')
+  const { warehouses } = useWarehouseOptions()
 
   const [target, setTarget] = useState<MutationTarget | null>(null)
+  const [variantInfo, setVariantInfo] = useState<VariantSummary | null>(null)
+  const [receiveWarehouseId, setReceiveWarehouseId] = useState('')
+  const [emptyReceiveOpen, setEmptyReceiveOpen] = useState(false)
+
+  useEffect(() => {
+    if (!variantId) return
+    let cancelled = false
+    void getVariant(variantId)
+      .then((variant) => {
+        if (!cancelled) setVariantInfo(variant)
+      })
+      .catch(() => {
+        if (!cancelled) setVariantInfo(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [variantId])
+
+  useEffect(() => {
+    if (!receiveWarehouseId && warehouses.length > 0) {
+      setReceiveWarehouseId(warehouses[0]!.id)
+    }
+  }, [warehouses, receiveWarehouseId])
 
   const firstRow = rows && rows.length > 0 ? rows[0] : null
-  const variantRef = firstRow?.variant ?? null
+  const variantRef: InventoryVariantRef | null =
+    firstRow?.variant ??
+    (variantInfo
+      ? { id: variantInfo.id, sku: variantInfo.sku, name: variantInfo.name }
+      : null)
+  const receiveWarehouse =
+    warehouses.find((warehouse) => warehouse.id === receiveWarehouseId) ?? null
 
   if (loading && !rows) {
     return <Loading label="در حال بارگذاری موجودی نوع…" />
@@ -116,6 +150,37 @@ export function VariantInventoryPage() {
               : 'برای این نوع در هیچ انبار فعالی موجودی ثبت نشده است.'
           }
           icon={<Boxes className="size-6" />}
+          actions={
+            <div className="flex flex-wrap items-end justify-center gap-3">
+              <label className="text-start text-sm">
+                <span className="mb-1 block font-medium text-foreground">انبار</span>
+                <Select
+                  aria-label="انتخاب انبار برای ثبت موجودی اولیه"
+                  value={receiveWarehouseId}
+                  onChange={(event) => setReceiveWarehouseId(event.target.value)}
+                  disabled={warehouses.length === 0}
+                >
+                  {warehouses.length === 0 ? (
+                    <option value="">انبار فعالی وجود ندارد</option>
+                  ) : (
+                    warehouses.map((warehouse) => (
+                      <option key={warehouse.id} value={warehouse.id}>
+                        {warehouse.name}
+                      </option>
+                    ))
+                  )}
+                </Select>
+              </label>
+              <Button
+                color="primary"
+                disabled={!variantRef || !receiveWarehouse}
+                onClick={() => setEmptyReceiveOpen(true)}
+              >
+                <Boxes data-slot="icon" />
+                دریافت موجودی
+              </Button>
+            </div>
+          }
         />
       ) : (
         <TableCard>
@@ -177,18 +242,28 @@ export function VariantInventoryPage() {
         <div className="flex items-center justify-center gap-3 py-4" role="status">
           <span
             aria-hidden="true"
-            className="size-5 animate-spin rounded-full border-2 border-hunter-800 border-t-primary"
+            className="size-5 animate-spin rounded-full border-2 border-border border-t-primary"
           />
           <span className="text-sm font-medium text-muted">در حال بارگذاری…</span>
         </div>
       )}
 
       <ReceiveStockDialog
-        open={target?.mode === 'receive'}
-        variant={target?.mode === 'receive' ? target.item.variant : null}
-        warehouse={target?.mode === 'receive' ? target.item.warehouse : null}
-        onClose={() => setTarget(null)}
-        onSuccess={handleMutationSuccess}
+        open={target?.mode === 'receive' || emptyReceiveOpen}
+        variant={
+          target?.mode === 'receive' ? target.item.variant : variantRef
+        }
+        warehouse={
+          target?.mode === 'receive' ? target.item.warehouse : receiveWarehouse
+        }
+        onClose={() => {
+          setTarget(null)
+          setEmptyReceiveOpen(false)
+        }}
+        onSuccess={() => {
+          setEmptyReceiveOpen(false)
+          handleMutationSuccess()
+        }}
         onConflict={handleMutationConflict}
       />
 

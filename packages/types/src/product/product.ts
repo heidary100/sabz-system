@@ -12,6 +12,8 @@ export interface CategorySummary {
   parentId: string | null;
   sortOrder: number;
   isVisible: boolean;
+  /** Public editorial category image URL; null/undefined uses the derived cover. */
+  imageUrl?: string | null;
 }
 
 export interface CategoryDetail extends CategorySummary {
@@ -39,10 +41,27 @@ export interface VariantSummary {
   sku: string;
   barcode: string | null;
   name: string | null;
+  /** Regular/base price in Rial. */
   price: string;
-  /** Pre-discount reference price (SS-201); null when no sale. */
-  compareAtPrice: string | null;
+  /** Promotional selling price in Rial; null when no product sale. */
+  discountedPrice: string | null;
+  /** Optional sale window (ISO). */
+  discountStartsAt?: string | null;
+  discountEndsAt?: string | null;
+  /** B2B partner price in Rial (admin-only). */
+  partnerPrice?: string | null;
+  /** Last price/rate calculation timestamp. */
+  priceUpdatedAt?: string | null;
   priceStatus: PriceStatus;
+  /** Operator-entered source currency (SS-900 Part II). */
+  priceSourceCurrency?: 'RIAL' | 'USD' | 'AED';
+  /** Source amount for the regular price; null for legacy rows. */
+  priceSourceAmount?: string | null;
+  /** Source amount for the discounted price; null when absent. */
+  discountSourceAmount?: string | null;
+  /** Manual Rial-per-unit rate snapshot used for the derived Rial price. */
+  priceSourceRate?: string | null;
+  priceSourceRateAt?: string | null;
 }
 
 export interface ProductMediaSummary {
@@ -51,6 +70,7 @@ export interface ProductMediaSummary {
   variantId: string | null;
   mediaType: ProductMediaType;
   originalName: string;
+  /** Stored derivative MIME (image/png after local background removal). */
   mimeType: string;
   /** Size of the stored (watermarked/processed) asset. */
   sizeBytes: number;
@@ -61,6 +81,20 @@ export interface ProductMediaSummary {
   sortOrder: number;
   isPrimary: boolean;
   createdAt: string;
+  /** SS-900 processing/preview state. */
+  originalUrl: string | null;
+  originalMimeType: string | null;
+  originalSizeBytes: number | null;
+  originalWidth: number | null;
+  originalHeight: number | null;
+  width: number | null;
+  height: number | null;
+  processingStatus: 'NONE' | 'PENDING' | 'PROCESSED' | 'SKIPPED' | 'FAILED';
+  processingError: string | null;
+  processingModel: string | null;
+  processedAt: string | null;
+  backgroundRemoved: boolean;
+  canRestore: boolean;
 }
 
 export interface ProductSummary {

@@ -85,7 +85,7 @@ export function MerchMediaThumbnail({
     >
       <span
         aria-hidden="true"
-        className="size-6 animate-spin rounded-full border-2 border-hunter-800 border-t-primary motion-reduce:animate-none"
+        className="size-6 animate-spin rounded-full border-2 border-border border-t-primary motion-reduce:animate-none"
       />
     </div>
   )

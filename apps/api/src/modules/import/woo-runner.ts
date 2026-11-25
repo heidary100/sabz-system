@@ -81,6 +81,16 @@ export interface RowFailure {
   error: string;
 }
 
+/** Per-product before/after audit for financially meaningful fields. */
+export interface RowChange {
+  line: number;
+  sourceId: string;
+  productId: string | null;
+  action: 'CREATE' | 'UPDATE';
+  before: Record<string, unknown> | null;
+  after: Record<string, unknown> | null;
+}
+
 export interface WriteReport {
   generatedAt: string;
   file: string;
@@ -99,6 +109,8 @@ export interface WriteReport {
   mediaRefs: number;
   resumed: number;
   failures: RowFailure[];
+  /** Per-product audit of semantic changes (price/sale/status/name/SKU). */
+  changes: RowChange[];
   decisions: string[];
 }
 
@@ -110,7 +122,9 @@ const WRITE_DECISIONS = [
   'Q4 decided: rows without any category and uncategorized-bucket rows are SKIPPED, never imported as a storefront category.',
   'Q5 decided: single primary category accepted for M2 (secondary join is P1).',
   'SS-258: brand resolution is alias-aware (normalized-name guard + merged-brand canonicalization); category merge review (O-3) remains deferred.',
-  'DEFERRED: media binaries belong to SS-208; SS-207 stores reference placeholders only with --with-media-refs.',
+  'Sale windows are written to Variant.discountStartsAt/EndsAt; expired discounts are hidden by the pricing engine.',
+  'Per-product before/after audit (price, sale, status, name, SKU, category, brand) is written to the run report; no historical order is rewritten.',
+  'Media binaries use the mandatory background-removal → transparent square → logo-watermark pipeline; originals are retained.',
 ];
 
 const PENDING_MEDIA_PREFIX = 'pending-woo';
@@ -137,6 +151,7 @@ interface RunState {
     resumed: number;
   };
   failures: RowFailure[];
+  changes: RowChange[];
   shells: Array<{ sourceId: string; productId: string; published: boolean }>;
 }
 
@@ -224,11 +239,32 @@ export class WooRunner {
         return;
       }
 
+      const before =
+        verdict.action === 'UPDATE'
+          ? await this.captureSnapshot(verdict.sourceId, verdict.sourceType)
+          : null;
       try {
         if (plan.sourceType === 'variation') {
           await this.writeVariation(plan, state, warehouse.id, includeMediaRefs);
         } else {
           await this.writeProduct(plan, state, warehouse.id, includeMediaRefs);
+        }
+        const after = await this.captureSnapshot(
+          verdict.sourceId,
+          verdict.sourceType,
+        );
+        if (
+          before === null ||
+          JSON.stringify(before) !== JSON.stringify(after)
+        ) {
+          state.changes.push({
+            line: verdict.line,
+            sourceId: verdict.sourceId,
+            productId: state.productIdBySourceKey.get(sourceKey) ?? null,
+            action: verdict.action === 'UPDATE' ? 'UPDATE' : 'CREATE',
+            before,
+            after,
+          });
         }
         const isUpdate = verdict.action === 'UPDATE';
         await this.recordRow(
@@ -302,6 +338,7 @@ export class WooRunner {
       mediaRefs: state.counts.mediaRefs,
       resumed: state.counts.resumed,
       failures: state.failures,
+      changes: state.changes,
       decisions: WRITE_DECISIONS,
     };
     // One batched invalidation for the whole run — never per row (SS-217).
@@ -370,6 +407,7 @@ export class WooRunner {
         resumed: 0,
       },
       failures: [],
+      changes: [],
       shells: [],
     };
   }
@@ -545,6 +583,74 @@ export class WooRunner {
   }
 
   // ------------------------------------------------------------------ helpers
+
+  /**
+   * Financially meaningful snapshot used for the apply audit. Includes the
+   * sale window so an expired Woo promotion is visibly recorded as a change
+   * rather than silently rewriting the accepted unit price.
+   */
+  private async captureSnapshot(
+    sourceId: string,
+    sourceType: string,
+  ): Promise<Record<string, unknown> | null> {
+    const variant =
+      sourceType === 'variable'
+        ? null
+        : await this.prisma.productVariant.findUnique({
+            where: {
+              sourceSystem_sourceId: {
+                sourceSystem: WOO_SOURCE_SYSTEM,
+                sourceId,
+              },
+            },
+            select: {
+              sku: true,
+              price: true,
+              discountedPrice: true,
+              discountStartsAt: true,
+              discountEndsAt: true,
+              priceStatus: true,
+              productId: true,
+            },
+          });
+    const productId =
+      variant?.productId ??
+      (
+        await this.prisma.product.findUnique({
+          where: {
+            sourceSystem_sourceId: {
+              sourceSystem: WOO_SOURCE_SYSTEM,
+              sourceId,
+            },
+          },
+          select: { id: true },
+        })
+      )?.id ??
+      null;
+    const product =
+      productId === null
+        ? null
+        : await this.prisma.product.findUnique({
+            where: { id: productId },
+            select: { name: true, status: true, categoryId: true, brandId: true },
+          });
+    if (product === null && variant === null) {
+      return null;
+    }
+    return {
+      productId,
+      name: product?.name ?? null,
+      status: product?.status ?? null,
+      categoryId: product?.categoryId ?? null,
+      brandId: product?.brandId ?? null,
+      sku: variant?.sku ?? null,
+      price: variant?.price?.toString() ?? null,
+      discountedPrice: variant?.discountedPrice?.toString() ?? null,
+      discountStartsAt: variant?.discountStartsAt?.toISOString() ?? null,
+      discountEndsAt: variant?.discountEndsAt?.toISOString() ?? null,
+      priceStatus: variant?.priceStatus ?? null,
+    };
+  }
 
   private async ensureCategoryPath(
     tx: Tx,
@@ -765,7 +871,13 @@ export class WooRunner {
           barcode: plan.barcode,
           name: variantName,
           price: plan.price,
-          compareAtPrice: plan.compareAtPrice,
+          discountedPrice: plan.discountedPrice,
+          discountStartsAt: plan.discountStartsAt
+            ? new Date(plan.discountStartsAt)
+            : null,
+          discountEndsAt: plan.discountEndsAt
+            ? new Date(plan.discountEndsAt)
+            : null,
           priceStatus,
           updatedBy: plan.actor,
         },
@@ -782,7 +894,13 @@ export class WooRunner {
         barcode: plan.barcode,
         name: variantName,
         price: plan.price,
-        compareAtPrice: plan.compareAtPrice,
+        discountedPrice: plan.discountedPrice,
+        discountStartsAt: plan.discountStartsAt
+          ? new Date(plan.discountStartsAt)
+          : null,
+        discountEndsAt: plan.discountEndsAt
+          ? new Date(plan.discountEndsAt)
+          : null,
         priceStatus,
         sourceSystem: WOO_SOURCE_SYSTEM,
         sourceId: plan.sourceId,
@@ -817,6 +935,7 @@ export class WooRunner {
       await tx.productAttributeValue.create({
         data: {
           productId,
+          attributeId: attribute.id,
           attributeValueId: valueRow.id,
           sortOrder: order,
           source: spec.source === 'WOO_CUSTOM' ? ATTRIBUTE_SOURCE_WOO_CUSTOM : ATTRIBUTE_SOURCE_WOO_ATTR,

@@ -8,6 +8,7 @@ import {
   Patch,
   Post,
   Query,
+  StreamableFile,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -24,6 +25,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
 import { CheckoutService } from './checkout.service';
+import { InvoicePdfService } from './invoice-pdf.service';
 import {
   AddTrackingEventDto,
   OrderListQueryDto,
@@ -43,7 +45,10 @@ import {
 @Roles(AppRole.OPERATOR, AppRole.ADMIN)
 @Controller('admin/orders')
 export class AdminOrdersController {
-  constructor(private readonly checkoutService: CheckoutService) {}
+  constructor(
+    private readonly checkoutService: CheckoutService,
+    private readonly invoicePdf: InvoicePdfService,
+  ) {}
 
   @Get()
   @ApiOperation({ summary: 'List all orders, newest first (operators)' })
@@ -70,6 +75,25 @@ export class AdminOrdersController {
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
   ) {
     return this.checkoutService.adminDetail(id);
+  }
+
+  @Get(':id/invoice/pdf')
+  @ApiOperation({ summary: 'Download a print-ready PDF invoice for any order' })
+  @ApiParam({ name: 'id', description: 'Order id' })
+  @ApiResponse({ status: 200, description: 'Invoice PDF returned.' })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  @ApiResponse({ status: 404, description: 'Order not found.' })
+  @ApiResponse({ status: 503, description: 'PDF renderer unavailable.' })
+  async invoicePdfFile(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+  ): Promise<StreamableFile> {
+    const detail = await this.checkoutService.adminDetail(id);
+    const pdf = await this.invoicePdf.render(detail);
+    return new StreamableFile(pdf.buffer, {
+      type: 'application/pdf',
+      disposition: `attachment; filename="${pdf.filename}"`,
+    });
   }
 
   @Patch(':id/status')

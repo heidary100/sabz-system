@@ -13,6 +13,7 @@ import {
 import type { CartItemDto } from '@sabz/types';
 import { ApiError } from '@/lib/api';
 import {
+  acknowledgeCartPrices,
   addGuestLine,
   addToCart,
   cartStockError,
@@ -62,6 +63,8 @@ interface CartContextValue extends CartSnapshot {
   refresh: () => Promise<void>;
   add: (identity: CartAddInput, quantity?: number) => Promise<CartActionResult>;
   setQuantity: (variantId: string, quantity: number) => Promise<CartActionResult>;
+  /** Accept current authoritative prices (clears genuine change warnings). */
+  acknowledgePrices: () => Promise<CartActionResult>;
   removeLine: (variantId: string) => Promise<void>;
   clear: () => Promise<void>;
 }
@@ -226,6 +229,28 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     [refresh],
   );
 
+  const acknowledgePrices = useCallback(async (): Promise<CartActionResult> => {
+    if (!isCartAuthed()) {
+      return { ok: true };
+    }
+    try {
+      const cart = await acknowledgeCartPrices();
+      setSnapshot({
+        authed: true,
+        items: cart.items,
+        totalQuantity: cart.totalQuantity,
+        subtotal: cart.subtotal,
+        guestLines: [],
+      });
+      return { ok: true };
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        setSnapshot(guestSnapshot());
+      }
+      return { ok: false, error: cartStockError(error) };
+    }
+  }, []);
+
   const removeLine = useCallback(
     async (variantId: string) => {
       if (!isCartAuthed()) {
@@ -299,6 +324,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       refresh,
       add,
       setQuantity,
+      acknowledgePrices,
       removeLine,
       clear,
     };
@@ -310,6 +336,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     refresh,
     add,
     setQuantity,
+    acknowledgePrices,
     removeLine,
     clear,
   ]);

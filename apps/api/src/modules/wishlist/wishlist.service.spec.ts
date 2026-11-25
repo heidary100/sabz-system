@@ -16,7 +16,7 @@ function makeCard(overrides: Partial<CatalogProductCardDto> = {}): CatalogProduc
     brand: null,
     category: { name: 'کالای دیجیتال', slug: 'digital' },
     priceFrom: '1000',
-    compareAtPrice: null,
+    regularPrice: null,
     callForPrice: false,
     promotionEndsAt: null,
     variantCount: 1,

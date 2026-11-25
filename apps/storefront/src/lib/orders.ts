@@ -153,3 +153,13 @@ export async function fetchInvoice(id: string): Promise<InvoiceDto> {
   );
   return (await response.json()) as InvoiceDto;
 }
+
+/** Print-ready PDF invoice (SS-900); auth + 503 error handling stay shared. */
+export async function fetchInvoicePdf(id: string): Promise<Blob> {
+  const response = await authedJson(
+    `/orders/${encodeURIComponent(id)}/invoice/pdf`,
+    {},
+    'دریافت فایل PDF فاکتور ناموفق بود.',
+  );
+  return response.blob();
+}

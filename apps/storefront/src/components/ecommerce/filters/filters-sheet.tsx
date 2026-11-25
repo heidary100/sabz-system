@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTransitionMount } from '@/components/ecommerce/ui/use-transition-mount';
-import type { CatalogBrandDto, CatalogCategoryNode } from '@sabz/types';
+import type { CatalogBrandDto, CatalogCategoryNode, CatalogFacetsResponse } from '@sabz/types';
 import type { ListingState } from '@/lib/listing';
 import { getActivePills } from '@/lib/listing';
 import { FiltersPanel } from './filters-panel';
@@ -32,12 +32,14 @@ export function FiltersSheet({
   categories,
   brands,
   brandsTotal,
+  facets = null,
   basePath = '/products',
 }: {
   state: ListingState;
   categories: CatalogCategoryNode[];
   brands: CatalogBrandDto[];
   brandsTotal?: number;
+  facets?: CatalogFacetsResponse | null;
   basePath?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -152,6 +154,7 @@ export function FiltersSheet({
                     categories={categories}
                     brands={brands}
                     brandsTotal={brandsTotal}
+                    facets={facets}
                     basePath={basePath}
                     priceFormId={PRICE_FORM_ID}
                     onPriceApplied={() => close()}

@@ -4,6 +4,7 @@ import {
   basenameForUrl,
   downloadMediaToTemp,
   isAllowedHost,
+  isCurrentPipelineMedia,
   isRetryable,
   isRetryableStatus,
   MediaFetchError,
@@ -120,6 +121,60 @@ describe('woo-media core (SS-208)', () => {
     });
   });
 
+  describe('isCurrentPipelineMedia', () => {
+    const row = {
+      deletedAt: null,
+      storageKey: 'products/p/a.png',
+      mediaType: 'IMAGE' as const,
+      processingStatus: 'PROCESSED' as const,
+      processingError: null,
+      backgroundRemoved: true,
+      originalStorageKey: 'products/p/a.original.jpg',
+    };
+
+    it('accepts processed images and transparent skipped images', () => {
+      expect(isCurrentPipelineMedia(row)).toBe(true);
+      expect(
+        isCurrentPipelineMedia({
+          ...row,
+          processingStatus: 'SKIPPED',
+          backgroundRemoved: false,
+        }),
+      ).toBe(true);
+    });
+
+    it('rejects failed/skipped-with-error, pending and legacy rows', () => {
+      expect(
+        isCurrentPipelineMedia({
+          ...row,
+          processingStatus: 'SKIPPED',
+          processingError: 'model unavailable',
+          backgroundRemoved: false,
+        }),
+      ).toBe(false);
+      expect(
+        isCurrentPipelineMedia({
+          ...row,
+          storageKey: 'pending-woo:1:hash',
+        }),
+      ).toBe(false);
+      expect(
+        isCurrentPipelineMedia({ ...row, originalStorageKey: null }),
+      ).toBe(false);
+    });
+
+    it('accepts a video with a retained original and no image status', () => {
+      expect(
+        isCurrentPipelineMedia({
+          ...row,
+          mediaType: 'VIDEO',
+          processingStatus: 'NONE',
+          backgroundRemoved: false,
+        }),
+      ).toBe(true);
+    });
+  });
+
   describe('renderMediaSummary', () => {
     it('renders the images matrix and failures', () => {
       const report: MediaReport = {
@@ -129,7 +184,15 @@ describe('woo-media core (SS-208)', () => {
         dryRun: false,
         rows: 8,
         products: 3,
-        images: { refs: 4, downloaded: 3, processed: 3, failed: 1, skippedDedup: 0 },
+        images: {
+          refs: 4,
+          downloaded: 3,
+          processed: 3,
+          failed: 1,
+          skippedDedup: 0,
+          refreshed: 0,
+          retiredStale: 0,
+        },
         resumed: 0,
         failures: [{ line: 2, sourceId: '9001', url: 'https://x/b.jpg', error: 'boom' }],
         decisions: ['ruling'],

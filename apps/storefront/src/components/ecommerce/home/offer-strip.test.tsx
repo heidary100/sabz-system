@@ -51,7 +51,7 @@ function product(overrides: Partial<CatalogProductCardDto> = {}) {
     brand: null,
     category: { name: 'دسته', slug: 'category' },
     priceFrom: '900000',
-    compareAtPrice: '1000000',
+    regularPrice: '1000000',
     callForPrice: false,
     promotionEndsAt: null,
     variantCount: 1,
@@ -171,7 +171,7 @@ describe('OfferStrip', () => {
   it('degrades to a truthful featured presentation without offer language', () => {
     render(
       <OfferStrip
-        products={[product({ compareAtPrice: null })]}
+        products={[product({ regularPrice: null })]}
         mode="featured"
       />,
     );

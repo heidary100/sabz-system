@@ -5,7 +5,7 @@ const tseslint = require('typescript-eslint');
 
 module.exports = tseslint.config(
   {
-    ignores: ['**/node_modules/**', '**/dist/**', '**/.turbo/**'],
+    ignores: ['**/node_modules/**', '**/dist/**', '**/.turbo/**', '**/.next/**', '**/.next-dev/**'],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
@@ -14,6 +14,13 @@ module.exports = tseslint.config(
     files: ['**/*.js', '**/*.mjs'],
     languageOptions: {
       globals: globals.node,
+    },
+  },
+  {
+    // Browser service workers use the serviceworker global scope.
+    files: ['**/public/sw.js'],
+    languageOptions: {
+      globals: globals.serviceworker,
     },
   },
   eslintConfigPrettier,

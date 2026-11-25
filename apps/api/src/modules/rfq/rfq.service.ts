@@ -22,6 +22,7 @@ import type {
 } from '@sabz/types';
 import { RFQ_STATUS_FA } from '@sabz/types';
 import { PrismaService } from '../../common/database/prisma.service';
+import { roundRialUp } from '../../common/money/rial';
 import { AuditService } from '../audit/audit.service';
 import { NotificationService } from '../notifications/notification.service';
 import { CheckoutService } from '../orders/checkout.service';
@@ -166,8 +167,8 @@ export class RfqService {
         'این استعلام در وضعیت قابل قیمت‌گذاری نیست.',
       );
     }
-    const unitPrice = new Prisma.Decimal(dto.unitPrice);
-    if (!unitPrice.isFinite() || unitPrice.lessThanOrEqualTo(0)) {
+    const rawUnitPrice = new Prisma.Decimal(dto.unitPrice);
+    if (!rawUnitPrice.isFinite() || rawUnitPrice.lessThanOrEqualTo(0)) {
       throw new BadRequestException('مبلغ قیمت‌گذاری‌شده باید بزرگتر از صفر باشد.');
     }
     const expiresAt = this.resolveExpiry(dto.expiresAt);
@@ -175,7 +176,7 @@ export class RfqService {
       where: { id: row.id },
       data: {
         status: RfqStatus.QUOTED,
-        quotedUnitPrice: unitPrice,
+        quotedUnitPrice: roundRialUp(rawUnitPrice),
         expiresAt,
         quotedBy: operatorId,
         quotedAt: new Date(),
@@ -191,7 +192,7 @@ export class RfqService {
       before: { status: row.status },
       after: {
         status: RfqStatus.QUOTED,
-        quotedUnitPrice: unitPrice.toString(),
+        quotedUnitPrice: roundRialUp(rawUnitPrice).toString(),
         expiresAt: expiresAt.toISOString(),
       },
       ipAddress,
@@ -290,6 +291,8 @@ export class RfqService {
       addressId: dto.addressId,
       paymentMethod: dto.paymentMethod as PaymentMethod,
       shippingMethod: dto.shippingMethod,
+      nationalId: dto.nationalId,
+      note: dto.note,
     });
     await this.audit.log({
       userId,

@@ -4,10 +4,11 @@ ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
 
 # FFmpeg is required for the server-side video watermarking pipeline
-# (CATALOG-007). The bundled Vazirmatn font renders the Persian watermark text
-# without installing extra system fonts.
+# (CATALOG-007). Chromium renders the print-ready Persian invoice PDF
+# (SS-900) with correct shaping/font embedding. The bundled Vazirmatn font
+# renders Persian text without installing extra system fonts.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ffmpeg \
+    && apt-get install -y --no-install-recommends ffmpeg chromium libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
 RUN corepack enable

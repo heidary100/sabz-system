@@ -384,6 +384,72 @@ describe('Personal National ID profile API (SS-260)', () => {
     ).toBe(false);
   });
 
+  it('self-edits only permitted profile fields and never roles/status/phone', async () => {
+    const customer = await createUser('+989142600013', { role: 'CUSTOMER' });
+    const other = await createUser('+989142600014', { role: 'CUSTOMER' });
+
+    const before = await prisma.user.findUniqueOrThrow({
+      where: { id: customer.userId },
+      select: { mobile: true, status: true },
+    });
+
+    const updated = await request(app.getHttpServer())
+      .patch(`${BASE}/auth/profile`)
+      .set('Authorization', `Bearer ${customer.accessToken}`)
+      .send({
+        firstName: '  نگار  ',
+        lastName: 'کریمی',
+        address: 'تهران',
+        // Attempted privilege/identity escalation: unknown fields are
+        // stripped by the global whitelist pipe and never mapped.
+        roles: ['ADMIN'],
+        status: 'SUSPENDED',
+        mobile: '+989199999999',
+        userId: other.userId,
+      })
+      .expect(200);
+
+    expect(updated.body).toMatchObject({
+      id: customer.userId,
+      mobile: before.mobile,
+      status: before.status,
+      firstName: 'نگار',
+      lastName: 'کریمی',
+      address: 'تهران',
+      roles: ['CUSTOMER'],
+    });
+
+    const stored = await prisma.user.findUniqueOrThrow({
+      where: { id: customer.userId },
+      select: { mobile: true, status: true, profile: true },
+    });
+    expect(stored.mobile).toBe(before.mobile);
+    expect(stored.status).toBe(before.status);
+    expect(stored.profile?.firstName).toBe('نگار');
+
+    const me = await request(app.getHttpServer())
+      .get(`${BASE}/auth/me`)
+      .set('Authorization', `Bearer ${customer.accessToken}`)
+      .expect(200);
+    expect(me.body).toMatchObject({
+      id: customer.userId,
+      profile: { firstName: 'نگار', lastName: 'کریمی' },
+      roles: ['CUSTOMER'],
+    });
+
+    // Blank names are rejected server-side; nothing is partially written.
+    await request(app.getHttpServer())
+      .patch(`${BASE}/auth/profile`)
+      .set('Authorization', `Bearer ${customer.accessToken}`)
+      .send({ firstName: '   ', lastName: 'تغییرنکرده' })
+      .expect(400);
+    const preserved = await prisma.userProfile.findUniqueOrThrow({
+      where: { userId: customer.userId },
+      select: { firstName: true, lastName: true },
+    });
+    expect(preserved).toEqual({ firstName: 'نگار', lastName: 'کریمی' });
+  });
+
   it('does not expose the value through /auth/me or public catalog responses', async () => {
     const customer = await createUser('+989142600010', { role: 'CUSTOMER' });
 

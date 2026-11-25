@@ -115,7 +115,7 @@ export class OtpService {
 
     if (this.resultCount(mobileResults[0]) > RATE_LIMIT_MAX_REQUESTS) {
       throw new HttpException(
-        'Too many OTP requests. Please try again later.',
+        'تعداد درخواست‌های کد تأیید بیش از حد مجاز است؛ کمی بعد دوباره تلاش کنید.',
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }
@@ -128,7 +128,7 @@ export class OtpService {
 
       if (this.resultCount(ipResults[0]) > IP_RATE_LIMIT_MAX_REQUESTS) {
         throw new HttpException(
-          'Too many OTP requests. Please try again later.',
+          'تعداد درخواست‌های کد تأیید بیش از حد مجاز است؛ کمی بعد دوباره تلاش کنید.',
           HttpStatus.TOO_MANY_REQUESTS,
         );
       }

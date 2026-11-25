@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import type { ProductCondition } from '@sabz/types';
-import { fetchBrands, fetchCategoryTree, fetchProducts } from '@/lib/catalog';
+import { fetchBrands, fetchCategoryTree, fetchFacets, fetchProducts } from '@/lib/catalog';
 import { buildListingHref, isFiltering, parseListingState } from '@/lib/listing';
 import { ProductCardWithWishlist } from '@/components/ecommerce/wishlist/product-card-wishlist';
 import { ActivePills } from '@/components/ecommerce/filters/active-pills';
@@ -32,9 +32,10 @@ export default async function ProductsPage({
   const params = await searchParams;
   const state = parseListingState(params);
 
-  const [categories, brands, result] = await Promise.all([
+  const [categories, brands, facets, result] = await Promise.all([
     fetchCategoryTree(),
     fetchBrands(),
+    state.category ? fetchFacets(state.category) : Promise.resolve(null),
     fetchProducts({
       q: state.q || undefined,
       category: state.category || undefined,
@@ -44,6 +45,7 @@ export default async function ProductsPage({
       priceTo: state.priceTo || undefined,
       inStockOnly: state.inStockOnly || undefined,
       rating: state.rating || undefined,
+      attrs: state.attrs || undefined,
       sort: state.sort,
       page: state.page,
       limit: state.perPage,
@@ -53,8 +55,9 @@ export default async function ProductsPage({
   const makeHref = (page: number) => buildListingHref('/products', state, { page });
 
   const filtering = isFiltering(state);
+  const brandOptions = facets && facets.brands.length > 0 ? facets.brands : brands.items
   const brandName = state.brand
-    ? brands.items.find((brand) => brand.slug === state.brand)?.name
+    ? brandOptions.find((brand) => brand.slug === state.brand)?.name
     : undefined;
 
   return (
@@ -83,8 +86,9 @@ export default async function ProductsPage({
           <FiltersPanel
             state={state}
             categories={categories}
-            brands={brands.items}
-            brandsTotal={brands.total}
+            brands={brandOptions}
+            brandsTotal={facets && facets.brands.length > 0 ? facets.brands.length : brands.total}
+            facets={facets}
             basePath="/products"
           />
         </div>
@@ -94,8 +98,9 @@ export default async function ProductsPage({
             <FiltersSheet
               state={state}
               categories={categories}
-              brands={brands.items}
-              brandsTotal={brands.total}
+              brands={brandOptions}
+              brandsTotal={facets && facets.brands.length > 0 ? facets.brands.length : brands.total}
+              facets={facets}
               basePath="/products"
             />
           </div>

@@ -21,13 +21,13 @@ function productRow(overrides: Record<string, unknown> = {}) {
     variants: [
       {
         id: 'variant-1',
-        price: new Prisma.Decimal('1234567'),
-        compareAtPrice: new Prisma.Decimal('2000000'),
+        price: new Prisma.Decimal('2000000'),
+        discountedPrice: new Prisma.Decimal('1234567'),
       },
       {
         id: 'variant-2',
         price: new Prisma.Decimal('5000000'),
-        compareAtPrice: null,
+        discountedPrice: null,
       },
     ],
     media: [
@@ -97,7 +97,7 @@ describe('TorobService (SS-239)', () => {
             product_group_id: PRODUCT_ID,
             title: 'گوشی موبایل مدل ایکس',
             subtitle: 'نسخه ۲۵۶ گیگابایت',
-            current_price: 123456,
+            current_price: 130000,
             old_price: 200000,
             availability: true,
             category_name: 'کالای دیجیتال',
@@ -143,7 +143,7 @@ describe('TorobService (SS-239)', () => {
               {
                 id: 'variant-1',
                 price: new Prisma.Decimal('1234567'),
-                compareAtPrice: null,
+                discountedPrice: null,
               },
             ],
           }),
@@ -153,7 +153,7 @@ describe('TorobService (SS-239)', () => {
         page: 1,
         sort: 'product_id_desc',
       });
-      expect(response.products[0]!.current_price).toBe(123456);
+      expect(response.products[0]!.current_price).toBe(130000);
       expect(response.products[0]!.old_price).toBeUndefined();
     });
 
@@ -171,7 +171,7 @@ describe('TorobService (SS-239)', () => {
               {
                 id: 'variant-1',
                 price: new Prisma.Decimal('1234567'),
-                compareAtPrice: null,
+                discountedPrice: null,
               },
             ],
           }),

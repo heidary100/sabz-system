@@ -4,6 +4,7 @@ import { AuditService } from '../src/modules/audit/audit.service';
 import { recomputeProductMinPrice } from '../src/modules/products/min-price';
 import { PublicCatalogService } from '../src/modules/products/public-catalog.service';
 import { PricingService } from '../src/modules/pricing/pricing.service';
+import { AttributesService } from '../src/modules/products/attributes.service';
 import { VariantsService } from '../src/modules/products/variants.service';
 
 import { StorefrontCacheService } from '../src/common/storefront-cache/storefront-cache.service';
@@ -61,7 +62,7 @@ describe('Variant pricing database integration (SS-201)', () => {
     productId: string,
     overrides: {
       price?: string;
-      compareAtPrice?: string | null;
+      discountedPrice?: string | null;
       priceStatus?: PriceStatus;
     } = {},
   ): Promise<{ id: string }> {
@@ -70,7 +71,7 @@ describe('Variant pricing database integration (SS-201)', () => {
         productId,
         sku: `SKU-VP-${uniqueSuffix()}`,
         price: overrides.price ?? '100.00',
-        compareAtPrice: overrides.compareAtPrice ?? null,
+        discountedPrice: overrides.discountedPrice ?? null,
         priceStatus: overrides.priceStatus ?? PriceStatus.PRICED,
         createdBy: actorId,
       },
@@ -94,7 +95,7 @@ describe('Variant pricing database integration (SS-201)', () => {
     await prisma.$connect();
     const audit = new AuditService(prisma);
     variants = new VariantsService(prisma, audit, new StorefrontCacheService(new ConfigService()));
-    catalog = new PublicCatalogService(prisma, new PricingService(prisma));
+    catalog = new PublicCatalogService(prisma, new PricingService(prisma), new AttributesService(prisma));
   });
 
   afterAll(async () => {
@@ -111,7 +112,7 @@ describe('Variant pricing database integration (SS-201)', () => {
     await prisma.$disconnect();
   });
 
-  it('defaults stored variants to PRICED with null compareAtPrice', async () => {
+  it('defaults stored variants to PRICED with null discountedPrice', async () => {
     const { id } = await createProduct();
     const { id: variantId } = await addVariant(id);
 
@@ -119,32 +120,32 @@ describe('Variant pricing database integration (SS-201)', () => {
       where: { id: variantId },
     });
     expect(row.priceStatus).toBe(PriceStatus.PRICED);
-    expect(row.compareAtPrice).toBeNull();
+    expect(row.discountedPrice).toBeNull();
   });
 
   it('creates a sale variant through the service with audit trail', async () => {
     const { id } = await createProduct();
     const summary = await variants.create(
       id,
-      { sku: `SKU-VP-${uniqueSuffix()}`, price: '1500.00', compareAtPrice: '1800.00' },
+      { sku: `SKU-VP-${uniqueSuffix()}`, price: '1800.00', discountedPrice: '1500.00' },
       actorId,
     );
     createdVariantIds.push(summary.id);
 
-    expect(summary.compareAtPrice).toBe('1800');
+    expect(summary.discountedPrice).toBe('1500');
     expect(summary.priceStatus).toBe(PriceStatus.PRICED);
   });
 
   it('rejects invalid pricing transitions against stored rows', async () => {
     const { id } = await createProduct();
     const { id: variantId } = await addVariant(id, {
-      price: '1500.00',
-      compareAtPrice: '1800.00',
+      price: '1800.00',
+      discountedPrice: '1500.00',
     });
 
-    // Lowering price to the compare-at mark must fail.
+    // Lowering price to the sale price must fail.
     await expect(
-      variants.update(variantId, { price: '1800.00' }, actorId),
+      variants.update(variantId, { price: '1500.00' }, actorId),
     ).rejects.toMatchObject({ status: 400 });
 
     // Flipping to CALL_FOR_PRICE while a sale reference exists must fail.
@@ -155,10 +156,10 @@ describe('Variant pricing database integration (SS-201)', () => {
     // Clearing the reference first, then flipping, succeeds.
     const cleared = await variants.update(
       variantId,
-      { compareAtPrice: null, priceStatus: PriceStatus.CALL_FOR_PRICE },
+      { discountedPrice: null, priceStatus: PriceStatus.CALL_FOR_PRICE },
       actorId,
     );
-    expect(cleared.compareAtPrice).toBeNull();
+    expect(cleared.discountedPrice).toBeNull();
     expect(cleared.priceStatus).toBe(PriceStatus.CALL_FOR_PRICE);
   });
 
@@ -167,7 +168,7 @@ describe('Variant pricing database integration (SS-201)', () => {
     const slug = (
       await prisma.product.findUniqueOrThrow({ where: { id }, select: { slug: true } })
     ).slug;
-    await addVariant(id, { price: '200.00', compareAtPrice: '250.00' });
+    await addVariant(id, { price: '2500000.00', discountedPrice: '2000000.00' });
     await addVariant(id, {
       price: '0',
       priceStatus: PriceStatus.CALL_FOR_PRICE,
@@ -176,7 +177,7 @@ describe('Variant pricing database integration (SS-201)', () => {
     const page = await catalog.listProducts({ page: 1, limit: 50 });
     const card = page.items.find((item) => item.slug === slug);
     expect(card).toBeDefined();
-    expect(card!.priceFrom).toBe('200');
+    expect(card!.priceFrom).toBe('2000000');
     expect(card!.callForPrice).toBe(false);
     expect(card!.variantCount).toBe(2);
   });
@@ -197,16 +198,17 @@ describe('Variant pricing database integration (SS-201)', () => {
     expect(card!.variantCount).toBe(1);
   });
 
-  it('exposes compareAtPrice and priceStatus on the detail DTO', async () => {
+  it('exposes discountedPrice and priceStatus on the detail DTO', async () => {
     const { id } = await createProduct(ProductStatus.PUBLISHED);
     const slug = (
       await prisma.product.findUniqueOrThrow({ where: { id }, select: { slug: true } })
     ).slug;
-    await addVariant(id, { price: '1500.00', compareAtPrice: '1800.00' });
+    await addVariant(id, { price: '1800000.00', discountedPrice: '1500000.00' });
 
     const detail = await catalog.getProductBySlug(slug);
     expect(detail.variants).toHaveLength(1);
-    expect(detail.variants[0]!.compareAtPrice).toBe('1800');
+    expect(detail.variants[0]!.price).toBe('1500000');
+    expect(detail.variants[0]!.regularPrice).toBe('1800000');
     expect(detail.variants[0]!.priceStatus).toBe(PriceStatus.PRICED);
   });
 

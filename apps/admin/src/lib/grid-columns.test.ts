@@ -22,7 +22,7 @@ describe('catalog grid column visibility persistence (SS-257)', () => {
   })
 
   it('round-trips a stored selection', () => {
-    writeVisibleColumns(['name', 'sku', 'stock', 'regularPrice', 'salePrice', 'priceStatus'])
+    writeVisibleColumns(['name', 'sku', 'stock', 'regularPrice', 'discountedPrice', 'priceStatus'])
     expect(readVisibleColumns()).not.toContain('thumbnail')
     expect(readVisibleColumns()).not.toContain('brand')
   })

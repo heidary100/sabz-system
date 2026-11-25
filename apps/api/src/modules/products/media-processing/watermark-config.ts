@@ -12,7 +12,7 @@ import { resolve } from 'path';
  *
  * Branding sources:
  *   - Logo:  `apps/api/assets/brand/logo.png` by default (SS-209 central
- *            brand asset — the real company mark, 141px RGBA; the client's
+ *            brand asset — the official 256px RGBA mark; the client's
  *            official logo replaces this file, or `WATERMARK_LOGO_PATH`
  *            points at the new asset). The legacy
  *            `assets/watermark/logo-placeholder.svg` is kept as a fallback.
@@ -48,6 +48,10 @@ export type WatermarkThumbnailMode = 'smaller' | 'inherit';
 export interface WatermarkConfig {
   /** Master switch; when off, uploaded media is stored as-is (no branding). */
   enabled: boolean;
+  /** SS-900: logo-only transparent PNG mark (no accompanying text). */
+  logoOnly: boolean;
+  /** Alpha multiplier for the logo-only mark (0..1). */
+  logoOpacity: number;
   /** Displayed company name, e.g. «سبز سیستم». */
   companyName: string;
   /** Logo asset path (SVG or PNG). `null` renders the name-only lockup. */
@@ -89,10 +93,25 @@ export interface WatermarkConfig {
   thumbnailMaxSizePx: number;
 }
 
-/** Light off-white used for watermark text/edges (brand background). */
-export const WATERMARK_LIGHT = '#F8F7F5';
+/** Light stage ink used for watermark text/edges (brand stage). */
+export const WATERMARK_LIGHT = '#F1F6F2';
 /** Dark chip base (alpha comes from `opacity`). */
-export const WATERMARK_CHIP_RGB = '20,26,22';
+export const WATERMARK_CHIP_RGB = '11,21,16';
+
+/**
+ * Single source of truth for the revised logo-only watermark size.
+ * The previous 0.17 / 100–240 mark was visually dominant on small product
+ * photography; this is a deliberate ~12% reduction while keeping the logo
+ * legible at every resolution. Thumbnail clamps scale down proportionally.
+ */
+export const WATERMARK_SIZE_DEFAULTS = {
+  sizeRatio: 0.15,
+  minSizePx: 90,
+  maxSizePx: 210,
+  thumbnailSizeRatio: 0.1,
+  thumbnailMinSizePx: 56,
+  thumbnailMaxSizePx: 120,
+} as const;
 
 function defaultLogoPath(): string {
   const branded = resolve(process.cwd(), 'assets/brand/logo.png');
@@ -136,6 +155,8 @@ export function resolveWatermarkConfig(): WatermarkConfig {
   const allowedThumbnailModes: WatermarkThumbnailMode[] = ['smaller', 'inherit'];
   return {
     enabled: env('WATERMARK_ENABLED', 'true') === 'true',
+    logoOnly: env('WATERMARK_LOGO_ONLY', 'true') === 'true',
+    logoOpacity: Math.min(1, Math.max(0.05, envNumber('WATERMARK_LOGO_OPACITY', 0.85))),
     companyName: env('WATERMARK_COMPANY_NAME', 'سبز سیستم'),
     logoPath: env('WATERMARK_LOGO_PATH', '') !== ''
       ? resolve(env('WATERMARK_LOGO_PATH', ''))
@@ -143,14 +164,26 @@ export function resolveWatermarkConfig(): WatermarkConfig {
     fontPath: resolve(env('WATERMARK_FONT_PATH', defaultFontPath())),
     opacity: Math.min(1, Math.max(0, envNumber('WATERMARK_OPACITY', 0.38))),
     marginRatio: envNumber('WATERMARK_MARGIN_RATIO', 0.05),
-    sizeRatio: Math.min(1, Math.max(0, envNumber('WATERMARK_SIZE_RATIO', 0.17))),
-    minSizePx: envNumber('WATERMARK_MIN_SIZE_PX', 100),
-    maxSizePx: envNumber('WATERMARK_MAX_SIZE_PX', 240),
+    sizeRatio: Math.min(
+      1,
+      Math.max(
+        0,
+        envNumber('WATERMARK_SIZE_RATIO', WATERMARK_SIZE_DEFAULTS.sizeRatio),
+      ),
+    ),
+    minSizePx: envNumber(
+      'WATERMARK_MIN_SIZE_PX',
+      WATERMARK_SIZE_DEFAULTS.minSizePx,
+    ),
+    maxSizePx: envNumber(
+      'WATERMARK_MAX_SIZE_PX',
+      WATERMARK_SIZE_DEFAULTS.maxSizePx,
+    ),
     position: (allowedPositions as string[]).includes(position)
       ? (position as WatermarkConfig['position'])
       : 'bottom-right',
     textColor: envHex('WATERMARK_TEXT_COLOR', WATERMARK_LIGHT),
-    chipEdgeColor: env('WATERMARK_CHIP_EDGE_COLOR', 'rgba(248,247,245,0.35)'),
+    chipEdgeColor: env('WATERMARK_CHIP_EDGE_COLOR', 'rgba(241,246,242,0.35)'),
     logoBackground: envHex('WATERMARK_LOGO_BACKGROUND', WATERMARK_LIGHT),
     lockup: (allowedLockups as string[]).includes(lockup)
       ? (lockup as WatermarkLockup)
@@ -160,10 +193,22 @@ export function resolveWatermarkConfig(): WatermarkConfig {
       : 'smaller',
     thumbnailSizeRatio: Math.min(
       1,
-      Math.max(0, envNumber('WATERMARK_THUMBNAIL_SIZE_RATIO', 0.12)),
+      Math.max(
+        0,
+        envNumber(
+          'WATERMARK_THUMBNAIL_SIZE_RATIO',
+          WATERMARK_SIZE_DEFAULTS.thumbnailSizeRatio,
+        ),
+      ),
     ),
-    thumbnailMinSizePx: envNumber('WATERMARK_THUMBNAIL_MIN_SIZE_PX', 64),
-    thumbnailMaxSizePx: envNumber('WATERMARK_THUMBNAIL_MAX_SIZE_PX', 140),
+    thumbnailMinSizePx: envNumber(
+      'WATERMARK_THUMBNAIL_MIN_SIZE_PX',
+      WATERMARK_SIZE_DEFAULTS.thumbnailMinSizePx,
+    ),
+    thumbnailMaxSizePx: envNumber(
+      'WATERMARK_THUMBNAIL_MAX_SIZE_PX',
+      WATERMARK_SIZE_DEFAULTS.thumbnailMaxSizePx,
+    ),
   };
 }
 

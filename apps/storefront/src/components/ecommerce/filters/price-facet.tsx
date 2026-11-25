@@ -5,16 +5,16 @@ import { useRouter } from 'next/navigation';
 import { buildListingHref, type ListingState } from '@/lib/listing';
 import { sanitizePriceBound } from '@/lib/price-input';
 
-/** Quick ranges (Toman) — the scanning-friendly augmentation of the free inputs. */
+/** Quick ranges in Rial (SS-900) — the scanning-friendly augmentation of inputs. */
 const PRICE_PRESETS: Array<{ label: string; from: string; to: string }> = [
-  { label: 'تا ۱ میلیون', from: '', to: '1000000' },
-  { label: '۱ تا ۵ میلیون', from: '1000000', to: '5000000' },
-  { label: '۵ تا ۲۰ میلیون', from: '5000000', to: '20000000' },
-  { label: 'بالای ۲۰ میلیون', from: '20000000', to: '' },
+  { label: 'تا ۱ میلیون تومان', from: '', to: '10000000' },
+  { label: '۱ تا ۵ میلیون تومان', from: '10000000', to: '50000000' },
+  { label: '۵ تا ۲۰ میلیون تومان', from: '50000000', to: '200000000' },
+  { label: 'بالای ۲۰ میلیون تومان', from: '200000000', to: '' },
 ];
 
 /**
- * Price-range facet (SS-213, UI layer): two Toman inputs applied together on
+ * Price-range facet (SS-213, UI layer): two Rial inputs applied together on
  * submit — never a request per keystroke — plus quick-range preset chips
  * (SS-226). The server is authoritative; this component only sanitizes input
  * and navigates via the canonical `buildListingHref(basePath, …)`. Invalid
@@ -37,16 +37,24 @@ export function PriceFacet({
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [from, setFrom] = useState(state.priceFrom);
-  const [to, setTo] = useState(state.priceTo);
+  const [from, setFrom] = useState(
+    state.priceFrom ? String(Number(state.priceFrom) / 10) : '',
+  );
+  const [to, setTo] = useState(
+    state.priceTo ? String(Number(state.priceTo) / 10) : '',
+  );
   const [error, setError] = useState('');
   const fromId = useId();
   const toId = useId();
 
   function apply(event: React.FormEvent) {
     event.preventDefault();
-    const nextFrom = sanitizePriceBound(from);
-    const nextTo = sanitizePriceBound(to);
+    const fromToman = sanitizePriceBound(from);
+    const toToman = sanitizePriceBound(to);
+    // The URL/API contract stays Rial; the customer types Toman.
+    const nextFrom =
+      fromToman === null ? null : String(Number(fromToman) * 10);
+    const nextTo = toToman === null ? null : String(Number(toToman) * 10);
     if (nextFrom === null || nextTo === null) {
       setError('مبلغ واردشده معتبر نیست.');
       return;

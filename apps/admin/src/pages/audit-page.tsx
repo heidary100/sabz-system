@@ -14,6 +14,7 @@ import { StatusBadge } from '../components/ui/status-badge'
 import { Button } from '../components/catalyst/button'
 import { Field, Label } from '../components/catalyst/fieldset'
 import { Input } from '../components/catalyst/input'
+import { JalaliDateTimeInput } from '../components/ui/jalali-datetime-input'
 import { Select } from '../components/catalyst/select'
 import {
   Table,
@@ -36,20 +37,6 @@ const UUID_PATTERN =
 
 function isValidUuid(value: string): boolean {
   return value.trim() === '' || UUID_PATTERN.test(value.trim())
-}
-
-function toIsoStartOfDay(date: string): string | undefined {
-  if (!date) {
-    return undefined
-  }
-  return new Date(`${date}T00:00:00`).toISOString()
-}
-
-function toIsoEndOfDay(date: string): string | undefined {
-  if (!date) {
-    return undefined
-  }
-  return new Date(`${date}T23:59:59.999`).toISOString()
 }
 
 export function AuditPage() {
@@ -87,7 +74,10 @@ export function AuditPage() {
 
   const invalidActor = !isValidUuid(actorInput)
   const invalidEntityId = !isValidUuid(entityIdInput)
-  const invalidDateRange = fromInput !== '' && toInput !== '' && fromInput > toInput
+  const invalidDateRange =
+    fromInput !== '' &&
+    toInput !== '' &&
+    new Date(fromInput).getTime() > new Date(toInput).getTime()
 
   const hasInvalidInput = invalidActor || invalidEntityId || invalidDateRange
   const hasActiveFilter =
@@ -106,8 +96,8 @@ export function AuditPage() {
     setAction(actionInput)
     setEntity(entityInput)
     setEntityId(entityIdInput.trim())
-    setFrom(toIsoStartOfDay(fromInput) ?? '')
-    setTo(toIsoEndOfDay(toInput) ?? '')
+    setFrom(fromInput)
+    setTo(toInput)
   }
 
   const resetFilters = () => {
@@ -184,21 +174,25 @@ export function AuditPage() {
           )}
         </Field>
         <Field>
-          <Label>از تاریخ</Label>
-          <Input
-            name="from"
-            type="date"
-            value={fromInput}
-            onChange={(event) => setFromInput(event.target.value)}
+          <Label htmlFor="audit-from">از تاریخ و ساعت</Label>
+          <JalaliDateTimeInput
+            businessTimeZone
+            id="audit-from"
+            value={fromInput || null}
+            onChange={(iso) => setFromInput(iso ?? '')}
+            withTime
+            ariaLabel="از تاریخ و ساعت"
           />
         </Field>
         <Field>
-          <Label>تا تاریخ</Label>
-          <Input
-            name="to"
-            type="date"
-            value={toInput}
-            onChange={(event) => setToInput(event.target.value)}
+          <Label htmlFor="audit-to">تا تاریخ و ساعت</Label>
+          <JalaliDateTimeInput
+            businessTimeZone
+            id="audit-to"
+            value={toInput || null}
+            onChange={(iso) => setToInput(iso ?? '')}
+            withTime
+            ariaLabel="تا تاریخ و ساعت"
           />
         </Field>
       </div>
@@ -318,7 +312,7 @@ export function AuditPage() {
         <div className="flex items-center justify-center gap-3 py-4" role="status">
           <span
             aria-hidden="true"
-            className="size-5 animate-spin rounded-full border-2 border-hunter-800 border-t-primary"
+            className="size-5 animate-spin rounded-full border-2 border-border border-t-primary"
           />
           <span className="text-sm font-medium text-muted">در حال بارگذاری…</span>
         </div>

@@ -6,7 +6,7 @@ import {
 
 describe('notification-labels (SS-243)', () => {
   it('covers every notification type with a Persian label', () => {
-    expect(NOTIFICATION_TYPE_ORDER).toHaveLength(11)
+    expect(NOTIFICATION_TYPE_ORDER).toHaveLength(13)
     for (const type of NOTIFICATION_TYPE_ORDER) {
       expect(NOTIFICATION_TYPE_LABELS[type]).toBeTruthy()
     }

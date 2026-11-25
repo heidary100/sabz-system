@@ -3,6 +3,7 @@ import { PrismaService } from '../src/common/database/prisma.service';
 import { recomputeProductMinPrice } from '../src/modules/products/min-price';
 import { PublicCatalogService } from '../src/modules/products/public-catalog.service';
 import { PricingService } from '../src/modules/pricing/pricing.service';
+import { AttributesService } from '../src/modules/products/attributes.service';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -244,7 +245,7 @@ describe('SS-264 search precision regression instruments', () => {
   beforeAll(async () => {
     prisma = new PrismaService();
     await prisma.$connect();
-    catalog = new PublicCatalogService(prisma, new PricingService(prisma));
+    catalog = new PublicCatalogService(prisma, new PricingService(prisma), new AttributesService(prisma));
     // Rerun idempotence: drop any prior SS264 fixtures (inventory rows would
     // block variant deletion, so they go first — none are created here, but
     // a crashed earlier run must not wedge the seed).

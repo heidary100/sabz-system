@@ -6,11 +6,9 @@
  * logo means swapping files under `public/brand/` (see its README); no
  * component edits are required.
  *
- * The mark is the real company logo (vivid-green/grey interlocking-S,
- * transparent background), ingested from the root `company-logo.png` at its
- * native 141px. Derivatives are downscales except the 180px touch icon
- * (mild 1.28x upscale, acceptable interim). A vector master is still wanted
- * for large-size uses (OG, print).
+ * The mark is the official Sabz System logo supplied by the client
+ * (transparent PNG master, 256px). Derivatives are downscales; the OG and
+ * touch icons place the untouched mark on a neutral brand surface.
  */
 
 export interface BrandLogoVariant {
@@ -26,17 +24,18 @@ export const brand = {
   nameEn: 'Sabz System',
   /** Accessible label for the logo image. */
   logoAlt: 'لوگوی سبز سیستم',
-  /** Raster master (141px RGBA, transparent background). */
+  /** Official transparent PNG master (256×256). */
   logo: '/brand/logo.png' as const,
   /** PNG derivatives keyed by rendered size (next/image). */
   logoPng: {
     64: { src: '/brand/logo-64.png', width: 64, height: 64 },
     128: { src: '/brand/logo-128.png', width: 128, height: 128 },
   } satisfies Record<number, BrandLogoVariant>,
-  /** Header/nav mark size in CSS pixels (served 2x via logo-64). */
-  markSize: 32,
+  /** Header/nav mark size in CSS pixels (served from the 128px derivative). */
+  markSize: 40,
   icons: {
     icon32: '/brand/icon-32.png',
+    icon16: '/brand/icon-16.png',
     appleTouchIcon: '/brand/apple-touch-icon.png',
   },
   openGraph: {
@@ -46,8 +45,8 @@ export const brand = {
   },
   /** `theme-color` values for browser chrome, per resolved theme (Task 01). */
   themeColors: {
-    light: '#f8f7f5',
-    dark: '#151814',
+    light: '#f4f6f5',
+    dark: '#0f1210',
   },
 } as const;
 

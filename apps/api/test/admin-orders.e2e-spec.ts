@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { ProductCondition } from '@prisma/client';
@@ -21,9 +22,11 @@ const ADMIN_ORDER_LIST_ITEM_KEYS = [
   'customerMobile',
   'id',
   'itemCount',
+  'note',
   'orderNumber',
   'paymentMethod',
   'paymentStatus',
+  'shipment',
   'status',
   'statusFa',
   'total',
@@ -33,8 +36,10 @@ const ADMIN_ORDER_DETAIL_KEYS = [
   'addressSnapshot',
   'createdAt',
   'customerMobile',
+  'customerNationalIdMasked',
   'id',
   'items',
+  'note',
   'orderNumber',
   'paymentMethod',
   'paymentStatus',
@@ -212,7 +217,7 @@ describe('Admin orders API (SS-240A) (e2e)', () => {
     const placed = await request(app.getHttpServer())
       .post(`${ORDERS_BASE}/checkout`)
       .set('Authorization', `Bearer ${customerToken}`)
-      .send({ addressId: address.body.id, paymentMethod: 'COD', shippingMethod: 'STORE_PICKUP' })
+      .send({ addressId: address.body.id, paymentMethod: 'COD', shippingMethod: 'STORE_PICKUP', nationalId: '1234567891' })
       .expect(201);
     orderIds.push(placed.body.orderId as string);
     return {
@@ -351,7 +356,7 @@ describe('Admin orders API (SS-240A) (e2e)', () => {
       status: 'PENDING',
       statusFa: 'در انتظار بررسی',
       itemCount: 1,
-      total: '10000',
+      total: '200000',
     });
 
     const filtered = await request(app.getHttpServer())
@@ -401,6 +406,16 @@ describe('Admin orders API (SS-240A) (e2e)', () => {
     expect(Object.keys(detail.body.items[0]).sort()).toEqual(
       ADMIN_ORDER_ITEM_KEYS,
     );
+
+    if (['/usr/bin/chromium', '/usr/bin/google-chrome'].some((path) => existsSync(path))) {
+      const pdf = await request(app.getHttpServer())
+        .get(`${ADMIN_BASE}/${orderId}/invoice/pdf`)
+        .set('Authorization', `Bearer ${operator.token}`)
+        .expect(200)
+        .expect('Content-Type', /application\/pdf/);
+      expect(pdf.body.subarray(0, 5).toString('ascii')).toBe('%PDF-');
+      expect(pdf.headers['content-disposition']).toContain('attachment');
+    }
 
     await request(app.getHttpServer())
       .get(`${ADMIN_BASE}/3fa85f64-5717-4562-b3fc-2c963f66afa6`)

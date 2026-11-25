@@ -266,17 +266,28 @@ describe('ReviewsService (SS-236)', () => {
       };
     }
 
-    it('defaults to the PENDING worklist, newest first, with product fields', async () => {
-      prisma.$transaction.mockResolvedValue([1, [adminRow()]]);
+    it('defaults to ALL statuses, newest first, with product fields', async () => {
+      prisma.$transaction.mockResolvedValue([
+        3,
+        [
+          adminRow({ status: 'PENDING' }),
+          adminRow({ id: 'review-approved', status: 'APPROVED' }),
+          adminRow({ id: 'review-rejected', status: 'REJECTED' }),
+        ],
+      ]);
 
       const result = await service.listForModeration({});
 
       expect(result).toMatchObject({
-        total: 1,
+        total: 3,
         page: 1,
         limit: 20,
       });
-      expect(result.items).toHaveLength(1);
+      expect(result.items.map((row) => row.status)).toEqual([
+        'PENDING',
+        'APPROVED',
+        'REJECTED',
+      ]);
       expect(result.items[0]).toMatchObject({
         status: 'PENDING',
         statusFa: 'در انتظار بررسی',
@@ -288,17 +299,31 @@ describe('ReviewsService (SS-236)', () => {
         [unknown, unknown],
       ];
       expect(ops).toHaveLength(2);
-      expect(prisma.review.count).toHaveBeenCalledWith({
-        where: { status: ReviewStatus.PENDING },
-      });
+      // Root cause regression: omission and ALL both mean "no predicate".
+      expect(prisma.review.count).toHaveBeenCalledWith({ where: {} });
       expect(prisma.review.findMany).toHaveBeenCalledWith({
-        where: { status: ReviewStatus.PENDING },
+        where: {},
         select: expect.anything(),
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         skip: 0,
         take: 20,
       });
       expect(audit.log).not.toHaveBeenCalled();
+    });
+
+    it('treats an explicit ALL exactly like an omitted status', async () => {
+      prisma.$transaction.mockResolvedValue([0, []]);
+
+      await service.listForModeration({ status: 'ALL', page: 2, limit: 5 });
+
+      expect(prisma.review.count).toHaveBeenCalledWith({ where: {} });
+      expect(prisma.review.findMany).toHaveBeenCalledWith({
+        where: {},
+        select: expect.anything(),
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        skip: 5,
+        take: 5,
+      });
     });
 
     it('honours an explicit status, page, and limit', async () => {

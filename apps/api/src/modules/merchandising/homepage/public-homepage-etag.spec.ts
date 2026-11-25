@@ -17,7 +17,7 @@ function card(overrides: Partial<CatalogProductCardDto> = {}): CatalogProductCar
     brand: { name: 'برند', slug: 'brand' },
     category: { name: 'دسته', slug: 'category' },
     priceFrom: '100000',
-    compareAtPrice: null,
+    regularPrice: null,
     callForPrice: false,
     promotionEndsAt: null,
     variantCount: 1,

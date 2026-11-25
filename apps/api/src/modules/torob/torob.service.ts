@@ -8,11 +8,12 @@ import type {
   TorobSort,
 } from '@sabz/types';
 import { PrismaService } from '../../common/database/prisma.service';
+import { customerPricePair } from '../../common/money/discount';
 import {
   activeInventoryWhere,
   deriveAvailable,
 } from '../inventory/inventory-aggregate';
-import { PUBLIC_MEDIA_URL_PREFIX } from '../products/public-catalog.service';
+import { publicMediaAssetUrl } from '../products/media-public-url';
 
 /**
  * Torob product feed (SS-239, master plan §5.11, feed v3).
@@ -47,10 +48,13 @@ interface FeedProductRow {
   variants: {
     id: string;
     price: Prisma.Decimal;
-    compareAtPrice: Prisma.Decimal | null;
+    discountedPrice: Prisma.Decimal | null;
+    discountStartsAt: Date | null;
+    discountEndsAt: Date | null;
   }[];
   media: {
     id: string;
+    storageKey: string;
     isPrimary: boolean;
     sortOrder: number;
     mediaType: ProductMediaType;
@@ -159,12 +163,23 @@ export class TorobService {
       category: { select: { name: true } },
       variants: {
         where: { deletedAt: null, priceStatus: PriceStatus.PRICED },
-        select: { id: true, price: true, compareAtPrice: true },
+        select: {
+          id: true,
+          price: true,
+          discountedPrice: true,
+          discountStartsAt: true,
+          discountEndsAt: true,
+        },
         orderBy: [{ createdAt: 'asc' as const }, { id: 'asc' as const }],
       },
       media: {
+        where: {
+          deletedAt: null,
+          NOT: { storageKey: { startsWith: 'pending-woo' } },
+        },
         select: {
           id: true,
+          storageKey: true,
           isPrimary: true,
           sortOrder: true,
           mediaType: true,
@@ -350,7 +365,9 @@ export class TorobService {
             Number(b.isPrimary) - Number(a.isPrimary) ||
             a.sortOrder - b.sortOrder,
         )
-        .map((item) => `${apiBase}${PUBLIC_MEDIA_URL_PREFIX}/${item.id}`);
+        .map(
+          (item) => `${apiBase}${publicMediaAssetUrl(item.id, item.storageKey)}`,
+        );
 
       const spec: Record<string, string | number> = {};
       for (const row of product.specs) {
@@ -361,7 +378,13 @@ export class TorobService {
       }
 
       for (const variant of product.variants) {
-        const currentPrice = rialToToman(variant.price);
+        const pair = customerPricePair({
+          price: variant.price,
+          discountedPrice: variant.discountedPrice,
+          discountStartsAt: variant.discountStartsAt,
+          discountEndsAt: variant.discountEndsAt,
+        });
+        const currentPrice = rialToToman(pair.selling);
         const row: TorobProductDto = {
           page_unique: product.slug,
           page_url: `${storefrontBase}/products/${product.slug}`,
@@ -377,9 +400,8 @@ export class TorobService {
         if (product.subtitle !== null) {
           row.subtitle = product.subtitle;
         }
-        const compareAt = variant.compareAtPrice;
-        if (compareAt !== null && compareAt.toNumber() > variant.price.toNumber()) {
-          row.old_price = rialToToman(compareAt);
+        if (pair.regular !== null) {
+          row.old_price = rialToToman(pair.regular);
         }
         if (product.shortDescription !== null) {
           row.short_desc = product.shortDescription;

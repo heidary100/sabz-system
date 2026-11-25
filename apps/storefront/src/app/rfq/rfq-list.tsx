@@ -12,7 +12,7 @@ import { ApiError } from '@/lib/api';
 import { hasSession } from '@/lib/auth-client';
 import { fetchRfqs, rfqStatusLabel } from '@/lib/rfq';
 import { formatFaNumber, formatToman } from '@/lib/format';
-import { rialToTomanString } from '@/lib/currency';
+import { rialMachineValue } from '@/lib/currency';
 
 const LOAD_FAILED = 'دریافت استعلام‌ها ناموفق بود؛ لطفاً دوباره تلاش کنید.';
 
@@ -31,7 +31,7 @@ function badgeVariant(status: RfqDto['status']): 'success' | 'outOfStock' | 'neu
 /**
  * RFQ-history island (SS-235 B2): newest-first list behind the OTP
  * session. Guests are sent to `/login?next=/rfq`. Mirrors the orders
- * list; quoted rows show the agreed Toman price.
+ * list; quoted rows show the agreed Rial price.
  */
 export function RfqList() {
   const router = useRouter();
@@ -126,7 +126,7 @@ export function RfqList() {
                 <p className="mt-1 text-xs text-fg-muted">
                   {formatFaNumber(rfq.quantity)} عدد
                   {rfq.quotedLineTotal !== null
-                    ? ` — ${formatToman(rialToTomanString(rfq.quotedLineTotal))}`
+                    ? ` — ${formatToman(rialMachineValue(rfq.quotedLineTotal))}`
                     : null}
                 </p>
               </div>

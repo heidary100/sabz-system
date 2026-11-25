@@ -1,0 +1,55 @@
+/*
+ * Sabz System — shared brand and design primitives.
+ *
+ * This file is the single color contract for the Admin Panel and Storefront.
+ * Product CSS maps these primitives into each app's semantic token names; do
+ * not hard-code brand colors in components.
+ *
+ * Official brand:
+ *   Primary green  #16A54B
+ *   Neutral gray   #707271
+ */
+
+:root {
+  --brand-green-50: #f1fbf5;
+  --brand-green-100: #ddf6e6;
+  --brand-green-200: #baebcc;
+  --brand-green-300: #86dca8;
+  --brand-green-400: #45c57a;
+  --brand-green-500: #16a54b;
+  --brand-green-600: #0d843b;
+  --brand-green-700: #0b6b2f;
+  --brand-green-800: #095426;
+  --brand-green-900: #073f1e;
+  --brand-green-950: #042b14;
+
+  --brand-gray-50: #f7f8f7;
+  --brand-gray-100: #eff2f0;
+  --brand-gray-200: #e1e6e2;
+  --brand-gray-300: #cfd5d0;
+  --brand-gray-400: #a9b0ab;
+  --brand-gray-500: #707271;
+  --brand-gray-600: #5a5d5b;
+  --brand-gray-700: #454846;
+  --brand-gray-800: #2e312f;
+  --brand-gray-900: #1c1f1d;
+  --brand-gray-950: #101311;
+
+  --brand-red-100: #fbe9e7;
+  --brand-red-500: #c2413a;
+  --brand-red-600: #a9332d;
+  --brand-red-700: #8b2722;
+
+  --brand-amber-100: #fff4da;
+  --brand-amber-500: #a66a00;
+  --brand-amber-600: #8a5700;
+
+  --brand-info-100: #e8f4f8;
+  --brand-info-500: #256a82;
+  --brand-info-600: #1d566a;
+
+  --brand-radius-control: 10px;
+  --brand-radius-card: 16px;
+  --brand-radius-panel: 22px;
+  --brand-radius-pill: 9999px;
+}

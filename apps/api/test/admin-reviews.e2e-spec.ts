@@ -207,22 +207,27 @@ describe('Admin reviews API (SS-240D) (e2e)', () => {
       .expect(201);
     reviewIds.push(second.body.id as string);
 
-    // Default queue (no status) = PENDING worklist with pinned keys.
+    // Default queue (no status) = ALL statuses with pinned keys. The e2e
+    // database may hold reviews from earlier specs, so assert our rows rather
+    // than a globally exact total.
     await request(app.getHttpServer())
       .get(ADMIN_BASE)
       .set('Authorization', `Bearer ${operator.token}`)
       .expect(200)
       .then((res) => {
         expect(Object.keys(res.body).sort()).toEqual(ADMIN_REVIEW_LIST_KEYS);
-        expect(res.body).toMatchObject({ total: 2, page: 1, limit: 20 });
-        expect(res.body.items).toHaveLength(2);
+        expect(res.body).toMatchObject({ page: 1, limit: 20 });
+        expect(res.body.total).toBeGreaterThanOrEqual(2);
         expect(Object.keys(res.body.items[0]).sort()).toEqual(
           ADMIN_REVIEW_ITEM_KEYS,
         );
+        const ours = res.body.items.filter((item: { productId: string }) =>
+          item.productId === productId,
+        );
         // Newest first.
-        expect(res.body.items[0].id).toBe(second.body.id);
-        expect(res.body.items[1].id).toBe(first.body.id);
-        for (const item of res.body.items) {
+        expect(ours[0].id).toBe(second.body.id);
+        expect(ours[1].id).toBe(first.body.id);
+        for (const item of ours) {
           expect(item).toMatchObject({
             productId,
             productName,
@@ -233,20 +238,32 @@ describe('Admin reviews API (SS-240D) (e2e)', () => {
         }
       });
 
-    // Explicit PENDING matches the default; APPROVED is empty so far.
+    // Explicit PENDING restricts to the unmoderated rows.
     await request(app.getHttpServer())
       .get(`${ADMIN_BASE}?status=PENDING`)
       .set('Authorization', `Bearer ${operator.token}`)
       .expect(200)
       .then((res) => {
         expect(res.body.total).toBe(2);
+        expect(
+          res.body.items.every(
+            (item: { status: string }) => item.status === 'PENDING',
+          ),
+        ).toBe(true);
       });
+
+    // Explicit ALL is the same unrestricted view (composes with paging).
     await request(app.getHttpServer())
-      .get(`${ADMIN_BASE}?status=APPROVED`)
+      .get(`${ADMIN_BASE}?status=ALL&limit=50`)
       .set('Authorization', `Bearer ${operator.token}`)
       .expect(200)
       .then((res) => {
-        expect(res.body).toMatchObject({ items: [], total: 0 });
+        expect(res.body.total).toBeGreaterThanOrEqual(2);
+        const ids = new Set(
+          res.body.items.map((item: { id: string }) => item.id),
+        );
+        expect(ids.has(first.body.id)).toBe(true);
+        expect(ids.has(second.body.id)).toBe(true);
       });
 
     // Invalid status → 400 with a Persian message.
@@ -261,7 +278,7 @@ describe('Admin reviews API (SS-240D) (e2e)', () => {
       .set('Authorization', `Bearer ${operator.token}`)
       .expect(200);
     await request(app.getHttpServer())
-      .get(ADMIN_BASE)
+      .get(`${ADMIN_BASE}?status=PENDING`)
       .set('Authorization', `Bearer ${operator.token}`)
       .expect(200)
       .then((res) => {
@@ -273,17 +290,44 @@ describe('Admin reviews API (SS-240D) (e2e)', () => {
       .set('Authorization', `Bearer ${operator.token}`)
       .expect(200)
       .then((res) => {
-        expect(res.body.total).toBe(1);
-        expect(res.body.items[0].id).toBe(first.body.id);
+        const approved = res.body.items.find(
+          (item: { id: string }) => item.id === first.body.id,
+        );
+        expect(approved).toMatchObject({ id: first.body.id, status: 'APPROVED' });
       });
 
-    // Pagination is honoured.
+    // Rejecting the other row proves ALL returns every supported status.
     await request(app.getHttpServer())
-      .get(`${ADMIN_BASE}?page=2&limit=1`)
+      .post(`${REVIEWS_BASE}/${second.body.id}/reject`)
+      .set('Authorization', `Bearer ${operator.token}`)
+      .expect(200);
+    await request(app.getHttpServer())
+      .get(`${ADMIN_BASE}?status=ALL&limit=50`)
       .set('Authorization', `Bearer ${operator.token}`)
       .expect(200)
       .then((res) => {
-        expect(res.body).toMatchObject({ total: 1, page: 2, limit: 1 });
+        const byId = new Map(
+          res.body.items.map((item: { id: string; status: string }) => [
+            item.id,
+            item.status,
+          ]),
+        );
+        expect(byId.get(first.body.id)).toBe('APPROVED');
+        expect(byId.get(second.body.id)).toBe('REJECTED');
+        const statuses = new Set(
+          res.body.items.map((item: { status: string }) => item.status),
+        );
+        expect(statuses.has('APPROVED')).toBe(true);
+        expect(statuses.has('REJECTED')).toBe(true);
+      });
+
+    // Pagination is honoured for a specific composed filter.
+    await request(app.getHttpServer())
+      .get(`${ADMIN_BASE}?status=APPROVED&page=2&limit=1`)
+      .set('Authorization', `Bearer ${operator.token}`)
+      .expect(200)
+      .then((res) => {
+        expect(res.body).toMatchObject({ page: 2, limit: 1 });
         expect(res.body.items).toHaveLength(0);
       });
   });

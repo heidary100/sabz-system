@@ -11,9 +11,50 @@ import {
  * and the FFmpeg video filter expression derive from the same ratio/clamp
  * math so the mark stays proportional from tiny uploads to 4K video.
  */
+const WATERMARK_ENV_KEYS = [
+  'WATERMARK_SIZE_RATIO',
+  'WATERMARK_MIN_SIZE_PX',
+  'WATERMARK_MAX_SIZE_PX',
+  'WATERMARK_THUMBNAIL_SIZE_RATIO',
+  'WATERMARK_THUMBNAIL_MIN_SIZE_PX',
+  'WATERMARK_THUMBNAIL_MAX_SIZE_PX',
+] as const;
+
 describe('watermark shared sizing (SS-210)', () => {
+  const saved = new Map<string, string | undefined>();
+
+  beforeEach(() => {
+    for (const key of WATERMARK_ENV_KEYS) {
+      saved.set(key, process.env[key]);
+      delete process.env[key];
+    }
+  });
+
+  afterEach(() => {
+    for (const key of WATERMARK_ENV_KEYS) {
+      const value = saved.get(key);
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+    saved.clear();
+  });
+
+  it('defaults to the revised smaller logo-only mark', () => {
+    const config = resolveWatermarkConfig();
+    expect(config.logoOnly).toBe(true);
+    expect(config.sizeRatio).toBe(0.15);
+    expect(config.minSizePx).toBe(90);
+    expect(config.maxSizePx).toBe(210);
+    expect(config.thumbnailSizeRatio).toBe(0.1);
+    expect(config.thumbnailMinSizePx).toBe(56);
+    expect(config.thumbnailMaxSizePx).toBe(120);
+    // Strictly smaller than the previous 0.17 / 100–240 specification.
+    expect(config.sizeRatio).toBeLessThan(0.17);
+    expect(config.maxSizePx).toBeLessThan(240);
+  });
+
   it('scales linearly with the source width inside the clamps', () => {
-    // Default full-size spec: ratio 0.17, clamps 100..240.
+    // Pure sizing math (values are inputs, not the current defaults).
     expect(computeOverlayWidth(1200, 0.17, 100, 240)).toBe(204);
     expect(computeOverlayWidth(1000, 0.17, 100, 240)).toBe(170);
   });
@@ -38,7 +79,7 @@ describe('watermark shared sizing (SS-210)', () => {
 
   it('derives a strictly smaller thumbnail overlay from thumbnail clamps', () => {
     const config = resolveWatermarkConfig();
-    // 1200px photo: full mark 204px, thumbnail (640px edge) mark ~77px.
+    // 1200px photo: full mark ~180px, thumbnail (640px edge) mark ~64px.
     expect(thumbnailOverlayWidthFor(640, config)).toBe(
       computeOverlayWidth(
         640,
@@ -56,7 +97,7 @@ describe('watermark shared sizing (SS-210)', () => {
   it('builds the FFmpeg scale2ref width expression from the shared clamps', () => {
     const config = resolveWatermarkConfig();
     expect(watermarkVideoWidthExpr(config)).toBe(
-      'max(100,min(240,trunc(main_w*0.170/2)*2))',
+      'max(90,min(210,trunc(main_w*0.150/2)*2))',
     );
   });
 

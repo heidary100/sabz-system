@@ -6,6 +6,7 @@ import {
 } from '../src/modules/products/brand-merge';
 import { PublicCatalogService } from '../src/modules/products/public-catalog.service';
 import { PricingService } from '../src/modules/pricing/pricing.service';
+import { AttributesService } from '../src/modules/products/attributes.service';
 
 jest.setTimeout(90_000);
 
@@ -264,6 +265,7 @@ describe('SS-258 brand merge (integration)', () => {
     const catalog = new PublicCatalogService(
       prisma,
       new PricingService(prisma),
+      new AttributesService(prisma),
     );
     const result = await catalog.listProducts({
       brand: 'green-lion-2',

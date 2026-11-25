@@ -30,6 +30,14 @@ const SKU_MAX = 64
 const BARCODE_MAX = 64
 const NAME_MAX = 255
 
+type PriceSourceCurrency = 'RIAL' | 'USD' | 'AED'
+
+const CURRENCY_LABELS: Record<PriceSourceCurrency, string> = {
+  RIAL: 'ریال',
+  USD: 'دلار آمریکا',
+  AED: 'درهم امارات',
+}
+
 const PRICE_STATUS_LABELS: Record<'PRICED' | 'CALL_FOR_PRICE', string> = {
   PRICED: 'قیمت‌دار (قابل خرید)',
   CALL_FOR_PRICE: 'تماس بگیرید (بدون قیمت)',
@@ -40,7 +48,11 @@ interface VariantFormValue {
   barcode: string
   name: string
   price: string
-  compareAtPrice: string
+  discountedPrice: string
+  discountStartsAt: string
+  discountEndsAt: string
+  partnerPrice: string
+  priceSourceCurrency: PriceSourceCurrency
   priceStatus: 'PRICED' | 'CALL_FOR_PRICE'
 }
 
@@ -49,7 +61,11 @@ const EMPTY: VariantFormValue = {
   barcode: '',
   name: '',
   price: '',
-  compareAtPrice: '',
+  discountedPrice: '',
+  discountStartsAt: '',
+  discountEndsAt: '',
+  partnerPrice: '',
+  priceSourceCurrency: 'RIAL',
   priceStatus: 'PRICED',
 }
 
@@ -58,8 +74,13 @@ function fromVariant(variant: VariantSummary): VariantFormValue {
     sku: variant.sku,
     barcode: variant.barcode ?? '',
     name: variant.name ?? '',
-    price: variant.price,
-    compareAtPrice: variant.compareAtPrice ?? '',
+    price: variant.priceSourceAmount ?? variant.price,
+    discountedPrice:
+      variant.discountSourceAmount ?? variant.discountedPrice ?? '',
+    discountStartsAt: variant.discountStartsAt ?? '',
+    discountEndsAt: variant.discountEndsAt ?? '',
+    partnerPrice: variant.partnerPrice ?? '',
+    priceSourceCurrency: variant.priceSourceCurrency ?? 'RIAL',
     priceStatus: variant.priceStatus,
   }
 }
@@ -100,7 +121,7 @@ export function VariantForm({
     // SS-250: money inputs fold Persian/Arabic digits before validation —
     // ۱۵۰۰ must validate like 1500, not die in a pattern error.
     const normalized =
-      key === 'price' || key === 'compareAtPrice'
+      key === 'price' || key === 'discountedPrice' || key === 'partnerPrice'
         ? foldDigitsToEnglish(value)
         : value
     if (key === 'sku') {
@@ -112,7 +133,7 @@ export function VariantForm({
   // SS-265: money state stays canonical (raw, what gets submitted); the
   // input shows thousands grouping. set() still folds digits (SS-250).
   const setMoney = (
-    key: 'price' | 'compareAtPrice',
+    key: 'price' | 'discountedPrice' | 'partnerPrice',
     event: ChangeEvent<HTMLInputElement>,
   ): void => {
     const next = applyMoneyInput(event.target.value, event.target.selectionStart ?? 0)
@@ -128,12 +149,15 @@ export function VariantForm({
   }
 
   const priceValid = PRICE_PATTERN.test(values.price.trim())
-  const compareAtValid =
-    values.compareAtPrice.trim() === '' ||
-    PRICE_PATTERN.test(values.compareAtPrice.trim())
+  const discountedValid =
+    values.discountedPrice.trim() === '' ||
+    PRICE_PATTERN.test(values.discountedPrice.trim())
+  const partnerValid =
+    values.partnerPrice.trim() === '' ||
+    PRICE_PATTERN.test(values.partnerPrice.trim())
 
   const canSubmit =
-    values.sku.trim().length > 0 && priceValid && compareAtValid && !submitting
+    values.sku.trim().length > 0 && priceValid && discountedValid && partnerValid && !submitting
 
   const handleSubmit = async (): Promise<void> => {
     if (!values.sku.trim()) {
@@ -144,12 +168,38 @@ export function VariantForm({
       setError('قیمت باید عدد اعشاری معتبر با حداکثر ۲ رقم اعشار باشد.')
       return
     }
-    if (!compareAtValid) {
-      setError('قیمت قبل از تخفیف باید عدد اعشاری معتبر با حداکثر ۲ رقم اعشار باشد.')
+    if (!discountedValid) {
+      setError('قیمت فروش ویژه باید عدد اعشاری معتبر با حداکثر ۲ رقم اعشار باشد.')
       return
     }
-    if (values.priceStatus === 'CALL_FOR_PRICE' && values.compareAtPrice.trim() !== '') {
-      setError('نوع «تماس بگیرید» نباید قیمت قبل از تخفیف داشته باشد.')
+    if (!partnerValid) {
+      setError('قیمت همکار باید عدد اعشاری معتبر با حداکثر ۲ رقم اعشار باشد.')
+      return
+    }
+    if (values.priceStatus === 'CALL_FOR_PRICE' && values.discountedPrice.trim() !== '') {
+      setError('نوع «تماس بگیرید» نباید قیمت فروش ویژه داشته باشد.')
+      return
+    }
+    if (
+      values.discountedPrice.trim() !== '' &&
+      Number(values.discountedPrice) >= Number(values.price)
+    ) {
+      setError('قیمت فروش ویژه باید کمتر از قیمت عادی باشد.')
+      return
+    }
+    if (
+      values.partnerPrice.trim() !== '' &&
+      Number(values.partnerPrice) >= Number(values.price)
+    ) {
+      setError('قیمت همکار باید کمتر از قیمت عادی باشد.')
+      return
+    }
+    if (
+      values.discountStartsAt &&
+      values.discountEndsAt &&
+      new Date(values.discountEndsAt) <= new Date(values.discountStartsAt)
+    ) {
+      setError('پایان بازه فروش ویژه باید بعد از شروع آن باشد.')
       return
     }
     setSubmitting(true)
@@ -161,7 +211,11 @@ export function VariantForm({
           barcode: values.barcode.trim() || null,
           name: values.name.trim() || null,
           price: values.price.trim(),
-          compareAtPrice: values.compareAtPrice.trim() || null,
+          discountedPrice: values.discountedPrice.trim() || null,
+          discountStartsAt: values.discountStartsAt || null,
+          discountEndsAt: values.discountEndsAt || null,
+          partnerPrice: values.partnerPrice.trim() || null,
+          priceSourceCurrency: values.priceSourceCurrency,
           priceStatus: values.priceStatus,
         })
       } else {
@@ -170,7 +224,11 @@ export function VariantForm({
           barcode: values.barcode.trim() || undefined,
           name: values.name.trim() || undefined,
           price: values.price.trim(),
-          compareAtPrice: values.compareAtPrice.trim() || undefined,
+          discountedPrice: values.discountedPrice.trim() || undefined,
+          discountStartsAt: values.discountStartsAt || undefined,
+          discountEndsAt: values.discountEndsAt || undefined,
+          partnerPrice: values.partnerPrice.trim() || undefined,
+          priceSourceCurrency: values.priceSourceCurrency,
           priceStatus: values.priceStatus,
         })
       }
@@ -245,33 +303,104 @@ export function VariantForm({
           </Field>
 
           <Field>
-            <Label>قیمت (ریال)</Label>
+            <Label>واحد پول قیمت</Label>
+            <Select
+              name="priceSourceCurrency"
+              value={values.priceSourceCurrency}
+              onChange={(event) =>
+                set('priceSourceCurrency', event.target.value as PriceSourceCurrency)
+              }
+              disabled={submitting}
+            >
+              {(Object.keys(CURRENCY_LABELS) as PriceSourceCurrency[]).map((code) => (
+                <option key={code} value={code}>
+                  {CURRENCY_LABELS[code]}
+                </option>
+              ))}
+            </Select>
+            <Text className="text-xs text-muted">
+              مبلغ دلار/درهم با نرخ دستی جاری به ریال تبدیل و به ۱۰۰٬۰۰۰ ریال
+              گرد می‌شود؛ فروشگاه قیمت را به تومان نمایش می‌دهد.
+            </Text>
+          </Field>
+
+          <Field>
+            <Label>قیمت ({CURRENCY_LABELS[values.priceSourceCurrency]})</Label>
             <Input
               name="price"
               dir="ltr"
               inputMode="decimal"
               value={groupMoneyDigits(values.price)}
-              placeholder="مثلاً 1,500,000"
+              placeholder={
+                values.priceSourceCurrency === 'RIAL' ? 'مثلاً 1,500,000' : 'مثلاً 120.00'
+              }
               onChange={(event) => setMoney('price', event)}
               disabled={submitting}
             />
             <Text className="text-xs text-muted">
-              مبنا ریال است؛ فروشگاه قیمت را به تومان (ریال ÷ ۱۰) نمایش میدهد.
+              مبلغ منبع؛ قیمت نهایی ریالی پس از تبدیل و گرد شدن در سرور تعیین می‌شود.
             </Text>
           </Field>
 
           <Field>
-            <Label>قیمت قبل از تخفیف (ریال)</Label>
+            <Label>قیمت فروش ویژه ({CURRENCY_LABELS[values.priceSourceCurrency]})</Label>
             <Input
-              name="compareAtPrice"
+              name="discountedPrice"
               dir="ltr"
               inputMode="decimal"
-              value={groupMoneyDigits(values.compareAtPrice)}
-              placeholder="اختیاری؛ باید بیشتر از قیمت فروش باشد"
-              onChange={(event) => setMoney('compareAtPrice', event)}
+              value={groupMoneyDigits(values.discountedPrice)}
+              placeholder="اختیاری؛ باید کمتر از قیمت عادی باشد"
+              onChange={(event) => setMoney('discountedPrice', event)}
               disabled={submitting}
             />
-            <Text className="text-xs text-muted">قیمت پیش از تخفیف؛ در صورت خالی بودن هنگام ویرایش، پاک میشود.</Text>
+            <Text className="text-xs text-muted">
+              قیمت تبلیغاتی؛ فقط داخل بازه زمانی زیر اعمال می‌شود. خالی کردن هنگام ویرایش آن را پاک می‌کند.
+            </Text>
+          </Field>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field>
+              <Label>شروع فروش ویژه (اختیاری)</Label>
+              <Input
+                name="discountStartsAt"
+                dir="ltr"
+                type="datetime-local"
+                value={values.discountStartsAt ? values.discountStartsAt.slice(0, 16) : ''}
+                onChange={(event) =>
+                  set('discountStartsAt', event.target.value ? new Date(event.target.value).toISOString() : '')
+                }
+                disabled={submitting}
+              />
+            </Field>
+            <Field>
+              <Label>پایان فروش ویژه (اختیاری)</Label>
+              <Input
+                name="discountEndsAt"
+                dir="ltr"
+                type="datetime-local"
+                value={values.discountEndsAt ? values.discountEndsAt.slice(0, 16) : ''}
+                onChange={(event) =>
+                  set('discountEndsAt', event.target.value ? new Date(event.target.value).toISOString() : '')
+                }
+                disabled={submitting}
+              />
+            </Field>
+          </div>
+
+          <Field>
+            <Label>قیمت همکار (ریال)</Label>
+            <Input
+              name="partnerPrice"
+              dir="ltr"
+              inputMode="decimal"
+              value={groupMoneyDigits(values.partnerPrice)}
+              placeholder="اختیاری؛ فقط برای همکار تأییدشده"
+              onChange={(event) => setMoney('partnerPrice', event)}
+              disabled={submitting}
+            />
+            <Text className="text-xs text-muted">
+              قیمت B2B به ریال؛ در API عمومی هرگز نمایش داده نمی‌شود و فقط برای همکار تأییدشده و فعال قابل مشاهده است.
+            </Text>
           </Field>
 
           <Field>

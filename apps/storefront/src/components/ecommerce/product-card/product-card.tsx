@@ -39,7 +39,7 @@ export function ProductCard({
   );
   const salePercent = salePercentFrom(
     product.priceFrom,
-    product.compareAtPrice,
+    product.regularPrice,
   );
   const hasPromotion = product.promotionEndsAt !== null;
   const showCondition = product.condition !== 'NEW';
@@ -61,7 +61,7 @@ export function ProductCard({
       >
         <div
           data-card-image
-          className="relative aspect-square overflow-hidden bg-plate"
+          className="relative aspect-square overflow-hidden bg-transparent"
         >
           <div
             className={`absolute inset-0 ${compact ? 'p-2.5' : 'p-3 sm:p-4'}`}
@@ -165,10 +165,10 @@ export function ProductCard({
                 {price}
               </p>
             )}
-            {product.compareAtPrice && salePercent !== null ? (
+            {product.regularPrice && salePercent !== null ? (
               <s className="mt-1 block text-[11px] font-normal leading-5 text-fg-muted decoration-1 [font-variant-numeric:tabular-nums]">
                 <span className="sr-only">قیمت پیشین </span>
-                {formatToman(product.compareAtPrice)}
+                {formatToman(product.regularPrice)}
               </s>
             ) : null}
             {product.promotionEndsAt !== null && !product.callForPrice ? (

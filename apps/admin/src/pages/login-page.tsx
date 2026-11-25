@@ -6,6 +6,7 @@ import { Field, Label } from '../components/catalyst/fieldset'
 import { Heading } from '../components/catalyst/heading'
 import { Input } from '../components/catalyst/input'
 import { Text } from '../components/catalyst/text'
+import { AdminBrandLockup } from '../components/layout/admin-brand-lockup'
 import { translateApiError } from '../lib/error-messages'
 import * as authService from '../services/auth'
 
@@ -103,15 +104,17 @@ export function LoginPage() {
 
   return (
     <div className="ambient flex min-h-svh items-center justify-center px-4">
-      <div className="glass rule-double-top w-full max-w-sm space-y-8 rounded-xl p-8 pt-7">
-        <div className="space-y-2">
-          <span className="text-xs font-semibold text-primary">پنل مدیریت</span>
-          <Heading level={1}>سبز</Heading>
-          <Text>
-            {step === 'phone'
-              ? 'برای ورود، شماره موبایل خود را وارد کنید.'
-              : `کد ۶ رقمی ارسال‌شده به ${mobile} را وارد کنید.`}
-          </Text>
+      <div className="surface-card w-full max-w-sm space-y-7 rounded-2xl border-t-4 border-t-primary p-8">
+        <div className="space-y-4">
+          <AdminBrandLockup to="/login" size={52} />
+          <div className="space-y-1.5">
+            <Heading level={1}>ورود به حساب</Heading>
+            <Text>
+              {step === 'phone'
+                ? 'برای ورود، شماره موبایل خود را وارد کنید.'
+                : `کد ۶ رقمی ارسال‌شده به ${mobile} را وارد کنید.`}
+            </Text>
+          </div>
         </div>
 
         {step === 'phone' ? (

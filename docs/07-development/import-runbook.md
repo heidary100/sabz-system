@@ -118,8 +118,8 @@ The canonical WooCommerce export ships **out of band** — it is ~14 MB and
 must never be committed (`.gitignore` excludes `wc-product-export-*.csv`
 everywhere in the tree).
 
-- The current canonical file is `wc-product-export-20-9-2026-1789870382306.csv`
-  (14,157,043 bytes), produced by the WooCommerce native product exporter on
+- The current canonical file is `wc-product-export-23-11-2026-1795446608040.csv`
+  (14,296,747 bytes, 1,165 rows × 244 columns), produced by the WooCommerce native product exporter on
   sabzsistem.com.
 - For a fresh re-export, use the same exporter on the live site
   (wp-admin → Products → Export). A re-export gets a new filename and a new
@@ -138,9 +138,9 @@ ls wc-product-export-*.csv
 ## B2. Verify the CSV
 
 ```bash
-sha256sum wc-product-export-20-9-2026-1789870382306.csv
+sha256sum wc-product-export-23-11-2026-1795446608040.csv
 # expected:
-# 055a5cc407d56e2609777cf01ff5927c7cf4caef64b1bba0bb569adddfb80a27
+# ef14e5d8627f46f8e155ce8d13a83d2f93d9f30931a6260774cb2625356cd10b
 ```
 
 If the checksum differs, you have a different export: re-record the checksum
@@ -155,7 +155,7 @@ resolve `--file` relative to the `apps/api` package directory. The
 into `apps/api/` is safe:
 
 ```bash
-cp wc-product-export-20-9-2026-1789870382306.csv apps/api/
+cp wc-product-export-23-11-2026-1795446608040.csv apps/api/
 ```
 
 All commands below are run **inside the API container** (the project's dev
@@ -174,7 +174,7 @@ set `DATABASE_URL`, run `docker compose up -d postgres redis`, `pnpm install`,
 
 ```bash
 docker compose exec api pnpm --filter @sabz/api woo:dry-run -- \
-  --file wc-product-export-20-9-2026-1789870382306.csv
+  --file wc-product-export-23-11-2026-1795446608040.csv
 ```
 
 The dry run parses the CSV, resolves every row to a verdict, and prints the
@@ -195,8 +195,16 @@ Full interpretation: [woo-import-mapping.md §1](../04-database/woo-import-mappi
 ## B5. Product import
 
 ```bash
+# Apply is guarded: the DB must be the local `sabz` development database and
+# a verified PostgreSQL dump must exist. Run the dump first (host):
+mkdir -p apps/api/.data/backups
+docker exec sabz-postgres pg_dump -U sabz -Fc sabz > apps/api/.data/backups/sabz-before-woo-import.dump
+docker exec -i sabz-postgres pg_restore -l < apps/api/.data/backups/sabz-before-woo-import.dump >/dev/null
+
 docker compose exec api pnpm --filter @sabz/api woo:import -- \
-  --file wc-product-export-20-9-2026-1789870382306.csv --with-media-refs
+  --file wc-product-export-23-11-2026-1795446608040.csv \
+  --confirm-database sabz \
+  --backup /app/apps/api/.data/backups/sabz-before-woo-import.dump
 ```
 
 Behavior:
@@ -227,33 +235,50 @@ shells published 24 / resumed 0
 Any `FAILED line …` entries are listed with their error; the process exits
 non-zero only if failures exceed `--failure-threshold` (default 0).
 
-**Known caveat (currency):** the importer stores CSV prices **verbatim in
-Rial** (decided O-1, SS-207), while the catalog API/storefront contract
-formats stored values as **Toman** (`packages/types/src/catalog/catalog.ts`).
-A real-catalog import therefore displays Rial-magnitude numbers under the
-Toman label until the currency reconciliation decision lands. Do not
-"fix" this by converting at import time — that ruling is deliberate and
-owned by the mapping doc.
+**Currency rule (O-1):** the importer stores CSV prices **verbatim in
+Rial** (decided SS-207). The storefront divides by 10 exactly once at the
+render boundary (`formatToman`); there is no Rial/Toman conversion inside
+the import. Do not change the source unit or multiply/divide silently.
 
 ## B6. Media download
 
 ```bash
 # rehearsal — reports what would be downloaded, writes nothing:
 docker compose exec api pnpm --filter @sabz/api woo:media -- \
-  --file wc-product-export-20-9-2026-1789870382306.csv --dry-run
+  --file wc-product-export-23-11-2026-1795446608040.csv --dry-run
 
-# real run (~4488 distinct images; runs at concurrency 6 by default):
+# real run (~4,534 distinct images; mandatory local background removal,
+# transparent square canvas, logo-only watermark, retained original):
 docker compose exec api pnpm --filter @sabz/api woo:media -- \
-  --file wc-product-export-20-9-2026-1789870382306.csv
+  --file wc-product-export-23-11-2026-1795446608040.csv \
+  --refresh-images --confirm-database sabz \
+  --backup /app/apps/api/.data/backups/sabz-before-woo-import.dump
+
+# read-only reconciliation (prices, sale windows, SKUs, parent links,
+# categories/brands/attributes, full ordered gallery, primary media and
+# public retrieval):
+docker compose exec api pnpm --filter @sabz/api woo:reconcile -- \
+  --file wc-product-export-23-11-2026-1795446608040.csv \
+  --api-base http://localhost:3000/api/v1
 ```
 
 Behavior:
 
-- Downloads every referenced image through the standard watermark +
-  thumbnail pipeline and backfills the `pending-woo:*` placeholders in
-  place (order preserved). Run after `woo:import --with-media-refs`.
-- Dedup on `(productId, sourceUrl)` and `(productId, contentHash)` —
-  re-runs are no-ops.
+- Downloads every referenced image through the mandatory local pipeline:
+  background removal → transparent PNG → square transparent canvas (padding,
+  never crop) → smaller logo-only watermark → thumbnail derivative. The
+  original source bytes are retained under `originalStorageKey`.
+- `--refresh-images` upgrades legacy rows and reuses `pending-woo:*`
+  placeholders in place (order/primary preserved). It skips rows already on
+  the current pipeline, so interrupted runs resume safely.
+- Dedup on `(productId, sourceUrl)` and `(productId, contentHash)`.
+  Replaced binaries retain `previousStorageKey`/`previousThumbnailKey` for
+  rollback; old files are not deleted during the run.
+- After a product’s current gallery is fully verified, imported media that
+  is no longer listed in the CSV is soft-deleted and a parent-level primary
+  is restored. Admin-authored media (`sourceUrl = null`) is never touched.
+- Public media URLs carry a `?v=<storage filename>` token, so immutable
+  browser/Next-image caches cannot keep serving a pre-reprocess asset.
 - Guards: `sabzsistem.com` host allowlist (extend with `--allow-host
   host1,host2`), 10 MB image / 200 MB video caps, per-item timeout,
   3 attempts with backoff, per-URL dead-lettering — a failed image never
@@ -262,7 +287,10 @@ Behavior:
   (`PRODUCT_MEDIA_STORAGE_DIR`); served by the API at
   `/api/v1/catalog/media/:id[/thumbnail]`.
 - Report artifact: `<file>.media.json` with the
-  `refs / downloaded / processed / failed / skipped-dedup` matrix.
+  `refs / downloaded / processed / failed / skipped-dedup / refreshed`
+  matrix. GIF/AVIF are accepted image inputs; content that fails the
+  background-removal quality gate is dead-lettered (fail closed) rather than
+  published unprocessed.
 
 There is no separate `media:process` command — watermarking and thumbnails
 happen inside the download pipeline itself.
@@ -279,6 +307,47 @@ the proxy's fake-IP DNS disabled). Do **not** "work around" this with
 `--allow-private` — it is a test-only flag that disables the SSRF
 protection. Container-level `dns:` overrides do not help when the proxy
 intercepts DNS transparently.
+
+## B6.1 Media pipeline reconciliation / legacy remediation
+
+After a product/media import, verify that every **active image** row went
+through the current pipeline:
+
+```sql
+SELECT "processingStatus", count(*)
+FROM "ProductMedia"
+WHERE "deletedAt" IS NULL AND "mediaType" = 'IMAGE'
+GROUP BY 1;
+-- expected: PROCESSED (or SKIPPED only for already-transparent sources)
+```
+
+The guarded maintenance CLI handles the two remaining classes:
+
+```bash
+docker compose exec api pnpm --filter @sabz/api media:maintenance -- \
+  --reprocess-demo --quarantine-stale \
+  --confirm-database sabz \
+  --backup /app/apps/api/.data/backups/sabz-before-media-remediation.dump
+```
+
+- `--reprocess-demo` re-uploads the committed demo fixtures through
+  `MediaService` (background removal, square canvas, new watermark,
+  thumbnail, retained original) and retires old demo rows only after all
+  replacements verify.
+- `--quarantine-stale` soft-deletes active `NONE` image rows (including AVIF
+  rows misclassified as video by the old bug) only when the product already
+  has a `PROCESSED` image; it promotes a processed image to primary where
+  needed. Old binaries/rows remain recoverable via `deletedAt`.
+
+After remediation, re-run `woo:reconcile` with `--api-base` and confirm:
+
+- `media ... missing 0, extra 0, order 0`
+- `primary missing 0`, `multiple primary 0`
+- `public media ... failed 0`
+- Known dead-lettered CSV images can be accepted explicitly with
+  `--allow-missing-media`; the report still lists every missing URL.
+- every active image has an `originalStorageKey`, square dimensions and a
+  `PROCESSED`/transparent-`SKIPPED` status.
 
 ## B7. Re-runs and resume
 
@@ -385,8 +454,9 @@ environment variables exist; operational control is CLI-only.
 | Script | Flags | Default |
 |---|---|---|
 | `woo:dry-run` | `--file` (required), `--out`, `--limit N` | writes nothing; report to `<file>.dry-run.json` |
-| `woo:import` | `--file` (required), `--out`, `--limit N`, `--with-media-refs`, `--failure-threshold N`, `--no-resume` | resume ON; no media rows; threshold 0 |
-| `woo:media` | `--file` (required), `--out`, `--limit N`, `--concurrency N`, `--allow-host h1,h2`, `--allow-private` (test-only), `--dry-run`, `--failure-threshold N`, `--no-resume` | concurrency 6; allowlist seed `sabzsistem.com`; resume ON |
+| `woo:import` | `--file` (required), `--confirm-database`, `--backup`, `--out`, `--limit N`, `--with-media-refs`, `--failure-threshold N`, `--no-resume` | resume ON; no media rows; threshold 0; apply guard requires DB `sabz` + verified dump |
+| `woo:media` | `--file` (required), `--confirm-database`, `--backup`, `--out`, `--limit N`, `--concurrency N`, `--allow-host h1,h2`, `--allow-private` (test-only), `--dry-run`, `--refresh-images`, `--source-id <id,...>`, `--failure-threshold N`, `--no-resume` | concurrency 6; allowlist seed `sabzsistem.com`; resume ON; refresh skips rows already on the current pipeline |
+| `woo:reconcile` | `--file` (required), `--out`, `--api-base`, `--skip-media-http`, `--allow-missing-media`, `--concurrency N` | read-only; exits 1 on extra/order/attribute/price mismatches or missing media unless explicitly allowed |
 
 ---
 

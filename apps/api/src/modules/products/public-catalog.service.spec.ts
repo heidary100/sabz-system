@@ -1,6 +1,7 @@
-import { PriceStatus, ProductStatus } from '@prisma/client';
+import { ProductStatus } from '@prisma/client';
 import { PrismaService } from '../../common/database/prisma.service';
 import { PricingService } from '../pricing/pricing.service';
+import { AttributesService } from './attributes.service';
 import { PublicCatalogService } from './public-catalog.service';
 
 /**
@@ -41,40 +42,43 @@ describe('PublicCatalogService listing facets', () => {
       {
         promotionEndsAtByProduct: jest.fn().mockResolvedValue(new Map()),
         activePromotionsFor: jest.fn().mockResolvedValue([]),
+        categoryRuleFor: jest.fn().mockResolvedValue(null),
+        productOverridesFor: jest.fn().mockResolvedValue(new Map()),
+        activePromotionsByProduct: jest.fn().mockResolvedValue(new Map()),
       } as unknown as PricingService,
+      {} as unknown as AttributesService,
     );
   });
 
-  it('filters by priceFrom using PRICED variants only', async () => {
+  it('filters price by the customer-facing rounded product id scope', async () => {
+    prisma.$queryRaw.mockResolvedValue([{ id: 'p1' }]);
+
     await service.listProducts({ priceFrom: '1500000' });
 
     expect(prisma.product.count).toHaveBeenCalledTimes(1);
     const where = prisma.product.count.mock.calls[0][0].where;
-    expect(where.variants).toEqual({
-      some: {
-        deletedAt: null,
-        priceStatus: PriceStatus.PRICED,
-        price: { gte: expect.objectContaining({}) },
-      },
-    });
-    expect(String(where.variants.some.price.gte)).toBe('1500000');
+    expect(where.id).toEqual({ in: ['p1'] });
+    expect(where.variants).toBeUndefined();
+    expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
   });
 
-  it('requires the SAME variant to satisfy a bounded range', async () => {
+  it('passes both bounded values to the rounded-price query', async () => {
+    prisma.$queryRaw.mockResolvedValue([{ id: 'p1' }]);
+
     await service.listProducts({ priceFrom: '1000', priceTo: '2000' });
 
-    const where = prisma.product.count.mock.calls[0][0].where;
-    expect(String(where.variants.some.price.gte)).toBe('1000');
-    expect(String(where.variants.some.price.lte)).toBe('2000');
-    expect(where.variants.some.priceStatus).toBe(PriceStatus.PRICED);
+    const sql = prisma.$queryRaw.mock.calls[0][0] as { values: unknown[] };
+    expect(sql.values).toEqual(expect.arrayContaining(['1000', '2000']));
+    expect(prisma.product.count.mock.calls[0][0].where.id).toEqual({ in: ['p1'] });
   });
 
-  it('normalizes an inverted range by swapping (shared frontend policy)', async () => {
+  it('normalizes an inverted range before building the id scope', async () => {
+    prisma.$queryRaw.mockResolvedValue([{ id: 'p1' }]);
+
     await service.listProducts({ priceFrom: '2000', priceTo: '1000' });
 
-    const where = prisma.product.count.mock.calls[0][0].where;
-    expect(String(where.variants.some.price.gte)).toBe('1000');
-    expect(String(where.variants.some.price.lte)).toBe('2000');
+    const sql = prisma.$queryRaw.mock.calls[0][0] as { values: unknown[] };
+    expect(sql.values).toEqual(expect.arrayContaining(['1000', '2000']));
   });
 
   it('composes price with the category subtree instead of exact match', async () => {
@@ -82,16 +86,18 @@ describe('PublicCatalogService listing facets', () => {
       { id: 'c1', slug: 'storage', parentId: null },
       { id: 'c2', slug: 'storage-child', parentId: 'c1' },
     ]);
+    prisma.$queryRaw.mockResolvedValue([{ id: 'p1' }]);
 
     await service.listProducts({ category: 'storage', priceTo: '5000' });
 
     const where = prisma.product.count.mock.calls[0][0].where;
     expect(where.categoryId).toEqual({ in: expect.arrayContaining(['c1', 'c2']) });
-    expect(String(where.variants.some.price.lte)).toBe('5000');
+    expect(where.id).toEqual({ in: ['p1'] });
   });
 
   it('composes brand + condition + price + stock in one where (q absent)', async () => {
     prisma.productVariant.findMany.mockResolvedValue([]);
+    prisma.$queryRaw.mockResolvedValue([{ id: 'p1' }]);
 
     await service.listProducts({
       brand: 'orico',
@@ -104,11 +110,11 @@ describe('PublicCatalogService listing facets', () => {
     expect(where.brand).toEqual({ is: { slug: 'orico', deletedAt: null } });
     expect(where.condition).toBe('NEW');
     expect(where.OR).toBeUndefined();
-    expect(where.variants.some.priceStatus).toBe(PriceStatus.PRICED);
     // No available variant exists in the mocked inventory → matches nothing,
     // but the visibility scope must survive the stock narrowing.
     expect(where.id).toEqual({ in: [] });
     expect(where.status).toBe(ProductStatus.PUBLISHED);
+    expect(prisma.$queryRaw).toHaveBeenCalled();
   });
 
   it('routes a meaningful q to the PostgreSQL search query (SS-216)', async () => {

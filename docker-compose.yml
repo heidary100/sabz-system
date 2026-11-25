@@ -74,6 +74,7 @@ services:
       JWT_ACCESS_EXPIRES_IN: ${JWT_ACCESS_EXPIRES_IN:-15m}
       JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-30d}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:3002,http://127.0.0.1:5173,http://127.0.0.1:3002}
+      STOREFRONT_PUBLIC_URL: ${STOREFRONT_PUBLIC_URL:-http://localhost:3002}
       THROTTLE_TTL_MS: ${THROTTLE_TTL_MS:-60000}
       THROTTLE_LIMIT: ${THROTTLE_LIMIT:-100}
       # Scheduled homepage publication activation worker (Task 05.6).
@@ -114,18 +115,53 @@ services:
       WATERMARK_OPACITY: ${WATERMARK_OPACITY:-0.38}
       WATERMARK_POSITION: ${WATERMARK_POSITION:-bottom-right}
       WATERMARK_MARGIN_RATIO: ${WATERMARK_MARGIN_RATIO:-0.05}
-      WATERMARK_SIZE_RATIO: ${WATERMARK_SIZE_RATIO:-0.17}
-      WATERMARK_MIN_SIZE_PX: ${WATERMARK_MIN_SIZE_PX:-100}
-      WATERMARK_MAX_SIZE_PX: ${WATERMARK_MAX_SIZE_PX:-240}
+      WATERMARK_SIZE_RATIO: ${WATERMARK_SIZE_RATIO:-0.15}
+      WATERMARK_MIN_SIZE_PX: ${WATERMARK_MIN_SIZE_PX:-90}
+      WATERMARK_MAX_SIZE_PX: ${WATERMARK_MAX_SIZE_PX:-210}
       WATERMARK_TEXT_COLOR: ${WATERMARK_TEXT_COLOR:-#F8F7F5}
       WATERMARK_CHIP_EDGE_COLOR: ${WATERMARK_CHIP_EDGE_COLOR:-rgba(248,247,245,0.35)}
       WATERMARK_LOGO_BACKGROUND: ${WATERMARK_LOGO_BACKGROUND:-#F8F7F5}
       WATERMARK_LOCKUP: ${WATERMARK_LOCKUP:-auto}
       WATERMARK_THUMBNAIL_MODE: ${WATERMARK_THUMBNAIL_MODE:-smaller}
-      WATERMARK_THUMBNAIL_SIZE_RATIO: ${WATERMARK_THUMBNAIL_SIZE_RATIO:-0.12}
-      WATERMARK_THUMBNAIL_MIN_SIZE_PX: ${WATERMARK_THUMBNAIL_MIN_SIZE_PX:-64}
-      WATERMARK_THUMBNAIL_MAX_SIZE_PX: ${WATERMARK_THUMBNAIL_MAX_SIZE_PX:-140}
+      WATERMARK_THUMBNAIL_SIZE_RATIO: ${WATERMARK_THUMBNAIL_SIZE_RATIO:-0.10}
+      WATERMARK_THUMBNAIL_MIN_SIZE_PX: ${WATERMARK_THUMBNAIL_MIN_SIZE_PX:-56}
+      WATERMARK_THUMBNAIL_MAX_SIZE_PX: ${WATERMARK_THUMBNAIL_MAX_SIZE_PX:-120}
       FFMPEG_PATH: ${FFMPEG_PATH:-ffmpeg}
+      # Local background removal (SS-900). The model is host-provisioned into
+      # the mounted apps/api tree; absence is a clear "unavailable" path, not
+      # a failed upload. See apps/api/scripts/provision-background-model.mjs.
+      BACKGROUND_REMOVAL_ENABLED: ${BACKGROUND_REMOVAL_ENABLED:-true}
+      BACKGROUND_REMOVAL_MODEL_PATH: ${BACKGROUND_REMOVAL_MODEL_PATH:-assets/models/u2net.onnx}
+      # Print-ready invoice PDF (SS-900). Chromium is installed in the API
+      # image; the path can be overridden for non-Compose deployments.
+      CHROME_PATH: ${CHROME_PATH:-/usr/bin/chromium}
+      PDF_CHROME_NO_SANDBOX: ${PDF_CHROME_NO_SANDBOX:-true}
+      INVOICE_FONT_PATH: ${INVOICE_FONT_PATH:-assets/watermark/fonts/Vazirmatn-Regular.ttf}
+      INVOICE_LOGO_PATH: ${INVOICE_LOGO_PATH:-assets/brand/logo.png}
+      COMPANY_LEGAL_NAME: ${COMPANY_LEGAL_NAME:-سبز سیستم}
+      COMPANY_ADDRESS: ${COMPANY_ADDRESS:-}
+      COMPANY_PHONE: ${COMPANY_PHONE:-}
+      COMPANY_WEBSITE: ${COMPANY_WEBSITE:-}
+      # Browser Web Push (SS-900). Empty keys keep push disabled while in-app
+      # realtime notifications remain available.
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@example.com}
+      PREVIEW_TOKEN_SECRET: ${PREVIEW_TOKEN_SECRET:-}
+      # SnappPay/DigiPay readiness (SS-900). Empty/false values keep the
+      # adapters fail-closed; the protocol adapter is not implemented yet.
+      SNAPPAY_ENABLED: ${SNAPPAY_ENABLED:-false}
+      SNAPPAY_CLIENT_ID: ${SNAPPAY_CLIENT_ID:-}
+      SNAPPAY_CLIENT_SECRET: ${SNAPPAY_CLIENT_SECRET:-}
+      SNAPPAY_BASE_URL: ${SNAPPAY_BASE_URL:-}
+      SNAPPAY_CALLBACK_URL: ${SNAPPAY_CALLBACK_URL:-}
+      SNAPPAY_SANDBOX: ${SNAPPAY_SANDBOX:-false}
+      DIGIPAY_ENABLED: ${DIGIPAY_ENABLED:-false}
+      DIGIPAY_CLIENT_ID: ${DIGIPAY_CLIENT_ID:-}
+      DIGIPAY_CLIENT_SECRET: ${DIGIPAY_CLIENT_SECRET:-}
+      DIGIPAY_BASE_URL: ${DIGIPAY_BASE_URL:-}
+      DIGIPAY_CALLBACK_URL: ${DIGIPAY_CALLBACK_URL:-}
+      DIGIPAY_SANDBOX: ${DIGIPAY_SANDBOX:-false}
       # Storefront cache invalidation (SS-217). The shared token must match
       # the storefront's REVALIDATE_TOKEN; override both from the root .env
       # with a long random string outside local development.
@@ -164,6 +200,7 @@ services:
       - "5173:5173"
     environment:
       VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:3000/api/v1}
+      VITE_STOREFRONT_URL: ${VITE_STOREFRONT_URL:-http://localhost:3002}
       # Vite dev-server proxy target for relative /api calls. Inside the
       # Compose network the API is reached by its service name, not localhost.
       API_PROXY_TARGET: ${API_PROXY_TARGET:-http://api:3000}
@@ -198,6 +235,9 @@ services:
       # STOREFRONT_REVALIDATE_TOKEN. When unset the endpoint refuses all
       # requests (503).
       REVALIDATE_TOKEN: ${REVALIDATE_TOKEN:-dev_revalidate_secret_change_me}
+      # Keep dev output separate from the production `.next` build so running
+      # `pnpm build` on the host never corrupts the live dev compiler cache.
+      NEXT_DIST_DIR: ${NEXT_DIST_DIR:-.next-dev}
     command: ["pnpm", "--filter", "@sabz/storefront", "dev", "--hostname", "0.0.0.0"]
     volumes:
       - ./apps/storefront:/app/apps/storefront

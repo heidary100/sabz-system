@@ -19,7 +19,7 @@ export function productCard(
     brand: { name: 'برند آزمون', slug: 'test-brand' },
     category: { name: 'دسته آزمون', slug: 'test-category' },
     priceFrom: '1000000',
-    compareAtPrice: null,
+    regularPrice: null,
     callForPrice: false,
     promotionEndsAt: null,
     variantCount: 1,

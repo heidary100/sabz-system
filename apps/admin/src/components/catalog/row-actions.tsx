@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
-import { Eye, Pencil, Trash2 } from 'lucide-react'
+import { Coins, ExternalLink, Eye, Pencil, Trash2 } from 'lucide-react'
+import { storefrontProductUrl } from '../../lib/storefront-url'
 
 /**
  * Fixed row actions of the products grid (SS-257): product detail, product
@@ -9,13 +10,35 @@ import { Eye, Pencil, Trash2 } from 'lucide-react'
 export interface RowActionsProps {
   productId: string
   productName: string
+  productSlug: string
+  productStatus: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
   sku: string
   onDelete: () => void
+  onOverride?: () => void
 }
 
-export function RowActions({ productId, productName, sku, onDelete }: RowActionsProps) {
+export function RowActions({
+  productId,
+  productName,
+  productSlug,
+  productStatus,
+  sku,
+  onDelete,
+  onOverride,
+}: RowActionsProps) {
   return (
     <div className="flex items-center gap-0.5">
+      {onOverride ? (
+        <button
+          type="button"
+          aria-label={`تنظیم اورراید قیمت ${productName}`}
+          title="تنظیم اورراید قیمت"
+          className="rounded-lg p-1.5 text-muted transition hover:bg-primary-subtle hover:text-primary focus-ring"
+          onClick={onOverride}
+        >
+          <Coins className="size-4" aria-hidden />
+        </button>
+      ) : null}
       <Link
         to={`/products/${productId}`}
         aria-label={`مشاهده ${productName}`}
@@ -24,6 +47,26 @@ export function RowActions({ productId, productName, sku, onDelete }: RowActions
       >
         <Eye className="size-4" aria-hidden />
       </Link>
+      {productStatus === 'PUBLISHED' ? (
+        <a
+          href={storefrontProductUrl(productSlug)}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={`مشاهده ${productName} در فروشگاه`}
+          title={`مشاهده ${productName} در فروشگاه`}
+          className="rounded-lg p-1.5 text-muted transition hover:bg-primary-subtle hover:text-primary focus-ring"
+        >
+          <ExternalLink className="size-4" aria-hidden />
+        </a>
+      ) : (
+        <span
+          aria-label={`${productName} منتشر نشده است؛ لینک فروشگاه غیرفعال است`}
+          title="فقط محصولات منتشرشده لینک عمومی دارند"
+          className="inline-flex cursor-not-allowed rounded-lg p-1.5 text-muted/40"
+        >
+          <ExternalLink className="size-4" aria-hidden />
+        </span>
+      )}
       <Link
         to={`/products/${productId}/edit`}
         aria-label={`ویرایش ${productName}`}

@@ -36,6 +36,7 @@ export function ProductGallery({
       return;
     }
     const previousOverflow = document.body.style.overflow;
+    const trigger = zoomTriggerRef.current;
     document.body.style.overflow = 'hidden';
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -46,13 +47,13 @@ export function ProductGallery({
     return () => {
       document.body.style.overflow = previousOverflow;
       document.removeEventListener('keydown', onKeyDown);
-      zoomTriggerRef.current?.focus();
+      trigger?.focus();
     };
   }, [zoomed]);
 
   if (media.length === 0) {
     return (
-      <div className="flex aspect-square items-center justify-center rounded-panel bg-plate text-plate-muted">
+      <div className="flex aspect-square items-center justify-center rounded-panel bg-transparent text-plate-muted ring-1 ring-inset ring-border/60">
         <svg viewBox="0 0 24 24" fill="none" strokeWidth={1.5} stroke="currentColor" aria-hidden="true" className="size-16">
           <path
             d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A1.5 1.5 0 0 0 21.75 19.5V4.5A1.5 1.5 0 0 0 20.25 3H3.75A1.5 1.5 0 0 0 2.25 4.5v15A1.5 1.5 0 0 0 3.75 21Z"
@@ -84,7 +85,7 @@ export function ProductGallery({
         role="region"
         aria-roledescription="نگارخانه محصول"
         aria-label={`${name}: ${positionLabel}`}
-        className="relative aspect-square overflow-hidden rounded-panel bg-plate"
+        className="relative aspect-square overflow-hidden rounded-panel bg-transparent ring-1 ring-inset ring-border/60"
       >
         {active.mediaType === 'VIDEO' ? (
           <video
@@ -103,7 +104,7 @@ export function ProductGallery({
             fill
             priority
             sizes="(min-width: 1024px) 45vw, 100vw"
-            className="object-cover"
+            className="object-contain p-2"
           />
         )}
         {/* SS-227: stage arrows — image stages only (videos have controls). */}
@@ -175,7 +176,7 @@ export function ProductGallery({
                 }`}
               >
                 {item.mediaType === 'VIDEO' ? (
-                  <span className="flex size-full items-center justify-center bg-plate text-plate-muted">
+                  <span className="flex size-full items-center justify-center bg-transparent text-plate-muted">
                     <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className="size-6">
                       <path d="M4.5 5.653c0-1.427 1.529-2.33 2.779-1.643l11.54 6.347c1.295.712 1.295 2.573 0 3.286L7.28 19.99c-1.25.687-2.779-.217-2.779-1.643V5.653Z" />
                     </svg>
@@ -186,7 +187,7 @@ export function ProductGallery({
                     alt=""
                     fill
                     sizes="80px"
-                    className="object-cover"
+                    className="object-contain p-2"
                   />
                 )}
               </button>
@@ -213,7 +214,7 @@ export function ProductGallery({
                 type="button"
                 onClick={() => setZoomed(false)}
                 autoFocus
-                className="absolute end-4 top-4 inline-flex min-h-11 min-w-11 items-center justify-center rounded-pill bg-on-stage/15 text-on-stage transition-colors hover:bg-on-stage/25 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+                className="absolute end-4 top-4 inline-flex min-h-11 min-w-11 items-center justify-center rounded-pill bg-on-stage/15 text-on-stage transition-colors hover:bg-on-stage/25 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-stage"
               >
                 <span className="sr-only">بستن بزرگنمایی</span>
                 <svg viewBox="0 0 24 24" fill="none" strokeWidth={1.5} stroke="currentColor" aria-hidden="true" className="size-6">
@@ -228,7 +229,7 @@ export function ProductGallery({
                       event.stopPropagation();
                       step(-1);
                     }}
-                    className="absolute end-4 top-1/2 inline-flex min-h-12 min-w-12 -translate-y-1/2 items-center justify-center rounded-pill bg-on-stage/15 text-on-stage transition-colors hover:bg-on-stage/25 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+                    className="absolute end-4 top-1/2 inline-flex min-h-12 min-w-12 -translate-y-1/2 items-center justify-center rounded-pill bg-on-stage/15 text-on-stage transition-colors hover:bg-on-stage/25 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-stage"
                   >
                     <span className="sr-only">تصویر قبلی</span>
                     <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="size-6">
@@ -241,7 +242,7 @@ export function ProductGallery({
                       event.stopPropagation();
                       step(1);
                     }}
-                    className="absolute start-4 top-1/2 inline-flex min-h-12 min-w-12 -translate-y-1/2 items-center justify-center rounded-pill bg-on-stage/15 text-on-stage transition-colors hover:bg-on-stage/25 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+                    className="absolute start-4 top-1/2 inline-flex min-h-12 min-w-12 -translate-y-1/2 items-center justify-center rounded-pill bg-on-stage/15 text-on-stage transition-colors hover:bg-on-stage/25 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-stage"
                   >
                     <span className="sr-only">تصویر بعدی</span>
                     <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="size-6">

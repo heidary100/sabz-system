@@ -1,12 +1,11 @@
 /**
- * Column definitions + visibility persistence for the SS-257 catalog grid
- * (rendered as the products page).
+ * Column definitions + visibility persistence for the editable catalog/pricing
+ * grid (rendered as the Products page).
  *
- * The operational core (product name, SKU, stock, both prices, row actions)
- * is never hideable, so an operator can always act on a row; informational
- * columns toggle via the checkbox column list. Preference lives in
- * localStorage — the same best-effort persistence the sidebar and theme use —
- * because it is a per-browser display concern, not user data.
+ * The operational core (product name, SKU, stock, regular + sale price, row
+ * actions) is never hideable, so an operator can always act on a row;
+ * informational/currency columns toggle via the checkbox list. Preference
+ * lives in localStorage — a per-browser display concern, not user data.
  */
 
 export type GridColumnKey =
@@ -19,11 +18,18 @@ export type GridColumnKey =
   | 'category'
   | 'stock'
   | 'regularPrice'
-  | 'salePrice'
+  | 'discountedPrice'
+  | 'discountWindow'
+  | 'aedPrice'
+  | 'usdPrice'
+  | 'partnerPrice'
+  | 'effectivePrice'
+  | 'priceUpdatedAt'
   | 'priceStatus'
   | 'productStatus'
   | 'condition'
   | 'created'
+  | 'storefrontLink'
 
 export const GRID_COLUMN_STORAGE_KEY = 'sabz-admin-catalog-grid-columns'
 
@@ -36,12 +42,19 @@ export const GRID_COLUMN_LABELS: Record<GridColumnKey, string> = {
   brand: 'برند',
   category: 'دسته‌بندی',
   stock: 'موجودی',
-  regularPrice: 'قیمت فروش',
-  salePrice: 'قیمت قبل از تخفیف',
+  regularPrice: 'قیمت عادی (ریال)',
+  discountedPrice: 'قیمت فروش ویژه (ریال)',
+  discountWindow: 'بازه فروش ویژه',
+  aedPrice: 'قیمت درهم (AED)',
+  usdPrice: 'قیمت دلار (USD)',
+  partnerPrice: 'قیمت همکار (ریال)',
+  effectivePrice: 'قیمت مؤثر مشتری',
+  priceUpdatedAt: 'آخرین محاسبه قیمت',
   priceStatus: 'وضعیت قیمت',
   productStatus: 'وضعیت محصول',
   condition: 'وضعیت کالا',
   created: 'تاریخ ایجاد',
+  storefrontLink: 'لینک فروشگاه',
 }
 
 export const GRID_ALL_COLUMNS: GridColumnKey[] = [
@@ -54,11 +67,18 @@ export const GRID_ALL_COLUMNS: GridColumnKey[] = [
   'category',
   'stock',
   'regularPrice',
-  'salePrice',
+  'discountedPrice',
+  'discountWindow',
+  'aedPrice',
+  'usdPrice',
+  'partnerPrice',
+  'effectivePrice',
+  'priceUpdatedAt',
   'priceStatus',
   'productStatus',
   'condition',
   'created',
+  'storefrontLink',
 ]
 
 /** Operational core — always rendered, never toggleable (actions too). */
@@ -67,7 +87,9 @@ export const GRID_FIXED_COLUMNS: GridColumnKey[] = [
   'sku',
   'stock',
   'regularPrice',
-  'salePrice',
+  'discountedPrice',
+  'effectivePrice',
+  'priceUpdatedAt',
 ]
 
 export const GRID_HIDEABLE_COLUMNS: GridColumnKey[] = GRID_ALL_COLUMNS.filter(
@@ -76,8 +98,8 @@ export const GRID_HIDEABLE_COLUMNS: GridColumnKey[] = GRID_ALL_COLUMNS.filter(
 
 /**
  * Lean default view: the columns an operator needs at a glance fit a normal
- * desktop viewport without horizontal scrolling. The rest (variant name,
- * barcode, product status, condition, created) are one chip-click away.
+ * desktop viewport without horizontal scrolling. Currency and audit columns
+ * are one chip-click away.
  */
 export const GRID_DEFAULT_COLUMNS: GridColumnKey[] = [
   'thumbnail',
@@ -87,7 +109,9 @@ export const GRID_DEFAULT_COLUMNS: GridColumnKey[] = [
   'category',
   'stock',
   'regularPrice',
-  'salePrice',
+  'discountedPrice',
+  'effectivePrice',
+  'priceUpdatedAt',
   'priceStatus',
 ]
 
@@ -106,7 +130,6 @@ export function readVisibleColumns(): GridColumnKey[] {
     const stored = parsed.filter(
       (key): key is GridColumnKey => typeof key === 'string' && VALID_KEYS.has(key),
     )
-    // Fixed columns are always visible regardless of what was persisted.
     const missing = GRID_FIXED_COLUMNS.filter((key) => !stored.includes(key))
     return [...missing, ...stored].sort(
       (a, b) => GRID_ALL_COLUMNS.indexOf(a) - GRID_ALL_COLUMNS.indexOf(b),

@@ -30,10 +30,27 @@ export function CartPageContent() {
     clearMerge,
     refresh,
     setQuantity,
+    acknowledgePrices,
     removeLine,
     clear,
   } = useCart();
   const [clearing, setClearing] = useState(false);
+  const [acknowledging, setAcknowledging] = useState(false);
+  const [ackError, setAckError] = useState<string | null>(null);
+  const hasPriceChanges = items.some((item) => item.priceChanged);
+
+  async function handleAcknowledgePrices(): Promise<void> {
+    setAcknowledging(true);
+    setAckError(null);
+    try {
+      const result = await acknowledgePrices();
+      if (!result.ok) {
+        setAckError(result.error.message);
+      }
+    } finally {
+      setAcknowledging(false);
+    }
+  }
 
   if (!ready) {
     return (
@@ -127,6 +144,32 @@ export function CartPageContent() {
         </div>
       ) : null}
 
+      {hasPriceChanges ? (
+        <div
+          role="status"
+          className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-card border border-warning/40 bg-warning-soft p-4 text-sm leading-6 text-fg"
+        >
+          <p>
+            قیمت یک یا چند کالا پس از افزودن به سبد تغییر کرده است. مبلغ فعلی
+            همان مبلغ معتبر فروشگاه است.
+          </p>
+          <div className="flex flex-col items-end gap-2">
+            <Button
+              variant="outline"
+              disabled={acknowledging}
+              onClick={() => void handleAcknowledgePrices()}
+            >
+              {acknowledging ? 'در حال تأیید…' : 'تأیید قیمت جدید'}
+            </Button>
+            {ackError ? (
+              <p role="alert" className="text-xs text-danger">
+                {ackError}
+              </p>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
       <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_22rem]">
         <ul role="list" className="divide-y divide-border rounded-panel border border-border bg-surface px-4 sm:px-6">
           {items.map((item) => (
@@ -209,10 +252,10 @@ function CartLineRow({
       <Link
         href={`/products/${item.productSlug}`}
         aria-label={item.productName}
-        className="relative size-20 shrink-0 overflow-hidden rounded-card bg-surface-2 sm:size-24"
+        className="relative size-20 shrink-0 overflow-hidden rounded-card bg-transparent ring-1 ring-inset ring-border/60 sm:size-24"
       >
         {image ? (
-          <Image src={image} alt="" fill sizes="96px" className="object-cover" />
+          <Image src={image} alt="" fill sizes="96px" className="object-contain p-1.5" />
         ) : (
           <span className="flex h-full items-center justify-center text-accent">
             <svg viewBox="0 0 24 24" fill="none" strokeWidth={1.5} stroke="currentColor" aria-hidden="true" className="size-8">

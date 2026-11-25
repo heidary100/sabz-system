@@ -12,6 +12,7 @@ import { PrismaService } from '../src/common/database/prisma.service';
 import { recomputeProductMinPrice } from '../src/modules/products/min-price';
 import { PublicCatalogService } from '../src/modules/products/public-catalog.service';
 import { PricingService } from '../src/modules/pricing/pricing.service';
+import { AttributesService } from '../src/modules/products/attributes.service';
 
 jest.setTimeout(60_000);
 
@@ -132,7 +133,7 @@ describe('Catalog search (SS-216)', () => {
   beforeAll(async () => {
     prisma = new PrismaService();
     await prisma.$connect();
-    catalog = new PublicCatalogService(prisma, new PricingService(prisma));
+    catalog = new PublicCatalogService(prisma, new PricingService(prisma), new AttributesService(prisma));
   });
 
   afterAll(async () => {
@@ -543,6 +544,38 @@ describe('Catalog search (SS-216)', () => {
         condition: 'USED',
       });
       expect(conditionFiltered.total).toBe(0);
+    });
+
+    it('filters on the rounded customer-facing Rial price', async () => {
+      const rounded = await createFixture({
+        name: `گِردآزمون ${uniqueSuffix()}`,
+        skus: [`SS900-ROUND-${uniqueSuffix()}`],
+        price: '3550000',
+      });
+
+      // Raw 3,550,000 is displayed as 3,600,000 by the storefront. A bound at
+      // the displayed value must include it; the old raw comparison did not.
+      const included = await catalog.listProducts({
+        priceFrom: '3600000',
+        priceTo: '3600000',
+        limit: 50,
+      });
+      expect(included.items.map((item) => item.id)).toContain(rounded.id);
+
+      const searchIncluded = await catalog.listProducts({
+        q: 'گِردآزمون',
+        priceFrom: '3600000',
+        priceTo: '3600000',
+        limit: 50,
+      });
+      expect(searchIncluded.items.map((item) => item.id)).toContain(rounded.id);
+
+      const excluded = await catalog.listProducts({
+        priceFrom: '3700000',
+        priceTo: '5000000',
+        limit: 50,
+      });
+      expect(excluded.items.map((item) => item.id)).not.toContain(rounded.id);
     });
   });
 

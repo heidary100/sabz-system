@@ -15,6 +15,8 @@ jest.setTimeout(60_000);
 
 const WATERMARK_ENV_KEYS = [
   'WATERMARK_ENABLED',
+  'WATERMARK_LOGO_ONLY',
+  'WATERMARK_LOGO_OPACITY',
   'WATERMARK_COMPANY_NAME',
   'WATERMARK_LOGO_PATH',
   'WATERMARK_FONT_PATH',
@@ -93,18 +95,20 @@ describe('watermark dual-theme legibility (SS-210)', () => {
 
   it('resolves dual-theme defaults and falls back on invalid env', () => {
     const config = withCleanWatermarkEnv(() => resolveWatermarkConfig());
+    expect(config.logoOnly).toBe(true);
+    expect(config.logoOpacity).toBe(0.85);
     expect(config.opacity).toBe(0.38);
     expect(config.marginRatio).toBe(0.05);
-    expect(config.sizeRatio).toBe(0.17);
-    expect(config.minSizePx).toBe(100);
-    expect(config.maxSizePx).toBe(240);
-    expect(config.textColor).toBe('#F8F7F5');
+    expect(config.sizeRatio).toBe(0.15);
+    expect(config.minSizePx).toBe(90);
+    expect(config.maxSizePx).toBe(210);
+    expect(config.textColor).toBe('#F1F6F2');
     expect(config.lockup).toBe('auto');
     expect(config.logoPath?.endsWith('assets/brand/logo.png')).toBe(true);
     expect(config.thumbnailMode).toBe('smaller');
-    expect(config.thumbnailSizeRatio).toBe(0.12);
-    expect(config.thumbnailMinSizePx).toBe(64);
-    expect(config.thumbnailMaxSizePx).toBe(140);
+    expect(config.thumbnailSizeRatio).toBe(0.1);
+    expect(config.thumbnailMinSizePx).toBe(56);
+    expect(config.thumbnailMaxSizePx).toBe(120);
   });
 
   it('falls back to smaller thumbnails on invalid thumbnail env values', () => {
@@ -123,7 +127,7 @@ describe('watermark dual-theme legibility (SS-210)', () => {
     try {
       const config = resolveWatermarkConfig();
       expect(config.lockup).toBe('auto');
-      expect(config.textColor).toBe('#F8F7F5');
+      expect(config.textColor).toBe('#F1F6F2');
     } finally {
       delete process.env.WATERMARK_LOCKUP;
       delete process.env.WATERMARK_TEXT_COLOR;
@@ -133,7 +137,7 @@ describe('watermark dual-theme legibility (SS-210)', () => {
   it('renders the company name in a light fill (readable on dark photos)', async () => {
     // Name-only lockup isolates the text: any bright pixel must be text.
     const overlay = await new WatermarkOverlayService(
-      configFor({ logoPath: null }),
+      configFor({ logoPath: null, logoOnly: false }),
     ).renderOverlay(240);
     const { pixels } = await rawPixels(overlay.buffer);
     const bright = pixels.filter(
@@ -144,9 +148,9 @@ describe('watermark dual-theme legibility (SS-210)', () => {
 
   it('keeps the chip interior dark-translucent (contrast bed on light photos)', async () => {
     const overlayWidth = 160;
-    const overlay = await new WatermarkOverlayService(configFor()).renderOverlay(
-      overlayWidth,
-    );
+    const overlay = await new WatermarkOverlayService(
+      configFor({ logoOnly: false }),
+    ).renderOverlay(overlayWidth);
     const { data, info } = await sharp(overlay.buffer)
       .raw()
       .toBuffer({ resolveWithObject: true });
@@ -165,7 +169,7 @@ describe('watermark dual-theme legibility (SS-210)', () => {
   });
 
   it('renders a smaller horizontal lockup above the threshold', async () => {
-    const service = new WatermarkOverlayService(configFor());
+    const service = new WatermarkOverlayService(configFor({ logoOnly: false }));
     const horizontal = await service.renderOverlay(240, 'horizontal');
     const vertical = await service.renderOverlay(240, 'vertical');
     expect(horizontal.width).toBe(240);
@@ -176,14 +180,14 @@ describe('watermark dual-theme legibility (SS-210)', () => {
   });
 
   it('builds a stroked chip so the mark reads on near-black photos', () => {
-    const svg = chipSvg(200, 100, 0.38, 'rgba(248,247,245,0.35)');
-    expect(svg).toContain('stroke="rgba(248,247,245,0.35)"');
-    expect(svg).toContain('rgba(20,26,22,0.38)');
-    expect(hexToRgb('#F8F7F5')).toEqual({ r: 248, g: 247, b: 245 });
+    const svg = chipSvg(200, 100, 0.38, 'rgba(241,246,242,0.35)');
+    expect(svg).toContain('stroke="rgba(241,246,242,0.35)"');
+    expect(svg).toContain('rgba(11,21,16,0.38)');
+    expect(hexToRgb('#F1F6F2')).toEqual({ r: 241, g: 246, b: 242 });
   });
 
   it('produces a valid overlay PNG for every lockup', async () => {
-    const service = new WatermarkOverlayService(configFor());
+    const service = new WatermarkOverlayService(configFor({ logoOnly: false }));
     for (const lockup of ['auto', 'horizontal', 'vertical'] as const) {
       const overlay = await service.renderOverlay(200, lockup);
       const meta = await sharp(overlay.buffer).metadata();

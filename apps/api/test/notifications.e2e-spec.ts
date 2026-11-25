@@ -19,10 +19,12 @@ const ADDRESSES_BASE = '/api/v1/addresses';
 const NOTIF_LIST_KEYS = ['items', 'limit', 'page', 'total'];
 const NOTIF_ITEM_KEYS = [
   'body',
+  'category',
   'createdAt',
   'entity',
   'entityId',
   'id',
+  'priority',
   'readAt',
   'title',
   'type',
@@ -178,6 +180,7 @@ describe('Notifications API (SS-243) (e2e)', () => {
         addressId: address.body.id,
         paymentMethod: 'COD',
         shippingMethod: 'STORE_PICKUP',
+        nationalId: '1234567891',
       })
       .expect(201);
     orderIds.push(placed.body.orderId as string);

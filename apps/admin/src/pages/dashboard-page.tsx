@@ -32,6 +32,7 @@ import { StatCard } from '../components/dashboard/stat-card'
 import type { StatCardTone } from '../components/dashboard/stat-card'
 import { RecentPartners } from '../components/dashboard/recent-partners'
 import { RecentAudit } from '../components/dashboard/recent-audit'
+import { OrderStatusMix } from '../components/dashboard/order-status-mix'
 
 const USER_STATS: Array<{
   key: keyof DashboardUserCounts
@@ -127,7 +128,7 @@ export function DashboardPage() {
 
       <section className="space-y-4">
         <Subheading>آمار کاربران</Subheading>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">
           {USER_STATS.map((stat) => (
             <StatCard
               key={stat.key}
@@ -141,7 +142,7 @@ export function DashboardPage() {
 
       <section className="space-y-4">
         <Subheading>توزیع نقش‌ها</Subheading>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
           {ROLE_STATS.map((stat) => (
             <StatCard key={stat.key} label={stat.label} value={dashboard.roles[stat.key]} />
           ))}
@@ -151,7 +152,7 @@ export function DashboardPage() {
 
       <section className="space-y-4">
         <Subheading>چرخه بررسی همکاران</Subheading>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
           {PARTNER_STATS.map((stat) => (
             <StatCard
               key={stat.key}
@@ -166,7 +167,8 @@ export function DashboardPage() {
 
       <section className="space-y-4">
         <Subheading>گزارش سفارش‌ها</Subheading>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
+        <OrderStatusMix commerce={dashboard.commerce} />
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-6">
           <StatCard label="مجموع سفارش‌ها" value={dashboard.commerce.totalOrders} tone="primary" />
           {ORDER_STATUS_ORDER.map((status) => (
             <StatCard
@@ -177,10 +179,10 @@ export function DashboardPage() {
             />
           ))}
         </div>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="surface-card flex flex-col gap-1 rounded-xl p-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+          <div className="surface-card col-span-2 flex flex-col gap-1 rounded-2xl p-4 lg:col-span-1">
             <span className="text-sm/5 font-medium text-muted">درآمد تسویه‌شده (ریال)</span>
-            <span className="text-3xl/9 font-bold tabular-nums text-green-700 dark:text-green-400">
+            <span className="whitespace-nowrap text-2xl/8 font-bold tabular-nums text-success">
               {formatRial(dashboard.commerce.paidRevenueRial)}
             </span>
           </div>

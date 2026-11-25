@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTransition } from 'react';
-import type { CatalogBrandDto, CatalogCategoryNode } from '@sabz/types';
+import type { CatalogBrandDto, CatalogCategoryNode, CatalogFacetsResponse } from '@sabz/types';
 import { buildListingHref, RATING_BUCKETS, type ListingState } from '@/lib/listing';
 import { CONDITION_OPTIONS } from '@/lib/condition';
 import { formatFaNumber } from '@/lib/format';
@@ -13,6 +13,7 @@ import { Rating } from '@/components/ecommerce/ui/rating';
 import { FacetSection } from './facet-section';
 import { BrandFacetSearch, filterBrandsByQuery } from './brand-facet-search';
 import { PriceFacet } from './price-facet';
+import { AttributeFacets } from './attribute-facets';
 
 /** Category routes own the category in the pathname — drilling is a path nav. */
 function isCategoryBasePath(basePath: string): boolean {
@@ -71,6 +72,7 @@ export function FiltersPanel({
   categories,
   brands,
   brandsTotal,
+  facets = null,
   basePath = '/products',
   priceFormId,
   onPriceApplied,
@@ -80,6 +82,7 @@ export function FiltersPanel({
   brands: CatalogBrandDto[];
   /** Total brand count from the API (may exceed the loaded page). */
   brandsTotal?: number;
+  facets?: CatalogFacetsResponse | null;
   basePath?: string;
   /** Sheet-only: id for the price form so the footer button can submit it. */
   priceFormId?: string;
@@ -297,6 +300,14 @@ export function FiltersPanel({
             ))}
           </div>
         </fieldset>
+
+        <AttributeFacets
+          facets={facets}
+          attrs={state.attrs}
+          onApply={(next) =>
+            apply({ attrs: Object.keys(next).length > 0 ? JSON.stringify(next) : '' })
+          }
+        />
 
         <PriceFacet
           key={`${state.priceFrom}|${state.priceTo}`}

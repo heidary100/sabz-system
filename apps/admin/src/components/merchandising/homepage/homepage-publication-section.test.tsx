@@ -17,6 +17,39 @@ vi.mock('../../../hooks/use-homepage-publication', () => ({
   useHomepagePublication: () => publicationHook.value,
 }))
 
+vi.mock('../../ui/jalali-datetime-input', async () => {
+  const { tehranDateTimeInputToUtcIso, utcIsoToTehranDateTimeInput } = await import(
+    '../../../lib/tehran-time'
+  )
+  return {
+    JalaliDateTimeInput: ({
+      id,
+      value,
+      onChange,
+      ariaLabel,
+    }: {
+      id?: string
+      value: string | null
+      onChange: (iso: string | null) => void
+      ariaLabel?: string
+    }) => (
+      <input
+        id={id}
+        aria-label={ariaLabel}
+        type="datetime-local"
+        value={value ? utcIsoToTehranDateTimeInput(value) : ''}
+        onChange={(event) =>
+          onChange(
+            event.target.value
+              ? tehranDateTimeInputToUtcIso(event.target.value)
+              : null
+          )
+        }
+      />
+    ),
+  }
+})
+
 const publication: HomepagePublicationDto = {
   id: 'publication-1',
   version: 4,

@@ -3,6 +3,7 @@ import { PrismaService } from '../src/common/database/prisma.service';
 import { AuditService } from '../src/modules/audit/audit.service';
 import { PublicCatalogService } from '../src/modules/products/public-catalog.service';
 import { PricingService } from '../src/modules/pricing/pricing.service';
+import { AttributesService } from '../src/modules/products/attributes.service';
 import { VariantsService } from '../src/modules/products/variants.service';
 
 import { StorefrontCacheService } from '../src/common/storefront-cache/storefront-cache.service';
@@ -22,7 +23,7 @@ jest.setTimeout(60_000);
  *    Product.minPrice equals the aggregate MIN(price) over live PRICED
  *    variants (the backfill invariant, dataset-shaped, not seed-shaped).
  * 3. Writer matrix — every variant mutation path leaves minPrice correct,
- *    including compareAtPrice (which must NOT move it).
+ *    including discountedPrice (which must NOT move it).
  * 4. Public behavior — DB-side price ordering through PublicCatalogService
  *    (asc/desc, NULLS LAST, ties, pagination, filters, variant-level price
  *    range) and compatibility of the SS-216 q-present sorts.
@@ -75,7 +76,7 @@ describe('Product minPrice denormalization (SS-217)', () => {
     productId: string,
     overrides: {
       price?: string;
-      compareAtPrice?: string | null;
+      discountedPrice?: string | null;
       priceStatus?: PriceStatus;
     } = {},
   ): Promise<{ id: string }> {
@@ -84,8 +85,8 @@ describe('Product minPrice denormalization (SS-217)', () => {
       {
         sku: `SKU-MP-${uniqueSuffix()}`,
         price: overrides.price ?? '100.00',
-        ...(overrides.compareAtPrice !== null && overrides.compareAtPrice !== undefined
-          ? { compareAtPrice: overrides.compareAtPrice }
+        ...(overrides.discountedPrice !== null && overrides.discountedPrice !== undefined
+          ? { discountedPrice: overrides.discountedPrice }
           : {}),
         priceStatus: overrides.priceStatus ?? PriceStatus.PRICED,
       },
@@ -108,7 +109,7 @@ describe('Product minPrice denormalization (SS-217)', () => {
     await prisma.$connect();
     const audit = new AuditService(prisma);
     variants = new VariantsService(prisma, audit, new StorefrontCacheService(new ConfigService()));
-    catalog = new PublicCatalogService(prisma, new PricingService(prisma));
+    catalog = new PublicCatalogService(prisma, new PricingService(prisma), new AttributesService(prisma));
   });
 
   afterAll(async () => {
@@ -158,7 +159,7 @@ describe('Product minPrice denormalization (SS-217)', () => {
     const mismatches = await prisma.$queryRaw<{ id: string }[]>`
       SELECT p."id" FROM "Product" p
       LEFT JOIN LATERAL (
-        SELECT MIN(v."price") AS "expected"
+        SELECT MIN(COALESCE(v."discountedPrice", v."price")) AS "expected"
         FROM "ProductVariant" v
         WHERE v."productId" = p."id" AND v."deletedAt" IS NULL AND v."priceStatus" = 'PRICED'
       ) agg ON TRUE
@@ -242,12 +243,12 @@ describe('Product minPrice denormalization (SS-217)', () => {
     await expect(minPriceOf(id)).resolves.toBeNull();
   });
 
-  it('compareAtPrice added and removed never changes minPrice', async () => {
+  it('an active discounted price lowers minPrice and clearing it restores it', async () => {
     const { id } = await createProduct();
     const only = await addVariant(id, { price: '150.00' });
-    await variants.update(only.id, { compareAtPrice: '200.00' }, actorId);
-    await expect(minPriceOf(id)).resolves.toBe('150');
-    await variants.update(only.id, { compareAtPrice: null }, actorId);
+    await variants.update(only.id, { discountedPrice: '120.00' }, actorId);
+    await expect(minPriceOf(id)).resolves.toBe('120');
+    await variants.update(only.id, { discountedPrice: null }, actorId);
     await expect(minPriceOf(id)).resolves.toBe('150');
   });
 
@@ -322,14 +323,14 @@ describe('Product minPrice denormalization (SS-217)', () => {
       // Deliberate creation order: p100a first, p100b later (same price —
       // tie-break must be createdAt DESC, id DESC).
       p100a = await createProduct();
-      await addVariant(p100a.id, { price: '100.00' });
+      await addVariant(p100a.id, { price: '10000000.00' });
       p100b = await createProduct();
-      await addVariant(p100b.id, { price: '100.00' });
+      await addVariant(p100b.id, { price: '10000000.00' });
       p400 = await createProduct();
-      await addVariant(p400.id, { price: '400.00' });
+      await addVariant(p400.id, { price: '40000000.00' });
       pMixed = await createProduct();
-      await addVariant(pMixed.id, { price: '50.00' });
-      await addVariant(pMixed.id, { price: '250.00' });
+      await addVariant(pMixed.id, { price: '5000000.00' });
+      await addVariant(pMixed.id, { price: '25000000.00' });
       // NULL minPrice: only a call-for-price row.
       pNull = await createProduct();
       await addVariant(pNull.id, { price: '0.00', priceStatus: PriceStatus.CALL_FOR_PRICE });
@@ -384,8 +385,8 @@ describe('Product minPrice denormalization (SS-217)', () => {
       );
       // Exact price sequence: 50 (mixed), 100, 100, 400.
       const prices = result.items.map((item) => item.priceFrom);
-      expect(prices[0]).toBe('50');
-      expect(prices).toEqual(['50', '100', '100', '400', '']);
+      expect(prices[0]).toBe('5000000');
+      expect(prices).toEqual(['5000000', '10000000', '10000000', '40000000', '']);
     });
 
     it('price_desc orders by minPrice descending with NULLs last', async () => {
@@ -396,7 +397,7 @@ describe('Product minPrice denormalization (SS-217)', () => {
       });
       const prices = result.items.map((item) => item.priceFrom);
       // NULLs stay last in BOTH directions (existing contract).
-      expect(prices).toEqual(['400', '100', '100', '50', '']);
+      expect(prices).toEqual(['40000000', '10000000', '10000000', '5000000', '']);
       // Tie on 100: newer first, same as ascending.
       const slugs = result.items.map((item) => item.slug);
       const i100a = slugs.indexOf((await prisma.product.findUniqueOrThrow({ where: { id: p100a.id } })).slug);
@@ -410,7 +411,7 @@ describe('Product minPrice denormalization (SS-217)', () => {
       const page3 = await catalog.listProducts({ q: ORDER_TOKEN, sort: 'price_asc', page: 3, limit: 2 });
       const all = [...page1.items, ...page2.items, ...page3.items].map((item) => item.priceFrom);
       expect(page1.total).toBe(5);
-      expect(all).toEqual(['50', '100', '100', '400', '']);
+      expect(all).toEqual(['5000000', '10000000', '10000000', '40000000', '']);
       // No product repeats across pages.
       const ids = [...page1.items, ...page2.items, ...page3.items].map((item) => item.id);
       expect(new Set(ids).size).toBe(5);
@@ -426,15 +427,15 @@ describe('Product minPrice denormalization (SS-217)', () => {
     });
 
     it('keeps the variant-level price range semantics (min outside the range still matches)', async () => {
-      // pMixed has variants 50 and 250; minPrice = 50 is OUTSIDE [200, ∞) but
-      // the 250 variant qualifies the product (SS-213 contract).
-      const hit = await catalog.listProducts({ q: ORDER_TOKEN, priceFrom: '200', sort: 'price_asc', limit: 50 });
+      // pMixed has variants 5m and 25m; minPrice = 5m is OUTSIDE [20m, ∞) but
+      // the 25m variant qualifies the product (SS-213 contract).
+      const hit = await catalog.listProducts({ q: ORDER_TOKEN, priceFrom: '20000000', sort: 'price_asc', limit: 50 });
       const mixedSlug = (await prisma.product.findUniqueOrThrow({ where: { id: pMixed.id } })).slug;
       expect(hit.items.map((item) => item.slug)).toContain(mixedSlug);
       // ...and sorts by minPrice (50), even though the range matched 250.
-      expect(hit.items[0]!.priceFrom).toBe('50');
+      expect(hit.items[0]!.priceFrom).toBe('5000000');
 
-      const miss = await catalog.listProducts({ q: ORDER_TOKEN, priceFrom: '300', sort: 'price_asc', limit: 50 });
+      const miss = await catalog.listProducts({ q: ORDER_TOKEN, priceFrom: '30000000', sort: 'price_asc', limit: 50 });
       expect(miss.items.map((item) => item.slug)).not.toContain(mixedSlug);
     });
 

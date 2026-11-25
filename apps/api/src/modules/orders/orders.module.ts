@@ -8,6 +8,7 @@ import { AdminOrdersController } from './admin-orders.controller';
 import { CheckoutController } from './checkout.controller';
 import { CheckoutService } from './checkout.service';
 import { OrdersController } from './orders.controller';
+import { InvoicePdfService } from './invoice-pdf.service';
 
 /**
  * Customer checkout + orders (SS-233). Self-owned customer state behind
@@ -21,7 +22,7 @@ import { OrdersController } from './orders.controller';
 @Module({
   imports: [AuthModule, AuditModule, InventoryModule, PricingModule, NotificationsModule],
   controllers: [CheckoutController, OrdersController, AdminOrdersController],
-  providers: [CheckoutService],
+  providers: [CheckoutService, InvoicePdfService],
   exports: [CheckoutService],
 })
 export class OrdersModule {}

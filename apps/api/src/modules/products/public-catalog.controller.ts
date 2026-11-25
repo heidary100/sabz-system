@@ -2,13 +2,19 @@ import {
   BadRequestException,
   Controller,
   Get,
+  Header,
   Injectable,
   NotFoundException,
   Param,
+  ParseUUIDPipe,
   PipeTransform,
   Query,
+  Res,
+  StreamableFile,
   UseGuards,
 } from '@nestjs/common';
+import type { Response } from 'express';
+import { SkipThrottle } from '@nestjs/throttler';
 import {
   ApiOperation,
   ApiParam,
@@ -20,10 +26,15 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { AuthUser } from '../auth/interfaces/auth-user.interface';
 import { PublicCatalogService } from './public-catalog.service';
+import { CategoryImageService } from './category-image.service';
 import {
   ListCatalogBrandsQueryDto,
   ListCatalogProductsQueryDto,
 } from './dto';
+import {
+  CatalogCompareQueryDto,
+  CatalogFacetsQueryDto,
+} from './dto/catalog-facets-query.dto';
 
 /** Public slugs are server-generated kebab strings; nothing else can match. */
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -47,7 +58,10 @@ export class SlugValidationPipe implements PipeTransform<string, string> {
 @ApiTags('catalog')
 @Controller('catalog/categories')
 export class PublicCatalogCategoriesController {
-  constructor(private readonly publicCatalogService: PublicCatalogService) {}
+  constructor(
+    private readonly publicCatalogService: PublicCatalogService,
+    private readonly categoryImages: CategoryImageService,
+  ) {}
 
   @Get()
   @ApiOperation({
@@ -56,6 +70,18 @@ export class PublicCatalogCategoriesController {
   @ApiResponse({ status: 200, description: 'Category tree returned.' })
   async tree() {
     return this.publicCatalogService.getCategoryTree();
+  }
+
+  @Get(':id/image')
+  @SkipThrottle()
+  async image(
+    @Param('id', new ParseUUIDPipe({ errorHttpStatusCode: 404 })) categoryId: string,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const { stream, mimeType, sizeBytes } = await this.categoryImages.read(categoryId);
+    response.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    response.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    return new StreamableFile(stream, { type: mimeType, length: sizeBytes });
   }
 
   @Get('covers')
@@ -93,6 +119,21 @@ export class PublicCatalogBrandsController {
 }
 
 @ApiTags('catalog')
+@Controller('catalog/facets')
+export class PublicCatalogFacetsController {
+  constructor(private readonly publicCatalogService: PublicCatalogService) {}
+
+  @Get()
+  @ApiOperation({
+    summary: 'Category-aware attribute and brand facets (SS-900)',
+  })
+  @ApiResponse({ status: 200, description: 'Facets returned.' })
+  async facets(@Query() query: CatalogFacetsQueryDto) {
+    return this.publicCatalogService.getFacets(query.category ?? null);
+  }
+}
+
+@ApiTags('catalog')
 @Controller('catalog/products')
 export class PublicCatalogProductsController {
   constructor(private readonly publicCatalogService: PublicCatalogService) {}
@@ -122,14 +163,47 @@ export class PublicCatalogProductsController {
     required: false,
     enum: ['1', '2', '3', '4', '5'],
   })
+  @ApiQuery({
+    name: 'attrs',
+    required: false,
+    type: String,
+    description: 'JSON attribute filters keyed by attribute slug (SS-900)',
+  })
   @ApiResponse({ status: 200, description: 'Paginated product cards returned.' })
   @ApiResponse({ status: 400, description: 'Invalid query parameters.' })
   async list(@Query() query: ListCatalogProductsQueryDto) {
     return this.publicCatalogService.listProducts(query);
   }
 
+  @Get('compare')
+  @ApiOperation({
+    summary: 'Category-aware product comparison from the real catalog (SS-900)',
+  })
+  @ApiQuery({ name: 'slugs', required: true, type: String })
+  @ApiResponse({ status: 200, description: 'Comparison returned.' })
+  @ApiResponse({ status: 400, description: 'Invalid or too many slugs.' })
+  async compare(@Query() query: CatalogCompareQueryDto) {
+    const slugs = [
+      ...new Set(
+        query.slugs
+          .split(',')
+          .map((slug) => slug.trim())
+          .filter((slug) => slug.length > 0),
+      ),
+    ];
+    for (const slug of slugs) {
+      if (slug.length > 200 || !SLUG_PATTERN.test(slug)) {
+        throw new BadRequestException('شناسه محصول معتبر نیست.');
+      }
+    }
+    return this.publicCatalogService.compare(slugs);
+  }
+
   @Get(':slug/price')
   @UseGuards(OptionalJwtAuthGuard)
+  // Personalized response: never stored by browsers, proxies or the CDN.
+  @Header('Cache-Control', 'private, no-store, max-age=0')
+  @Header('Vary', 'Authorization')
   @ApiOperation({
     summary: 'Public per-variant price quotes (tier-aware when authed)',
   })

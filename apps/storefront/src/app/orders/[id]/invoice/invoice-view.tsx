@@ -9,7 +9,7 @@ import { Card } from '@/components/ecommerce/ui/card';
 import { Skeleton } from '@/components/ecommerce/skeleton/skeleton';
 import { ApiError } from '@/lib/api';
 import { hasSession } from '@/lib/auth-client';
-import { fetchInvoice, orderStatusLabel, paymentMethodLabel, paymentStatusLabel } from '@/lib/orders';
+import { fetchInvoice, fetchInvoicePdf, orderStatusLabel, paymentMethodLabel, paymentStatusLabel } from '@/lib/orders';
 import { formatFaNumber, formatToman } from '@/lib/format';
 
 const LOAD_FAILED = 'دریافت فاکتور ناموفق بود؛ لطفاً دوباره تلاش کنید.';
@@ -26,6 +26,7 @@ export function InvoiceView({ id }: { id: string }) {
   const [status, setStatus] = useState<Status>('checking');
   const [invoice, setInvoice] = useState<InvoiceDto | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     // Session lives in localStorage (client only): the gate below must run
@@ -113,6 +114,36 @@ export function InvoiceView({ id }: { id: string }) {
           className={buttonVariants({ variant: 'primary' })}
         >
           چاپ فاکتور
+        </button>
+        <button
+          type="button"
+          disabled={downloading}
+          onClick={async () => {
+            setDownloading(true);
+            setError(null);
+            try {
+              const blob = await fetchInvoicePdf(invoice.id);
+              const url = URL.createObjectURL(blob);
+              const link = document.createElement('a');
+              link.href = url;
+              link.download = `sabz-invoice-${invoice.orderNumber}.pdf`;
+              document.body.appendChild(link);
+              link.click();
+              link.remove();
+              URL.revokeObjectURL(url);
+            } catch (downloadError) {
+              setError(
+                downloadError instanceof ApiError
+                  ? (downloadError.payload?.message ?? 'دریافت PDF ناموفق بود.')
+                  : 'دریافت PDF ناموفق بود.',
+              );
+            } finally {
+              setDownloading(false);
+            }
+          }}
+          className={buttonVariants({ variant: 'outline' })}
+        >
+          {downloading ? 'در حال آماده‌سازی…' : 'دانلود PDF'}
         </button>
         <Link href={`/orders/${invoice.id}`} className={buttonVariants({ variant: 'ghost' })}>
           بازگشت به سفارش

@@ -21,7 +21,7 @@ function productCard(
     brand: { name: 'برند', slug: 'brand' },
     category: { name: 'دسته', slug: 'category' },
     priceFrom: '100000',
-    compareAtPrice: '150000',
+    regularPrice: '150000',
     callForPrice: false,
     promotionEndsAt: null,
     variantCount: 1,
@@ -62,7 +62,7 @@ describe('PublicHomepageResolver', () => {
     id: 'product-3',
     slug: 'product-3',
     priceFrom: '200000',
-    compareAtPrice: null,
+    regularPrice: null,
     primaryImageUrl: null,
     primaryThumbnailUrl: null,
   });

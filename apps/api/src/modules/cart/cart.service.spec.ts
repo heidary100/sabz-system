@@ -47,6 +47,7 @@ describe('CartService', () => {
   let service: CartService;
   let pricing: {
     tierDiscountForUser: jest.Mock;
+    partnerPricingForUser: jest.Mock;
     activePromotionsFor: jest.Mock;
     categoryRuleFor: jest.Mock;
     productOverrideFor: jest.Mock;
@@ -91,6 +92,10 @@ describe('CartService', () => {
     // assertions keep proving the base-price path.
     pricing = {
       tierDiscountForUser: jest.fn().mockResolvedValue(new Prisma.Decimal(0)),
+      partnerPricingForUser: jest.fn().mockResolvedValue({
+        tierPercent: new Prisma.Decimal(0),
+        eligible: false,
+      }),
       activePromotionsFor: jest.fn().mockResolvedValue([]),
       categoryRuleFor: jest.fn().mockResolvedValue(null),
       productOverrideFor: jest.fn().mockResolvedValue(null),
@@ -120,7 +125,7 @@ describe('CartService', () => {
       const result = await service.list(USER_ID);
 
       expect(result.totalQuantity).toBe(2);
-      expect(result.subtotal).toBe('10000');
+      expect(result.subtotal).toBe('200000');
       expect(result.items).toHaveLength(1);
       expect(result.items[0]).toMatchObject({
         variantId: VARIANT_ID,
@@ -130,15 +135,46 @@ describe('CartService', () => {
         variantSku: 'SKU-1',
         variantName: 'مدل مشکی',
         quantity: 2,
-        unitPrice: '5000',
+        unitPrice: '100000',
         unitPriceAtAdd: '5000',
-        lineTotal: '10000',
-        priceChanged: false,
+        lineTotal: '200000',
+        priceChanged: true,
         priceStatus: 'PRICED',
         available: 8,
         inStock: true,
         primaryImageUrl: null,
         addedAt: '2026-09-03T00:00:00.000Z',
+      });
+    });
+
+    it('does not flag an unchanged effective price', async () => {
+      prisma.cart.findUnique.mockResolvedValue({ id: CART_ID });
+      prisma.cartItem.findMany.mockResolvedValue([
+        // Authoritative resolved unit is roundRialUp(5000) = 100000.
+        makeLine({ unitPriceAtAdd: new Prisma.Decimal('100000') }),
+      ]);
+
+      const result = await service.list(USER_ID);
+
+      expect(result.items[0]).toMatchObject({
+        unitPrice: '100000',
+        unitPriceAtAdd: '100000',
+        priceChanged: false,
+      });
+    });
+
+    it('compares money by value, not Decimal string representation', async () => {
+      prisma.cart.findUnique.mockResolvedValue({ id: CART_ID });
+      prisma.cartItem.findMany.mockResolvedValue([
+        makeLine({ unitPriceAtAdd: new Prisma.Decimal('100000.00') }),
+      ]);
+
+      const result = await service.list(USER_ID);
+
+      expect(result.items[0]).toMatchObject({
+        unitPrice: '100000',
+        unitPriceAtAdd: '100000',
+        priceChanged: false,
       });
     });
 
@@ -151,12 +187,12 @@ describe('CartService', () => {
       const result = await service.list(USER_ID);
 
       expect(result.items[0]).toMatchObject({
-        unitPrice: '6000',
+        unitPrice: '100000',
         unitPriceAtAdd: '5000',
-        lineTotal: '12000',
+        lineTotal: '200000',
         priceChanged: true,
       });
-      expect(result.subtotal).toBe('12000');
+      expect(result.subtotal).toBe('200000');
     });
 
     it('skips lines whose variant or product is no longer visible', async () => {
@@ -200,13 +236,41 @@ describe('CartService', () => {
           cartId: CART_ID,
           variantId: VARIANT_ID,
           quantity: 2,
-          unitPriceAtAdd: new Prisma.Decimal('5000'),
+          unitPriceAtAdd: new Prisma.Decimal('100000'),
         },
       });
       expect(result.item.quantity).toBe(2);
     });
 
-    it('increments an existing line (200 semantics) without touching the snapshot', async () => {
+    it('stores the full authoritative price as the baseline (no false drift)', async () => {
+      prisma.productVariant.findFirst.mockResolvedValue({
+        price: new Prisma.Decimal('1000000'),
+        priceStatus: 'PRICED',
+      });
+      pricing.partnerPricingForUser.mockResolvedValue({
+        tierPercent: new Prisma.Decimal(10),
+        eligible: true,
+      });
+      prisma.cartItem.create.mockResolvedValue({ id: 'line-1' });
+      prisma.cartItem.findUniqueOrThrow.mockResolvedValue(
+        makeLine({}, { price: new Prisma.Decimal('1000000') }),
+      );
+
+      const result = await service.add(USER_ID, { variantId: VARIANT_ID }, 1);
+
+      // 10% partner tier: 1,000,000 → 900,000 (already 100k-aligned).
+      expect(result.item).toMatchObject({
+        unitPrice: '900000',
+        unitPriceAtAdd: '900000',
+        priceChanged: false,
+      });
+      expect(prisma.cartItem.update).toHaveBeenCalledWith({
+        where: { cartId_variantId: { cartId: CART_ID, variantId: VARIANT_ID } },
+        data: { unitPriceAtAdd: new Prisma.Decimal('900000') },
+      });
+    });
+
+    it('increments an existing line (200 semantics) and updates the baseline', async () => {
       prisma.cartItem.findUnique.mockResolvedValue({ id: 'line-1', quantity: 2 });
       prisma.cartItem.update.mockResolvedValue({ id: 'line-1' });
       mockSingleHydration();
@@ -323,7 +387,7 @@ describe('CartService', () => {
           cartId: CART_ID,
           variantId: 'v-live',
           quantity: 2,
-          unitPriceAtAdd: new Prisma.Decimal('5000'),
+          unitPriceAtAdd: new Prisma.Decimal('100000'),
         },
       });
       expect(result.item.variantId).toBe('v-live');

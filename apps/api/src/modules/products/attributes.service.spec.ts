@@ -1,4 +1,4 @@
-import { AttributeType, Prisma, ProductStatus } from '@prisma/client';
+import { AttributeType, AttributeValueType, Prisma, ProductStatus } from '@prisma/client';
 import { PrismaService } from '../../common/database/prisma.service';
 import { AttributesService } from './attributes.service';
 
@@ -31,6 +31,7 @@ describe('AttributesService (SS-202)', () => {
     productVariant: ModelMock;
     productAttributeValue: ModelMock;
     variantAttributeValue: ModelMock;
+    categoryAttribute: ModelMock;
     $transaction: jest.Mock;
   };
 
@@ -54,6 +55,7 @@ describe('AttributesService (SS-202)', () => {
       productVariant: mockModel(),
       productAttributeValue: mockModel(),
       variantAttributeValue: mockModel(),
+      categoryAttribute: mockModel(),
       $transaction: jest.fn((arg: unknown, tx?: unknown) =>
         typeof arg === 'function'
           ? (arg as (tx: unknown) => unknown)(tx ?? prisma)
@@ -129,6 +131,25 @@ describe('AttributesService (SS-202)', () => {
           name: 'رنگ',
           slug: 'color',
           type: AttributeType.SPEC,
+        }),
+      ).rejects.toMatchObject({ status: 409 });
+    });
+
+    it('rejects a valueType change while product values exist', async () => {
+      prisma.attribute.findUnique.mockResolvedValue({
+        id: 'attr-1',
+        type: AttributeType.SPEC,
+        valueType: AttributeValueType.NUMBER,
+        values: [],
+      });
+      prisma.productAttributeValue.count.mockResolvedValue(1);
+
+      await expect(
+        service.upsertAttribute({
+          name: 'وزن',
+          slug: 'weight',
+          type: AttributeType.SPEC,
+          valueType: AttributeValueType.TEXT,
         }),
       ).rejects.toMatchObject({ status: 409 });
     });
@@ -257,6 +278,8 @@ describe('AttributesService (SS-202)', () => {
   describe('deletes', () => {
     it('refuses attributes with values and values in use', async () => {
       prisma.attributeValue.count.mockResolvedValue(2);
+      prisma.categoryAttribute.count.mockResolvedValue(0);
+      prisma.productAttributeValue.count.mockResolvedValue(0);
       await expect(service.deleteAttribute('attr-1')).rejects.toMatchObject({
         status: 409,
       });
@@ -270,6 +293,8 @@ describe('AttributesService (SS-202)', () => {
 
     it('throws 404 when nothing was deleted', async () => {
       prisma.attributeValue.count.mockResolvedValue(0);
+      prisma.categoryAttribute.count.mockResolvedValue(0);
+      prisma.productAttributeValue.count.mockResolvedValue(0);
       prisma.attribute.deleteMany.mockResolvedValue({ count: 0 });
       await expect(service.deleteAttribute('nope')).rejects.toMatchObject({
         status: 404,

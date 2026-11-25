@@ -99,7 +99,7 @@ export function MediaPreviewDialog({
           <div className="flex min-h-72 flex-col items-center justify-center gap-3" role="status">
             <span
               aria-hidden="true"
-              className="size-8 animate-spin rounded-full border-2 border-hunter-800 border-t-primary"
+              className="size-8 animate-spin rounded-full border-2 border-border border-t-primary"
             />
             <span className="text-sm font-medium text-muted">در حال بارگذاری رسانه…</span>
           </div>

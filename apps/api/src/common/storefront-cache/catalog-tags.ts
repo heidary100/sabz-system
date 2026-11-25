@@ -5,6 +5,9 @@
  * between exactly these two apps (see both files for the cross-reference).
  */
 
+/** Admin-managed storefront footer (SS-900). */
+export const SITE_FOOTER_TAG = 'site:footer';
+
 /** Category tree (navigation shell, category pages, filters). */
 export const CATALOG_TREE_TAG = 'catalog:tree';
 /** Brand facet list. */

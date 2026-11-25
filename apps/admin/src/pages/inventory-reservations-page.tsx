@@ -30,6 +30,7 @@ import { Loading } from '../components/ui/loading'
 import { ErrorState } from '../components/ui/error-state'
 import { TablePagination } from '../components/ui/table-pagination'
 import { TableCard } from '../components/ui/table-card'
+import { HorizontalScroll } from '../components/ui/horizontal-scroll'
 import { ReservationStatusBadge } from '../components/inventory/reservation-status-badge'
 import { ReleaseReservationDialog } from '../components/inventory/release-reservation-dialog'
 import { ConsumeReservationDialog } from '../components/inventory/consume-reservation-dialog'
@@ -252,7 +253,8 @@ export function InventoryReservationsPage() {
             disabled={loading}
             totalLabel="رزرو"
           />
-          <Table dense>
+          <HorizontalScroll>
+            <Table dense scrollContainer={false}>
             <TableHead>
               <TableRow>
                 <TableHeader>SKU</TableHeader>
@@ -348,7 +350,8 @@ export function InventoryReservationsPage() {
                 )
               })}
             </TableBody>
-          </Table>
+            </Table>
+          </HorizontalScroll>
 
           <TablePagination
             position="bottom"
@@ -369,7 +372,7 @@ export function InventoryReservationsPage() {
         <div className="flex items-center justify-center gap-3 py-4" role="status">
           <span
             aria-hidden="true"
-            className="size-5 animate-spin rounded-full border-2 border-hunter-800 border-t-primary"
+            className="size-5 animate-spin rounded-full border-2 border-border border-t-primary"
           />
           <span className="text-sm font-medium text-muted">در حال بارگذاری…</span>
         </div>

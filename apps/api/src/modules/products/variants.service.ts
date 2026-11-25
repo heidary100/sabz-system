@@ -3,8 +3,9 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
-import { PriceStatus, Prisma, ProductStatus } from '@prisma/client';
+import { PriceSourceCurrency, PriceStatus, Prisma, ProductStatus } from '@prisma/client';
 import type { VariantSummary } from '@sabz/types';
 import { PrismaService } from '../../common/database/prisma.service';
 import { StorefrontCacheService } from '../../common/storefront-cache/storefront-cache.service';
@@ -13,6 +14,8 @@ import {
   productDetailTag,
 } from '../../common/storefront-cache/catalog-tags';
 import { AuditService } from '../audit/audit.service';
+import { CurrencyService } from '../currency/currency.service';
+import { roundRialUp } from '../../common/money/rial';
 import { recomputeProductMinPrice } from './min-price';
 import { CreateVariantDto, UpdateVariantDto } from './dto';
 
@@ -23,8 +26,18 @@ const variantSelect = {
   barcode: true,
   name: true,
   price: true,
-  compareAtPrice: true,
+  discountedPrice: true,
+  discountStartsAt: true,
+  discountEndsAt: true,
+  partnerPrice: true,
+  priceUpdatedAt: true,
   priceStatus: true,
+  priceSourceCurrency: true,
+  priceSourceAmount: true,
+  discountSourceAmount: true,
+  priceSourceRate: true,
+  priceSourceRateAt: true,
+  priceSourceRateId: true,
   deletedAt: true,
 } satisfies Prisma.ProductVariantSelect;
 
@@ -40,6 +53,7 @@ export class VariantsService {
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
     private readonly storefrontCache: StorefrontCacheService,
+    @Optional() private readonly currency?: CurrencyService,
   ) {}
 
   /** Listing + detail tags of the product a variant mutation touched. */
@@ -79,10 +93,14 @@ export class VariantsService {
     actorId: string,
     ipAddress?: string,
   ): Promise<VariantSummary> {
+    const pricing = await this.resolveCreatePricing(dto);
     this.validatePricing({
-      price: dto.price,
-      compareAtPrice: dto.compareAtPrice ?? null,
+      price: pricing.price,
+      discountedPrice: pricing.discountedPrice,
       priceStatus: dto.priceStatus ?? PriceStatus.PRICED,
+      discountStartsAt: dto.discountStartsAt ? new Date(dto.discountStartsAt) : null,
+      discountEndsAt: dto.discountEndsAt ? new Date(dto.discountEndsAt) : null,
+      partnerPrice: dto.partnerPrice ?? null,
     });
     try {
       let productSlug: string | null = null;
@@ -95,9 +113,14 @@ export class VariantsService {
             sku: dto.sku,
             barcode: dto.barcode ?? null,
             name: dto.name ?? null,
-            price: dto.price,
-            compareAtPrice: dto.compareAtPrice ?? null,
+            price: pricing.price,
+            discountedPrice: pricing.discountedPrice,
+            discountStartsAt: dto.discountStartsAt ? new Date(dto.discountStartsAt) : null,
+            discountEndsAt: dto.discountEndsAt ? new Date(dto.discountEndsAt) : null,
+            partnerPrice: dto.partnerPrice ?? null,
+            priceUpdatedAt: new Date(),
             priceStatus: dto.priceStatus ?? PriceStatus.PRICED,
+            ...this.pricingColumns(pricing),
             createdBy: actorId,
           },
           select: variantSelect,
@@ -115,7 +138,7 @@ export class VariantsService {
               barcode: row.barcode,
               name: row.name,
               price: row.price.toString(),
-              compareAtPrice: row.compareAtPrice?.toString() ?? null,
+              discountedPrice: row.discountedPrice?.toString() ?? null,
               priceStatus: row.priceStatus,
             },
             ipAddress,
@@ -144,22 +167,56 @@ export class VariantsService {
     actorId: string,
     ipAddress?: string,
   ): Promise<VariantSummary> {
-    const data = this.buildUpdateData(dto);
-
     try {
       let productSlug: string | null = null;
       const updated = await this.prisma.$transaction(async (tx) => {
         const target = await this.readVariantInTx(tx, variantId);
         productSlug = await this.assertProductForMutation(tx, target.productId);
+        const pricing = await this.resolveUpdatePricing(dto, target);
+        const data: VariantUpdateData = {
+          ...this.buildUpdateData(dto),
+          ...(pricing
+            ? {
+                price: pricing.price,
+                discountedPrice: pricing.discountedPrice,
+                ...this.pricingColumns(pricing),
+              }
+            : {}),
+          ...(dto.discountStartsAt !== undefined
+            ? {
+                discountStartsAt:
+                  dto.discountStartsAt === null ? null : new Date(dto.discountStartsAt),
+              }
+            : {}),
+          ...(dto.discountEndsAt !== undefined
+            ? {
+                discountEndsAt:
+                  dto.discountEndsAt === null ? null : new Date(dto.discountEndsAt),
+              }
+            : {}),
+          ...(dto.partnerPrice !== undefined ? { partnerPrice: dto.partnerPrice } : {}),
+          ...(pricing || dto.discountStartsAt !== undefined || dto.discountEndsAt !== undefined
+            ? { priceUpdatedAt: new Date() }
+            : {}),
+        };
 
         this.validatePricing({
-          price:
-            data.price ?? target.price.toString(),
-          compareAtPrice:
-            data.compareAtPrice !== undefined
-              ? data.compareAtPrice
-              : (target.compareAtPrice?.toString() ?? null),
+          price: pricing?.price ?? target.price.toString(),
+          discountedPrice:
+            pricing !== null
+              ? pricing.discountedPrice
+              : (target.discountedPrice?.toString() ?? null),
           priceStatus: data.priceStatus ?? target.priceStatus,
+          discountStartsAt:
+            data.discountStartsAt !== undefined
+              ? data.discountStartsAt
+              : target.discountStartsAt,
+          discountEndsAt:
+            data.discountEndsAt !== undefined ? data.discountEndsAt : target.discountEndsAt,
+          partnerPrice:
+            data.partnerPrice !== undefined
+              ? (data.partnerPrice as string | null)
+              : (target.partnerPrice?.toString() ?? null),
         });
 
         const before = this.businessDelta(target, data, 'before');
@@ -270,41 +327,205 @@ export class VariantsService {
       barcode: row.barcode,
       name: row.name,
       price: row.price.toString(),
-      compareAtPrice: row.compareAtPrice?.toString() ?? null,
+      discountedPrice: row.discountedPrice?.toString() ?? null,
+      discountStartsAt: row.discountStartsAt?.toISOString() ?? null,
+      discountEndsAt: row.discountEndsAt?.toISOString() ?? null,
+      partnerPrice: row.partnerPrice?.toString() ?? null,
+      priceUpdatedAt: row.priceUpdatedAt?.toISOString() ?? null,
       priceStatus: row.priceStatus,
+      priceSourceCurrency: row.priceSourceCurrency ?? PriceSourceCurrency.RIAL,
+      priceSourceAmount: row.priceSourceAmount?.toString() ?? row.price.toString(),
+      discountSourceAmount:
+        row.discountSourceAmount?.toString() ??
+        row.discountedPrice?.toString() ??
+        null,
+      priceSourceRate: row.priceSourceRate?.toString() ?? null,
+      priceSourceRateAt: row.priceSourceRateAt?.toISOString() ?? null,
+    };
+  }
+
+  private pricingColumns(pricing: ResolvedVariantPricing) {
+    return {
+      priceSourceCurrency: pricing.priceSourceCurrency,
+      priceSourceAmount: pricing.priceSourceAmount,
+      discountSourceAmount: pricing.discountSourceAmount,
+      priceSourceRate: pricing.priceSourceRate,
+      priceSourceRateAt: pricing.priceSourceRateAt,
+      priceSourceRateId: pricing.priceSourceRateId,
+    };
+  }
+
+  private async resolveCreatePricing(
+    dto: CreateVariantDto,
+  ): Promise<ResolvedVariantPricing> {
+    return this.resolvePricing(
+      dto.priceSourceCurrency ?? PriceSourceCurrency.RIAL,
+      dto.price,
+      dto.discountedPrice ?? null,
+    );
+  }
+
+  private async resolveUpdatePricing(
+    dto: UpdateVariantDto,
+    target: VariantRow,
+  ): Promise<ResolvedVariantPricing | null> {
+    const pricingTouched =
+      dto.price !== undefined ||
+      dto.discountedPrice !== undefined ||
+      dto.priceSourceCurrency !== undefined;
+    if (!pricingTouched) {
+      return null;
+    }
+    // A partial price edit keeps the variant's existing source currency. Only
+    // an explicit `priceSourceCurrency` switches it (and that switch requires
+    // a price); new variants default to Rial in resolveCreatePricing.
+    const currency =
+      dto.priceSourceCurrency ??
+      target.priceSourceCurrency ??
+      PriceSourceCurrency.RIAL;
+    if (
+      dto.priceSourceCurrency !== undefined &&
+      dto.priceSourceCurrency !== target.priceSourceCurrency &&
+      dto.price === undefined
+    ) {
+      throw new BadRequestException(
+        'برای تغییر واحد پول، مبلغ قیمت را نیز وارد کنید.',
+      );
+    }
+    const sourcePrice =
+      dto.price ??
+      (currency === PriceSourceCurrency.RIAL
+        ? target.price.toString()
+        : (target.priceSourceAmount?.toString() ?? target.price.toString()));
+    const sourceCompare =
+      dto.discountedPrice !== undefined
+        ? dto.discountedPrice
+        : currency === PriceSourceCurrency.RIAL
+          ? (target.discountedPrice?.toString() ?? null)
+          : (target.discountSourceAmount?.toString() ??
+            target.discountedPrice?.toString() ??
+            null);
+    return this.resolvePricing(currency, sourcePrice, sourceCompare);
+  }
+
+  private async resolvePricing(
+    currency: PriceSourceCurrency,
+    sourcePrice: string,
+    sourceDiscount: string | null,
+  ): Promise<ResolvedVariantPricing> {
+    const source = parseMoney(sourcePrice, 'قیمت');
+    const sourceDiscounted =
+      sourceDiscount === null ? null : parseMoney(sourceDiscount, 'قیمت فروش ویژه');
+    if (currency === PriceSourceCurrency.RIAL) {
+      return {
+        price: source.toFixed(2),
+        discountedPrice: sourceDiscounted?.toFixed(2) ?? null,
+        priceSourceCurrency: currency,
+        priceSourceAmount: source.toFixed(2),
+        discountSourceAmount: sourceDiscounted?.toFixed(2) ?? null,
+        priceSourceRate: null,
+        priceSourceRateAt: null,
+        priceSourceRateId: null,
+      };
+    }
+    let rate;
+    try {
+      if (!this.currency) {
+        throw new Error('CurrencyService unavailable');
+      }
+      rate = await this.currency.current(currency);
+    } catch {
+      throw new BadRequestException(
+        `نرخ ${currency === 'USD' ? 'دلار' : 'درهم'} ثبت نشده است؛ ابتدا نرخ ارز را در تنظیمات ثبت کنید.`,
+      );
+    }
+    const rateValue = new Prisma.Decimal(rate.rialPerUnit);
+    const rialPrice = roundRialUp(source.mul(rateValue));
+    const rialDiscount =
+      sourceDiscounted === null ? null : roundRialUp(sourceDiscounted.mul(rateValue));
+    return {
+      price: rialPrice.toString(),
+      discountedPrice: rialDiscount?.toString() ?? null,
+      priceSourceCurrency: currency,
+      priceSourceAmount: source.toFixed(2),
+      discountSourceAmount: sourceDiscounted?.toFixed(2) ?? null,
+      priceSourceRate: rateValue.toString(),
+      priceSourceRateAt: new Date(rate.effectiveAt),
+      priceSourceRateId: rate.id,
     };
   }
 
   /**
-   * Cross-field pricing rules (SS-201). Runs on effective values (DTO overlaid
-   * on the stored row) so partial updates cannot sneak past the invariants:
-   * - compareAtPrice requires PRICED status (a call-for-price row has no
-   *   meaningful reference price).
-   * - compareAtPrice must strictly exceed price (it is the pre-discount mark).
+   * Cross-field pricing rules (pricing-grid spec §2.5). Runs on effective
+   * values (DTO overlaid on the stored row) so partial updates cannot sneak
+   * past the invariants:
+   * - discountedPrice requires PRICED status and must be strictly positive
+   *   and strictly below the regular price.
+   * - both window bounds must be supplied together and start < end.
+   * - partnerPrice must be positive and strictly below the regular price.
    *
-   * Public so the SS-257 catalog-grid batch path enforces the same SS-251
-   * invariant instead of a second implementation.
+   * Public so the catalog-grid batch path and bulk pricing service enforce
+   * the same rule instead of a second implementation.
    */
   validatePricing(effective: {
     price: string;
-    compareAtPrice: string | null;
+    discountedPrice: string | null;
     priceStatus: PriceStatus;
+    discountStartsAt?: Date | string | null;
+    discountEndsAt?: Date | string | null;
+    partnerPrice?: string | null;
   }): void {
-    if (effective.compareAtPrice === null) {
-      return;
+    const price = parseMoney(effective.price, 'قیمت');
+    if (effective.priceStatus === PriceStatus.PRICED && price.lessThanOrEqualTo(0)) {
+      throw new BadRequestException('قیمت عادی باید بزرگ‌تر از صفر باشد.');
     }
-    if (effective.priceStatus !== PriceStatus.PRICED) {
-      throw new BadRequestException(
-        'قیمت قبل از تخفیف فقط برای نوع قیمت‌دار مجاز است.',
+    if (effective.discountedPrice !== null) {
+      if (effective.priceStatus !== PriceStatus.PRICED) {
+        throw new BadRequestException(
+          'قیمت فروش ویژه فقط برای نوع قیمت‌دار مجاز است.',
+        );
+      }
+      const discounted = this.parsePositiveMoney(
+        effective.discountedPrice,
+        'قیمت فروش ویژه',
       );
+      if (discounted.greaterThanOrEqualTo(price)) {
+        throw new BadRequestException(
+          'قیمت فروش ویژه باید کمتر از قیمت عادی باشد.',
+        );
+      }
     }
-    const compareAt = new Prisma.Decimal(effective.compareAtPrice);
-    const price = new Prisma.Decimal(effective.price);
-    if (compareAt.comparedTo(price) <= 0) {
-      throw new BadRequestException(
-        'قیمت قبل از تخفیف باید بیشتر از قیمت فروش باشد.',
+    const startsAt = effective.discountStartsAt ?? null;
+    const endsAt = effective.discountEndsAt ?? null;
+    if (startsAt !== null && endsAt !== null) {
+      const start = new Date(startsAt).getTime();
+      const end = new Date(endsAt).getTime();
+      if (Number.isNaN(start) || Number.isNaN(end)) {
+        throw new BadRequestException('بازه زمانی فروش ویژه معتبر نیست.');
+      }
+      if (end <= start) {
+        throw new BadRequestException(
+          'پایان بازه فروش ویژه باید بعد از شروع آن باشد.',
+        );
+      }
+    }
+    if (effective.partnerPrice !== undefined && effective.partnerPrice !== null) {
+      const partnerPrice = this.parsePositiveMoney(
+        effective.partnerPrice,
+        'قیمت همکار',
       );
+      if (partnerPrice.greaterThanOrEqualTo(price)) {
+        throw new BadRequestException('قیمت همکار باید کمتر از قیمت عادی باشد.');
+      }
     }
+  }
+
+  private parsePositiveMoney(value: string, label: string): Prisma.Decimal {
+    const amount = parseMoney(value, label);
+    if (amount.lessThanOrEqualTo(0)) {
+      throw new BadRequestException(`${label} باید بزرگ‌تر از صفر باشد.`);
+    }
+    return amount;
   }
 
   /**
@@ -394,9 +615,6 @@ export class VariantsService {
     if (dto.sku !== undefined) data.sku = dto.sku;
     if (dto.barcode !== undefined) data.barcode = dto.barcode;
     if (dto.name !== undefined) data.name = dto.name;
-    if (dto.price !== undefined) data.price = dto.price;
-    if (dto.compareAtPrice !== undefined)
-      data.compareAtPrice = dto.compareAtPrice;
     if (dto.priceStatus !== undefined) data.priceStatus = dto.priceStatus;
     return data;
   }
@@ -417,14 +635,49 @@ export class VariantsService {
     if (changed('price'))
       delta.price =
         side === 'before' ? target.price.toString() : (data.price as string);
-    if (changed('compareAtPrice'))
-      delta.compareAtPrice =
+    if (changed('discountedPrice'))
+      delta.discountedPrice =
         side === 'before'
-          ? (target.compareAtPrice?.toString() ?? null)
-          : (data.compareAtPrice as string | null);
+          ? (target.discountedPrice?.toString() ?? null)
+          : (data.discountedPrice as string | null);
+    if (changed('discountStartsAt'))
+      delta.discountStartsAt =
+        side === 'before'
+          ? (target.discountStartsAt?.toISOString() ?? null)
+          : ((data.discountStartsAt as Date | null)?.toISOString() ?? null);
+    if (changed('discountEndsAt'))
+      delta.discountEndsAt =
+        side === 'before'
+          ? (target.discountEndsAt?.toISOString() ?? null)
+          : ((data.discountEndsAt as Date | null)?.toISOString() ?? null);
+    if (changed('partnerPrice'))
+      delta.partnerPrice =
+        side === 'before'
+          ? (target.partnerPrice?.toString() ?? null)
+          : (data.partnerPrice as string | null);
+    if (changed('priceUpdatedAt'))
+      delta.priceUpdatedAt =
+        side === 'before'
+          ? (target.priceUpdatedAt?.toISOString() ?? null)
+          : ((data.priceUpdatedAt as Date | null)?.toISOString() ?? null);
     if (changed('priceStatus'))
       delta.priceStatus =
         side === 'before' ? target.priceStatus : (data.priceStatus as PriceStatus);
+    if (changed('priceSourceCurrency'))
+      delta.priceSourceCurrency =
+        side === 'before'
+          ? target.priceSourceCurrency
+          : (data.priceSourceCurrency as PriceSourceCurrency);
+    if (changed('priceSourceAmount'))
+      delta.priceSourceAmount =
+        side === 'before'
+          ? target.priceSourceAmount?.toString() ?? null
+          : (data.priceSourceAmount as string | null);
+    if (changed('discountSourceAmount'))
+      delta.discountSourceAmount =
+        side === 'before'
+          ? target.discountSourceAmount?.toString() ?? null
+          : (data.discountSourceAmount as string | null);
 
     return delta;
   }
@@ -443,6 +696,39 @@ interface VariantUpdateData {
   barcode?: string | null;
   name?: string | null;
   price?: string;
-  compareAtPrice?: string | null;
+  discountedPrice?: string | null;
+  discountStartsAt?: Date | null;
+  discountEndsAt?: Date | null;
+  partnerPrice?: string | null;
+  priceUpdatedAt?: Date | null;
   priceStatus?: PriceStatus;
+  priceSourceCurrency?: PriceSourceCurrency;
+  priceSourceAmount?: string | null;
+  discountSourceAmount?: string | null;
+  priceSourceRate?: string | null;
+  priceSourceRateAt?: Date | null;
+  priceSourceRateId?: string | null;
+}
+
+interface ResolvedVariantPricing {
+  price: string;
+  discountedPrice: string | null;
+  priceSourceCurrency: PriceSourceCurrency;
+  priceSourceAmount: string | null;
+  discountSourceAmount: string | null;
+  priceSourceRate: string | null;
+  priceSourceRateAt: Date | null;
+  priceSourceRateId: string | null;
+}
+
+function parseMoney(value: string, label: string): Prisma.Decimal {
+  try {
+    const amount = new Prisma.Decimal(value);
+    if (!amount.isFinite() || amount.lessThan(0)) {
+      throw new Error('invalid');
+    }
+    return amount;
+  } catch {
+    throw new BadRequestException(`${label} معتبر نیست.`);
+  }
 }

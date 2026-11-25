@@ -358,6 +358,16 @@ export async function removeCartItem(variantId: string): Promise<boolean> {
   return body?.removed === true;
 }
 
+/** Accepts current server-resolved prices as the new comparison baseline. */
+export async function acknowledgeCartPrices(): Promise<CartResponse> {
+  const response = await authedJson(
+    '/cart/prices/acknowledge',
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' },
+    UPDATE_FAILED,
+  );
+  return readCart(response);
+}
+
 /** Clears all lines (idempotent). */
 export async function clearCart(): Promise<void> {
   await authedJson('/cart', { method: 'DELETE' }, CLEAR_FAILED);

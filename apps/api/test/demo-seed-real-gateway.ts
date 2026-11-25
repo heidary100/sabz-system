@@ -150,9 +150,24 @@ export async function createRealGatewayFixture(
     }
 
     manifest = approvedManifest();
+    const seededProductSlugs = Array.from(
+      { length: 8 },
+      (_value, index) => `integration-${stamp}-product-${index}`,
+    );
     manifest.campaigns = manifest.campaigns.map((campaign) => ({
       ...campaign,
       internalName: `${campaign.internalName}-${stamp}`,
+      ...(campaign.selection.products?.kind === 'explicit'
+        ? {
+            selection: {
+              ...campaign.selection,
+              products: {
+                kind: 'explicit' as const,
+                slugs: seededProductSlugs.slice(0, 3),
+              },
+            },
+          }
+        : {}),
     }));
     manifest.media = manifest.media.map((asset, index) => ({
       ...asset,

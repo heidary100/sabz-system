@@ -12,8 +12,8 @@ export type ResolvedTheme = 'light' | 'dark';
 export const THEME_STORAGE_KEY = 'sabz-theme';
 
 export const THEME_COLORS: Record<ResolvedTheme, string> = {
-  light: '#f8f7f5',
-  dark: '#151814',
+  light: '#f4f6f5',
+  dark: '#0f1210',
 };
 
 export function isThemeMode(value: unknown): value is ThemeMode {

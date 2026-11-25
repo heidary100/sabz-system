@@ -27,6 +27,8 @@ import { ErrorState } from '../components/ui/error-state'
 import { TablePagination } from '../components/ui/table-pagination'
 import { PageHeader } from '../components/ui/page-header'
 import { TableCard } from '../components/ui/table-card'
+import { HorizontalScroll } from '../components/ui/horizontal-scroll'
+import { FilterChips } from '../components/catalog/filter-chips'
 import { InventoryStockStatusBadge } from '../components/inventory/inventory-stock-status-badge'
 import { ReceiveStockDialog } from '../components/inventory/receive-stock-dialog'
 import { AdjustInventoryDialog } from '../components/inventory/adjust-inventory-dialog'
@@ -111,8 +113,9 @@ export function InventoryPage() {
 
       <div className="grid w-full max-w-4xl gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Field className="sm:col-span-2">
-          <Label>جستجو</Label>
+          <Label htmlFor="inventory-search">جستجو</Label>
           <Input
+            id="inventory-search"
             type="search"
             name="search"
             placeholder="جستجو با SKU یا نام نوع…"
@@ -122,8 +125,9 @@ export function InventoryPage() {
           />
         </Field>
         <Field>
-          <Label>انبار</Label>
+          <Label htmlFor="inventory-warehouse">انبار</Label>
           <Select
+            id="inventory-warehouse"
             name="warehouseId"
             value={warehouseId}
             onChange={(event) => setWarehouseId(event.target.value)}
@@ -137,8 +141,9 @@ export function InventoryPage() {
           </Select>
         </Field>
         <Field>
-          <Label>وضعیت موجودی</Label>
+          <Label htmlFor="inventory-stock-status">وضعیت موجودی</Label>
           <Select
+            id="inventory-stock-status"
             name="stockStatus"
             value={stockStatus}
             onChange={(event) =>
@@ -154,6 +159,23 @@ export function InventoryPage() {
           </Select>
         </Field>
       </div>
+
+      {(hasActiveFilter) && (
+        <FilterChips
+          chips={[
+            ...(search.trim()
+              ? [{ key: 'search', label: `جستجو: ${search.trim()}`, onRemove: () => { setSearchInput(''); setSearch('') } }]
+              : []),
+            ...(warehouseId
+              ? [{ key: 'warehouse', label: `انبار: ${warehouses.find((row) => row.id === warehouseId)?.name ?? warehouseId}`, onRemove: () => setWarehouseId('') }]
+              : []),
+            ...(stockStatus
+              ? [{ key: 'stock', label: `وضعیت: ${INVENTORY_STOCK_STATUS_LABELS[stockStatus]}`, onRemove: () => setStockStatus('') }]
+              : []),
+          ]}
+          onClearAll={handleClearFilters}
+        />
+      )}
 
       {loading && !result ? (
         <Loading compact label="در حال بارگذاری…" />
@@ -190,7 +212,8 @@ export function InventoryPage() {
             disabled={loading}
             totalLabel="قلم"
           />
-          <Table dense>
+          <HorizontalScroll>
+            <Table dense scrollContainer={false}>
             <TableHead>
               <TableRow>
                 <TableHeader>SKU</TableHeader>
@@ -253,7 +276,8 @@ export function InventoryPage() {
                 </TableRow>
               ))}
             </TableBody>
-          </Table>
+            </Table>
+          </HorizontalScroll>
 
           <TablePagination
             position="bottom"
@@ -274,7 +298,7 @@ export function InventoryPage() {
         <div className="flex items-center justify-center gap-3 py-4" role="status">
           <span
             aria-hidden="true"
-            className="size-5 animate-spin rounded-full border-2 border-hunter-800 border-t-primary"
+            className="size-5 animate-spin rounded-full border-2 border-border border-t-primary"
           />
           <span className="text-sm font-medium text-muted">در حال بارگذاری…</span>
         </div>

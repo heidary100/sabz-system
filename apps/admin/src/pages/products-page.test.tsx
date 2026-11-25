@@ -68,8 +68,18 @@ function row(overrides: Partial<CatalogGridRow> = {}): CatalogGridRow {
     categoryName: 'هندزفری',
     thumbnailUrl: null,
     priceStatus: 'PRICED',
-    price: '100000',
-    compareAtPrice: null,
+    regularPrice: '100000',
+    discountedPrice: null,
+    discountStartsAt: null,
+    discountEndsAt: null,
+    partnerPrice: null,
+    effectivePrice: '100000',
+    priceSource: 'REGULAR',
+    priceUpdatedAt: null,
+    priceSourceCurrency: 'RIAL',
+    aedPrice: null,
+    usdPrice: null,
+    override: null,
     stock: 5,
     stockEditable: true,
     expectedUpdatedAt: TOKEN_A,
@@ -79,13 +89,13 @@ function row(overrides: Partial<CatalogGridRow> = {}): CatalogGridRow {
 }
 
 const rows: CatalogGridRow[] = [
-  row({ variantId: 'v1', sku: 'SKU-1', price: '100000', stock: 5, expectedUpdatedAt: TOKEN_A }),
+  row({ variantId: 'v1', sku: 'SKU-1', regularPrice: '100000', stock: 5, expectedUpdatedAt: TOKEN_A }),
   row({
     variantId: 'v2',
     productId: 'p2',
     productName: 'محصول دوم',
     sku: 'SKU-2',
-    price: '200000',
+    regularPrice: '200000',
     stock: 3,
     expectedUpdatedAt: TOKEN_B,
   }),
@@ -102,7 +112,7 @@ function renderPage(initialEntry = '/products') {
 async function renderAndLoad(initialEntry = '/products') {
   const view = renderPage(initialEntry)
   await waitFor(() => expect(mockList).toHaveBeenCalled())
-  await waitFor(() => expect(cellText('قیمت فروش — SKU-1')).toBe('100,000'))
+  await waitFor(() => expect(cellText('قیمت عادی (ریال) — SKU-1')).toBe('100,000'))
   return view
 }
 
@@ -169,13 +179,13 @@ describe('ProductsPage — the editable catalog grid (SS-257 rework)', () => {
   it('cancel/discard sends ZERO mutation requests and restores server values (zero-drift oracle)', async () => {
     await renderAndLoad()
 
-    editCell('قیمت فروش — SKU-1', '150000')
+    editCell('قیمت عادی (ریال) — SKU-1', '150000')
     editCell('موجودی — SKU-2', '42')
     expect(screen.getByText('2 ردیف تغییر ذخیرهنشده دارد')).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: 'لغو تغییرات' }))
 
-    await waitFor(() => expect(cellText('قیمت فروش — SKU-1')).toBe('100,000'))
+    await waitFor(() => expect(cellText('قیمت عادی (ریال) — SKU-1')).toBe('100,000'))
     expect(cellText('موجودی — SKU-2')).toBe('3')
     // The oracle: not a single write reached the API.
     expect(mockBatch).not.toHaveBeenCalled()
@@ -184,7 +194,7 @@ describe('ProductsPage — the editable catalog grid (SS-257 rework)', () => {
 
   it('explicit save submits the draft with the loaded token and reconciles the row', async () => {
     await renderAndLoad()
-    editCell('قیمت فروش — SKU-1', '150000')
+    editCell('قیمت عادی (ریال) — SKU-1', '150000')
     editCell('شناسه کالا (SKU) — SKU-1', 'SKU-1B')
 
     const newToken = '2026-11-03T11:00:00.000Z'
@@ -193,8 +203,8 @@ describe('ProductsPage — the editable catalog grid (SS-257 rework)', () => {
         {
           variantId: 'v1',
           outcome: 'SUCCESS',
-          price: '150000',
-          compareAtPrice: null,
+          regularPrice: '150000',
+          discountedPrice: null,
           sku: 'SKU-1B',
           barcode: 'BC-1',
           variantName: 'نوع یک',
@@ -211,12 +221,12 @@ describe('ProductsPage — the editable catalog grid (SS-257 rework)', () => {
     await waitFor(() => expect(mockBatch).toHaveBeenCalledTimes(1))
     const payload = mockBatch.mock.calls[0]![0]!
     expect(payload.rows).toEqual([
-      { variantId: 'v1', expectedUpdatedAt: TOKEN_A, price: '150000', sku: 'SKU-1B' },
+      { variantId: 'v1', expectedUpdatedAt: TOKEN_A, regularPrice: '150000', sku: 'SKU-1B' },
     ])
     await waitFor(() => expect(screen.getByText('1 ردیف با موفقیت ذخیره شد')).toBeTruthy())
     // The row reconciles to the server-confirmed values and new token —
     // including the NEW sku, which the labels are keyed by.
-    expect(cellText('قیمت فروش — SKU-1B')).toBe('150,000')
+    expect(cellText('قیمت عادی (ریال) — SKU-1B')).toBe('150,000')
     expect(cellText('شناسه کالا (SKU) — SKU-1B')).toBe('SKU-1B')
     // Untouched rows are not part of the request.
     expect(payload.rows.some((entry) => entry.variantId === 'v2')).toBe(false)
@@ -247,8 +257,8 @@ describe('ProductsPage — the editable catalog grid (SS-257 rework)', () => {
           variantId: 'v1',
           outcome: 'SUCCESS',
           updatedAt: newToken,
-          price: '100000',
-          compareAtPrice: null,
+          regularPrice: '100000',
+          discountedPrice: null,
           sku: 'SKU-1',
           barcode: 'BC-1',
           variantName: 'نوع یک',
@@ -285,20 +295,20 @@ describe('ProductsPage — the editable catalog grid (SS-257 rework)', () => {
 
   it('reports partial failure in Persian and keeps the failed draft editable', async () => {
     await renderAndLoad()
-    editCell('قیمت فروش — SKU-1', '150000')
+    editCell('قیمت عادی (ریال) — SKU-1', '150000')
     editCell(
-      'قیمت قبل از تخفیف — SKU-2',
+      'قیمت فروش ویژه (ریال) — SKU-2',
       '100000',
     )
 
     mockBatch.mockResolvedValue({
       results: [
-        { variantId: 'v1', outcome: 'SUCCESS', price: '150000', compareAtPrice: null, updatedAt: '2026-11-03T11:00:00.000Z', stock: 5 },
+        { variantId: 'v1', outcome: 'SUCCESS', regularPrice: '150000', discountedPrice: null, updatedAt: '2026-11-03T11:00:00.000Z', stock: 5 },
         {
           variantId: 'v2',
           outcome: 'VALIDATION_ERROR',
-          message: 'قیمت قبل از تخفیف باید بیشتر از قیمت فروش باشد.',
-          fieldErrors: { compareAtPrice: 'قیمت قبل از تخفیف باید بیشتر از قیمت فروش باشد.' },
+          message: 'قیمت فروش ویژه باید کمتر از قیمت عادی باشد.',
+          fieldErrors: { discountedPrice: 'قیمت فروش ویژه باید کمتر از قیمت عادی باشد.' },
         },
       ],
       summary: { succeeded: 1, failed: 1 },
@@ -308,21 +318,21 @@ describe('ProductsPage — the editable catalog grid (SS-257 rework)', () => {
 
     await waitFor(() => expect(screen.getByText('1 ردیف ذخیره نشد')).toBeTruthy())
     // Row-level, field-level Persian error on the exact cell.
-    expect(screen.getByText('قیمت قبل از تخفیف باید بیشتر از قیمت فروش باشد.')).toBeTruthy()
-    expect(cellText('قیمت قبل از تخفیف — SKU-2')).toBe('100,000')
-    expect(cellText('قیمت فروش — SKU-1')).toBe('150,000')
+    expect(screen.getByText('قیمت فروش ویژه باید کمتر از قیمت عادی باشد.')).toBeTruthy()
+    expect(cellText('قیمت فروش ویژه (ریال) — SKU-2')).toBe('100,000')
+    expect(cellText('قیمت عادی (ریال) — SKU-1')).toBe('150,000')
     expect(screen.getByText('1 ردیف تغییر ذخیرهنشده دارد')).toBeTruthy()
   })
 
   it('opens the conflict dialog on CONFLICT_CHANGED and lets the operator keep or drop the draft', async () => {
     await renderAndLoad()
-    editCell('قیمت فروش — SKU-1', '150000')
+    editCell('قیمت عادی (ریال) — SKU-1', '150000')
 
     mockBatch.mockResolvedValue({
       results: [{ variantId: 'v1', outcome: 'CONFLICT_CHANGED', message: 'این ردیف از زمان بارگذاری تغییر کرده است؛ نسخه جدید را ببینید.' }],
       summary: { succeeded: 0, failed: 1 },
     } as CatalogGridBatchResponse)
-    const refreshedRow = row({ variantId: 'v1', price: '300000', expectedUpdatedAt: '2026-11-03T12:00:00.000Z' })
+    const refreshedRow = row({ variantId: 'v1', regularPrice: '300000', expectedUpdatedAt: '2026-11-03T12:00:00.000Z' })
     mockList.mockResolvedValueOnce({ items: [refreshedRow, rows[1]!], total: 2, page: 1, limit: 50 })
 
     fireEvent.click(screen.getByRole('button', { name: 'ذخیره تغییرات' }))
@@ -332,11 +342,11 @@ describe('ProductsPage — the editable catalog grid (SS-257 rework)', () => {
 
     // Dropping the draft reverts the cell to the server value without a write.
     fireEvent.click(screen.getByRole('button', { name: 'نسخه سرور را بپذیرم (لغو تغییر من)' }))
-    await waitFor(() => expect(cellText('قیمت فروش — SKU-1')).toBe('300,000'))
+    await waitFor(() => expect(cellText('قیمت عادی (ریال) — SKU-1')).toBe('300,000'))
     expect(mockBatch).toHaveBeenCalledTimes(1)
 
     // Second conflict round: the operator keeps their draft this time.
-    editCell('قیمت فروش — SKU-1', '180000')
+    editCell('قیمت عادی (ریال) — SKU-1', '180000')
     mockBatch.mockResolvedValue({
       results: [{ variantId: 'v1', outcome: 'CONFLICT_CHANGED', message: 'این ردیف از زمان بارگذاری تغییر کرده است؛ نسخه جدید را ببینید.' }],
       summary: { succeeded: 0, failed: 1 },
@@ -345,7 +355,7 @@ describe('ProductsPage — the editable catalog grid (SS-257 rework)', () => {
     await waitFor(() => expect(screen.getByText('این ردیف تغییر کرده است')).toBeTruthy())
     fireEvent.click(screen.getByRole('button', { name: 'تغییرات من را نگه دار' }))
     await waitFor(() => expect(screen.queryByText('این ردیف تغییر کرده است')).toBeNull())
-    expect(cellText('قیمت فروش — SKU-1')).toBe('180,000')
+    expect(cellText('قیمت عادی (ریال) — SKU-1')).toBe('180,000')
     expect(mockBatch).toHaveBeenCalledTimes(2)
   })
 
@@ -443,7 +453,7 @@ describe('ProductsPage — the editable catalog grid (SS-257 rework)', () => {
     await renderAndLoad()
 
     // Sortable header → server-side sort param.
-    fireEvent.click(screen.getByRole('button', { name: 'قیمت فروش' }))
+    fireEvent.click(screen.getByRole('button', { name: 'قیمت عادی (ریال)' }))
     await waitFor(() => {
       const last = mockList.mock.calls[mockList.mock.calls.length - 1]![0]!
       expect(last.sortBy).toBe('price')
@@ -502,7 +512,7 @@ describe('ProductsPage — the editable catalog grid (SS-257 rework)', () => {
       expect(last.page).toBe(2) // ceil(100 / 50) = 2
     })
     // The grid renders the corrected page instead of the "no products" state.
-    await waitFor(() => expect(cellText('قیمت فروش — SKU-1')).toBe('100,000'))
+    await waitFor(() => expect(cellText('قیمت عادی (ریال) — SKU-1')).toBe('100,000'))
     expect(screen.queryByText('هنوز محصولی ثبت نشده است.')).toBeNull()
   })
 })

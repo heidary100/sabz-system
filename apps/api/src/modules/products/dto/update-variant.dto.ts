@@ -1,13 +1,14 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {
+  IsDateString,
   IsEnum,
   IsOptional,
   IsString,
   Matches,
   MaxLength,
 } from 'class-validator';
-import { PriceStatus } from '@prisma/client';
+import { PriceSourceCurrency, PriceStatus } from '@prisma/client';
 import { PRICE_12_2_PATTERN } from './create-variant.dto';
 
 const SKU_MAX = 64;
@@ -82,15 +83,49 @@ export class UpdateVariantDto {
 
   @ApiPropertyOptional({
     description:
-      'Pre-discount reference price. Pass null to clear. Requires PRICED status and must exceed price.',
+      'Promotional selling price. Pass null to clear. Requires PRICED status and must be strictly below price.',
   })
   @IsOptional()
   @Transform(({ value }) => normalizeNullableOptional(value))
-  @IsString({ message: 'compareAtPrice باید رشته باشد.' })
+  @IsString({ message: 'discountedPrice باید رشته باشد.' })
   @Matches(PRICE_12_2_PATTERN, {
-    message: 'compareAtPrice باید عدد اعشاری معتبر با حداکثر ۲ رقم اعشار باشد.',
+    message: 'discountedPrice باید عدد اعشاری معتبر با حداکثر ۲ رقم اعشار باشد.',
   })
-  compareAtPrice?: string | null;
+  discountedPrice?: string | null;
+
+  @ApiPropertyOptional({ nullable: true, description: 'Sale window start.' })
+  @IsOptional()
+  @Transform(({ value }) => normalizeNullableOptional(value))
+  @IsDateString({}, { message: 'discountStartsAt باید زمان ISO معتبر باشد.' })
+  discountStartsAt?: string | null;
+
+  @ApiPropertyOptional({ nullable: true, description: 'Sale window end.' })
+  @IsOptional()
+  @Transform(({ value }) => normalizeNullableOptional(value))
+  @IsDateString({}, { message: 'discountEndsAt باید زمان ISO معتبر باشد.' })
+  discountEndsAt?: string | null;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    description:
+      'B2B partner price in Rial. Pass null to clear. Must be positive and below price.',
+  })
+  @IsOptional()
+  @Transform(({ value }) => normalizeNullableOptional(value))
+  @IsString({ message: 'partnerPrice باید رشته باشد.' })
+  @Matches(PRICE_12_2_PATTERN, {
+    message: 'partnerPrice باید عدد اعشاری معتبر با حداکثر ۲ رقم اعشار باشد.',
+  })
+  partnerPrice?: string | null;
+
+  @ApiPropertyOptional({
+    enum: PriceSourceCurrency,
+    description:
+      'Source currency for the submitted price values. Changing it requires a price.',
+  })
+  @IsOptional()
+  @IsEnum(PriceSourceCurrency, { message: 'واحد پول قیمت معتبر نیست.' })
+  priceSourceCurrency?: PriceSourceCurrency;
 
   @ApiPropertyOptional({
     enum: PriceStatus,

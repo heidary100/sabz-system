@@ -18,10 +18,12 @@ export function HorizontalScroll({
   children,
   className,
   dragToPan = false,
+  ariaLabel = 'ناحیه اسکرول افقی جدول',
 }: {
   children: ReactNode
   className?: string
   dragToPan?: boolean
+  ariaLabel?: string
 }) {
   const topRef = useRef<HTMLDivElement>(null)
   const bodyRef = useRef<HTMLDivElement>(null)
@@ -54,6 +56,9 @@ export function HorizontalScroll({
       })
     }
     measure()
+    if (typeof ResizeObserver === 'undefined') {
+      return
+    }
     const observer = new ResizeObserver(scheduleMeasure)
     observer.observe(content)
     observer.observe(body)
@@ -118,7 +123,7 @@ export function HorizontalScroll({
         ref={bodyRef}
         className="overflow-x-auto"
         tabIndex={0}
-        aria-label="ناحیه اسکرول افقی جدول"
+        aria-label={ariaLabel}
       >
         <div ref={contentRef} className="inline-block min-w-full">
           {children}
