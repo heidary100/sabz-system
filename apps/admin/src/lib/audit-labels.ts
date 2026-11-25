@@ -43,6 +43,10 @@ const AUDIT_ACTION_LABELS: Record<string, string> = {
   PRODUCT_VARIANT_DELETED: 'حذف نوع محصول',
   PRODUCT_MEDIA_UPLOADED: 'بارگذاری رسانه محصول',
   PRODUCT_MEDIA_REMOVED: 'حذف رسانه محصول',
+  PRODUCT_MEDIA_REPROCESSED: 'پردازش مجدد رسانه محصول',
+  PRODUCT_MEDIA_RESTORED: 'بازگردانی رسانه محصول',
+  CATEGORY_IMAGE_UPDATED: 'به‌روزرسانی تصویر دسته‌بندی',
+  CATEGORY_IMAGE_REMOVED: 'حذف تصویر دسته‌بندی',
   PRODUCT_DESCRIPTION_IMAGE_UPLOADED: 'بارگذاری تصویر توضیحات محصول',
   PRODUCT_DESCRIPTION_IMAGE_IMPORTED: 'درون‌ریزی تصویر توضیحات محصول',
   PRODUCT_PRICE_OVERRIDE_CREATED: 'ایجاد بازنویسی قیمت محصول',
@@ -60,6 +64,9 @@ const AUDIT_ACTION_LABELS: Record<string, string> = {
   PROMOTION_CREATED: 'ایجاد تخفیف',
   PROMOTION_UPDATED: 'به‌روزرسانی تخفیف',
   PROMOTION_DELETED: 'حذف تخفیف',
+  BULK_PRICE_OPERATION_APPLIED: 'اعمال تغییر گروهی قیمت',
+  CURRENCY_RATE_CREATED: 'ایجاد نرخ ارز',
+  CURRENCY_RATE_RECALCULATED: 'محاسبه مجدد نرخ ارز',
 
   // Inventory & warehouses
   INVENTORY_ADJUSTED: 'اصلاح موجودی',
@@ -100,6 +107,12 @@ const AUDIT_ACTION_LABELS: Record<string, string> = {
   BLOG_CATEGORY_CREATED: 'ایجاد دسته وبلاگ',
   BLOG_CATEGORY_UPDATED: 'به‌روزرسانی دسته وبلاگ',
   BLOG_CATEGORY_DELETED: 'حذف دسته وبلاگ',
+  SITE_FOOTER_UPDATED: 'به‌روزرسانی پاورقی سایت',
+
+  // Generic settings/audit sentinels
+  CLEAR: 'پاک‌سازی',
+  SET: 'تنظیم',
+  UNCHANGED: 'بدون تغییر',
 
   // Merchandising campaigns
   MERCH_CAMPAIGN_CREATED: 'ایجاد کمپین',
@@ -150,8 +163,13 @@ const AUDIT_ENTITY_LABELS: Record<string, string> = {
   CategoryPriceRule: 'قانون قیمت دسته‌بندی',
   Product: 'محصول',
   ProductVariant: 'نوع محصول',
+  ProductMedia: 'رسانه محصول',
   ProductPriceOverride: 'بازنویسی قیمت محصول',
+  PricingBatch: 'دسته عملیات قیمت‌گذاری',
   Promotion: 'تخفیف',
+  CurrencyRate: 'نرخ ارز',
+  SiteSetting: 'تنظیمات سایت',
+  ChatConversation: 'گفتگو',
   InventoryItem: 'قلم موجودی',
   Reservation: 'رزرو',
   Warehouse: 'انبار',
