@@ -27,12 +27,23 @@ describe('BackgroundRemovalService (SS-900)', () => {
   });
 
   it('fails closed when the pinned model is absent', async () => {
+    const input = join(dir, 'opaque.jpg');
+    await sharp({
+      create: {
+        width: 64,
+        height: 64,
+        channels: 3,
+        background: { r: 255, g: 255, b: 255 },
+      },
+    })
+      .jpeg()
+      .toFile(input);
     const missing = new BackgroundRemovalService(
       new ConfigService({
         BACKGROUND_REMOVAL_MODEL_PATH: '/definitely/missing/u2net.onnx',
       }),
     );
-    await expect(missing.remove(join(dir, 'none.png'))).rejects.toBeInstanceOf(
+    await expect(missing.remove(input)).rejects.toBeInstanceOf(
       BackgroundRemovalUnavailableError,
     );
   });

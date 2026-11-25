@@ -86,12 +86,6 @@ export class BackgroundRemovalService {
       throw new BackgroundRemovalUnavailableError('Background removal is disabled.');
     }
     const started = Date.now();
-    const modelPath = this.modelPath();
-    if (!existsSync(modelPath)) {
-      throw new BackgroundRemovalUnavailableError(
-        `Background model not provisioned at ${modelPath}.`,
-      );
-    }
     const source = sharp(inputPath).rotate();
     const metadata = await source.metadata();
     const sourceWidth = metadata.width ?? 0;
@@ -116,6 +110,15 @@ export class BackgroundRemovalService {
       }
     }
 
+    // Only opaque images need the segmentation model. Already-transparent
+    // sources are padded above and must remain processable on hosts where the
+    // model is not provisioned (for example CI).
+    const modelPath = this.modelPath();
+    if (!existsSync(modelPath)) {
+      throw new BackgroundRemovalUnavailableError(
+        `Background model not provisioned at ${modelPath}.`,
+      );
+    }
     const session = await this.getSession(modelPath);
     const { data } = await sharp(inputPath)
       .rotate()
